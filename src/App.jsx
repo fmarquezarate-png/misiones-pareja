@@ -23,14 +23,16 @@ const CATEGORIES = [
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 const EMOJI_GROUPS = [
-  { label:"🏅 Deporte", emojis:["🎾","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗"] },
-  { label:"🏠 Casa",    emojis:["🛒","🖼️","🔧","💡","🛁","🪴","🧹","🛋️","🪟","🏠","🔑","📦"] },
-  { label:"💆 Bienestar",emojis:["🧖","💆","🧴","💅","😴","🌿","🧠","❤️","💊","🩺","🛁","🫁"] },
-  { label:"✈️ Viajes",  emojis:["🚢","✈️","🏖️","🗺️","🧳","🌊","🏔️","🌍","🏛️","📸"] },
-  { label:"🍕 Comida",  emojis:["🍕","🌮","🥗","🍷","🧁","🎂","🍣","☕","🥘","🍜","🫕","🥂"] },
-  { label:"💌 Pareja",  emojis:["💞","💌","🫀","💍","🌹","🙊","🐼","🦋","🌸","🎁","🕯️","💫"] },
-  { label:"💻 Trabajo", emojis:["🤖","💸","📚","📝","💡","🔧","📊","🎯","🗂️","✉️","📱","🖥️"] },
-  { label:"🎉 Ocio",    emojis:["🎉","🎬","🎸","🎮","🧩","🎲","🎨","🎵","🎤","🎪","🪄","🎭"] },
+  { label:"🏅 Deporte", emojis:["🎾","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂"] },
+  { label:"🏠 Casa",    emojis:["🛒","🖼️","🔧","💡","🛁","🪴","🧹","🛋️","🪟","🏠","🔑","📦","🧺","🪣","🫧","🔩","🪑","🛏️","🚿","🧼","🧽","🪠","🔋","💻","🖨️"] },
+  { label:"💆 Bienestar",emojis:["🧖","💆","🧴","💅","😴","🌿","🧠","❤️","💊","🩺","🛁","🫁","🦷","👁️","🩻","🧘","🫶","🌞","🌙","🍃","🌺","💐","🫧","🩹","🏃"] },
+  { label:"✈️ Viajes",  emojis:["🚢","✈️","🏖️","🗺️","🧳","🌊","🏔️","🌍","🏛️","📸","🚂","🛵","🚗","⛺","🏕️","🗼","🗽","🎡","🏝️","🌄","🌅","🧭","🎫","🪪","🚀"] },
+  { label:"🍕 Comida",  emojis:["🍕","🌮","🥗","🍷","🧁","🎂","🍣","☕","🥘","🍜","🫕","🥂","🍝","🥩","🍱","🥡","🍰","🫙","🧆","🥙","🍛","🥐","🧇","🍳","🫖","🍹"] },
+  { label:"💌 Pareja",  emojis:["💞","💌","🫀","💍","🌹","🙊","🐼","🦋","🌸","🎁","🕯️","💫","🥰","😍","🫦","💋","🌷","💐","🎀","🩷","🧸","🫂","🌙","✨","🪷","💝"] },
+  { label:"💻 Trabajo", emojis:["🤖","💸","📚","📝","💡","🔧","📊","🎯","🗂️","✉️","📱","🖥️","💼","🗃️","📋","🔍","📈","📉","🖊️","📌","📎","🗓️","⌚","💬","🤝","🏦"] },
+  { label:"🎉 Ocio",    emojis:["🎉","🎬","🎸","🎮","🧩","🎲","🎨","🎵","🎤","🎪","🪄","🎭","🎠","🎯","🎳","🎻","🥁","🎹","🎺","🪗","🎷","📺","📷","🎧","🕹️","🃏"] },
+  { label:"🌱 Natura",  emojis:["🌱","🌳","🌻","🍄","🦁","🐶","🐱","🐠","🦜","🦋","🐝","🐢","🌈","🌊","⛰️","🌋","🦅","🌿","🍀","🌺","🐉","🦊","🐧","🦔","🌙","⭐"] },
+  { label:"🎓 Cultura", emojis:["🎓","📖","🖼️","🏛️","🎭","🎨","🎬","📽️","🎼","🎤","📰","✍️","🖋️","📜","🏺","🗿","🎑","🌐","🔭","🔬","🧪","🧬","💎","🪬","🎋","🪁"] },
 ];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -49,7 +51,7 @@ const prevWeekFn = (wn, yr) => wn === 1 ? { wn: 52, yr: yr - 1 } : { wn: wn - 1,
 const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana" };
 const mk = (id, emoji, title, status, completedAt=null) => ({
   id, emoji, title, status, createdAt: 1739059200000, completedAt,
-  date: null, carriedFrom: null, carriedFromWeek: null,
+  date: null, time: null, carriedFrom: null, carriedFromWeek: null,
   category: null, who: "together", estimatedHours: null, realHours: null,
 });
 
@@ -199,7 +201,7 @@ export default function CoupleMissions() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", category:null, who:"together", estimatedHours:"", realHours:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", estimatedHours:"", realHours:"" });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
   const [carriedCount, setCarriedCount] = useState(0);
@@ -269,8 +271,8 @@ export default function CoupleMissions() {
 
   const addMission = () => {
     if (!newM.title.trim()) return;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, estimatedHours:newM.estimatedHours?parseFloat(newM.estimatedHours):null, realHours:null }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", category:null, who:"together", estimatedHours:"", realHours:"" });
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, estimatedHours:newM.estimatedHours?parseFloat(newM.estimatedHours):null, realHours:null }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", estimatedHours:"", realHours:"" });
     setShowAddForm(false);
   };
 
@@ -292,6 +294,46 @@ export default function CoupleMissions() {
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => update(d => applyCarryOver(d));
+
+  const downloadSummary = (appData, name1, name2) => {
+    const sorted = Object.entries(appData.weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+    const lines = [`# Misiones de Pareja 💞 — ${name1} & ${name2}`, `Generado el ${new Date().toLocaleDateString("es-ES", {weekday:"long",year:"numeric",month:"long",day:"numeric"})}`, ""];
+    for (const [key, w] of sorted) {
+      const missions = w.missions || [];
+      const done = missions.filter(m=>m.status==="DONE").length;
+      lines.push(`## Semana ${w.weekNumber} (${w.year||appData.currentYear})`);
+      if (w.epicObjective) lines.push(`🎯 Objetivo: ${w.epicObjective}`);
+      lines.push(`Completadas: ${done}/${missions.length}`);
+      const byDate = missions.filter(m=>m.date).sort((a,b)=>{
+        const at = (a.date||"")+(a.time?"T"+a.time:"");
+        const bt = (b.date||"")+(b.time?"T"+b.time:"");
+        return at.localeCompare(bt);
+      });
+      const noDate = missions.filter(m=>!m.date);
+      if (byDate.length) {
+        lines.push("  Con fecha:");
+        for (const m of byDate) {
+          const st = STATUS[m.status]?.label || m.status;
+          const who = m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
+          const time = m.time ? ` ${m.time}` : "";
+          lines.push(`  • [${st}] ${m.emoji} ${m.title} — ${m.date}${time} (${who})`);
+        }
+      }
+      if (noDate.length) {
+        lines.push("  Sin fecha:");
+        for (const m of noDate) {
+          const st = STATUS[m.status]?.label || m.status;
+          const who = m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
+          lines.push(`  • [${st}] ${m.emoji} ${m.title} (${who})`);
+        }
+      }
+      lines.push("");
+    }
+    const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=`misiones-pareja-${new Date().toISOString().slice(0,10)}.txt`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
@@ -378,6 +420,7 @@ export default function CoupleMissions() {
 
         {activeTab==="history" && (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            <button onClick={() => downloadSummary(data, p1, p2)} style={{ ...S.btnSecondary, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 16px", marginBottom:4, borderColor:"rgba(96,165,250,0.3)", color:"#60a5fa" }}>📥 Descargar resumen de planes</button>
             {sortedWeeks.map(([key,w]) => {
               const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?Math.round((d/t)*100):0,cur=key===wkey;
               return (
@@ -472,8 +515,9 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
           ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:10 }}>
         <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({...p,date:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+        <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({...p,time:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={newM.estimatedHours} onChange={e=>setNewM(p=>({...p,estimatedHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
         <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={newM.realHours} onChange={e=>setNewM(p=>({...p,realHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
       </div>
@@ -507,7 +551,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
             {mission.who&&mission.who!=="together"&&<span style={{ background:"rgba(167,139,250,0.1)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {mission.who==="person1"?p1:p2}</span>}
             {mission.estimatedHours&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.estimatedHours}h est.</span>}
             {mission.realHours&&<span style={{ background:"rgba(52,211,153,0.08)", color:"#34d399", border:"1px solid rgba(52,211,153,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>✅ {mission.realHours}h</span>}
-            {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}</span>}
+            {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
           </div>
         </div>
         <button onClick={onCycleStatus} style={badgeStyle(mission.status)}>{STATUS[mission.status].icon}</button>
@@ -529,8 +573,9 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
               {WHO.map(w=><button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:mission.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${mission.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:mission.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>)}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={mission.estimatedHours||""} onChange={e=>onPatch({estimatedHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
             <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={mission.realHours||""} onChange={e=>onPatch({realHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
           </div>
@@ -563,26 +608,82 @@ function StatsView({ weeks, p1, p2 }) {
   const allW = Object.values(weeks), allM = allW.flatMap(w=>w.missions||[]);
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
+
+  // Streak: consecutive weeks with 100% completion (sorted chronologically)
+  const sortedSeries = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+  let bestStreak=0, currStreak=0;
+  for (const [,w] of sortedSeries) {
+    const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
+    if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); } else { currStreak=0; }
+  }
+
+  // Status distribution
+  const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
+  const maxSt = Math.max(...bySt.map(x=>x.count), 1);
+
+  // Est vs Real hours
+  const totalEst = allM.reduce((s,m)=>s+(m.estimatedHours||0),0);
+  const totalReal = allM.reduce((s,m)=>s+(m.realHours||0),0);
+
   const catHours = CATEGORIES.map(c => {
     const ms=allM.filter(m=>m.category===c.id);
     return { ...c, real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
-  }).filter(c=>c.count>0).sort((a,b)=>(b.real||b.est)-(a.real||a.est));
-  const ph = key => { const ms=allM.filter(m=>m.who===key||m.who==="together"); return { real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length }; };
+  }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
+  const ph = key => { const ms=allM.filter(m=>m.who===key||m.who==="together"); return { real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, realH:(w.missions||[]).reduce((s,m)=>s+(m.realHours||0),0) }; });
+  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, realH:(w.missions||[]).reduce((s,m)=>s+(m.realHours||0),0) }; });
   const maxH=Math.max(...series.map(s=>s.realH),1);
   if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
-        {[{label:"Semanas",value:wc,icon:"📅"},{label:"Misiones",value:total,icon:"📝"},{label:"% hecho",value:`${pct}%`,icon:"🏆"}].map(s=>(
-          <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"16px 8px" }}>
-            <div style={{ fontSize:26, marginBottom:4 }}>{s.icon}</div>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:700, color:"#f8f4ff", lineHeight:1 }}>{s.value}</div>
-            <div style={{ fontSize:10, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
+      {/* KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
+        {[{label:"Semanas",value:wc,icon:"📅"},{label:"Misiones",value:total,icon:"📝"},{label:"Completadas",value:`${pct}%`,icon:"🏆"},{label:"Racha record",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡"}].map(s=>(
+          <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px" }}>
+            <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
+            <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", lineHeight:1 }}>{s.value}</div>
+            <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
           </div>
         ))}
       </div>
+
+      {/* Status distribution */}
+      <div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>📊 Estado de misiones</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {bySt.filter(x=>x.count>0).map(({s,count})=>(
+            <div key={s} style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:90, fontSize:12, color:STATUS[s].color, fontWeight:600, flexShrink:0 }}>{STATUS[s].icon} {STATUS[s].label}</div>
+              <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${(count/maxSt)*100}%`, background:STATUS[s].color, borderRadius:99, opacity:0.8 }} />
+              </div>
+              <div style={{ fontSize:12, color:"#8b7fa8", width:28, textAlign:"right", flexShrink:0 }}>{count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Est vs Real */}
+      {(totalEst>0||totalReal>0)&&<div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Horas estimadas vs reales</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+          {[{label:"Estimadas",val:totalEst,color:"#60a5fa"},{label:"Reales",val:totalReal,color:"#34d399"}].map(({label,val,color})=>(
+            <div key={label} style={{ background:`${color}10`, border:`1px solid ${color}25`, borderRadius:10, padding:"12px", textAlign:"center" }}>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color }}>{val.toFixed(1)}h</div>
+              <div style={{ fontSize:11, color:"#6b5f88", marginTop:3 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+        {totalEst>0&&totalReal>0&&<div style={{ marginTop:10, fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
+          {totalReal>totalEst
+            ? `⚠️ ${(totalReal-totalEst).toFixed(1)}h más de lo esperado`
+            : totalReal<totalEst
+            ? `✨ ${(totalEst-totalReal).toFixed(1)}h menos de lo esperado`
+            : "💯 Estimación perfecta"}
+        </div>}
+      </div>}
+
+      {/* Work hours */}
       {(totalWork1>0||totalWork2>0)&&<div style={S.card}>
         <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#fbbf24", marginBottom:14, fontWeight:600 }}>💼 Horas laborales totales</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
@@ -594,22 +695,27 @@ function StatsView({ weeks, p1, p2 }) {
           ))}
         </div>
       </div>}
+
+      {/* Per person */}
       <div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>👥 Horas de actividad</div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>👥 Misiones por persona</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
           {[{name:p1,h:ph("person1"),color:"#f472b6"},{name:p2,h:ph("person2"),color:"#a78bfa"},{name:"Juntos",h:ph("together"),color:"#34d399"}].map(({name,h,color})=>(
             <div key={name} style={{ background:`${color}10`, border:`1px solid ${color}25`, borderRadius:10, padding:"10px", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color }}>{h.real>0?`${h.real}h`:h.est>0?`~${h.est}h`:`${h.count}`}</div>
-              <div style={{ fontSize:10, color:"#6b5f88", marginTop:2 }}>{h.real>0?"horas reales":h.est>0?"est.":"misiones"}</div>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color }}>{h.count}</div>
+              <div style={{ fontSize:10, color:"#6b5f88", marginTop:2 }}>misiones</div>
+              <div style={{ fontSize:12, color:`${color}cc`, marginTop:4, fontWeight:600 }}>{h.count>0?`${Math.round((h.done/h.count)*100)}% ✓`:"—"}</div>
               <div style={{ fontSize:11, color:"#8b7fa8", marginTop:3 }}>{name}</div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* By category */}
       {catHours.length>0&&<div style={S.card}>
         <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>🏷️ Por categoría</div>
-        {catHours.map(c=>{ const h=c.real||c.est||0, maxC=Math.max(...catHours.map(x=>x.real||x.est||0),1); return (
-          <div key={c.id} style={{ marginBottom:12 }}>
+        {catHours.map(c=>{ const maxC=Math.max(...catHours.map(x=>x.count),1); return (
+          <div key={c.id} style={{ marginBottom:10 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
               <span style={{ fontSize:13, color:c.color }}>{c.icon} {c.label}</span>
               <div style={{ display:"flex", gap:8, fontSize:12, color:"#6b5f88" }}>
@@ -619,27 +725,31 @@ function StatsView({ weeks, p1, p2 }) {
               </div>
             </div>
             <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:`${(h/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.75 }} />
+              <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.75 }} />
             </div>
           </div>
         );})}
       </div>}
+
+      {/* Completion % per week */}
+      {series.length>1&&<div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ % completado por semana</div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:90 }}>
+          {series.map(w=><div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+            <div style={{ fontSize:9, color:"#6b5f88" }}>{w.pct>0?`${w.pct}%`:""}</div>
+            <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${Math.max(w.pct,4)}%`, background:w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":"linear-gradient(0deg,#f472b6,#a78bfa)", opacity:0.85 }} />
+            <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
+          </div>)}
+        </div>
+      </div>}
+
+      {/* Real hours per week */}
       {series.some(s=>s.realH>0)&&<div style={S.card}>
         <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>📊 Horas reales por semana</div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:80 }}>
           {series.map(w=><div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
             <div style={{ fontSize:9, color:"#60a5fa" }}>{w.realH>0?`${w.realH}h`:""}</div>
             <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${Math.max((w.realH/maxH)*100,2)}%`, background:"linear-gradient(0deg,#60a5fa,#a78bfa)", opacity:0.8 }} />
-            <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
-          </div>)}
-        </div>
-      </div>}
-      {series.length>1&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ % completado por semana</div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:80 }}>
-          {series.map(w=><div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <div style={{ fontSize:9, color:"#6b5f88" }}>{w.pct>0?`${w.pct}%`:""}</div>
-            <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${Math.max(w.pct,4)}%`, background:w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":"linear-gradient(0deg,#f472b6,#a78bfa)", opacity:0.85 }} />
             <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
           </div>)}
         </div>
