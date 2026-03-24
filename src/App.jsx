@@ -23,7 +23,7 @@ const CATEGORIES = [
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 const EMOJI_GROUPS = [
-  { label:"🏅 Deporte", emojis:["🎾","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂"] },
+  { label:"🏅 Deporte", emojis:["🎾","🏓","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂","⛳","🎱","🏒","🤺","🏹","🤾","🏃","🧗","🫀"] },
   { label:"🏠 Casa",    emojis:["🛒","🖼️","🔧","💡","🛁","🪴","🧹","🛋️","🪟","🏠","🔑","📦","🧺","🪣","🫧","🔩","🪑","🛏️","🚿","🧼","🧽","🪠","🔋","💻","🖨️"] },
   { label:"💆 Bienestar",emojis:["🧖","💆","🧴","💅","😴","🌿","🧠","❤️","💊","🩺","🛁","🫁","🦷","👁️","🩻","🧘","🫶","🌞","🌙","🍃","🌺","💐","🫧","🩹","🏃"] },
   { label:"✈️ Viajes",  emojis:["🚢","✈️","🏖️","🗺️","🧳","🌊","🏔️","🌍","🏛️","📸","🚂","🛵","🚗","⛺","🏕️","🗼","🗽","🎡","🏝️","🌄","🌅","🧭","🎫","🪪","🚀"] },
@@ -295,48 +295,110 @@ export default function CoupleMissions() {
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => update(d => applyCarryOver(d));
 
-  const downloadSummary = (appData, name1, name2) => {
-    const sorted = Object.entries(appData.weeks).sort((a,b)=>a[0].localeCompare(b[0]));
-    const lines = [`# Misiones de Pareja 💞 — ${name1} & ${name2}`, `Generado el ${new Date().toLocaleDateString("es-ES", {weekday:"long",year:"numeric",month:"long",day:"numeric"})}`, ""];
-    for (const [key, w] of sorted) {
-      const missions = w.missions || [];
-      const done = missions.filter(m=>m.status==="DONE").length;
-      lines.push(`## Semana ${w.weekNumber} (${w.year||appData.currentYear})`);
-      if (w.epicObjective) lines.push(`🎯 Objetivo: ${w.epicObjective}`);
-      lines.push(`Completadas: ${done}/${missions.length}`);
-      const byDate = missions.filter(m=>m.date).sort((a,b)=>{
-        const at = (a.date||"")+(a.time?"T"+a.time:"");
-        const bt = (b.date||"")+(b.time?"T"+b.time:"");
-        return at.localeCompare(bt);
-      });
-      const noDate = missions.filter(m=>!m.date);
-      if (byDate.length) {
-        lines.push("  Con fecha:");
-        for (const m of byDate) {
-          const st = STATUS[m.status]?.label || m.status;
-          const who = m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
-          const time = m.time ? ` ${m.time}` : "";
-          lines.push(`  • [${st}] ${m.emoji} ${m.title} — ${m.date}${time} (${who})`);
-        }
-      }
-      if (noDate.length) {
-        lines.push("  Sin fecha:");
-        for (const m of noDate) {
-          const st = STATUS[m.status]?.label || m.status;
-          const who = m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
-          lines.push(`  • [${st}] ${m.emoji} ${m.title} (${who})`);
-        }
-      }
-      lines.push("");
+  const downloadWeekICS = (weekData, weekKey, name1, name2) => {
+    const missions = weekData.missions || [];
+    const dated = missions.filter(m => m.date);
+    if (dated.length === 0) {
+      alert("No hay misiones con fecha en esta semana. Abre cada misión, pulsa en ella y asigna una fecha para poder exportarla al calendario.");
+      return;
     }
-    const blob = new Blob([lines.join("\n")], { type:"text/plain;charset=utf-8" });
+    const stamp = new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
+    const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Misiones Pareja//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
+    for (const m of dated) {
+      const who = m.who==="person1"?name1:m.who==="person2"?name2:`${name1} & ${name2}`;
+      const ds = m.date.replace(/-/g,"");
+      lines.push("BEGIN:VEVENT");
+      lines.push(`UID:${m.id}-${Date.now()}@misiones-pareja`);
+      lines.push(`DTSTAMP:${stamp}`);
+      if (m.time) {
+        const ts = m.time.replace(":","")+"00";
+        lines.push(`DTSTART:${ds}T${ts}`);
+        const [hh,mm] = m.time.split(":").map(Number);
+        const tot = hh*60+mm+Math.round((m.estimatedHours||1)*60);
+        const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
+        lines.push(`DTEND:${ds}T${eh}${em}00`);
+      } else {
+        lines.push(`DTSTART;VALUE=DATE:${ds}`);
+        const nd = new Date(m.date); nd.setDate(nd.getDate()+1);
+        lines.push(`DTEND;VALUE=DATE:${nd.toISOString().slice(0,10).replace(/-/g,"")}`);
+      }
+      lines.push(`SUMMARY:${m.emoji} ${m.title}`);
+      const parts = [`Semana ${weekData.weekNumber}`,`Estado: ${STATUS[m.status]?.label||m.status}`,`Quién: ${who}`];
+      if (m.estimatedHours) parts.push(`Estimado: ${m.estimatedHours}h`);
+      lines.push(`DESCRIPTION:${parts.join("\\n")}`);
+      lines.push("END:VEVENT");
+    }
+    lines.push("END:VCALENDAR");
+    const blob = new Blob([lines.join("\r\n")], { type:"text/calendar;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href=url; a.download=`misiones-pareja-${new Date().toISOString().slice(0,10)}.txt`; a.click();
+    const a = document.createElement("a"); a.href=url; a.download=`misiones-${weekKey}.ics`; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadWeekPDF = (weekData, weekKey, name1, name2) => {
+    const missions = weekData.missions || [];
+    const done = missions.filter(m=>m.status==="DONE").length;
+    const sorted = [...missions].sort((a,b)=>{ if(a.date&&b.date) return (a.date+(a.time||""))>(b.date+(b.time||""))?1:-1; if(a.date)return -1; if(b.date)return 1; return 0; });
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Misiones Semana ${weekData.weekNumber}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#1a1a2e;max-width:720px;margin:0 auto;padding:40px 32px}
+h1{font-size:30px;font-weight:700;color:#6d28d9;margin-bottom:4px}
+.meta{color:#888;font-size:13px;margin-bottom:20px}
+.obj{background:#f5f0ff;border-left:4px solid #a78bfa;padding:10px 16px;border-radius:8px;margin-bottom:20px;font-style:italic;color:#4c1d95;font-size:15px}
+.kpis{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.kpi{background:#f8f4ff;padding:14px 20px;border-radius:12px;text-align:center;flex:1;min-width:80px}
+.kpi-n{font-size:26px;font-weight:700;color:#7c3aed}
+.kpi-l{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.progress{background:#e9d5ff;border-radius:99px;height:8px;margin-bottom:24px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,#7c3aed,#ec4899);border-radius:99px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;padding:8px 10px;border-bottom:2px solid #f0e8ff}
+td{padding:12px 10px;border-bottom:1px solid #f8f4ff;vertical-align:top}
+.emoji{font-size:20px}
+.title{font-size:14px;font-weight:600;color:#1a1a2e}
+.title.done{text-decoration:line-through;color:#aaa}
+.detail{font-size:12px;color:#888;margin-top:3px}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600}
+.DONE{background:#d1fae5;color:#065f46}
+.ASAP{background:#ffedd5;color:#9a3412}
+.IN_PROGRESS{background:#dbeafe;color:#1e40af}
+.TBC{background:#f1f5f9;color:#475569}
+.footer{margin-top:32px;text-align:center;font-size:11px;color:#ccc;border-top:1px solid #f0e8ff;padding-top:16px}
+@media print{body{padding:20px}button{display:none!important}}
+</style></head><body>
+<h1>💞 Semana ${weekData.weekNumber} · ${weekData.year||new Date().getFullYear()}</h1>
+<div class="meta">${name1} & ${name2} · Generado el ${new Date().toLocaleDateString("es-ES",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+${weekData.epicObjective?`<div class="obj">🎯 ${weekData.epicObjective}</div>`:""}
+<div class="kpis">
+  <div class="kpi"><div class="kpi-n">${missions.length}</div><div class="kpi-l">Misiones</div></div>
+  <div class="kpi"><div class="kpi-n">${done}</div><div class="kpi-l">Hechas</div></div>
+  <div class="kpi"><div class="kpi-n">${missions.length>0?Math.round((done/missions.length)*100):0}%</div><div class="kpi-l">Progreso</div></div>
+  ${missions.filter(m=>m.date).length>0?`<div class="kpi"><div class="kpi-n">${missions.filter(m=>m.date).length}</div><div class="kpi-l">Con fecha</div></div>`:""}
+</div>
+<div class="progress"><div class="progress-bar" style="width:${missions.length>0?Math.round((done/missions.length)*100):0}%"></div></div>
+<table>
+<thead><tr><th style="width:36px"></th><th>Misión</th><th>Cuándo</th><th>Quién</th><th>Estado</th></tr></thead>
+<tbody>
+${sorted.map(m=>{
+  const who=m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
+  const when=m.date?(m.time?`${m.date} ${m.time}`:m.date):"Sin fecha";
+  return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${m.estimatedHours?`<div class="detail">⏱ ${m.estimatedHours}h est.</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
+}).join("")}
+</tbody></table>
+<div class="footer">💞 Misiones de Pareja · misiones-pareja.netlify.app</div>
+</body></html>`;
+    const win = window.open("","_blank");
+    win.document.write(html);
+    win.document.close();
+    setTimeout(()=>win.print(),600);
   };
 
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
+  const weekEstH = (week.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0);
+  const weekRealH = (week.missions||[]).reduce((s,m)=>s+(m.realHours||0),0);
   const pct = total>0?(done/total)*100:0;
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
   const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
@@ -395,7 +457,23 @@ export default function CoupleMissions() {
           {!isTodayMonday() && carried.length===0 && (
             <button onClick={runCarryOver} style={{ ...S.btnSecondary, width:"100%", marginBottom:14, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px" }}>🔁 Arrastrar pendientes de semana anterior</button>
           )}
+          <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+            <button onClick={() => downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"8px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Google Calendar</button>
+            <button onClick={() => downloadWeekPDF(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"8px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
+          </div>
           <WorkHoursCard week={week} patchWeek={patchWeek} p1={p1} p2={p2} />
+          {(weekEstH>0||weekRealH>0)&&<div style={{ ...S.card, marginBottom:14, borderColor:"rgba(96,165,250,0.18)", display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:6, fontWeight:600 }}>⏱ Horas esta semana</div>
+              <div style={{ display:"flex", gap:14 }}>
+                {weekEstH>0&&<div><span style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:700, color:"#60a5fa" }}>{weekEstH.toFixed(1)}h</span><span style={{ fontSize:11, color:"#6b5f88", marginLeft:4 }}>estimadas</span></div>}
+                {weekRealH>0&&<div><span style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:700, color:"#34d399" }}>{weekRealH.toFixed(1)}h</span><span style={{ fontSize:11, color:"#6b5f88", marginLeft:4 }}>reales</span></div>}
+              </div>
+            </div>
+            {weekEstH>0&&weekRealH>0&&<div style={{ fontSize:12, color:weekRealH>weekEstH?"#fb923c":"#34d399", fontWeight:600, textAlign:"right", flexShrink:0 }}>
+              {weekRealH>weekEstH?`⚠️ +${(weekRealH-weekEstH).toFixed(1)}h`:weekRealH<weekEstH?`✨ -${(weekEstH-weekRealH).toFixed(1)}h`:"💯 Exacto"}
+            </div>}
+          </div>}
           <div style={{ ...S.card, marginBottom:14, borderColor:"rgba(244,114,182,0.18)" }}>
             <div style={{ fontSize:10, letterSpacing:2.5, textTransform:"uppercase", color:"#f472b6", marginBottom:8, fontWeight:600 }}>🎯 Objetivo épico</div>
             {editObj
@@ -420,7 +498,10 @@ export default function CoupleMissions() {
 
         {activeTab==="history" && (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <button onClick={() => downloadSummary(data, p1, p2)} style={{ ...S.btnSecondary, display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 16px", marginBottom:4, borderColor:"rgba(96,165,250,0.3)", color:"#60a5fa" }}>📥 Descargar resumen de planes</button>
+            <div style={{ display:"flex", gap:8, marginBottom:4 }}>
+              <button onClick={() => downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"10px 14px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399" }}>📅 Exportar semana al calendario (.ics)</button>
+              <button onClick={() => downloadWeekPDF(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"10px 14px", borderColor:"rgba(96,165,250,0.3)", color:"#a78bfa" }}>🖨️ Imprimir / PDF</button>
+            </div>
             {sortedWeeks.map(([key,w]) => {
               const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?Math.round((d/t)*100):0,cur=key===wkey;
               return (
@@ -609,36 +690,87 @@ function StatsView({ weeks, p1, p2 }) {
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  // Streak: consecutive weeks with 100% completion (sorted chronologically)
   const sortedSeries = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
-  let bestStreak=0, currStreak=0;
+  let bestStreak=0, currStreak=0, currStreakNow=0;
   for (const [,w] of sortedSeries) {
     const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
-    if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); } else { currStreak=0; }
+    if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); currStreakNow=currStreak; } else { currStreak=0; }
   }
 
-  // Status distribution
   const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
   const maxSt = Math.max(...bySt.map(x=>x.count), 1);
-
-  // Est vs Real hours
   const totalEst = allM.reduce((s,m)=>s+(m.estimatedHours||0),0);
   const totalReal = allM.reduce((s,m)=>s+(m.realHours||0),0);
-
-  const catHours = CATEGORIES.map(c => {
+  const catStats = CATEGORIES.map(c => {
     const ms=allM.filter(m=>m.category===c.id);
     return { ...c, real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
-  const ph = key => { const ms=allM.filter(m=>m.who===key||m.who==="together"); return { real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
+  const ph = key => { const ms=allM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
+  const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, realH:(w.missions||[]).reduce((s,m)=>s+(m.realHours||0),0) }; });
-  const maxH=Math.max(...series.map(s=>s.realH),1);
+  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, realH:(w.missions||[]).reduce((s,m)=>s+(m.realHours||0),0), estH:(w.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0), total:t, done:d }; });
+  const maxH=Math.max(...series.map(s=>Math.max(s.realH,s.estH)),1);
+
+  // AI Insights
+  const insights = [];
+  if (series.length>=3) {
+    const last3 = series.slice(-3), prev3 = series.slice(-6,-3);
+    const avgLast = last3.reduce((s,w)=>s+w.pct,0)/last3.length;
+    const avgPrev = prev3.length>0 ? prev3.reduce((s,w)=>s+w.pct,0)/prev3.length : avgLast;
+    if (avgLast>avgPrev+10) insights.push({ icon:"📈", title:"Tendencia al alza 🔥", desc:`Últimas 3 semanas promedio: ${Math.round(avgLast)}% — mejorasteis ${Math.round(avgLast-avgPrev)} puntos respecto a las anteriores.` });
+    else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!` });
+    else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de completitud de las últimas semanas. Eso es consistencia 💪` });
+  }
+  const bestW = sortedSeries.reduce((best,[k,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
+  if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!` });
+  if (catStats.length>0) {
+    const bestCat = [...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1))[0];
+    if (bestCat.count>1) insights.push({ icon:bestCat.icon, title:`${bestCat.label}: vuestra categoría estrella`, desc:`${Math.round((bestCat.done/bestCat.count)*100)}% de completitud en ${bestCat.count} misiones. ¡Puntos fuertes!` });
+  }
+  const totalP1only = ph("person1").count, totalP2only = ph("person2").count;
+  if (totalP1only+totalP2only>0) {
+    const leadName = totalP1only>totalP2only?p1:p2;
+    const leadCount = Math.max(totalP1only,totalP2only);
+    const diff = Math.abs(totalP1only-totalP2only);
+    if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName} tiene ${leadCount} misiones propias vs ${Math.min(totalP1only,totalP2only)} de la otra persona. ¿Equilibráis?` });
+    else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están muy bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
+  }
+  if (totalEst>0&&totalReal>0) {
+    const eff = Math.round((totalReal/totalEst)*100);
+    insights.push({ icon:"⏱", title:`Eficiencia temporal: ${eff}%`, desc:eff>120?`Tardáis un ${eff-100}% más de lo esperado. Intentad ser más realistas al estimar.`:eff<80?`Sois más rápidos de lo que estimáis 🚀 (${100-eff}% menos tiempo del esperado).`:`Estimáis el tiempo con mucha precisión. Casi perfectos! 🎯` });
+  }
+  if (currStreakNow>=2) insights.push({ icon:"🔥", title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`, desc:`Lleváis ${currStreakNow} semanas seguidas completando todo. ¡Imparables!` });
+
   if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
+
+  // Donut chart for status
+  const donutTotal = bySt.reduce((s,x)=>s+x.count,0);
+  let donutOffset=0;
+  const donutSegments = bySt.filter(x=>x.count>0).map(({s,count})=>{ const pct2=(count/donutTotal)*100; const seg={s,pct:pct2,offset:donutOffset}; donutOffset+=pct2; return seg; });
+  const C=15.9155, R=5; // SVG circumference helper
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+      {/* AI Insights */}
+      {insights.length>0&&<div style={{ ...S.card, borderColor:"rgba(244,114,182,0.25)", background:"linear-gradient(135deg,rgba(167,139,250,0.07),rgba(244,114,182,0.04))" }}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#f472b6", marginBottom:12, fontWeight:600 }}>✨ Análisis inteligente</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {insights.map((ins,i)=>(
+            <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", paddingBottom:i<insights.length-1?10:0, borderBottom:i<insights.length-1?"1px solid rgba(167,139,250,0.1)":"none" }}>
+              <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
+              <div>
+                <div style={{ fontSize:13, color:"#e2d9ff", fontWeight:600, marginBottom:2 }}>{ins.title}</div>
+                <div style={{ fontSize:12, color:"#8b7fa8", lineHeight:1.5 }}>{ins.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
-        {[{label:"Semanas",value:wc,icon:"📅"},{label:"Misiones",value:total,icon:"📝"},{label:"Completadas",value:`${pct}%`,icon:"🏆"},{label:"Racha record",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡"}].map(s=>(
+        {[{label:"Semanas",value:wc,icon:"📅"},{label:"Misiones",value:total,icon:"📝"},{label:"Completadas",value:`${pct}%`,icon:"🏆"},{label:"Racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡"}].map(s=>(
           <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px" }}>
             <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
             <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", lineHeight:1 }}>{s.value}</div>
@@ -647,26 +779,59 @@ function StatsView({ weeks, p1, p2 }) {
         ))}
       </div>
 
-      {/* Status distribution */}
-      <div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>📊 Estado de misiones</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {bySt.filter(x=>x.count>0).map(({s,count})=>(
-            <div key={s} style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ width:90, fontSize:12, color:STATUS[s].color, fontWeight:600, flexShrink:0 }}>{STATUS[s].icon} {STATUS[s].label}</div>
-              <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
-                <div style={{ height:"100%", width:`${(count/maxSt)*100}%`, background:STATUS[s].color, borderRadius:99, opacity:0.8 }} />
+      {/* Status donut + bars side by side */}
+      <div style={{ ...S.card }}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>📊 Distribución de estados</div>
+        <div style={{ display:"flex", gap:16, alignItems:"center" }}>
+          {/* Donut SVG */}
+          <div style={{ flexShrink:0 }}>
+            <svg viewBox="0 0 36 36" width={90} height={90} style={{ transform:"rotate(-90deg)" }}>
+              <circle cx="18" cy="18" r={C/(2*Math.PI)*2*Math.PI/C*C} strokeWidth="3.8" fill="none" stroke="rgba(255,255,255,0.05)" r="15.9155"/>
+              {donutSegments.map(({s,pct:p,offset})=>(
+                <circle key={s} cx="18" cy="18" r="15.9155" fill="none" strokeWidth="3.8"
+                  stroke={STATUS[s].color}
+                  strokeDasharray={`${p} ${100-p}`}
+                  strokeDashoffset={-offset}
+                  style={{ opacity:0.85 }} />
+              ))}
+            </svg>
+          </div>
+          {/* Bars */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+            {bySt.filter(x=>x.count>0).map(({s,count})=>(
+              <div key={s} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ width:78, fontSize:12, color:STATUS[s].color, fontWeight:600, flexShrink:0 }}>{STATUS[s].icon} {STATUS[s].label}</div>
+                <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${(count/maxSt)*100}%`, background:STATUS[s].color, borderRadius:99, opacity:0.85, transition:"width 0.5s" }} />
+                </div>
+                <div style={{ fontSize:12, color:"#8b7fa8", width:24, textAlign:"right", flexShrink:0 }}>{count}</div>
               </div>
-              <div style={{ fontSize:12, color:"#8b7fa8", width:28, textAlign:"right", flexShrink:0 }}>{count}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Est vs Real */}
+      {/* Completion % per week - improved chart */}
+      {series.length>1&&<div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:100, paddingBottom:0 }}>
+          {series.map((w,i)=>{
+            const isLast=i===series.length-1;
+            return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <div style={{ fontSize:9, color:isLast?"#f472b6":"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
+              <div style={{ width:"100%", borderRadius:"4px 4px 0 0", minHeight:3, height:`${Math.max(w.pct,3)}%`,
+                background:w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?"linear-gradient(0deg,#f472b6,#fb923c)":"linear-gradient(0deg,#f472b6,#a78bfa)",
+                opacity:isLast?1:0.7, boxShadow:isLast?"0 0 8px rgba(244,114,182,0.5)":"none" }} />
+              <div style={{ fontSize:9, color:isLast?"#f472b6":"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
+            </div>;
+          })}
+        </div>
+      </div>}
+
+      {/* Est vs Real + horas por semana */}
       {(totalEst>0||totalReal>0)&&<div style={S.card}>
         <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Horas estimadas vs reales</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
           {[{label:"Estimadas",val:totalEst,color:"#60a5fa"},{label:"Reales",val:totalReal,color:"#34d399"}].map(({label,val,color})=>(
             <div key={label} style={{ background:`${color}10`, border:`1px solid ${color}25`, borderRadius:10, padding:"12px", textAlign:"center" }}>
               <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color }}>{val.toFixed(1)}h</div>
@@ -674,13 +839,75 @@ function StatsView({ weeks, p1, p2 }) {
             </div>
           ))}
         </div>
-        {totalEst>0&&totalReal>0&&<div style={{ marginTop:10, fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
-          {totalReal>totalEst
-            ? `⚠️ ${(totalReal-totalEst).toFixed(1)}h más de lo esperado`
-            : totalReal<totalEst
-            ? `✨ ${(totalEst-totalReal).toFixed(1)}h menos de lo esperado`
-            : "💯 Estimación perfecta"}
-        </div>}
+        {totalEst>0&&totalReal>0&&<>
+          <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:8, height:10, overflow:"hidden", marginBottom:6, position:"relative" }}>
+            <div style={{ position:"absolute", height:"100%", width:`${Math.min((totalReal/totalEst)*100,100)}%`, background:totalReal>totalEst?"linear-gradient(90deg,#fb923c,#f472b6)":"linear-gradient(90deg,#34d399,#60a5fa)", borderRadius:8 }} />
+            <div style={{ position:"absolute", height:"100%", width:2, left:`${Math.min((totalEst/(Math.max(totalEst,totalReal)))*100,100)}%`, background:"rgba(255,255,255,0.3)" }} />
+          </div>
+          <div style={{ fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
+            {totalReal>totalEst?`⚠️ ${(totalReal-totalEst).toFixed(1)}h más de lo esperado (${Math.round((totalReal/totalEst)*100)}%)`
+              :totalReal<totalEst?`✨ ${(totalEst-totalReal).toFixed(1)}h menos de lo esperado (${Math.round((totalReal/totalEst)*100)}%)`
+              :"💯 Estimación perfecta"}
+          </div>
+        </>}
+        {/* Horas por semana dual bar */}
+        {series.some(s=>s.realH>0||s.estH>0)&&<>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginTop:14, marginBottom:10, fontWeight:600 }}>Horas por semana</div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:70 }}>
+            {series.filter(w=>w.estH>0||w.realH>0).map(w=>(
+              <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                <div style={{ width:"100%", display:"flex", gap:1, alignItems:"flex-end", height:56 }}>
+                  {w.estH>0&&<div style={{ flex:1, borderRadius:"3px 3px 0 0", height:`${(w.estH/maxH)*100}%`, background:"rgba(96,165,250,0.5)", minHeight:3 }} title={`${w.estH}h est.`} />}
+                  {w.realH>0&&<div style={{ flex:1, borderRadius:"3px 3px 0 0", height:`${(w.realH/maxH)*100}%`, background:"rgba(52,211,153,0.7)", minHeight:3 }} title={`${w.realH}h real`} />}
+                </div>
+                <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:12, justifyContent:"center", marginTop:6 }}>
+            <span style={{ fontSize:10, color:"rgba(96,165,250,0.8)" }}>■ Estimadas</span>
+            <span style={{ fontSize:10, color:"rgba(52,211,153,0.8)" }}>■ Reales</span>
+          </div>
+        </>}
+      </div>}
+
+      {/* Per person with mini visual bars */}
+      <div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>👥 Participación por persona</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {[{name:p1,h:ph1,color:"#f472b6"},{name:p2,h:ph2,color:"#a78bfa"},{name:"Juntos",h:phT,color:"#34d399"}].map(({name,h,color})=>{
+            const tot=ph1.count+ph2.count+phT.count||1;
+            return <div key={name} style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <div style={{ width:64, fontSize:12, color, fontWeight:600, flexShrink:0 }}>{name}</div>
+              <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${(h.count/tot)*100}%`, background:color, borderRadius:99, opacity:0.8 }} />
+              </div>
+              <div style={{ fontSize:12, color:"#8b7fa8", flexShrink:0, width:60, textAlign:"right" }}>
+                {h.count} <span style={{ color:color, fontWeight:600 }}>{h.count>0?`(${Math.round((h.done/h.count)*100)}%✓)`:""}</span>
+              </div>
+            </div>;
+          })}
+        </div>
+      </div>
+
+      {/* By category */}
+      {catStats.length>0&&<div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>🏷️ Por categoría</div>
+        {catStats.map(c=>{ const maxC=Math.max(...catStats.map(x=>x.count),1); const cpct=c.count>0?Math.round((c.done/c.count)*100):0; return (
+          <div key={c.id} style={{ marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, alignItems:"center" }}>
+              <span style={{ fontSize:13, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
+              <div style={{ display:"flex", gap:8, fontSize:12, alignItems:"center" }}>
+                {c.real>0&&<span style={{ color:"#34d399" }}>{c.real}h real</span>}
+                {c.est>0&&<span style={{ color:"#60a5fa" }}>~{c.est}h est.</span>}
+                <span style={{ color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
+              </div>
+            </div>
+            <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.75 }} />
+            </div>
+          </div>
+        );})}
       </div>}
 
       {/* Work hours */}
@@ -694,65 +921,11 @@ function StatsView({ weeks, p1, p2 }) {
             </div>
           ))}
         </div>
-      </div>}
-
-      {/* Per person */}
-      <div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>👥 Misiones por persona</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-          {[{name:p1,h:ph("person1"),color:"#f472b6"},{name:p2,h:ph("person2"),color:"#a78bfa"},{name:"Juntos",h:ph("together"),color:"#34d399"}].map(({name,h,color})=>(
-            <div key={name} style={{ background:`${color}10`, border:`1px solid ${color}25`, borderRadius:10, padding:"10px", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color }}>{h.count}</div>
-              <div style={{ fontSize:10, color:"#6b5f88", marginTop:2 }}>misiones</div>
-              <div style={{ fontSize:12, color:`${color}cc`, marginTop:4, fontWeight:600 }}>{h.count>0?`${Math.round((h.done/h.count)*100)}% ✓`:"—"}</div>
-              <div style={{ fontSize:11, color:"#8b7fa8", marginTop:3 }}>{name}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* By category */}
-      {catHours.length>0&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>🏷️ Por categoría</div>
-        {catHours.map(c=>{ const maxC=Math.max(...catHours.map(x=>x.count),1); return (
-          <div key={c.id} style={{ marginBottom:10 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-              <span style={{ fontSize:13, color:c.color }}>{c.icon} {c.label}</span>
-              <div style={{ display:"flex", gap:8, fontSize:12, color:"#6b5f88" }}>
-                {c.real>0&&<span style={{ color:"#34d399" }}>{c.real}h real</span>}
-                {c.est>0&&c.real===0&&<span style={{ color:"#60a5fa" }}>~{c.est}h est.</span>}
-                <span>{c.done}/{c.count}</span>
-              </div>
-            </div>
-            <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.75 }} />
-            </div>
-          </div>
-        );})}
-      </div>}
-
-      {/* Completion % per week */}
-      {series.length>1&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ % completado por semana</div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:90 }}>
-          {series.map(w=><div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <div style={{ fontSize:9, color:"#6b5f88" }}>{w.pct>0?`${w.pct}%`:""}</div>
-            <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${Math.max(w.pct,4)}%`, background:w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":"linear-gradient(0deg,#f472b6,#a78bfa)", opacity:0.85 }} />
-            <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
-          </div>)}
-        </div>
-      </div>}
-
-      {/* Real hours per week */}
-      {series.some(s=>s.realH>0)&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>📊 Horas reales por semana</div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:80 }}>
-          {series.map(w=><div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-            <div style={{ fontSize:9, color:"#60a5fa" }}>{w.realH>0?`${w.realH}h`:""}</div>
-            <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${Math.max((w.realH/maxH)*100,2)}%`, background:"linear-gradient(0deg,#60a5fa,#a78bfa)", opacity:0.8 }} />
-            <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
-          </div>)}
-        </div>
+        {totalWork1>0&&totalWork2>0&&<div style={{ marginTop:10, fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
+          {Math.abs(totalWork1-totalWork2)<5?"⚖️ Carga laboral muy equilibrada"
+            :totalWork1>totalWork2?`⚡ ${p1} trabajó ${totalWork1-totalWork2}h más esta temporada`
+            :`⚡ ${p2} trabajó ${totalWork2-totalWork1}h más esta temporada`}
+        </div>}
       </div>}
     </div>
   );
@@ -809,7 +982,7 @@ function CalendarView({ allDatedMissions }) {
               <span style={{ fontSize:22, flexShrink:0 }}>{m.emoji}</span>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
-                <div style={{ fontSize:11, color:"#4a4166" }}>Semana {m.weekNumber}{m.category?` · ${CAT_MAP[m.category]?.icon} ${CAT_MAP[m.category]?.label}`:""}</div>
+                <div style={{ fontSize:11, color:"#4a4166" }}>Semana {m.weekNumber}{m.time?<span style={{ color:"#a78bfa", fontWeight:600 }}> · 🕐 {m.time}</span>:""}{m.category?` · ${CAT_MAP[m.category]?.icon} ${CAT_MAP[m.category]?.label}`:""}</div>
               </div>
               <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
             </div>)}
