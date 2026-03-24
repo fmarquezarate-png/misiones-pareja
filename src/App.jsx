@@ -548,7 +548,7 @@ ${sorted.map(m=>{
           </div>
         )}
 
-        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} />}
+        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
       </div>
     </div>
   );
