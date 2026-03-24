@@ -504,43 +504,51 @@ ${sorted.map(m=>{
             {sortedWeeks.map(([key,w]) => {
               const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?Math.round((d/t)*100):0,cur=key===wkey;
               return (
-                <div key={key} style={{ ...S.card, borderColor:cur?"rgba(167,139,250,0.45)":"rgba(167,139,250,0.1)", background:cur?"#231e3d":"#1d1733" }}>
-                  <div onClick={()=>{update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:w.year||s.currentYear}));setActiveTab("current");}} style={{ cursor:"pointer" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
-                      <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:20, display:"flex", alignItems:"center", gap:8 }}>Semana {w.weekNumber}{cur&&<span style={{ fontSize:10, color:"#a78bfa", background:"rgba(167,139,250,0.15)", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}</div>
-                      <div style={{ fontSize:14, color:p===100?"#34d399":"#8b7fa8", fontWeight:600 }}>{d}/{t} {p===100?"🏆":`${p}%`}</div>
+                <div key={key} style={{ ...S.card, borderColor:cur?"rgba(167,139,250,0.45)":"rgba(167,139,250,0.1)", background:cur?"#231e3d":"#1d1733", padding:"12px 14px" }}>
+                  {/* Header row — clickable para ir a esa semana */}
+                  <div onClick={()=>{update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:w.year||s.currentYear}));setActiveTab("current");}} style={{ cursor:"pointer", marginBottom:w.epicObjective?5:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:18, display:"flex", alignItems:"center", gap:7 }}>
+                        Semana {w.weekNumber}
+                        {cur&&<span style={{ fontSize:10, color:"#a78bfa", background:"rgba(167,139,250,0.15)", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}
+                      </div>
+                      <div style={{ fontSize:13, color:p===100?"#34d399":"#8b7fa8", fontWeight:600 }}>{p===100?"🏆":""} {d}/{t}</div>
                     </div>
-                    {w.epicObjective&&<div style={{ fontSize:13, color:"#9d8fc4", marginBottom:8, fontStyle:"italic", fontFamily:"'Fraunces',serif" }}>"{w.epicObjective}"</div>}
-                    <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:4, marginBottom:8 }}>
-                      <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)" }} />
-                    </div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                      {w.missions?.slice(0,7).map(m=><span key={m.id} style={{ fontSize:12, color:m.status==="DONE"?"#4d4566":"#8b7fa8", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.emoji} {m.title.slice(0,20)}{m.title.length>20?"…":""}</span>)}
-                      {(w.missions?.length||0)>7&&<span style={{ fontSize:12, color:"#3d3360" }}>+{w.missions.length-7} más</span>}
-                    </div>
+                    {w.epicObjective&&<div style={{ fontSize:12, color:"#6b5f88", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
                   </div>
-                  {/* Photo section */}
-                  <div onClick={e=>e.stopPropagation()} style={{ marginTop:10 }}>
+                  {/* Progress bar + foto inline */}
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }} onClick={e=>e.stopPropagation()}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
+                      </div>
+                      <div style={{ fontSize:10, color:"#4a4166", marginTop:3 }}>{p}%</div>
+                    </div>
+                    {/* Foto: botón compacto o miniatura */}
                     {w.photo
-                      ? <div style={{ position:"relative" }}>
-                          <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:220, objectFit:"cover", display:"block" }} alt="foto semana" />
+                      ? <div style={{ position:"relative", flexShrink:0 }}>
+                          <img src={w.photo} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)" }} alt="foto" />
                           <button onClick={()=>update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null}}}))}
-                            style={{ position:"absolute", top:7, right:7, background:"rgba(0,0,0,0.55)", border:"none", borderRadius:99, color:"#f8f4ff", fontSize:11, padding:"4px 9px", cursor:"pointer", fontFamily:"inherit" }}>✕ Quitar</button>
+                            style={{ position:"absolute", top:-5, right:-5, background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#8b7fa8", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                         </div>
-                      : <label style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:7, padding:"8px 12px", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:10, cursor:"pointer", color:"#4a4166", fontSize:12, fontFamily:"inherit" }}>
-                          📸 Añadir foto de recuerdo
+                      : <label style={{ flexShrink:0, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:16 }} title="Añadir foto de recuerdo">
+                          📸
                           <input type="file" accept="image/*" style={{ display:"none" }}
                             onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
                         </label>
                     }
                   </div>
+                  {/* Foto grande desplegada si existe */}
+                  {w.photo&&<div style={{ marginTop:8 }}>
+                    <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:200, objectFit:"cover", display:"block" }} alt="foto semana" />
+                  </div>}
                 </div>
               );
             })}
           </div>
         )}
 
-        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} />}
+        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
       </div>
     </div>
   );
@@ -950,22 +958,18 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
+  const [selectedDay,setSelectedDay]=useState(null);
   const MONTHS=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DAYS=["L","M","X","J","V","S","D"];
-  const prevM=()=>{if(calMonth===0){setCalMonth(11);setCalYear(y=>y-1);}else setCalMonth(m=>m-1);};
-  const nextM=()=>{if(calMonth===11){setCalMonth(0);setCalYear(y=>y+1);}else setCalMonth(m=>m+1);};
+  const prevM=()=>{if(calMonth===0){setCalMonth(11);setCalYear(y=>y-1);}else setCalMonth(m=>m-1);setSelectedDay(null);};
+  const nextM=()=>{if(calMonth===11){setCalMonth(0);setCalYear(y=>y+1);}else setCalMonth(m=>m+1);setSelectedDay(null);};
   const firstDow=(new Date(calYear,calMonth,1).getDay()+6)%7, daysInM=new Date(calYear,calMonth+1,0).getDate();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   const byDate={};
   allDatedMissions.forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
-  // Week summary for current week
-  const wDone=week.missions?.filter(m=>m.status==="DONE").length||0;
-  const wTotal=week.missions?.length||0;
-  const wPct=wTotal>0?Math.round((wDone/wTotal)*100):0;
-  // Determine if the currently displayed week is the "actual" one
-  const todayISOWeek=(()=>{const d=new Date(today);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-(d.getDay()+6)%7);const w1=new Date(d.getFullYear(),0,4);return{week:1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7),year:d.getFullYear()};})();
-  const isCurrentWk=week.weekNumber===todayISOWeek.week&&(week.year||today.getFullYear())===todayISOWeek.year;
+  const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
+  const selMs=selStr?(byDate[selStr]||[]):[];
   return (
     <div>
       {/* Download buttons */}
@@ -985,12 +989,12 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks }) {
         {cells.map((day,i)=>{
           if(!day)return <div key={`e${i}`}/>;
           const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-          const ms=byDate[ds]||[],isTd=ds===todayStr;
-          return <div key={day}
-            style={{ borderRadius:10, minHeight:54, padding:"5px 4px", cursor:"default",
-              background:isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.07)":"rgba(255,255,255,0.02)",
-              border:isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.15s" }}>
-            <div style={{ fontSize:11, fontWeight:600, marginBottom:3, textAlign:"center", color:isTd?"#f472b6":"#4a4166" }}>{day}</div>
+          const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay;
+          return <div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
+            style={{ borderRadius:10, minHeight:54, padding:"5px 4px", cursor:ms.length>0||isTd?"pointer":"default",
+              background:isSel?"rgba(167,139,250,0.25)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.07)":"rgba(255,255,255,0.02)",
+              border:isSel?"1px solid rgba(167,139,250,0.6)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.15s" }}>
+            <div style={{ fontSize:11, fontWeight:600, marginBottom:3, textAlign:"center", color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166" }}>{day}</div>
             <div style={{ display:"flex", flexWrap:"wrap", gap:1, justifyContent:"center" }}>
               {ms.slice(0,4).map(m=><span key={m.id} title={m.title} style={{ fontSize:14, lineHeight:1.2, opacity:m.status==="DONE"?0.35:0.9 }}>{m.emoji}</span>)}
               {ms.length>4&&<span style={{ fontSize:9, color:"#4a4166" }}>+{ms.length-4}</span>}
@@ -998,18 +1002,20 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks }) {
           </div>;
         })}
       </div>
-      {/* Current week summary */}
-      {wTotal>0&&<div style={{ ...S.card, marginTop:18, borderColor:"rgba(167,139,250,0.2)", padding:"12px 16px" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-          <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:17, display:"flex", alignItems:"center", gap:8 }}>
-            Semana {week.weekNumber}
-            {isCurrentWk&&<span style={{ fontSize:10, color:"#a78bfa", background:"rgba(167,139,250,0.15)", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}
+      {selectedDay&&<div style={{ ...S.card, marginTop:16, borderColor:"rgba(167,139,250,0.3)" }}>
+        <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", marginBottom:12, fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
+        {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:14 }}>Sin misiones asignadas 🙂</div>:
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {selMs.map(m=><div key={m.id} style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:22, flexShrink:0 }}>{m.emoji}</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
+                <div style={{ fontSize:11, color:"#4a4166" }}>Semana {m.weekNumber}{m.time?<span style={{ color:"#a78bfa", fontWeight:600 }}> · 🕐 {m.time}</span>:""}{m.category?` · ${CAT_MAP[m.category]?.icon} ${CAT_MAP[m.category]?.label}`:""}</div>
+              </div>
+              <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
+            </div>)}
           </div>
-          <div style={{ fontSize:13, color:wPct===100?"#34d399":"#8b7fa8", fontWeight:600 }}>{wDone}/{wTotal} {wPct===100?"🏆":`${wPct}%`}</div>
-        </div>
-        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
-          <div style={{ height:"100%", width:`${wPct}%`, borderRadius:99, background:wPct===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.6s" }} />
-        </div>
+        }
       </div>}
     </div>
   );
