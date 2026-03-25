@@ -48,7 +48,26 @@ const isTodayMonday = () => new Date().getDay() === 1;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: 52, yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
-const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana" };
+const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
+const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
+
+const googleCalendarUrl = (mission, name1, name2) => {
+  if (!mission.date) return null;
+  const ds = mission.date.replace(/-/g, "");
+  const who = mission.who==="person1"?name1:mission.who==="person2"?name2:`${name1} & ${name2}`;
+  let dates;
+  if (mission.time) {
+    const [hh, mm] = mission.time.split(":").map(Number);
+    const tot = hh*60 + mm + Math.round((mission.estimatedHours||1)*60);
+    const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
+    dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
+  } else {
+    const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
+    dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
+  }
+  const details = `Quién: ${who}${mission.estimatedHours?` · ${mission.estimatedHours}h`:""}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
+};
 const mk = (id, emoji, title, status, completedAt=null) => ({
   id, emoji, title, status, createdAt: 1739059200000, completedAt,
   date: null, time: null, carriedFrom: null, carriedFromWeek: null,
@@ -207,6 +226,8 @@ export default function CoupleMissions() {
   const [carriedCount, setCarriedCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [error, setError] = useState(null);
+  const [histPersonFilter, setHistPersonFilter] = useState("all");
+  const [histWeekRange, setHistWeekRange] = useState("all");
 
   useEffect(() => {
     (async () => {
@@ -265,6 +286,7 @@ export default function CoupleMissions() {
 
   const p1 = data.settings?.person1 || "Pololo";
   const p2 = data.settings?.person2 || "Banana";
+  const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const wkey = isoWeekKey(data.currentWeekNumber, data.currentYear);
   const week = data.weeks[wkey] || { weekNumber:data.currentWeekNumber, year:data.currentYear, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const patchWeek = fn => update(d => ({ ...d, weeks: { ...d.weeks, [wkey]: fn(d.weeks[wkey] || week) } }));
@@ -413,6 +435,67 @@ ${sorted.map(m=>{
     setTimeout(()=>win.print(),600);
   };
 
+  const downloadFilteredPDF = (weekEntries, personFilter, name1, name2) => {
+    const personLabel = personFilter==="all"?`${name1} & ${name2}`:personFilter==="person1"?name1:personFilter==="person2"?name2:"Juntos";
+    const allMissions = weekEntries.flatMap(([,w]) => {
+      const ms = personFilter==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===personFilter);
+      return ms.map(m=>({...m, weekNumber:w.weekNumber, _year:w.year, _obj:w.epicObjective}));
+    });
+    if (!allMissions.length) { alert("No hay misiones para los filtros seleccionados."); return; }
+    const sorted = [...allMissions].sort((a,b)=>{
+      if(a.weekNumber!==b.weekNumber) return a.weekNumber-b.weekNumber;
+      if(a.date&&b.date) return (a.date+(a.time||""))>(b.date+(b.time||""))?1:-1;
+      if(a.date)return -1; if(b.date)return 1; return 0;
+    });
+    const doneCount = allMissions.filter(m=>m.status==="DONE").length;
+    const total = allMissions.length;
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Misiones - ${personLabel}</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#1a1a2e;max-width:720px;margin:0 auto;padding:40px 32px}
+h1{font-size:28px;font-weight:700;color:#6d28d9;margin-bottom:4px}
+.meta{color:#888;font-size:13px;margin-bottom:20px}
+.kpis{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.kpi{background:#f8f4ff;padding:12px 18px;border-radius:12px;text-align:center;flex:1;min-width:70px}
+.kpi-n{font-size:22px;font-weight:700;color:#7c3aed}
+.kpi-l{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.week-header{background:#f5f0ff;border-left:4px solid #a78bfa;padding:8px 14px;border-radius:6px;margin:18px 0 10px;font-weight:600;color:#4c1d95;font-size:14px}
+table{width:100%;border-collapse:collapse;margin-bottom:8px}
+th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#999;padding:6px 8px;border-bottom:2px solid #f0e8ff}
+td{padding:10px 8px;border-bottom:1px solid #f8f4ff;vertical-align:top}
+.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.DONE{background:#d1fae5;color:#065f46}.ASAP{background:#ffedd5;color:#9a3412}.IN_PROGRESS{background:#dbeafe;color:#1e40af}.TBC{background:#f1f5f9;color:#475569}
+.footer{margin-top:28px;text-align:center;font-size:11px;color:#ccc;border-top:1px solid #f0e8ff;padding-top:14px}
+@media print{body{padding:20px}}
+</style></head><body>
+<h1>💞 Misiones — ${personLabel}</h1>
+<div class="meta">${weekEntries.length} semana${weekEntries.length!==1?"s":""} · Generado el ${new Date().toLocaleDateString("es-ES",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+<div class="kpis">
+  <div class="kpi"><div class="kpi-n">${total}</div><div class="kpi-l">Misiones</div></div>
+  <div class="kpi"><div class="kpi-n">${doneCount}</div><div class="kpi-l">Hechas</div></div>
+  <div class="kpi"><div class="kpi-n">${total>0?Math.round((doneCount/total)*100):0}%</div><div class="kpi-l">Progreso</div></div>
+</div>
+${weekEntries.map(([,w])=>{
+  const ms = personFilter==="all"?(w.missions||[]):(w.missions||[]).filter(m=>m.who===personFilter);
+  if(!ms.length) return "";
+  const who2=m2=>m2.who==="person1"?name1:m2.who==="person2"?name2:"Juntos";
+  return `<div class="week-header">Semana ${w.weekNumber}${w.epicObjective?` · "${w.epicObjective}"`:""}  — ${ms.filter(m=>m.status==="DONE").length}/${ms.length}</div>
+<table><thead><tr><th></th><th>Misión</th><th>Cuándo</th><th>Quién</th><th>Estado</th></tr></thead><tbody>
+${ms.map(m=>{
+  const whenStr=m.date?(m.time?`${m.date} ${m.time}`:m.date):"Sin fecha";
+  return `<tr><td style="font-size:18px">${m.emoji}</td><td style="font-size:13px;font-weight:600;color:${m.status==="DONE"?"#aaa":"#1a1a2e"};text-decoration:${m.status==="DONE"?"line-through":"none"}">${m.title}</td><td style="font-size:12px;color:#666">${whenStr}</td><td style="font-size:12px;color:#666">${who2(m)}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
+}).join("")}
+</tbody></table>`;
+}).join("")}
+<div class="footer">💞 Misiones de Pareja · misiones-pareja.netlify.app</div>
+</body></html>`;
+    const win = window.open("","_blank");
+    win.document.write(html);
+    win.document.close();
+    setTimeout(()=>win.print(),600);
+  };
+
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
   const weekEstH = (week.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0);
@@ -428,7 +511,7 @@ ${sorted.map(m=>{
 
       {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} />}
 
-      <div style={{ maxWidth:640, margin:"0 auto", padding:"28px 16px 80px" }}>
+      <div style={{ maxWidth:640, margin:"0 auto", padding:"28px 16px 140px" }}>
 
         {/* Header */}
         <div style={{ textAlign:"center", marginBottom:24, position:"relative" }}>
@@ -473,6 +556,10 @@ ${sorted.map(m=>{
             <span style={{ color:"#fdba74" }}><strong>{carriedCount} misión{carriedCount>1?"es":""}</strong> arrastrada{carriedCount>1?"s":""} de la semana anterior</span>
           </div>}
           <WorkHoursCard week={week} patchWeek={patchWeek} p1={p1} p2={p2} />
+          <div style={{ textAlign:"right", marginBottom:4 }}>
+            <button onClick={runCarryOver} style={{ background:"none", border:"none", color:"#4a4166", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
+              onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>🔁 Recuperar tareas pendientes</button>
+          </div>
           <div style={{ ...S.card, marginBottom:14, borderColor:"rgba(244,114,182,0.18)" }}>
             <div style={{ fontSize:10, letterSpacing:2.5, textTransform:"uppercase", color:"#f472b6", marginBottom:8, fontWeight:600 }}>🎯 Objetivo épico</div>
             {editObj
@@ -482,7 +569,7 @@ ${sorted.map(m=>{
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {week.missions?.map(m=>(
-              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
+              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
             {showAddForm
               ? <AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} />
@@ -493,19 +580,51 @@ ${sorted.map(m=>{
           </div>
         </div>}
 
-        {activeTab==="calendar" && <CalendarView allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} />}
+        {activeTab==="calendar" && <CalendarView
+          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors}
+          onAddForDay={(date) => { setNewM(p=>({...p, date})); setShowAddForm(true); setActiveTab("current"); }}
+          onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
+          onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
+        />}
 
-        {activeTab==="history" && (
+        {activeTab==="history" && (() => {
+          const allHistSorted = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
+          const histFiltered = histWeekRange==="all" ? allHistSorted : allHistSorted.slice(0, parseInt(histWeekRange));
+          const filterHM = ms => histPersonFilter==="all" ? ms : ms.filter(m=>m.who===histPersonFilter);
+          return (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <div style={{ display:"flex", gap:8, marginBottom:4 }}>
-              <button onClick={() => downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"10px 14px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399" }}>📅 Exportar semana al calendario (.ics)</button>
-              <button onClick={() => downloadWeekPDF(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"10px 14px", borderColor:"rgba(96,165,250,0.3)", color:"#a78bfa" }}>🖨️ Imprimir / PDF</button>
+            {/* Filter bar */}
+            <div style={{ ...S.card, padding:"10px 14px" }}>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                <div>
+                  <div style={S.label}>Persona</div>
+                  <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+                    {[["all","Todos"],["person1",p1],["person2",p2],["together","Juntos"]].map(([v,l])=>(
+                      <button key={v} onClick={()=>setHistPersonFilter(v)} style={{ background:histPersonFilter===v?"rgba(244,114,182,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${histPersonFilter===v?"rgba(244,114,182,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:histPersonFilter===v?"#f472b6":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={S.label}>Semanas</div>
+                  <div style={{ display:"flex", gap:3 }}>
+                    {[["all","Todas"],["8","8 últ."],["4","4 últ."]].map(([v,l])=>(
+                      <button key={v} onClick={()=>setHistWeekRange(v)} style={{ background:histWeekRange===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${histWeekRange===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:histWeekRange===v?"#a78bfa":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-            {sortedWeeks.map(([key,w]) => {
-              const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?Math.round((d/t)*100):0,cur=key===wkey;
+            {/* Export buttons */}
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 .ics semana actual</button>
+              <button onClick={() => downloadFilteredPDF(histFiltered, histPersonFilter, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF filtrado ({histFiltered.length} sem.)</button>
+            </div>
+            {/* Week cards */}
+            {histFiltered.map(([key,w]) => {
+              const filtMs = filterHM(w.missions||[]);
+              const d=filtMs.filter(m=>m.status==="DONE").length, t=filtMs.length, p=t>0?Math.round((d/t)*100):0, cur=key===wkey;
               return (
                 <div key={key} style={{ ...S.card, borderColor:cur?"rgba(167,139,250,0.45)":"rgba(167,139,250,0.1)", background:cur?"#231e3d":"#1d1733", padding:"12px 14px" }}>
-                  {/* Header row — clickable para ir a esa semana */}
                   <div onClick={()=>{update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:w.year||s.currentYear}));setActiveTab("current");}} style={{ cursor:"pointer", marginBottom:w.epicObjective?5:8 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:18, display:"flex", alignItems:"center", gap:7 }}>
@@ -516,15 +635,13 @@ ${sorted.map(m=>{
                     </div>
                     {w.epicObjective&&<div style={{ fontSize:12, color:"#6b5f88", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
                   </div>
-                  {/* Progress bar + foto inline */}
                   <div style={{ display:"flex", alignItems:"center", gap:8 }} onClick={e=>e.stopPropagation()}>
                     <div style={{ flex:1 }}>
                       <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
                         <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
                       </div>
-                      <div style={{ fontSize:10, color:"#4a4166", marginTop:3 }}>{p}%</div>
+                      <div style={{ fontSize:10, color:"#4a4166", marginTop:3 }}>{p}%{histPersonFilter!=="all"?` (${histPersonFilter==="person1"?p1:histPersonFilter==="person2"?p2:"Juntos"})`:""}</div>
                     </div>
-                    {/* Foto: botón compacto o miniatura */}
                     {w.photo
                       ? <div style={{ position:"relative", flexShrink:0 }}>
                           <img src={w.photo} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)" }} alt="foto" />
@@ -538,7 +655,6 @@ ${sorted.map(m=>{
                         </label>
                     }
                   </div>
-                  {/* Foto grande desplegada si existe */}
                   {w.photo&&<div style={{ marginTop:8 }}>
                     <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:200, objectFit:"cover", display:"block" }} alt="foto semana" />
                   </div>}
@@ -546,7 +662,8 @@ ${sorted.map(m=>{
               );
             })}
           </div>
-        )}
+          );
+        })()}
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
       </div>
@@ -619,7 +736,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
           ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
         <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({...p,date:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({...p,time:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={newM.estimatedHours} onChange={e=>setNewM(p=>({...p,estimatedHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
@@ -638,13 +755,16 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
   );
 }
 
-function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
+function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors }) {
   const [expanded, setExpanded] = useState(false);
   const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
   const cat = mission.category ? CAT_MAP[mission.category] : null;
+  const clr = colors || DEFAULT_COLORS;
+  const whoColor = mission.who==="person1"?clr.person1:mission.who==="person2"?clr.person2:clr.together;
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
+  const gcalUrl = googleCalendarUrl(mission, p1, p2);
   return (
-    <div style={{ ...S.card, borderColor:isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":"rgba(167,139,250,0.12)", opacity:isDone?0.78:1, transition:"all 0.25s" }}>
+    <div style={{ ...S.card, borderColor:isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":`${whoColor}22`, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
       {isCarried&&!isDone&&<div style={{ fontSize:10, color:"#fb923c", letterSpacing:1, marginBottom:6 }}>🔁 Arrastrada</div>}
       <div style={{ display:"flex", gap:10, alignItems:"center" }}>
         <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
@@ -652,7 +772,9 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
           <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
           <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
             {cat&&<span style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>}
-            {mission.who&&mission.who!=="together"&&<span style={{ background:"rgba(167,139,250,0.1)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {mission.who==="person1"?p1:p2}</span>}
+            {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
+            {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
+            {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
             {mission.estimatedHours&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.estimatedHours}h est.</span>}
             {mission.realHours&&<span style={{ background:"rgba(52,211,153,0.08)", color:"#34d399", border:"1px solid rgba(52,211,153,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>✅ {mission.realHours}h</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
@@ -674,15 +796,20 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>¿Quién?</label>
             <div style={{ display:"flex", gap:5 }}>
-              {WHO.map(w=><button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:mission.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${mission.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:mission.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>)}
+              {WHO.map(w=>{
+                const wc=w.id==="person1"?clr.person1:w.id==="person2"?clr.person2:clr.together;
+                const sel=mission.who===w.id;
+                return <button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:sel?`${wc}22`:"rgba(255,255,255,0.04)", border:`1px solid ${sel?wc+"60":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?wc:"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>;
+              })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={mission.estimatedHours||""} onChange={e=>onPatch({estimatedHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
             <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={mission.realHours||""} onChange={e=>onPatch({realHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
           </div>
+          {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
         </div>
       )}
     </div>
@@ -692,16 +819,43 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
 function SettingsModal({ data, update, onClose }) {
   const [p1, setP1] = useState(data.settings?.person1||"Pololo");
   const [p2, setP2] = useState(data.settings?.person2||"Banana");
-  const save = () => { update(d=>({...d,settings:{...d.settings,person1:p1.trim()||"Pololo",person2:p2.trim()||"Banana"}})); onClose(); };
+  const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors||{}) });
+  const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
+  const save = () => { update(d=>({...d,settings:{...d.settings,person1:p1.trim()||"Pololo",person2:p2.trim()||"Banana",colors}})); onClose(); };
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:380 }}>
+      <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:400 }}>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:600, marginBottom:20 }}>⚙️ Configuración</div>
-        <div style={{ marginBottom:14 }}><label style={S.label}>Nombre persona 1</label><input value={p1} onChange={e=>setP1(e.target.value)} style={S.input} placeholder="Pololo" /></div>
-        <div style={{ marginBottom:20 }}><label style={S.label}>Nombre persona 2</label><input value={p2} onChange={e=>setP2(e.target.value)} style={S.input} placeholder="Banana" /></div>
-        <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-          <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
-          <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+        <div style={{ marginBottom:14 }}>
+          <label style={S.label}>Persona 1</label>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input value={p1} onChange={e=>setP1(e.target.value)} style={{ ...S.input, flex:1 }} placeholder="Pololo" />
+            <input type="color" value={colors.person1} onChange={e=>setColor("person1",e.target.value)}
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color persona 1" />
+          </div>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label style={S.label}>Persona 2</label>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input value={p2} onChange={e=>setP2(e.target.value)} style={{ ...S.input, flex:1 }} placeholder="Banana" />
+            <input type="color" value={colors.person2} onChange={e=>setColor("person2",e.target.value)}
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color persona 2" />
+          </div>
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <label style={S.label}>Actividades juntos</label>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <div style={{ flex:1, fontSize:13, color:"#6b5f88", fontStyle:"italic" }}>Color para actividades en pareja</div>
+            <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color juntos" />
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
+          <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11 }}>↺ Colores por defecto</button>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
+            <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+          </div>
         </div>
       </div>
     </div>
@@ -954,7 +1108,7 @@ function StatsView({ weeks, p1, p2 }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks }) {
+function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -974,8 +1128,8 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks }) {
     <div>
       {/* Download buttons */}
       <div style={{ display:"flex", gap:6, marginBottom:18 }}>
-        <button onClick={()=>downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Google Calendar (.ics)</button>
-        <button onClick={()=>downloadWeekPDF(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
+        <button onClick={onDownloadICS} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Google Calendar (.ics)</button>
+        <button onClick={onDownloadPDF} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
       </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:20 }}>
         <button onClick={prevM} style={S.btnNav}>‹</button>
@@ -1003,17 +1157,33 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks }) {
         })}
       </div>
       {selectedDay&&<div style={{ ...S.card, marginTop:16, borderColor:"rgba(167,139,250,0.3)" }}>
-        <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", marginBottom:12, fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+          <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
+          {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px", display:"flex", alignItems:"center", gap:4 }}>+ Añadir misión</button>}
+        </div>
         {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:14 }}>Sin misiones asignadas 🙂</div>:
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {selMs.map(m=><div key={m.id} style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ fontSize:22, flexShrink:0 }}>{m.emoji}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
-                <div style={{ fontSize:11, color:"#4a4166" }}>Semana {m.weekNumber}{m.time?<span style={{ color:"#a78bfa", fontWeight:600 }}> · 🕐 {m.time}</span>:""}{m.category?` · ${CAT_MAP[m.category]?.icon} ${CAT_MAP[m.category]?.label}`:""}</div>
-              </div>
-              <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
-            </div>)}
+            {selMs.map(m=>{
+              const clr = colors || DEFAULT_COLORS;
+              const whoColor = m.who==="person1"?clr.person1:m.who==="person2"?clr.person2:clr.together;
+              const whoLabel = m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
+              const whoIcon = m.who==="together"?"👫":"🙋";
+              const gcalUrl = googleCalendarUrl(m, p1, p2);
+              return <div key={m.id} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                <span style={{ fontSize:22, flexShrink:0, marginTop:2 }}>{m.emoji}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:3 }}>
+                    <span style={{ fontSize:11, color:"#4a4166" }}>S{m.weekNumber}</span>
+                    {m.time&&<span style={{ fontSize:11, color:"#a78bfa", fontWeight:600 }}>🕐 {m.time}</span>}
+                    {m.category&&<span style={{ fontSize:11, color:"#6b5f88" }}>{CAT_MAP[m.category]?.icon} {CAT_MAP[m.category]?.label}</span>}
+                    <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
+                    {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#34d399", textDecoration:"none" }} title="Añadir a Google Calendar">📅 GCal</a>}
+                  </div>
+                </div>
+                <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
+              </div>;
+            })}
           </div>
         }
       </div>}
