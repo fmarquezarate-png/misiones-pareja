@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { loadData, saveData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+const APP_VERSION = "1.6.0";
 const SEED_VERSION = 5;
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 const STATUS = {
@@ -45,7 +46,8 @@ const getWeekAndYear = (date = new Date()) => {
   return { week: Math.ceil((((d - ys) / 86400000) + 1) / 7), year: d.getUTCFullYear() };
 };
 const isTodayMonday = () => new Date().getDay() === 1;
-const prevWeekFn = (wn, yr) => wn === 1 ? { wn: 52, yr: yr - 1 } : { wn: wn - 1, yr };
+const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
+const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
@@ -290,12 +292,12 @@ export default function CoupleMissions() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingError, setSavingError] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [carriedCount, setCarriedCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [error, setError] = useState(null);
   const [histPersonFilter, setHistPersonFilter] = useState("all");
@@ -328,10 +330,18 @@ export default function CoupleMissions() {
 
   const persist = useCallback(async next => {
     setSaving(true);
-    await saveData(next);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
+    setSavingError(false);
+    try {
+      await saveData(next);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1800);
+    } catch(e) {
+      console.error("Error guardando:", e);
+      setSavingError(true);
+      setTimeout(() => setSavingError(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   }, []);
 
   const update = useCallback(fn => {
@@ -384,7 +394,7 @@ export default function CoupleMissions() {
 
   const delMission = id => patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
   const patchM = (id, patch) => patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
-  const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>52){wn=1;yr++;} if(wn<1){wn=52;yr--;} return {...s,currentWeekNumber:wn,currentYear:yr}; });
+  const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>isoWeeksInYear(yr)){wn=1;yr++;} if(wn<1){yr--;wn=isoWeeksInYear(yr);} return {...s,currentWeekNumber:wn,currentYear:yr}; });
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
@@ -577,6 +587,7 @@ ${ms.map(m=>{
 
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
+  const carriedCount = week.missions?.filter(m=>m.carriedFrom).length||0;
 
   const pct = total>0?(done/total)*100:0;
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
@@ -614,9 +625,12 @@ ${ms.map(m=>{
             </div>
             <div style={{ fontSize:12, color:"#8b7fa8", marginTop:7 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
           </>}
-          {/* Sync indicator */}
-          <div style={{ position:"absolute", left:0, top:0, fontSize:11, color:saving?"#fb923c":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
-            {saving?"⟳ Guardando…":saved?"✓ Guardado":"·"}
+          {/* Version + sync indicator */}
+          <div style={{ position:"absolute", left:0, top:0, display:"flex", flexDirection:"column", alignItems:"flex-start", gap:2 }}>
+            <span style={{ fontSize:9, color:"#2d2640", fontVariantNumeric:"tabular-nums", letterSpacing:0.5 }}>v{APP_VERSION}</span>
+            <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#fb923c":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
+              {savingError?"⚠ Error al guardar":saving?"⟳ Guardando…":saved?"✓ Guardado":"·"}
+            </span>
           </div>
         </div>
 
@@ -703,7 +717,7 @@ ${ms.map(m=>{
               const d=filtMs.filter(m=>m.status==="DONE").length, t=filtMs.length, p=t>0?Math.round((d/t)*100):0, cur=key===wkey;
               return (
                 <div key={key} style={{ ...S.card, borderColor:cur?"rgba(167,139,250,0.45)":"rgba(167,139,250,0.1)", background:cur?"#231e3d":"#1d1733", padding:"12px 14px" }}>
-                  <div onClick={()=>{update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:w.year||s.currentYear}));setActiveTab("current");}} style={{ cursor:"pointer", marginBottom:w.epicObjective?5:8 }}>
+                  <div onClick={()=>{const yr=parseInt(key.split("-W")[0])||w.year;update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:yr}));setActiveTab("current");}} style={{ cursor:"pointer", marginBottom:w.epicObjective?5:8 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:18, display:"flex", alignItems:"center", gap:7 }}>
                         Semana {w.weekNumber}
