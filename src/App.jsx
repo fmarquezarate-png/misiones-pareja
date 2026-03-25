@@ -750,7 +750,7 @@ ${ms.map(m=>{
 
         {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
 
-        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
+        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
       </div>
     </div>
   );
@@ -964,14 +964,25 @@ function SettingsModal({ data, update, onClose }) {
   );
 }
 
-function StatsView({ weeks, p1, p2 }) {
-  const allW = Object.values(weeks), allM = allW.flatMap(w=>w.missions||[]);
+function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
+  const clr = { ...DEFAULT_COLORS, ...(colors||{}) };
+  const [stWho, setStWho] = useState("all");
+  const [stRange, setStRange] = useState("all");
+
+  // ── Datos filtrados ──────────────────────────────────────────────────────
+  const sortedAll = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+  const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
+  const allW = rangedEntries.map(([,w]) => {
+    const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
+    return { ...w, missions:ms };
+  });
+  const allM = allW.flatMap(w=>w.missions||[]);
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  const sortedSeries = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+  const sortedSeries = rangedEntries;
   let bestStreak=0, currStreak=0, currStreakNow=0;
-  for (const [,w] of sortedSeries) {
+  for (const w of allW) {
     const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
     if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); currStreakNow=currStreak; } else { currStreak=0; }
   }
@@ -986,7 +997,7 @@ function StatsView({ weeks, p1, p2 }) {
   const ph = key => { const ms=allM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d }; });
+  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w.year||new Date().getFullYear() }; });
   const maxH=Math.max(...series.map(s=>s.durH),1);
 
   // AI Insights
@@ -999,7 +1010,7 @@ function StatsView({ weeks, p1, p2 }) {
     else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!` });
     else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de completitud de las últimas semanas. Eso es consistencia 💪` });
   }
-  const bestW = sortedSeries.reduce((best,[k,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
+  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
   if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!` });
   if (catStats.length>0) {
     const bestCat = [...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1))[0];
@@ -1026,8 +1037,51 @@ function StatsView({ weeks, p1, p2 }) {
   const donutSegments = bySt.filter(x=>x.count>0).map(({s,count})=>{ const pct2=(count/donutTotal)*100; const seg={s,pct:pct2,offset:donutOffset}; donutOffset+=pct2; return seg; });
   const C=15.9155, R=5; // SVG circumference helper
 
+  const whoOpts = [
+    { id:"all", label:"Todos", color:"#8b7fa8" },
+    { id:"person1", label:p1, color:clr.person1 },
+    { id:"person2", label:p2, color:clr.person2 },
+    { id:"together", label:"Juntos", color:clr.together },
+  ];
+  const rangeOpts = [
+    { id:"all", label:"Siempre" },
+    { id:"4", label:"4 sem." },
+    { id:"8", label:"8 sem." },
+    { id:"12", label:"12 sem." },
+  ];
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+      {/* Filter bar */}
+      <div style={{ ...S.card, padding:"10px 12px", display:"flex", flexDirection:"column", gap:9 }}>
+        {/* Who */}
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Quién</span>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            {whoOpts.map(o=>{
+              const active = stWho===o.id;
+              return <button key={o.id} onClick={()=>setStWho(o.id)}
+                style={{ background:active?`${o.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${active?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?o.color:"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                {o.label}
+              </button>;
+            })}
+          </div>
+        </div>
+        {/* Range */}
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Rango</span>
+          <div style={{ display:"flex", gap:4 }}>
+            {rangeOpts.map(o=>{
+              const active = stRange===o.id;
+              return <button key={o.id} onClick={()=>setStRange(o.id)}
+                style={{ background:active?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${active?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                {o.label}
+              </button>;
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* AI Insights */}
       {insights.length>0&&<div style={{ ...S.card, borderColor:"rgba(244,114,182,0.25)", background:"linear-gradient(135deg,rgba(167,139,250,0.07),rgba(244,114,182,0.04))" }}>
