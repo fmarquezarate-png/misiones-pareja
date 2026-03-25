@@ -75,9 +75,10 @@ const mk = (id, emoji, title, status, completedAt=null) => ({
   category: null, who: "together", duration: null,
 });
 
+const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
 const SEED = {
   seedVersion: SEED_VERSION,
-  currentWeekNumber: 13, currentYear: 2026,
+  currentWeekNumber: _seedWeek, currentYear: _seedYear,
   settings: DEFAULT_SETTINGS,
   goals: [
     { id:"sg1", emoji:"🍽️", title:"Cenar juntos fuera de casa", who:"together", period:"monthly", target:2, active:true, createdAt:1739059200000 },
@@ -981,7 +982,6 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  const sortedSeries = rangedEntries;
   let bestStreak=0, currStreak=0, currStreakNow=0;
   for (const w of allW) {
     const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
@@ -995,10 +995,12 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     const ms=allM.filter(m=>m.category===c.id);
     return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
-  const ph = key => { const ms=allM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
+  // ph usa misiones sin filtrar por persona para que "participación" muestre siempre la distribución real
+  const rawAllM = rangedEntries.flatMap(([,w]) => w.missions||[]);
+  const ph = key => { const ms=rawAllM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w.year||new Date().getFullYear() }; });
+  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
   const maxH=Math.max(...series.map(s=>s.durH),1);
 
   // ── Etapa 2: computed display vars ──────────────────────────────────────────
@@ -1198,11 +1200,14 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>}
 
-      {/* Per person with mini visual bars */}
+      {/* Per person with mini visual bars — siempre desde rawAllM (sin filtro persona) */}
       <div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>👥 Participación por persona</div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>👥 Participación por persona</span>
+          {stWho!=="all"&&<span style={{ fontSize:10, color:"#4a4166", fontStyle:"italic" }}>distribución real del rango</span>}
+        </div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {[{name:p1,h:ph1,color:"#f472b6"},{name:p2,h:ph2,color:"#a78bfa"},{name:"Juntos",h:phT,color:"#34d399"}].map(({name,h,color})=>{
+          {[{name:p1,h:ph1,color:clr.person1},{name:p2,h:ph2,color:clr.person2},{name:"Juntos",h:phT,color:clr.together}].map(({name,h,color})=>{
             const tot=ph1.count+ph2.count+phT.count||1;
             return <div key={name} style={{ display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ width:64, fontSize:12, color, fontWeight:600, flexShrink:0 }}>{name}</div>
@@ -1413,7 +1418,7 @@ function EmojiSelect({ value, onChange }) {
           <div style={{ display:"flex", overflowX:"auto", padding:"8px 8px 0", gap:4, scrollbarWidth:"none" }}>
             {EMOJI_GROUPS.map((g,i)=><button key={i} onClick={()=>setAg(i)} style={{ background:ag===i?"rgba(167,139,250,0.25)":"none", border:"none", borderRadius:8, padding:"4px 6px", cursor:"pointer", fontSize:14, flexShrink:0 }}>{g.label.split(" ")[0]}</button>)}
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:3, padding:"8px 10px 10px" }}>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:3, padding:"8px 10px 10px", maxHeight:180, overflowY:"auto", overscrollBehavior:"contain" }}>
             {EMOJI_GROUPS[ag].emojis.map(e=><button key={e} onClick={()=>{onChange(e);setOpen(false);}} style={{ fontSize:20, background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:8 }}
               onMouseEnter={ev=>ev.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={ev=>ev.currentTarget.style.background="none"}>{e}</button>)}
           </div>
