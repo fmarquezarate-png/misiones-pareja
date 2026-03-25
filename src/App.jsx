@@ -48,7 +48,26 @@ const isTodayMonday = () => new Date().getDay() === 1;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: 52, yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
-const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana" };
+const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
+const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
+
+const googleCalendarUrl = (mission, name1, name2) => {
+  if (!mission.date) return null;
+  const ds = mission.date.replace(/-/g, "");
+  const who = mission.who==="person1"?name1:mission.who==="person2"?name2:`${name1} & ${name2}`;
+  let dates;
+  if (mission.time) {
+    const [hh, mm] = mission.time.split(":").map(Number);
+    const tot = hh*60 + mm + Math.round((mission.estimatedHours||1)*60);
+    const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
+    dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
+  } else {
+    const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
+    dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
+  }
+  const details = `Quién: ${who}${mission.estimatedHours?` · ${mission.estimatedHours}h`:""}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
+};
 const mk = (id, emoji, title, status, completedAt=null) => ({
   id, emoji, title, status, createdAt: 1739059200000, completedAt,
   date: null, time: null, carriedFrom: null, carriedFromWeek: null,
@@ -267,6 +286,7 @@ export default function CoupleMissions() {
 
   const p1 = data.settings?.person1 || "Pololo";
   const p2 = data.settings?.person2 || "Banana";
+  const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const wkey = isoWeekKey(data.currentWeekNumber, data.currentYear);
   const week = data.weeks[wkey] || { weekNumber:data.currentWeekNumber, year:data.currentYear, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const patchWeek = fn => update(d => ({ ...d, weeks: { ...d.weeks, [wkey]: fn(d.weeks[wkey] || week) } }));
@@ -549,7 +569,7 @@ ${ms.map(m=>{
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {week.missions?.map(m=>(
-              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
+              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
             {showAddForm
               ? <AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} />
@@ -561,7 +581,7 @@ ${ms.map(m=>{
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks}
+          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors}
           onAddForDay={(date) => { setNewM(p=>({...p, date})); setShowAddForm(true); setActiveTab("current"); }}
           onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
           onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
@@ -735,13 +755,16 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
   );
 }
 
-function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
+function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors }) {
   const [expanded, setExpanded] = useState(false);
   const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
   const cat = mission.category ? CAT_MAP[mission.category] : null;
+  const clr = colors || DEFAULT_COLORS;
+  const whoColor = mission.who==="person1"?clr.person1:mission.who==="person2"?clr.person2:clr.together;
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
+  const gcalUrl = googleCalendarUrl(mission, p1, p2);
   return (
-    <div style={{ ...S.card, borderColor:isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":"rgba(167,139,250,0.12)", opacity:isDone?0.78:1, transition:"all 0.25s" }}>
+    <div style={{ ...S.card, borderColor:isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":`${whoColor}22`, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
       {isCarried&&!isDone&&<div style={{ fontSize:10, color:"#fb923c", letterSpacing:1, marginBottom:6 }}>🔁 Arrastrada</div>}
       <div style={{ display:"flex", gap:10, alignItems:"center" }}>
         <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
@@ -749,7 +772,9 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
           <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
           <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
             {cat&&<span style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>}
-            {mission.who&&mission.who!=="together"&&<span style={{ background:"rgba(167,139,250,0.1)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {mission.who==="person1"?p1:p2}</span>}
+            {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
+            {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
+            {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
             {mission.estimatedHours&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.estimatedHours}h est.</span>}
             {mission.realHours&&<span style={{ background:"rgba(52,211,153,0.08)", color:"#34d399", border:"1px solid rgba(52,211,153,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>✅ {mission.realHours}h</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
@@ -771,15 +796,20 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>¿Quién?</label>
             <div style={{ display:"flex", gap:5 }}>
-              {WHO.map(w=><button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:mission.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${mission.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:mission.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>)}
+              {WHO.map(w=>{
+                const wc=w.id==="person1"?clr.person1:w.id==="person2"?clr.person2:clr.together;
+                const sel=mission.who===w.id;
+                return <button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:sel?`${wc}22`:"rgba(255,255,255,0.04)", border:`1px solid ${sel?wc+"60":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?wc:"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>;
+              })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={mission.estimatedHours||""} onChange={e=>onPatch({estimatedHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
             <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={mission.realHours||""} onChange={e=>onPatch({realHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
           </div>
+          {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
         </div>
       )}
     </div>
@@ -789,16 +819,43 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2 }) {
 function SettingsModal({ data, update, onClose }) {
   const [p1, setP1] = useState(data.settings?.person1||"Pololo");
   const [p2, setP2] = useState(data.settings?.person2||"Banana");
-  const save = () => { update(d=>({...d,settings:{...d.settings,person1:p1.trim()||"Pololo",person2:p2.trim()||"Banana"}})); onClose(); };
+  const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors||{}) });
+  const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
+  const save = () => { update(d=>({...d,settings:{...d.settings,person1:p1.trim()||"Pololo",person2:p2.trim()||"Banana",colors}})); onClose(); };
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:380 }}>
+      <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:400 }}>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:600, marginBottom:20 }}>⚙️ Configuración</div>
-        <div style={{ marginBottom:14 }}><label style={S.label}>Nombre persona 1</label><input value={p1} onChange={e=>setP1(e.target.value)} style={S.input} placeholder="Pololo" /></div>
-        <div style={{ marginBottom:20 }}><label style={S.label}>Nombre persona 2</label><input value={p2} onChange={e=>setP2(e.target.value)} style={S.input} placeholder="Banana" /></div>
-        <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-          <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
-          <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+        <div style={{ marginBottom:14 }}>
+          <label style={S.label}>Persona 1</label>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input value={p1} onChange={e=>setP1(e.target.value)} style={{ ...S.input, flex:1 }} placeholder="Pololo" />
+            <input type="color" value={colors.person1} onChange={e=>setColor("person1",e.target.value)}
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color persona 1" />
+          </div>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label style={S.label}>Persona 2</label>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input value={p2} onChange={e=>setP2(e.target.value)} style={{ ...S.input, flex:1 }} placeholder="Banana" />
+            <input type="color" value={colors.person2} onChange={e=>setColor("person2",e.target.value)}
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color persona 2" />
+          </div>
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <label style={S.label}>Actividades juntos</label>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <div style={{ flex:1, fontSize:13, color:"#6b5f88", fontStyle:"italic" }}>Color para actividades en pareja</div>
+            <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color juntos" />
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
+          <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11 }}>↺ Colores por defecto</button>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
+            <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1051,7 +1108,7 @@ function StatsView({ weeks, p1, p2 }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, onAddForDay, onDownloadICS, onDownloadPDF }) {
+function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -1107,17 +1164,21 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, onAddForDay
         {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:14 }}>Sin misiones asignadas 🙂</div>:
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {selMs.map(m=>{
-              const who=m.who==="person1"?p1:m.who==="person2"?p2:null;
-              return <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <span style={{ fontSize:22, flexShrink:0 }}>{m.emoji}</span>
+              const clr = colors || DEFAULT_COLORS;
+              const whoColor = m.who==="person1"?clr.person1:m.who==="person2"?clr.person2:clr.together;
+              const whoLabel = m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
+              const whoIcon = m.who==="together"?"👫":"🙋";
+              const gcalUrl = googleCalendarUrl(m, p1, p2);
+              return <div key={m.id} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                <span style={{ fontSize:22, flexShrink:0, marginTop:2 }}>{m.emoji}</span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
                   <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:3 }}>
-                    <span style={{ fontSize:11, color:"#4a4166" }}>Semana {m.weekNumber}</span>
+                    <span style={{ fontSize:11, color:"#4a4166" }}>S{m.weekNumber}</span>
                     {m.time&&<span style={{ fontSize:11, color:"#a78bfa", fontWeight:600 }}>🕐 {m.time}</span>}
                     {m.category&&<span style={{ fontSize:11, color:"#6b5f88" }}>{CAT_MAP[m.category]?.icon} {CAT_MAP[m.category]?.label}</span>}
-                    {who&&<span style={{ fontSize:11, background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"1px 6px", borderRadius:99 }}>🙋 {who}</span>}
-                    {!who&&m.who==="together"&&<span style={{ fontSize:11, background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.2)", padding:"1px 6px", borderRadius:99 }}>👫 Juntos</span>}
+                    <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
+                    {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#34d399", textDecoration:"none" }} title="Añadir a Google Calendar">📅 GCal</a>}
                   </div>
                 </div>
                 <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
