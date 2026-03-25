@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { loadData, saveData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SEED_VERSION = 4;
+const SEED_VERSION = 5;
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 const STATUS = {
   TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
@@ -58,26 +58,32 @@ const googleCalendarUrl = (mission, name1, name2) => {
   let dates;
   if (mission.time) {
     const [hh, mm] = mission.time.split(":").map(Number);
-    const tot = hh*60 + mm + Math.round((mission.estimatedHours||1)*60);
+    const tot = hh*60 + mm + Math.round((mission.duration || mission.estimatedHours || 1)*60);
     const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
     dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
   } else {
     const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
     dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
   }
-  const details = `Quién: ${who}${mission.estimatedHours?` · ${mission.estimatedHours}h`:""}`;
+  const dur = mission.duration || mission.estimatedHours;
+  const details = `Quién: ${who}${dur?` · ${dur}h`:""}`;
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
 };
 const mk = (id, emoji, title, status, completedAt=null) => ({
   id, emoji, title, status, createdAt: 1739059200000, completedAt,
   date: null, time: null, carriedFrom: null, carriedFromWeek: null,
-  category: null, who: "together", estimatedHours: null, realHours: null,
+  category: null, who: "together", duration: null,
 });
 
 const SEED = {
   seedVersion: SEED_VERSION,
   currentWeekNumber: 13, currentYear: 2026,
   settings: DEFAULT_SETTINGS,
+  goals: [
+    { id:"sg1", emoji:"🍽️", title:"Cenar juntos fuera de casa", who:"together", period:"monthly", target:2, active:true, createdAt:1739059200000 },
+    { id:"sg2", emoji:"🏃", title:"Hacer deporte juntos", who:"together", period:"weekly", target:2, active:true, createdAt:1739059200000 },
+    { id:"sg3", emoji:"🧘", title:"Día de relax sin estrés", who:"together", period:"monthly", target:1, active:true, createdAt:1739059200000 },
+  ],
   weeks: {
     "2026-W07": {
       weekNumber:7, year:2026, epicObjective:"A tope con healty style!", createdAt:1739059200000,
@@ -178,6 +184,71 @@ const SEED = {
   },
 };
 
+// ─── Goal helpers ─────────────────────────────────────────────────────────────
+const PERIOD_LABEL = { weekly:"Semanal", monthly:"Mensual", annual:"Anual" };
+const PERIOD_EMOJI = { weekly:"📅", monthly:"🗓️", annual:"🎊" };
+
+function computeGoalProgress(goal, weeks, cwn, cyr) {
+  const now = new Date();
+  const allDone = Object.values(weeks).flatMap(w =>
+    (w.missions||[]).filter(m => m.goalId===goal.id && m.status==="DONE")
+      .map(m => ({ ...m, wn:w.weekNumber, wy:w.year||cyr }))
+  );
+  let current = 0;
+  if (goal.period==="weekly") {
+    current = allDone.filter(m => m.wn===cwn && m.wy===cyr).length;
+  } else if (goal.period==="monthly") {
+    current = allDone.filter(m => {
+      if (m.date) { const d=new Date(m.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); }
+      const approx = new Date(m.wy, 0, 1+(m.wn-1)*7);
+      return approx.getMonth()===now.getMonth()&&approx.getFullYear()===now.getFullYear();
+    }).length;
+  } else {
+    current = allDone.filter(m => {
+      if (m.date) return new Date(m.date).getFullYear()===now.getFullYear();
+      return m.wy===now.getFullYear();
+    }).length;
+  }
+  return { current, target:goal.target, pct:goal.target>0?Math.min((current/goal.target)*100,100):0 };
+}
+
+function computeGoalHistory(goal, weeks) {
+  const now = new Date();
+  const allDone = Object.values(weeks).flatMap(w =>
+    (w.missions||[]).filter(m => m.goalId===goal.id && m.status==="DONE")
+      .map(m => ({ ...m, wn:w.weekNumber, wy:w.year||now.getFullYear() }))
+  );
+  const MONTHS_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  if (goal.period==="weekly") {
+    return Array.from({length:8},(_,i)=>{
+      const d = new Date(now); d.setDate(d.getDate()-(7-i)*7);
+      const { week:wn, year:wy } = getWeekAndYear(d);
+      const count = allDone.filter(m=>m.wn===wn&&m.wy===wy).length;
+      return { label:`S${wn}`, count, met:count>=goal.target };
+    });
+  } else if (goal.period==="monthly") {
+    return Array.from({length:6},(_,i)=>{
+      const d = new Date(now.getFullYear(), now.getMonth()-(5-i), 1);
+      const mo=d.getMonth(), yr=d.getFullYear();
+      const count = allDone.filter(m=>{
+        if (m.date){const md=new Date(m.date);return md.getMonth()===mo&&md.getFullYear()===yr;}
+        const approx=new Date(m.wy,0,1+(m.wn-1)*7);
+        return approx.getMonth()===mo&&approx.getFullYear()===yr;
+      }).length;
+      return { label:MONTHS_SHORT[mo], count, met:count>=goal.target };
+    });
+  } else {
+    return Array.from({length:4},(_,i)=>{
+      const yr = now.getFullYear()-(3-i);
+      const count = allDone.filter(m=>{
+        if(m.date)return new Date(m.date).getFullYear()===yr;
+        return m.wy===yr;
+      }).length;
+      return { label:String(yr), count, met:count>=goal.target };
+    });
+  }
+}
+
 // ─── Carry-over ───────────────────────────────────────────────────────────────
 function applyCarryOver(data) {
   const { currentWeekNumber:cwn, currentYear:cyr } = data;
@@ -220,7 +291,7 @@ export default function CoupleMissions() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", estimatedHours:"", realHours:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
   const [carriedCount, setCarriedCount] = useState(0);
@@ -241,6 +312,7 @@ export default function CoupleMissions() {
           base = { ...SEED };
         }
         if (!base.settings) base.settings = DEFAULT_SETTINGS;
+        if (!base.goals) base.goals = SEED.goals;
         if (isTodayMonday()) base = applyCarryOver(base);
         setData(base);
         await saveData(base);
@@ -293,8 +365,8 @@ export default function CoupleMissions() {
 
   const addMission = () => {
     if (!newM.title.trim()) return;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, estimatedHours:newM.estimatedHours?parseFloat(newM.estimatedHours):null, realHours:null }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", estimatedHours:"", realHours:"" });
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null });
     setShowAddForm(false);
   };
 
@@ -316,6 +388,11 @@ export default function CoupleMissions() {
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => update(d => applyCarryOver(d));
+
+  const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
+  const addGoal = g => patchGoals(gs => [...gs, { ...g, id:uid(), active:true, createdAt:Date.now() }]);
+  const updateGoal = (id, patch) => patchGoals(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
+  const deleteGoal = id => patchGoals(gs => gs.filter(g => g.id!==id));
 
   const compressImage = (file) => new Promise(resolve => {
     const reader = new FileReader();
@@ -354,7 +431,7 @@ export default function CoupleMissions() {
         const ts = m.time.replace(":","")+"00";
         lines.push(`DTSTART:${ds}T${ts}`);
         const [hh,mm] = m.time.split(":").map(Number);
-        const tot = hh*60+mm+Math.round((m.estimatedHours||1)*60);
+        const tot = hh*60+mm+Math.round((m.duration||m.estimatedHours||1)*60);
         const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
         lines.push(`DTEND:${ds}T${eh}${em}00`);
       } else {
@@ -364,7 +441,7 @@ export default function CoupleMissions() {
       }
       lines.push(`SUMMARY:${m.emoji} ${m.title}`);
       const parts = [`Semana ${weekData.weekNumber}`,`Estado: ${STATUS[m.status]?.label||m.status}`,`Quién: ${who}`];
-      if (m.estimatedHours) parts.push(`Estimado: ${m.estimatedHours}h`);
+      if (m.duration||m.estimatedHours) parts.push(`Duración: ${m.duration||m.estimatedHours}h`);
       lines.push(`DESCRIPTION:${parts.join("\\n")}`);
       lines.push("END:VEVENT");
     }
@@ -424,7 +501,8 @@ ${weekData.epicObjective?`<div class="obj">🎯 ${weekData.epicObjective}</div>`
 ${sorted.map(m=>{
   const who=m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
   const when=m.date?(m.time?`${m.date} ${m.time}`:m.date):"Sin fecha";
-  return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${m.estimatedHours?`<div class="detail">⏱ ${m.estimatedHours}h est.</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
+  const dur = m.duration||m.estimatedHours;
+  return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${dur?`<div class="detail">⏱ ${dur}h</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
 }).join("")}
 </tbody></table>
 <div class="footer">💞 Misiones de Pareja · misiones-pareja.netlify.app</div>
@@ -498,8 +576,7 @@ ${ms.map(m=>{
 
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
-  const weekEstH = (week.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0);
-  const weekRealH = (week.missions||[]).reduce((s,m)=>s+(m.realHours||0),0);
+
   const pct = total>0?(done/total)*100:0;
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
   const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
@@ -543,9 +620,9 @@ ${ms.map(m=>{
         </div>
 
         {/* Tabs */}
-        <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:4, marginBottom:22 }}>
-          {[{id:"current",label:"🎯 Semana"},{id:"calendar",label:"📅 Calendario"},{id:"history",label:"🗂️ Historial"},{id:"stats",label:"📊 Stats"}].map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flex:1, padding:"8px 4px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12, fontWeight:500, fontFamily:"inherit", transition:"all 0.2s", background:activeTab===t.id?"rgba(167,139,250,0.18)":"transparent", color:activeTab===t.id?"#c4b8ff":"#6b5f88" }}>{t.label}</button>
+        <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:4, marginBottom:22, overflowX:"auto", scrollbarWidth:"none" }}>
+          {[{id:"current",label:"🎯 Semana"},{id:"calendar",label:"📅 Cal."},{id:"history",label:"🗂️ Hist."},{id:"goals",label:"🏅 Metas"},{id:"stats",label:"📊 Stats"}].map(t=>(
+            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flexShrink:0, padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:500, fontFamily:"inherit", transition:"all 0.2s", background:activeTab===t.id?"rgba(167,139,250,0.18)":"transparent", color:activeTab===t.id?"#c4b8ff":"#6b5f88", whiteSpace:"nowrap" }}>{t.label}</button>
           ))}
         </div>
 
@@ -569,10 +646,10 @@ ${ms.map(m=>{
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {week.missions?.map(m=>(
-              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
+              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
             {showAddForm
-              ? <AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} />
+              ? <AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />
               : <button onClick={()=>setShowAddForm(true)} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"14px", border:"2px dashed rgba(167,139,250,0.2)", borderRadius:13, background:"transparent", color:"#5a4f80", cursor:"pointer", fontSize:14, fontFamily:"inherit" }}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.45)";e.currentTarget.style.color="#a78bfa";}}
                   onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.2)";e.currentTarget.style.color="#5a4f80";}}><span style={{ fontSize:20 }}>+</span> Nueva misión</button>
@@ -655,8 +732,14 @@ ${ms.map(m=>{
                         </label>
                     }
                   </div>
-                  {w.photo&&<div style={{ marginTop:8 }}>
+                  {/* ICS por semana */}
+                  {(w.missions||[]).some(m=>m.date)&&<div style={{ marginTop:8 }}>
+                    <button onClick={()=>downloadWeekICS(w, key, p1, p2)} style={{ ...S.btnSecondary, fontSize:11, padding:"4px 10px", borderColor:"rgba(52,211,153,0.25)", color:"#34d399", width:"100%" }}>📅 Importar semana {w.weekNumber} a Google Calendar (.ics)</button>
+                  </div>}
+                  {w.photo&&<div style={{ marginTop:8, position:"relative" }}>
                     <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:200, objectFit:"cover", display:"block" }} alt="foto semana" />
+                    <a href={w.photo} download={`semana-${w.weekNumber}-${w.year||""}.jpg`}
+                      style={{ position:"absolute", bottom:8, right:8, background:"rgba(0,0,0,0.55)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, color:"#f8f4ff", fontSize:11, padding:"4px 9px", textDecoration:"none", backdropFilter:"blur(4px)" }}>⬇ Guardar foto</a>
                   </div>}
                 </div>
               );
@@ -665,7 +748,9 @@ ${ms.map(m=>{
           );
         })()}
 
-        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
+        {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
+
+        {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
       </div>
     </div>
   );
@@ -706,8 +791,9 @@ function WorkHoursCard({ week, patchWeek, p1, p2 }) {
   );
 }
 
-function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
+function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
+  const activeGoals = (goals||[]).filter(g=>g.active!==false);
   return (
     <div style={{ ...S.card, borderColor:"rgba(167,139,250,0.3)" }}>
       <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
@@ -736,12 +822,20 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
           ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
         <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({...p,date:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({...p,time:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-        <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={newM.estimatedHours} onChange={e=>setNewM(p=>({...p,estimatedHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
-        <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={newM.realHours} onChange={e=>setNewM(p=>({...p,realHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
+        <div><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({...p,duration:e.target.value}))} placeholder="1" style={S.inputSm} /></div>
       </div>
+      {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
+        <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+          {activeGoals.map(g=>{
+            const sel=newM.goalId===g.id;
+            return <button key={g.id} onClick={()=>setNewM(p=>({...p,goalId:sel?null:g.id}))} style={{ background:sel?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${sel?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?"#c4b8ff":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{g.emoji} {g.title}</button>;
+          })}
+        </div>
+      </div>}
       <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
           {STATUS_ORDER.map(s=><button key={s} onClick={()=>setNewM(p=>({...p,status:s}))} style={{ ...badgeStyle(s), opacity:newM.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}
@@ -755,7 +849,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
   );
 }
 
-function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors }) {
+function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals }) {
   const [expanded, setExpanded] = useState(false);
   const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
   const cat = mission.category ? CAT_MAP[mission.category] : null;
@@ -775,9 +869,9 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
             {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
-            {mission.estimatedHours&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.estimatedHours}h est.</span>}
-            {mission.realHours&&<span style={{ background:"rgba(52,211,153,0.08)", color:"#34d399", border:"1px solid rgba(52,211,153,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>✅ {mission.realHours}h</span>}
+            {(mission.duration||mission.estimatedHours)&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.duration||mission.estimatedHours}h</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
+            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏅 {g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
         <button onClick={onCycleStatus} style={badgeStyle(mission.status)}>{STATUS[mission.status].icon}</button>
@@ -803,12 +897,20 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
               })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={mission.estimatedHours||""} onChange={e=>onPatch({estimatedHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
-            <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={mission.realHours||""} onChange={e=>onPatch({realHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
+            <div><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({duration:parseFloat(e.target.value)||null})} placeholder="1" style={S.inputSm} /></div>
           </div>
+          {(goals||[]).filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:8 }}>
+            <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+              {(goals||[]).filter(g=>g.active!==false).map(g=>{
+                const sel=mission.goalId===g.id;
+                return <button key={g.id} onClick={()=>onPatch({goalId:sel?null:g.id})} style={{ background:sel?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${sel?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?"#c4b8ff":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{g.emoji} {g.title}</button>;
+              })}
+            </div>
+          </div>}
           {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
         </div>
       )}
@@ -862,31 +964,41 @@ function SettingsModal({ data, update, onClose }) {
   );
 }
 
-function StatsView({ weeks, p1, p2 }) {
-  const allW = Object.values(weeks), allM = allW.flatMap(w=>w.missions||[]);
+function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
+  const clr = { ...DEFAULT_COLORS, ...(colors||{}) };
+  const [stWho, setStWho] = useState("all");
+  const [stRange, setStRange] = useState("all");
+
+  // ── Datos filtrados ──────────────────────────────────────────────────────
+  const sortedAll = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+  const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
+  const allW = rangedEntries.map(([,w]) => {
+    const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
+    return { ...w, missions:ms };
+  });
+  const allM = allW.flatMap(w=>w.missions||[]);
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  const sortedSeries = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+  const sortedSeries = rangedEntries;
   let bestStreak=0, currStreak=0, currStreakNow=0;
-  for (const [,w] of sortedSeries) {
+  for (const w of allW) {
     const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
     if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); currStreakNow=currStreak; } else { currStreak=0; }
   }
 
   const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
   const maxSt = Math.max(...bySt.map(x=>x.count), 1);
-  const totalEst = allM.reduce((s,m)=>s+(m.estimatedHours||0),0);
-  const totalReal = allM.reduce((s,m)=>s+(m.realHours||0),0);
+  const totalDuration = allM.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0);
   const catStats = CATEGORIES.map(c => {
     const ms=allM.filter(m=>m.category===c.id);
-    return { ...c, real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
+    return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
   const ph = key => { const ms=allM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, realH:(w.missions||[]).reduce((s,m)=>s+(m.realHours||0),0), estH:(w.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0), total:t, done:d }; });
-  const maxH=Math.max(...series.map(s=>Math.max(s.realH,s.estH)),1);
+  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w.year||new Date().getFullYear() }; });
+  const maxH=Math.max(...series.map(s=>s.durH),1);
 
   // AI Insights
   const insights = [];
@@ -898,7 +1010,7 @@ function StatsView({ weeks, p1, p2 }) {
     else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!` });
     else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de completitud de las últimas semanas. Eso es consistencia 💪` });
   }
-  const bestW = sortedSeries.reduce((best,[k,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
+  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
   if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!` });
   if (catStats.length>0) {
     const bestCat = [...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1))[0];
@@ -912,9 +1024,8 @@ function StatsView({ weeks, p1, p2 }) {
     if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName} tiene ${leadCount} misiones propias vs ${Math.min(totalP1only,totalP2only)} de la otra persona. ¿Equilibráis?` });
     else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están muy bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
   }
-  if (totalEst>0&&totalReal>0) {
-    const eff = Math.round((totalReal/totalEst)*100);
-    insights.push({ icon:"⏱", title:`Eficiencia temporal: ${eff}%`, desc:eff>120?`Tardáis un ${eff-100}% más de lo esperado. Intentad ser más realistas al estimar.`:eff<80?`Sois más rápidos de lo que estimáis 🚀 (${100-eff}% menos tiempo del esperado).`:`Estimáis el tiempo con mucha precisión. Casi perfectos! 🎯` });
+  if (totalDuration>0) {
+    insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
   }
   if (currStreakNow>=2) insights.push({ icon:"🔥", title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`, desc:`Lleváis ${currStreakNow} semanas seguidas completando todo. ¡Imparables!` });
 
@@ -926,8 +1037,51 @@ function StatsView({ weeks, p1, p2 }) {
   const donutSegments = bySt.filter(x=>x.count>0).map(({s,count})=>{ const pct2=(count/donutTotal)*100; const seg={s,pct:pct2,offset:donutOffset}; donutOffset+=pct2; return seg; });
   const C=15.9155, R=5; // SVG circumference helper
 
+  const whoOpts = [
+    { id:"all", label:"Todos", color:"#8b7fa8" },
+    { id:"person1", label:p1, color:clr.person1 },
+    { id:"person2", label:p2, color:clr.person2 },
+    { id:"together", label:"Juntos", color:clr.together },
+  ];
+  const rangeOpts = [
+    { id:"all", label:"Siempre" },
+    { id:"4", label:"4 sem." },
+    { id:"8", label:"8 sem." },
+    { id:"12", label:"12 sem." },
+  ];
+
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+
+      {/* Filter bar */}
+      <div style={{ ...S.card, padding:"10px 12px", display:"flex", flexDirection:"column", gap:9 }}>
+        {/* Who */}
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Quién</span>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            {whoOpts.map(o=>{
+              const active = stWho===o.id;
+              return <button key={o.id} onClick={()=>setStWho(o.id)}
+                style={{ background:active?`${o.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${active?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?o.color:"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                {o.label}
+              </button>;
+            })}
+          </div>
+        </div>
+        {/* Range */}
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Rango</span>
+          <div style={{ display:"flex", gap:4 }}>
+            {rangeOpts.map(o=>{
+              const active = stRange===o.id;
+              return <button key={o.id} onClick={()=>setStRange(o.id)}
+                style={{ background:active?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${active?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                {o.label}
+              </button>;
+            })}
+          </div>
+        </div>
+      </div>
 
       {/* AI Insights */}
       {insights.length>0&&<div style={{ ...S.card, borderColor:"rgba(244,114,182,0.25)", background:"linear-gradient(135deg,rgba(167,139,250,0.07),rgba(244,114,182,0.04))" }}>
@@ -1005,47 +1159,22 @@ function StatsView({ weeks, p1, p2 }) {
         </div>
       </div>}
 
-      {/* Est vs Real + horas por semana */}
-      {(totalEst>0||totalReal>0)&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Horas estimadas vs reales</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
-          {[{label:"Estimadas",val:totalEst,color:"#60a5fa"},{label:"Reales",val:totalReal,color:"#34d399"}].map(({label,val,color})=>(
-            <div key={label} style={{ background:`${color}10`, border:`1px solid ${color}25`, borderRadius:10, padding:"12px", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color }}>{val.toFixed(1)}h</div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginTop:3 }}>{label}</div>
+      {/* Duración por semana */}
+      {series.some(s=>s.durH>0)&&<div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Duración por semana</div>
+        <div style={{ textAlign:"center", marginBottom:12 }}>
+          <span style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, color:"#60a5fa" }}>{totalDuration.toFixed(1)}h</span>
+          <span style={{ fontSize:12, color:"#6b5f88", marginLeft:8 }}>total planificadas</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:70 }}>
+          {series.filter(w=>w.durH>0).map(w=>(
+            <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <div style={{ fontSize:9, color:"#6b5f88" }}>{w.durH>0?`${w.durH}h`:""}</div>
+              <div style={{ width:"100%", borderRadius:"3px 3px 0 0", height:`${(w.durH/maxH)*100}%`, background:"rgba(96,165,250,0.6)", minHeight:3 }} />
+              <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
             </div>
           ))}
         </div>
-        {totalEst>0&&totalReal>0&&<>
-          <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:8, height:10, overflow:"hidden", marginBottom:6, position:"relative" }}>
-            <div style={{ position:"absolute", height:"100%", width:`${Math.min((totalReal/totalEst)*100,100)}%`, background:totalReal>totalEst?"linear-gradient(90deg,#fb923c,#f472b6)":"linear-gradient(90deg,#34d399,#60a5fa)", borderRadius:8 }} />
-            <div style={{ position:"absolute", height:"100%", width:2, left:`${Math.min((totalEst/(Math.max(totalEst,totalReal)))*100,100)}%`, background:"rgba(255,255,255,0.3)" }} />
-          </div>
-          <div style={{ fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
-            {totalReal>totalEst?`⚠️ ${(totalReal-totalEst).toFixed(1)}h más de lo esperado (${Math.round((totalReal/totalEst)*100)}%)`
-              :totalReal<totalEst?`✨ ${(totalEst-totalReal).toFixed(1)}h menos de lo esperado (${Math.round((totalReal/totalEst)*100)}%)`
-              :"💯 Estimación perfecta"}
-          </div>
-        </>}
-        {/* Horas por semana dual bar */}
-        {series.some(s=>s.realH>0||s.estH>0)&&<>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginTop:14, marginBottom:10, fontWeight:600 }}>Horas por semana</div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:70 }}>
-            {series.filter(w=>w.estH>0||w.realH>0).map(w=>(
-              <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                <div style={{ width:"100%", display:"flex", gap:1, alignItems:"flex-end", height:56 }}>
-                  {w.estH>0&&<div style={{ flex:1, borderRadius:"3px 3px 0 0", height:`${(w.estH/maxH)*100}%`, background:"rgba(96,165,250,0.5)", minHeight:3 }} title={`${w.estH}h est.`} />}
-                  {w.realH>0&&<div style={{ flex:1, borderRadius:"3px 3px 0 0", height:`${(w.realH/maxH)*100}%`, background:"rgba(52,211,153,0.7)", minHeight:3 }} title={`${w.realH}h real`} />}
-                </div>
-                <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display:"flex", gap:12, justifyContent:"center", marginTop:6 }}>
-            <span style={{ fontSize:10, color:"rgba(96,165,250,0.8)" }}>■ Estimadas</span>
-            <span style={{ fontSize:10, color:"rgba(52,211,153,0.8)" }}>■ Reales</span>
-          </div>
-        </>}
       </div>}
 
       {/* Per person with mini visual bars */}
@@ -1075,8 +1204,7 @@ function StatsView({ weeks, p1, p2 }) {
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, alignItems:"center" }}>
               <span style={{ fontSize:13, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
               <div style={{ display:"flex", gap:8, fontSize:12, alignItems:"center" }}>
-                {c.real>0&&<span style={{ color:"#34d399" }}>{c.real}h real</span>}
-                {c.est>0&&<span style={{ color:"#60a5fa" }}>~{c.est}h est.</span>}
+                {c.dur>0&&<span style={{ color:"#60a5fa" }}>⏱ {c.dur}h</span>}
                 <span style={{ color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
               </div>
             </div>
@@ -1159,7 +1287,10 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
       {selectedDay&&<div style={{ ...S.card, marginTop:16, borderColor:"rgba(167,139,250,0.3)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
           <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
-          {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px", display:"flex", alignItems:"center", gap:4 }}>+ Añadir misión</button>}
+          <div style={{ display:"flex", gap:6 }}>
+            {selMs.some(m=>m.date)&&<button onClick={()=>selMs.filter(m=>m.date).forEach((m,i)=>setTimeout(()=>window.open(googleCalendarUrl(m,p1,p2),"_blank"),i*300))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 10px" }} title="Se pueden bloquear si tienes popups desactivados">📅 Todos al GCal</button>}
+            {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px", display:"flex", alignItems:"center", gap:4 }}>+ Añadir misión</button>}
+          </div>
         </div>
         {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:14 }}>Sin misiones asignadas 🙂</div>:
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -1207,6 +1338,156 @@ function EmojiSelect({ value, onChange }) {
           </div>
         </div>
       </>}
+    </div>
+  );
+}
+
+// ─── P5 Goals ─────────────────────────────────────────────────────────────────
+function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
+  const WHO = [{id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
+  const PERIODS = [{id:"weekly",label:"Semanal"},{id:"monthly",label:"Mensual"},{id:"annual",label:"Anual"}];
+  return (
+    <div style={{ ...S.card, borderColor:"rgba(167,139,250,0.35)" }}>
+      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
+        <EmojiSelect value={form.emoji} onChange={e=>setForm(f=>({...f,emoji:e}))} />
+        <input autoFocus value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onSave()} placeholder="Nombre de la meta..." style={S.input} />
+      </div>
+      <div style={{ marginBottom:10 }}>
+        <label style={S.label}>¿Para quién?</label>
+        <div style={{ display:"flex", gap:5 }}>
+          {WHO.map(w=><button key={w.id} onClick={()=>setForm(f=>({...f,who:w.id}))} style={{ background:form.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${form.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:form.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{w.icon} {w.label}</button>)}
+        </div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, marginBottom:12, alignItems:"end" }}>
+        <div>
+          <label style={S.label}>Periodicidad</label>
+          <div style={{ display:"flex", gap:4 }}>
+            {PERIODS.map(p=><button key={p.id} onClick={()=>setForm(f=>({...f,period:p.id}))} style={{ flex:1, background:form.period===p.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${form.period===p.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:form.period===p.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{p.label}</button>)}
+          </div>
+        </div>
+        <div style={{ textAlign:"center" }}>
+          <label style={S.label}>Mínimo</label>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={()=>setForm(f=>({...f,target:Math.max(1,f.target-1)}))} style={{ ...S.btnSecondary, padding:"4px 10px", fontSize:16 }}>−</button>
+            <span style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"#f8f4ff", minWidth:20, textAlign:"center" }}>{form.target}</span>
+            <button onClick={()=>setForm(f=>({...f,target:f.target+1}))} style={{ ...S.btnSecondary, padding:"4px 10px", fontSize:16 }}>+</button>
+          </div>
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
+        <button onClick={onCancel} style={S.btnSecondary}>Cancelar</button>
+        <button onClick={onSave} style={S.btnPrimary}>{isEdit?"Guardar ✓":"Crear meta ✨"}</button>
+      </div>
+    </div>
+  );
+}
+
+function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }) {
+  const clr = colors||DEFAULT_COLORS;
+  const whoColor = goal.who==="person1"?clr.person1:goal.who==="person2"?clr.person2:clr.together;
+  const whoLabel = goal.who==="person1"?p1:goal.who==="person2"?p2:"Juntos";
+  const whoIcon = goal.who==="together"?"👫":"🙋";
+  const met = progress.current>=progress.target;
+  return (
+    <div style={{ ...S.card, borderColor:met?`${clr.together}50`:"rgba(167,139,250,0.12)", transition:"border-color 0.3s" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <span style={{ fontSize:28 }}>{goal.emoji}</span>
+          <div>
+            <div style={{ fontSize:14, fontWeight:600, color:"#f0e8ff" }}>{goal.title}</div>
+            <div style={{ display:"flex", gap:5, marginTop:3, flexWrap:"wrap" }}>
+              <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
+              <span style={{ fontSize:11, color:"#6b5f88" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · mín. {goal.target}×</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:2 }}>
+          <button onClick={onEdit} style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4166", fontSize:15, padding:"3px 5px" }}
+            onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>✏️</button>
+          <button onClick={onArchive} title="Archivar" style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4166", fontSize:13, padding:"3px 5px" }}
+            onMouseEnter={e=>e.currentTarget.style.color="#fb923c"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>📦</button>
+        </div>
+      </div>
+      {/* Progreso período actual */}
+      <div style={{ marginBottom:10 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:5 }}>
+          <span style={{ color:"#8b7fa8" }}>{goal.period==="weekly"?"Esta semana":goal.period==="monthly"?"Este mes":"Este año"}</span>
+          <span style={{ color:met?"#34d399":"#f8f4ff", fontWeight:600 }}>{met?"✅ ":""}{progress.current}/{progress.target}</span>
+        </div>
+        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+          <div style={{ height:"100%", width:`${progress.pct}%`, background:met?"linear-gradient(90deg,#34d399,#60a5fa)":`linear-gradient(90deg,${whoColor},${whoColor}99)`, borderRadius:99, transition:"width 0.5s" }} />
+        </div>
+      </div>
+      {/* Historial */}
+      {history.length>0&&<div>
+        <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          {history.map((h,i)=>(
+            <div key={i} title={`${h.label}: ${h.count}/${goal.target}`}
+              style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
+                background:h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
+                border:`1px solid ${h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
+                color:h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
+              <span style={{ fontSize:11 }}>{h.met?"✅":"·"}</span>
+              <span style={{ fontSize:8 }}>{h.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAdd, onUpdate, onDelete }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editGoal, setEditGoal] = useState(null);
+  const [form, setForm] = useState({ emoji:"🏅", title:"", who:"together", period:"monthly", target:1 });
+
+  const openNew = () => { setEditGoal(null); setForm({emoji:"🏅",title:"",who:"together",period:"monthly",target:1}); setShowForm(true); };
+  const openEdit = g => { setEditGoal(g); setForm({emoji:g.emoji,title:g.title,who:g.who,period:g.period,target:g.target}); setShowForm(true); };
+  const cancel = () => { setShowForm(false); setEditGoal(null); };
+  const save = () => {
+    if (!form.title.trim()) return;
+    if (editGoal) onUpdate(editGoal.id, form); else onAdd(form);
+    setShowForm(false); setEditGoal(null);
+  };
+
+  const active = (goals||[]).filter(g=>g.active!==false);
+  const archived = (goals||[]).filter(g=>g.active===false);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>🏅 Metas activas</div>
+        {!showForm&&<button onClick={openNew} style={S.btnPrimary}>+ Nueva meta</button>}
+      </div>
+
+      {showForm&&<GoalForm form={form} setForm={setForm} onSave={save} onCancel={cancel} isEdit={!!editGoal} p1={p1} p2={p2} />}
+
+      {active.map(g=>{
+        const prog = computeGoalProgress(g, weeks, cwn, cyr);
+        const hist = computeGoalHistory(g, weeks);
+        return <GoalCard key={g.id} goal={g} progress={prog} history={hist} p1={p1} p2={p2} colors={colors}
+          onEdit={()=>openEdit(g)} onArchive={()=>onUpdate(g.id,{active:false})} />;
+      })}
+
+      {!active.length&&!showForm&&<div style={{ textAlign:"center", padding:48, color:"#3d3360" }}>
+        <div style={{ fontSize:44, marginBottom:12 }}>🏅</div>
+        <div style={{ fontStyle:"italic", fontSize:14 }}>Sin metas activas aún.<br/>¡Crea la primera!</div>
+      </div>}
+
+      {archived.length>0&&<div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:8, marginTop:4 }}>Archivadas</div>
+        {archived.map(g=>(
+          <div key={g.id} style={{ ...S.card, opacity:0.5, marginBottom:6, display:"flex", alignItems:"center", gap:10, padding:"10px 14px" }}>
+            <span style={{ fontSize:20 }}>{g.emoji}</span>
+            <div style={{ flex:1, fontSize:13, color:"#6b5f88" }}>{g.title}</div>
+            <button onClick={()=>onUpdate(g.id,{active:true})} style={{ ...S.btnSecondary, fontSize:11, padding:"3px 10px" }}>↺ Reactivar</button>
+            <button onClick={()=>onDelete(g.id)} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:18, lineHeight:1, padding:"0 2px" }}
+              onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+          </div>
+        ))}
+      </div>}
     </div>
   );
 }
