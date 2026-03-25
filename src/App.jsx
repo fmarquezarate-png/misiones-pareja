@@ -58,20 +58,21 @@ const googleCalendarUrl = (mission, name1, name2) => {
   let dates;
   if (mission.time) {
     const [hh, mm] = mission.time.split(":").map(Number);
-    const tot = hh*60 + mm + Math.round((mission.estimatedHours||1)*60);
+    const tot = hh*60 + mm + Math.round((mission.duration || mission.estimatedHours || 1)*60);
     const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
     dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
   } else {
     const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
     dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
   }
-  const details = `Quién: ${who}${mission.estimatedHours?` · ${mission.estimatedHours}h`:""}`;
+  const dur = mission.duration || mission.estimatedHours;
+  const details = `Quién: ${who}${dur?` · ${dur}h`:""}`;
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
 };
 const mk = (id, emoji, title, status, completedAt=null) => ({
   id, emoji, title, status, createdAt: 1739059200000, completedAt,
   date: null, time: null, carriedFrom: null, carriedFromWeek: null,
-  category: null, who: "together", estimatedHours: null, realHours: null,
+  category: null, who: "together", duration: null,
 });
 
 const SEED = {
@@ -220,7 +221,7 @@ export default function CoupleMissions() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", estimatedHours:"", realHours:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"" });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
   const [carriedCount, setCarriedCount] = useState(0);
@@ -293,8 +294,8 @@ export default function CoupleMissions() {
 
   const addMission = () => {
     if (!newM.title.trim()) return;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, estimatedHours:newM.estimatedHours?parseFloat(newM.estimatedHours):null, realHours:null }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", estimatedHours:"", realHours:"" });
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, duration:newM.duration?parseFloat(newM.duration):null }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"" });
     setShowAddForm(false);
   };
 
@@ -354,7 +355,7 @@ export default function CoupleMissions() {
         const ts = m.time.replace(":","")+"00";
         lines.push(`DTSTART:${ds}T${ts}`);
         const [hh,mm] = m.time.split(":").map(Number);
-        const tot = hh*60+mm+Math.round((m.estimatedHours||1)*60);
+        const tot = hh*60+mm+Math.round((m.duration||m.estimatedHours||1)*60);
         const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
         lines.push(`DTEND:${ds}T${eh}${em}00`);
       } else {
@@ -364,7 +365,7 @@ export default function CoupleMissions() {
       }
       lines.push(`SUMMARY:${m.emoji} ${m.title}`);
       const parts = [`Semana ${weekData.weekNumber}`,`Estado: ${STATUS[m.status]?.label||m.status}`,`Quién: ${who}`];
-      if (m.estimatedHours) parts.push(`Estimado: ${m.estimatedHours}h`);
+      if (m.duration||m.estimatedHours) parts.push(`Duración: ${m.duration||m.estimatedHours}h`);
       lines.push(`DESCRIPTION:${parts.join("\\n")}`);
       lines.push("END:VEVENT");
     }
@@ -424,7 +425,8 @@ ${weekData.epicObjective?`<div class="obj">🎯 ${weekData.epicObjective}</div>`
 ${sorted.map(m=>{
   const who=m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
   const when=m.date?(m.time?`${m.date} ${m.time}`:m.date):"Sin fecha";
-  return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${m.estimatedHours?`<div class="detail">⏱ ${m.estimatedHours}h est.</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
+  const dur = m.duration||m.estimatedHours;
+  return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${dur?`<div class="detail">⏱ ${dur}h</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
 }).join("")}
 </tbody></table>
 <div class="footer">💞 Misiones de Pareja · misiones-pareja.netlify.app</div>
@@ -498,8 +500,7 @@ ${ms.map(m=>{
 
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
-  const weekEstH = (week.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0);
-  const weekRealH = (week.missions||[]).reduce((s,m)=>s+(m.realHours||0),0);
+
   const pct = total>0?(done/total)*100:0;
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
   const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
@@ -655,8 +656,14 @@ ${ms.map(m=>{
                         </label>
                     }
                   </div>
-                  {w.photo&&<div style={{ marginTop:8 }}>
+                  {/* ICS por semana */}
+                  {(w.missions||[]).some(m=>m.date)&&<div style={{ marginTop:8 }}>
+                    <button onClick={()=>downloadWeekICS(w, key, p1, p2)} style={{ ...S.btnSecondary, fontSize:11, padding:"4px 10px", borderColor:"rgba(52,211,153,0.25)", color:"#34d399", width:"100%" }}>📅 Importar semana {w.weekNumber} a Google Calendar (.ics)</button>
+                  </div>}
+                  {w.photo&&<div style={{ marginTop:8, position:"relative" }}>
                     <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:200, objectFit:"cover", display:"block" }} alt="foto semana" />
+                    <a href={w.photo} download={`semana-${w.weekNumber}-${w.year||""}.jpg`}
+                      style={{ position:"absolute", bottom:8, right:8, background:"rgba(0,0,0,0.55)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, color:"#f8f4ff", fontSize:11, padding:"4px 9px", textDecoration:"none", backdropFilter:"blur(4px)" }}>⬇ Guardar foto</a>
                   </div>}
                 </div>
               );
@@ -736,11 +743,10 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2 }) {
           ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
         <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({...p,date:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({...p,time:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-        <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={newM.estimatedHours} onChange={e=>setNewM(p=>({...p,estimatedHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
-        <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={newM.realHours} onChange={e=>setNewM(p=>({...p,realHours:e.target.value}))} placeholder="0" style={S.inputSm} /></div>
+        <div><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({...p,duration:e.target.value}))} placeholder="1" style={S.inputSm} /></div>
       </div>
       <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -775,8 +781,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
             {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
-            {mission.estimatedHours&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.estimatedHours}h est.</span>}
-            {mission.realHours&&<span style={{ background:"rgba(52,211,153,0.08)", color:"#34d399", border:"1px solid rgba(52,211,153,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>✅ {mission.realHours}h</span>}
+            {(mission.duration||mission.estimatedHours)&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.duration||mission.estimatedHours}h</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
           </div>
         </div>
@@ -803,11 +808,10 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
               })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>⏱ Est. (h)</label><input type="number" min="0" step="0.5" value={mission.estimatedHours||""} onChange={e=>onPatch({estimatedHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
-            <div><label style={S.label}>✅ Real (h)</label><input type="number" min="0" step="0.5" value={mission.realHours||""} onChange={e=>onPatch({realHours:parseFloat(e.target.value)||null})} placeholder="0" style={S.inputSm} /></div>
+            <div><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({duration:parseFloat(e.target.value)||null})} placeholder="1" style={S.inputSm} /></div>
           </div>
           {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
         </div>
@@ -876,17 +880,16 @@ function StatsView({ weeks, p1, p2 }) {
 
   const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
   const maxSt = Math.max(...bySt.map(x=>x.count), 1);
-  const totalEst = allM.reduce((s,m)=>s+(m.estimatedHours||0),0);
-  const totalReal = allM.reduce((s,m)=>s+(m.realHours||0),0);
+  const totalDuration = allM.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0);
   const catStats = CATEGORIES.map(c => {
     const ms=allM.filter(m=>m.category===c.id);
-    return { ...c, real:ms.reduce((s,m)=>s+(m.realHours||0),0), est:ms.reduce((s,m)=>s+(m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
+    return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
   const ph = key => { const ms=allM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, realH:(w.missions||[]).reduce((s,m)=>s+(m.realHours||0),0), estH:(w.missions||[]).reduce((s,m)=>s+(m.estimatedHours||0),0), total:t, done:d }; });
-  const maxH=Math.max(...series.map(s=>Math.max(s.realH,s.estH)),1);
+  const series=sortedSeries.map(([,w])=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d }; });
+  const maxH=Math.max(...series.map(s=>s.durH),1);
 
   // AI Insights
   const insights = [];
@@ -912,9 +915,8 @@ function StatsView({ weeks, p1, p2 }) {
     if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName} tiene ${leadCount} misiones propias vs ${Math.min(totalP1only,totalP2only)} de la otra persona. ¿Equilibráis?` });
     else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están muy bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
   }
-  if (totalEst>0&&totalReal>0) {
-    const eff = Math.round((totalReal/totalEst)*100);
-    insights.push({ icon:"⏱", title:`Eficiencia temporal: ${eff}%`, desc:eff>120?`Tardáis un ${eff-100}% más de lo esperado. Intentad ser más realistas al estimar.`:eff<80?`Sois más rápidos de lo que estimáis 🚀 (${100-eff}% menos tiempo del esperado).`:`Estimáis el tiempo con mucha precisión. Casi perfectos! 🎯` });
+  if (totalDuration>0) {
+    insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
   }
   if (currStreakNow>=2) insights.push({ icon:"🔥", title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`, desc:`Lleváis ${currStreakNow} semanas seguidas completando todo. ¡Imparables!` });
 
@@ -1005,47 +1007,22 @@ function StatsView({ weeks, p1, p2 }) {
         </div>
       </div>}
 
-      {/* Est vs Real + horas por semana */}
-      {(totalEst>0||totalReal>0)&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Horas estimadas vs reales</div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
-          {[{label:"Estimadas",val:totalEst,color:"#60a5fa"},{label:"Reales",val:totalReal,color:"#34d399"}].map(({label,val,color})=>(
-            <div key={label} style={{ background:`${color}10`, border:`1px solid ${color}25`, borderRadius:10, padding:"12px", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color }}>{val.toFixed(1)}h</div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginTop:3 }}>{label}</div>
+      {/* Duración por semana */}
+      {series.some(s=>s.durH>0)&&<div style={S.card}>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Duración por semana</div>
+        <div style={{ textAlign:"center", marginBottom:12 }}>
+          <span style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, color:"#60a5fa" }}>{totalDuration.toFixed(1)}h</span>
+          <span style={{ fontSize:12, color:"#6b5f88", marginLeft:8 }}>total planificadas</span>
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:70 }}>
+          {series.filter(w=>w.durH>0).map(w=>(
+            <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <div style={{ fontSize:9, color:"#6b5f88" }}>{w.durH>0?`${w.durH}h`:""}</div>
+              <div style={{ width:"100%", borderRadius:"3px 3px 0 0", height:`${(w.durH/maxH)*100}%`, background:"rgba(96,165,250,0.6)", minHeight:3 }} />
+              <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
             </div>
           ))}
         </div>
-        {totalEst>0&&totalReal>0&&<>
-          <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:8, height:10, overflow:"hidden", marginBottom:6, position:"relative" }}>
-            <div style={{ position:"absolute", height:"100%", width:`${Math.min((totalReal/totalEst)*100,100)}%`, background:totalReal>totalEst?"linear-gradient(90deg,#fb923c,#f472b6)":"linear-gradient(90deg,#34d399,#60a5fa)", borderRadius:8 }} />
-            <div style={{ position:"absolute", height:"100%", width:2, left:`${Math.min((totalEst/(Math.max(totalEst,totalReal)))*100,100)}%`, background:"rgba(255,255,255,0.3)" }} />
-          </div>
-          <div style={{ fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
-            {totalReal>totalEst?`⚠️ ${(totalReal-totalEst).toFixed(1)}h más de lo esperado (${Math.round((totalReal/totalEst)*100)}%)`
-              :totalReal<totalEst?`✨ ${(totalEst-totalReal).toFixed(1)}h menos de lo esperado (${Math.round((totalReal/totalEst)*100)}%)`
-              :"💯 Estimación perfecta"}
-          </div>
-        </>}
-        {/* Horas por semana dual bar */}
-        {series.some(s=>s.realH>0||s.estH>0)&&<>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginTop:14, marginBottom:10, fontWeight:600 }}>Horas por semana</div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:70 }}>
-            {series.filter(w=>w.estH>0||w.realH>0).map(w=>(
-              <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                <div style={{ width:"100%", display:"flex", gap:1, alignItems:"flex-end", height:56 }}>
-                  {w.estH>0&&<div style={{ flex:1, borderRadius:"3px 3px 0 0", height:`${(w.estH/maxH)*100}%`, background:"rgba(96,165,250,0.5)", minHeight:3 }} title={`${w.estH}h est.`} />}
-                  {w.realH>0&&<div style={{ flex:1, borderRadius:"3px 3px 0 0", height:`${(w.realH/maxH)*100}%`, background:"rgba(52,211,153,0.7)", minHeight:3 }} title={`${w.realH}h real`} />}
-                </div>
-                <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display:"flex", gap:12, justifyContent:"center", marginTop:6 }}>
-            <span style={{ fontSize:10, color:"rgba(96,165,250,0.8)" }}>■ Estimadas</span>
-            <span style={{ fontSize:10, color:"rgba(52,211,153,0.8)" }}>■ Reales</span>
-          </div>
-        </>}
       </div>}
 
       {/* Per person with mini visual bars */}
@@ -1075,8 +1052,7 @@ function StatsView({ weeks, p1, p2 }) {
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, alignItems:"center" }}>
               <span style={{ fontSize:13, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
               <div style={{ display:"flex", gap:8, fontSize:12, alignItems:"center" }}>
-                {c.real>0&&<span style={{ color:"#34d399" }}>{c.real}h real</span>}
-                {c.est>0&&<span style={{ color:"#60a5fa" }}>~{c.est}h est.</span>}
+                {c.dur>0&&<span style={{ color:"#60a5fa" }}>⏱ {c.dur}h</span>}
                 <span style={{ color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
               </div>
             </div>
@@ -1159,7 +1135,10 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
       {selectedDay&&<div style={{ ...S.card, marginTop:16, borderColor:"rgba(167,139,250,0.3)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
           <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
-          {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px", display:"flex", alignItems:"center", gap:4 }}>+ Añadir misión</button>}
+          <div style={{ display:"flex", gap:6 }}>
+            {selMs.some(m=>m.date)&&<button onClick={()=>selMs.filter(m=>m.date).forEach((m,i)=>setTimeout(()=>window.open(googleCalendarUrl(m,p1,p2),"_blank"),i*300))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 10px" }} title="Se pueden bloquear si tienes popups desactivados">📅 Todos al GCal</button>}
+            {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px", display:"flex", alignItems:"center", gap:4 }}>+ Añadir misión</button>}
+          </div>
         </div>
         {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:14 }}>Sin misiones asignadas 🙂</div>:
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
