@@ -74,7 +74,7 @@ const googleCalendarUrl = (mission, name1, name2) => {
 const mk = (id, emoji, title, status, completedAt=null) => ({
   id, emoji, title, status, createdAt: 1739059200000, completedAt,
   date: null, time: null, carriedFrom: null, carriedFromWeek: null,
-  category: null, who: "together", duration: null,
+  category: null, who: "together", duration: null, type: "task",
 });
 
 const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
@@ -295,7 +295,7 @@ export default function CoupleMissions() {
   const [savingError, setSavingError] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null, type:"task" });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -376,8 +376,8 @@ export default function CoupleMissions() {
 
   const addMission = () => {
     if (!newM.title.trim()) return;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null });
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null, type:newM.type||"task" }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null, type:"task" });
     setShowAddForm(false);
   };
 
@@ -674,7 +674,12 @@ ${ms.map(m=>{
 
         {activeTab==="calendar" && <CalendarView
           allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors}
-          onAddForDay={(date) => { setNewM(p=>({...p, date})); setShowAddForm(true); setActiveTab("current"); }}
+          onAddForDay={(date) => {
+            const { week:wn, year:yr } = getWeekAndYear(new Date(date));
+            update(s => ({...s, currentWeekNumber:wn, currentYear:yr}));
+            setNewM(p=>({...p, date, type:"event", emoji:"📅"}));
+            setShowAddForm(true); setActiveTab("current");
+          }}
           onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
           onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
         />}
@@ -809,11 +814,21 @@ function WorkHoursCard({ week, patchWeek, p1, p2 }) {
 function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
   const activeGoals = (goals||[]).filter(g=>g.active!==false);
+  const isEvent = newM.type==="event";
   return (
-    <div style={{ ...S.card, borderColor:"rgba(167,139,250,0.3)" }}>
+    <div style={{ ...S.card, borderColor:isEvent?"rgba(96,165,250,0.35)":"rgba(167,139,250,0.3)" }}>
+      {/* Tipo: tarea vs evento */}
+      <div style={{ display:"flex", gap:4, marginBottom:10 }}>
+        {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>(
+          <button key={t.id} onClick={()=>setNewM(p=>({...p,type:t.id}))}
+            style={{ flex:1, background:newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.18)":"rgba(167,139,250,0.18)"):"rgba(255,255,255,0.03)", border:`1px solid ${newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)"):"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.type===t.id?(t.id==="event"?"#60a5fa":"#c4b8ff"):"#4a4166", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:newM.type===t.id?600:400 }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
       <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
         <EmojiSelect value={newM.emoji} onChange={e=>setNewM(p=>({...p,emoji:e}))} />
-        <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder="Nombre de la misión..." style={S.input} />
+        <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder={isEvent?"Nombre del evento...":"Nombre de la misión..."} style={S.input} />
       </div>
       <div style={{ marginBottom:10 }}>
         <label style={S.label}>Categoría</label>
@@ -872,8 +887,10 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   const whoColor = mission.who==="person1"?clr.person1:mission.who==="person2"?clr.person2:clr.together;
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
   const gcalUrl = googleCalendarUrl(mission, p1, p2);
+  const isEvent = mission.type==="event";
+  const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":`${whoColor}22`;
   return (
-    <div style={{ ...S.card, borderColor:isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":`${whoColor}22`, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
+    <div style={{ ...S.card, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
       {isCarried&&!isDone&&<div style={{ fontSize:10, color:"#fb923c", letterSpacing:1, marginBottom:6 }}>🔁 Arrastrada</div>}
       <div style={{ display:"flex", gap:10, alignItems:"center" }}>
         <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
@@ -886,6 +903,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
             {(mission.duration||mission.estimatedHours)&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.duration||mission.estimatedHours}h</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
+            {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏅 {g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
@@ -896,6 +914,17 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
       {expanded && (
         <div style={{ marginTop:12, borderTop:"1px solid rgba(167,139,250,0.12)", paddingTop:12 }}>
           <div style={{ marginBottom:10 }}><label style={S.label}>Título</label><input value={mission.title} onChange={e=>onPatch({title:e.target.value})} style={S.input} /></div>
+          <div style={{ marginBottom:10 }}>
+            <label style={S.label}>Tipo</label>
+            <div style={{ display:"flex", gap:4 }}>
+              {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>{
+                const sel=(mission.type||"task")===t.id;
+                const ac=t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)";
+                const tc=t.id==="event"?"#60a5fa":"#c4b8ff";
+                return <button key={t.id} onClick={()=>onPatch({type:t.id})} style={{ flex:1, background:sel?(t.id==="event"?"rgba(96,165,250,0.15)":"rgba(167,139,250,0.15)"):"rgba(255,255,255,0.03)", border:`1px solid ${sel?ac:"rgba(255,255,255,0.08)"}`, borderRadius:7, color:sel?tc:"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:sel?600:400 }}>{t.label}</button>;
+              })}
+            </div>
+          </div>
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>Categoría</label>
             <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
@@ -985,7 +1014,9 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const [stRange, setStRange] = useState("all");
 
   // ── Datos filtrados ──────────────────────────────────────────────────────
-  const sortedAll = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
+  const { week: _tw, year: _ty } = getWeekAndYear();
+  const todayKey = isoWeekKey(_tw, _ty);
+  const sortedAll = Object.entries(weeks).filter(([key]) => key <= todayKey).sort((a,b)=>a[0].localeCompare(b[0]));
   const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
   const allW = rangedEntries.map(([key,w]) => {
     const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
