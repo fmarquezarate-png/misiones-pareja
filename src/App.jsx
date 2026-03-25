@@ -253,6 +253,30 @@ function computeGoalHistory(goal, weeks) {
 }
 
 // ─── Carry-over ───────────────────────────────────────────────────────────────
+function repairMisplacedMissions(data) {
+  let weeks = { ...data.weeks };
+  let moved = 0;
+  for (const [key, week] of Object.entries(weeks)) {
+    const keep = [], move = [];
+    for (const m of (week.missions||[])) {
+      if (!m.date) { keep.push(m); continue; }
+      const { week:wn, year:yr } = getWeekAndYear(new Date(m.date));
+      const targetKey = isoWeekKey(wn, yr);
+      if (targetKey === key) { keep.push(m); }
+      else { move.push({ m, targetKey, wn, yr }); }
+    }
+    if (!move.length) continue;
+    weeks = { ...weeks, [key]: { ...week, missions: keep } };
+    for (const { m, targetKey, wn, yr } of move) {
+      const tw = weeks[targetKey] || { weekNumber:wn, year:yr, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
+      if (!tw.missions.find(x => x.id===m.id)) {
+        weeks = { ...weeks, [targetKey]: { ...tw, missions:[...tw.missions, m] } };
+        moved++;
+      }
+    }
+  }
+  return { data:{ ...data, weeks }, moved };
+}
 function applyCarryOver(data) {
   const { currentWeekNumber:cwn, currentYear:cyr } = data;
   const { wn:pwn, yr:pyr } = prevWeekFn(cwn, cyr);
@@ -399,6 +423,14 @@ export default function CoupleMissions() {
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => update(d => applyCarryOver(d));
+  const runRepair = () => {
+    update(d => {
+      const { data: fixed, moved } = repairMisplacedMissions(d);
+      if (moved === 0) alert("✅ Todo en orden — ningún evento fuera de su semana.");
+      else alert(`✅ ${moved} evento${moved>1?"s":""} reubicado${moved>1?"s":""} a su semana correcta.`);
+      return fixed;
+    });
+  };
 
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
   const addGoal = g => patchGoals(gs => [...gs, { ...g, id:uid(), active:true, createdAt:Date.now() }]);
@@ -592,7 +624,7 @@ ${ms.map(m=>{
   const pct = total>0?(done/total)*100:0;
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
   const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
-  const allDated = Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber})));
+  const allDated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
 
   return (
     <div style={{ minHeight:"100vh", background:"#0a0714", backgroundImage:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
@@ -648,9 +680,11 @@ ${ms.map(m=>{
             <span style={{ color:"#fdba74" }}><strong>{carriedCount} misión{carriedCount>1?"es":""}</strong> arrastrada{carriedCount>1?"s":""} de la semana anterior</span>
           </div>}
           <WorkHoursCard week={week} patchWeek={patchWeek} p1={p1} p2={p2} />
-          <div style={{ textAlign:"right", marginBottom:4 }}>
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginBottom:4 }}>
             <button onClick={runCarryOver} style={{ background:"none", border:"none", color:"#4a4166", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
               onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>🔁 Recuperar tareas pendientes</button>
+            <button onClick={runRepair} style={{ background:"none", border:"none", color:"#4a4166", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
+              onMouseEnter={e=>e.currentTarget.style.color="#60a5fa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>📅 Distribuir eventos</button>
           </div>
           <div style={{ ...S.card, marginBottom:14, borderColor:"rgba(244,114,182,0.18)" }}>
             <div style={{ fontSize:10, letterSpacing:2.5, textTransform:"uppercase", color:"#f472b6", marginBottom:8, fontWeight:600 }}>🎯 Objetivo épico</div>
@@ -682,10 +716,13 @@ ${ms.map(m=>{
           }}
           onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
           onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
+          onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}}
         />}
 
         {activeTab==="history" && (() => {
-          const allHistSorted = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
+          const { week:_htw, year:_hty } = getWeekAndYear();
+          const _htodayKey = isoWeekKey(_htw, _hty);
+          const allHistSorted = Object.entries(data.weeks).filter(([key])=>key<=_htodayKey).sort((a,b)=>b[0].localeCompare(a[0]));
           const histFiltered = histWeekRange==="all" ? allHistSorted : allHistSorted.slice(0, parseInt(histWeekRange));
           const filterHM = ms => histPersonFilter==="all" ? ms : ms.filter(m=>m.who===histPersonFilter);
           return (
@@ -1096,6 +1133,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   ];
   const rangeOpts = [
     { id:"all", label:"Siempre" },
+    { id:"1", label:"Esta sem." },
     { id:"4", label:"4 sem." },
     { id:"8", label:"8 sem." },
     { id:"12", label:"12 sem." },
@@ -1367,7 +1405,7 @@ function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF }) {
+function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -1408,8 +1446,12 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
               background:isSel?"rgba(167,139,250,0.25)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.07)":"rgba(255,255,255,0.02)",
               border:isSel?"1px solid rgba(167,139,250,0.6)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.15s" }}>
             <div style={{ fontSize:11, fontWeight:600, marginBottom:3, textAlign:"center", color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166" }}>{day}</div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:1, justifyContent:"center" }}>
-              {ms.slice(0,4).map(m=><span key={m.id} title={m.title} style={{ fontSize:14, lineHeight:1.2, opacity:m.status==="DONE"?0.35:0.9 }}>{m.emoji}</span>)}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:2, justifyContent:"center" }}>
+              {ms.slice(0,4).map(m=>{
+                const clrM=colors||DEFAULT_COLORS;
+                const bg=m.who==="person1"?clrM.person1:m.who==="person2"?clrM.person2:clrM.together;
+                return <span key={m.id} title={m.title} style={{ fontSize:12, lineHeight:1, background:`${bg}30`, border:`1px solid ${bg}55`, borderRadius:4, padding:"1px 3px", opacity:m.status==="DONE"?0.4:1 }}>{m.emoji}</span>;
+              })}
               {ms.length>4&&<span style={{ fontSize:9, color:"#4a4166" }}>+{ms.length-4}</span>}
             </div>
           </div>;
@@ -1443,7 +1485,10 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
                     {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#34d399", textDecoration:"none" }} title="Añadir a Google Calendar">📅 GCal</a>}
                   </div>
                 </div>
-                <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
+                <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end", flexShrink:0 }}>
+                  <span style={badgeStyle(m.status)}>{STATUS[m.status].icon} {STATUS[m.status].label}</span>
+                  {onGoToWeek&&<button onClick={()=>onGoToWeek(m.weekNumber,m._yr)} style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, color:"#a78bfa", fontSize:10, padding:"3px 8px", cursor:"pointer", fontFamily:"inherit" }}>✏️ Editar</button>}
+                </div>
               </div>;
             })}
           </div>
