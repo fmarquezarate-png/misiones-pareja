@@ -75,9 +75,10 @@ const mk = (id, emoji, title, status, completedAt=null) => ({
   category: null, who: "together", duration: null,
 });
 
+const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
 const SEED = {
   seedVersion: SEED_VERSION,
-  currentWeekNumber: 13, currentYear: 2026,
+  currentWeekNumber: _seedWeek, currentYear: _seedYear,
   settings: DEFAULT_SETTINGS,
   goals: [
     { id:"sg1", emoji:"🍽️", title:"Cenar juntos fuera de casa", who:"together", period:"monthly", target:2, active:true, createdAt:1739059200000 },
@@ -972,15 +973,15 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   // ── Datos filtrados ──────────────────────────────────────────────────────
   const sortedAll = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
   const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
-  const allW = rangedEntries.map(([,w]) => {
+  const allW = rangedEntries.map(([key,w]) => {
     const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
-    return { ...w, missions:ms };
+    const _yr = parseInt(key.split("-W")[0]) || new Date().getFullYear();
+    return { ...w, missions:ms, _yr };
   });
   const allM = allW.flatMap(w=>w.missions||[]);
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  const sortedSeries = rangedEntries;
   let bestStreak=0, currStreak=0, currStreakNow=0;
   for (const w of allW) {
     const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
@@ -994,24 +995,32 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     const ms=allM.filter(m=>m.category===c.id);
     return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
-  const ph = key => { const ms=allM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
+  // ph usa misiones sin filtrar por persona para que "participación" muestre siempre la distribución real
+  const rawAllM = rangedEntries.flatMap(([,w]) => w.missions||[]);
+  const ph = key => { const ms=rawAllM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w.year||new Date().getFullYear() }; });
+  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
   const maxH=Math.max(...series.map(s=>s.durH),1);
 
-  // AI Insights
+  // ── Etapa 2: computed display vars ──────────────────────────────────────────
+  const pctColor = pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
+  const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
+  const filterLabel = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
+
+  // ── AI Insights (E3: con weekNumber/year para navegación) ──────────────────
   const insights = [];
   if (series.length>=3) {
     const last3 = series.slice(-3), prev3 = series.slice(-6,-3);
     const avgLast = last3.reduce((s,w)=>s+w.pct,0)/last3.length;
     const avgPrev = prev3.length>0 ? prev3.reduce((s,w)=>s+w.pct,0)/prev3.length : avgLast;
-    if (avgLast>avgPrev+10) insights.push({ icon:"📈", title:"Tendencia al alza 🔥", desc:`Últimas 3 semanas promedio: ${Math.round(avgLast)}% — mejorasteis ${Math.round(avgLast-avgPrev)} puntos respecto a las anteriores.` });
-    else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!` });
-    else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de completitud de las últimas semanas. Eso es consistencia 💪` });
+    const lastW = last3[last3.length-1];
+    if (avgLast>avgPrev+10) insights.push({ icon:"📈", title:"Tendencia al alza 🔥", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% — ${Math.round(avgLast-avgPrev)} puntos más que las anteriores.`, weekNumber:lastW?.weekNumber, year:lastW?.year });
+    else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!`, weekNumber:lastW?.weekNumber, year:lastW?.year });
+    else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de las últimas semanas. Eso es consistencia 💪` });
   }
-  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
-  if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!` });
+  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective}:best; },{p:0,wn:0,yr:0,obj:""});
+  if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!`, weekNumber:bestW.wn, year:bestW.yr });
   if (catStats.length>0) {
     const bestCat = [...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1))[0];
     if (bestCat.count>1) insights.push({ icon:bestCat.icon, title:`${bestCat.label}: vuestra categoría estrella`, desc:`${Math.round((bestCat.done/bestCat.count)*100)}% de completitud en ${bestCat.count} misiones. ¡Puntos fuertes!` });
@@ -1019,14 +1028,11 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const totalP1only = ph("person1").count, totalP2only = ph("person2").count;
   if (totalP1only+totalP2only>0) {
     const leadName = totalP1only>totalP2only?p1:p2;
-    const leadCount = Math.max(totalP1only,totalP2only);
     const diff = Math.abs(totalP1only-totalP2only);
-    if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName} tiene ${leadCount} misiones propias vs ${Math.min(totalP1only,totalP2only)} de la otra persona. ¿Equilibráis?` });
-    else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están muy bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
+    if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName}: ${Math.max(totalP1only,totalP2only)} propias vs ${Math.min(totalP1only,totalP2only)}. ¿Equilibráis?` });
+    else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
   }
-  if (totalDuration>0) {
-    insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
-  }
+  if (totalDuration>0) insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
   if (currStreakNow>=2) insights.push({ icon:"🔥", title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`, desc:`Lleváis ${currStreakNow} semanas seguidas completando todo. ¡Imparables!` });
 
   if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
@@ -1090,8 +1096,14 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           {insights.map((ins,i)=>(
             <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", paddingBottom:i<insights.length-1?10:0, borderBottom:i<insights.length-1?"1px solid rgba(167,139,250,0.1)":"none" }}>
               <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
-              <div>
-                <div style={{ fontSize:13, color:"#e2d9ff", fontWeight:600, marginBottom:2 }}>{ins.title}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
+                  <span style={{ fontSize:13, color:"#e2d9ff", fontWeight:600 }}>{ins.title}</span>
+                  {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())}
+                    style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+                    → S{ins.weekNumber}
+                  </button>}
+                </div>
                 <div style={{ fontSize:12, color:"#8b7fa8", lineHeight:1.5 }}>{ins.desc}</div>
               </div>
             </div>
@@ -1100,14 +1112,24 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       </div>}
 
       {/* KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
-        {[{label:"Semanas",value:wc,icon:"📅"},{label:"Misiones",value:total,icon:"📝"},{label:"Completadas",value:`${pct}%`,icon:"🏆"},{label:"Racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡"}].map(s=>(
-          <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px" }}>
-            <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", lineHeight:1 }}>{s.value}</div>
-            <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
-          </div>
-        ))}
+      <div>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:7 }}>
+          <span style={{ fontSize:10, color:"#4a4166", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
+          {[
+            {label:"Semanas",value:wc,icon:"📅",color:null},
+            {label:"Misiones",value:total,icon:"📝",color:null},
+            {label:"Completadas",value:`${pct}%`,icon:"🏆",color:pctColor},
+            {label:"Racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡",color:bestStreak>=3?"#fbbf24":null},
+          ].map(s=>(
+            <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px", borderColor:s.color?`${s.color}55`:undefined }}>
+              <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"#f8f4ff", lineHeight:1 }}>{s.value}</div>
+              <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Status donut + bars side by side */}
@@ -1142,18 +1164,19 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* Completion % per week - improved chart */}
+      {/* Completion % per week */}
       {series.length>1&&<div style={S.card}>
         <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:100, paddingBottom:0 }}>
           {series.map((w,i)=>{
             const isLast=i===series.length-1;
+            const baseColor = barPersonColor||"#f472b6";
+            const barBg = w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor},${baseColor}88)`;
             return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-              <div style={{ fontSize:9, color:isLast?"#f472b6":"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
+              <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
               <div style={{ width:"100%", borderRadius:"4px 4px 0 0", minHeight:3, height:`${Math.max(w.pct,3)}%`,
-                background:w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?"linear-gradient(0deg,#f472b6,#fb923c)":"linear-gradient(0deg,#f472b6,#a78bfa)",
-                opacity:isLast?1:0.7, boxShadow:isLast?"0 0 8px rgba(244,114,182,0.5)":"none" }} />
-              <div style={{ fontSize:9, color:isLast?"#f472b6":"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
+                background:barBg, opacity:isLast?1:0.7, boxShadow:isLast?`0 0 8px ${baseColor}55`:"none" }} />
+              <div style={{ fontSize:9, color:isLast?baseColor:"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
             </div>;
           })}
         </div>
@@ -1177,11 +1200,14 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>}
 
-      {/* Per person with mini visual bars */}
+      {/* Per person with mini visual bars — siempre desde rawAllM (sin filtro persona) */}
       <div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>👥 Participación por persona</div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>👥 Participación por persona</span>
+          {stWho!=="all"&&<span style={{ fontSize:10, color:"#4a4166", fontStyle:"italic" }}>distribución real del rango</span>}
+        </div>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {[{name:p1,h:ph1,color:"#f472b6"},{name:p2,h:ph2,color:"#a78bfa"},{name:"Juntos",h:phT,color:"#34d399"}].map(({name,h,color})=>{
+          {[{name:p1,h:ph1,color:clr.person1},{name:p2,h:ph2,color:clr.person2},{name:"Juntos",h:phT,color:clr.together}].map(({name,h,color})=>{
             const tot=ph1.count+ph2.count+phT.count||1;
             return <div key={name} style={{ display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ width:64, fontSize:12, color, fontWeight:600, flexShrink:0 }}>{name}</div>
@@ -1231,6 +1257,66 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             :totalWork1>totalWork2?`⚡ ${p1} trabajó ${totalWork1-totalWork2}h más esta temporada`
             :`⚡ ${p2} trabajó ${totalWork2-totalWork1}h más esta temporada`}
         </div>}
+      </div>}
+
+      {/* E4: Detalle por semana */}
+      <WeekDetailList allW={allW} series={series} pctColor={pctColor} clr={clr} onGoToWeek={onGoToWeek} />
+
+    </div>
+  );
+}
+
+function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
+  const [open, setOpen] = useState(false);
+  const rows = [...allW].reverse().map((w,ri) => {
+    const ms = w.missions||[];
+    const d = ms.filter(m=>m.status==="DONE").length;
+    const t = ms.length;
+    const pct = t>0 ? Math.round((d/t)*100) : 0;
+    const color = pct===100?"#34d399":pct>=60?"#fbbf24":"#f472b6";
+    return { w, d, t, pct, color };
+  }).filter(r=>r.t>0);
+
+  if (!rows.length) return null;
+
+  return (
+    <div style={S.card}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{ width:"100%", background:"none", border:"none", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", padding:0, fontFamily:"inherit" }}>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>📋 Detalle por semana</span>
+        <span style={{ fontSize:12, color:"#4a4166", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
+      </button>
+
+      {open&&<div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:0 }}>
+        {rows.map(({w,d,t,pct,color},i)=>(
+          <div key={w.weekNumber} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0",
+            borderTop:i>0?"1px solid rgba(255,255,255,0.04)":"none" }}>
+            {/* Week badge */}
+            <div style={{ minWidth:34, height:34, borderRadius:9, background:`${color}18`, border:`1px solid ${color}40`,
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <span style={{ fontSize:9, color, fontWeight:700, lineHeight:1 }}>S{w.weekNumber}</span>
+              <span style={{ fontSize:8, color:"#4a4166", lineHeight:1.2 }}>{w._yr}</span>
+            </div>
+            {/* Objective + mini bar */}
+            <div style={{ flex:1, minWidth:0 }}>
+              {w.epicObjective&&<div style={{ fontSize:11, color:"#8b7fa8", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>
+                {w.epicObjective}
+              </div>}
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${pct}%`, background:color, borderRadius:99, transition:"width 0.4s" }} />
+                </div>
+                <span style={{ fontSize:11, color, fontWeight:600, flexShrink:0, minWidth:36, textAlign:"right" }}>{d}/{t}</span>
+              </div>
+            </div>
+            {/* Navigate */}
+            {onGoToWeek&&<button onClick={()=>onGoToWeek(w.weekNumber,w._yr)}
+              style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8,
+                color:"#a78bfa", fontSize:11, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+              → Ir
+            </button>}
+          </div>
+        ))}
       </div>}
     </div>
   );
@@ -1332,7 +1418,7 @@ function EmojiSelect({ value, onChange }) {
           <div style={{ display:"flex", overflowX:"auto", padding:"8px 8px 0", gap:4, scrollbarWidth:"none" }}>
             {EMOJI_GROUPS.map((g,i)=><button key={i} onClick={()=>setAg(i)} style={{ background:ag===i?"rgba(167,139,250,0.25)":"none", border:"none", borderRadius:8, padding:"4px 6px", cursor:"pointer", fontSize:14, flexShrink:0 }}>{g.label.split(" ")[0]}</button>)}
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:3, padding:"8px 10px 10px" }}>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:3, padding:"8px 10px 10px", maxHeight:180, overflowY:"auto", overscrollBehavior:"contain" }}>
             {EMOJI_GROUPS[ag].emojis.map(e=><button key={e} onClick={()=>{onChange(e);setOpen(false);}} style={{ fontSize:20, background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:8 }}
               onMouseEnter={ev=>ev.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={ev=>ev.currentTarget.style.background="none"}>{e}</button>)}
           </div>
