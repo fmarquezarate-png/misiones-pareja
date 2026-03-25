@@ -972,9 +972,10 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   // ── Datos filtrados ──────────────────────────────────────────────────────
   const sortedAll = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0]));
   const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
-  const allW = rangedEntries.map(([,w]) => {
+  const allW = rangedEntries.map(([key,w]) => {
     const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
-    return { ...w, missions:ms };
+    const _yr = parseInt(key.split("-W")[0]) || new Date().getFullYear();
+    return { ...w, missions:ms, _yr };
   });
   const allM = allW.flatMap(w=>w.missions||[]);
   const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
@@ -1000,18 +1001,24 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w.year||new Date().getFullYear() }; });
   const maxH=Math.max(...series.map(s=>s.durH),1);
 
-  // AI Insights
+  // ── Etapa 2: computed display vars ──────────────────────────────────────────
+  const pctColor = pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
+  const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
+  const filterLabel = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
+
+  // ── AI Insights (E3: con weekNumber/year para navegación) ──────────────────
   const insights = [];
   if (series.length>=3) {
     const last3 = series.slice(-3), prev3 = series.slice(-6,-3);
     const avgLast = last3.reduce((s,w)=>s+w.pct,0)/last3.length;
     const avgPrev = prev3.length>0 ? prev3.reduce((s,w)=>s+w.pct,0)/prev3.length : avgLast;
-    if (avgLast>avgPrev+10) insights.push({ icon:"📈", title:"Tendencia al alza 🔥", desc:`Últimas 3 semanas promedio: ${Math.round(avgLast)}% — mejorasteis ${Math.round(avgLast-avgPrev)} puntos respecto a las anteriores.` });
-    else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!` });
-    else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de completitud de las últimas semanas. Eso es consistencia 💪` });
+    const lastW = last3[last3.length-1];
+    if (avgLast>avgPrev+10) insights.push({ icon:"📈", title:"Tendencia al alza 🔥", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% — ${Math.round(avgLast-avgPrev)} puntos más que las anteriores.`, weekNumber:lastW?.weekNumber, year:lastW?.year });
+    else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!`, weekNumber:lastW?.weekNumber, year:lastW?.year });
+    else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de las últimas semanas. Eso es consistencia 💪` });
   }
-  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,obj:w.epicObjective}:best; },{p:0,wn:0,obj:""});
-  if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!` });
+  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective}:best; },{p:0,wn:0,yr:0,obj:""});
+  if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!`, weekNumber:bestW.wn, year:bestW.yr });
   if (catStats.length>0) {
     const bestCat = [...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1))[0];
     if (bestCat.count>1) insights.push({ icon:bestCat.icon, title:`${bestCat.label}: vuestra categoría estrella`, desc:`${Math.round((bestCat.done/bestCat.count)*100)}% de completitud en ${bestCat.count} misiones. ¡Puntos fuertes!` });
@@ -1019,14 +1026,11 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const totalP1only = ph("person1").count, totalP2only = ph("person2").count;
   if (totalP1only+totalP2only>0) {
     const leadName = totalP1only>totalP2only?p1:p2;
-    const leadCount = Math.max(totalP1only,totalP2only);
     const diff = Math.abs(totalP1only-totalP2only);
-    if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName} tiene ${leadCount} misiones propias vs ${Math.min(totalP1only,totalP2only)} de la otra persona. ¿Equilibráis?` });
-    else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están muy bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
+    if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName}: ${Math.max(totalP1only,totalP2only)} propias vs ${Math.min(totalP1only,totalP2only)}. ¿Equilibráis?` });
+    else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
   }
-  if (totalDuration>0) {
-    insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
-  }
+  if (totalDuration>0) insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
   if (currStreakNow>=2) insights.push({ icon:"🔥", title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`, desc:`Lleváis ${currStreakNow} semanas seguidas completando todo. ¡Imparables!` });
 
   if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
@@ -1090,8 +1094,14 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           {insights.map((ins,i)=>(
             <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", paddingBottom:i<insights.length-1?10:0, borderBottom:i<insights.length-1?"1px solid rgba(167,139,250,0.1)":"none" }}>
               <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
-              <div>
-                <div style={{ fontSize:13, color:"#e2d9ff", fontWeight:600, marginBottom:2 }}>{ins.title}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
+                  <span style={{ fontSize:13, color:"#e2d9ff", fontWeight:600 }}>{ins.title}</span>
+                  {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())}
+                    style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+                    → S{ins.weekNumber}
+                  </button>}
+                </div>
                 <div style={{ fontSize:12, color:"#8b7fa8", lineHeight:1.5 }}>{ins.desc}</div>
               </div>
             </div>
@@ -1100,14 +1110,24 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       </div>}
 
       {/* KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
-        {[{label:"Semanas",value:wc,icon:"📅"},{label:"Misiones",value:total,icon:"📝"},{label:"Completadas",value:`${pct}%`,icon:"🏆"},{label:"Racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡"}].map(s=>(
-          <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px" }}>
-            <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", lineHeight:1 }}>{s.value}</div>
-            <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
-          </div>
-        ))}
+      <div>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:7 }}>
+          <span style={{ fontSize:10, color:"#4a4166", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
+          {[
+            {label:"Semanas",value:wc,icon:"📅",color:null},
+            {label:"Misiones",value:total,icon:"📝",color:null},
+            {label:"Completadas",value:`${pct}%`,icon:"🏆",color:pctColor},
+            {label:"Racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡",color:bestStreak>=3?"#fbbf24":null},
+          ].map(s=>(
+            <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px", borderColor:s.color?`${s.color}55`:undefined }}>
+              <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"#f8f4ff", lineHeight:1 }}>{s.value}</div>
+              <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Status donut + bars side by side */}
@@ -1142,18 +1162,19 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* Completion % per week - improved chart */}
+      {/* Completion % per week */}
       {series.length>1&&<div style={S.card}>
         <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
         <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:100, paddingBottom:0 }}>
           {series.map((w,i)=>{
             const isLast=i===series.length-1;
+            const baseColor = barPersonColor||"#f472b6";
+            const barBg = w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor},${baseColor}88)`;
             return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-              <div style={{ fontSize:9, color:isLast?"#f472b6":"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
+              <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
               <div style={{ width:"100%", borderRadius:"4px 4px 0 0", minHeight:3, height:`${Math.max(w.pct,3)}%`,
-                background:w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?"linear-gradient(0deg,#f472b6,#fb923c)":"linear-gradient(0deg,#f472b6,#a78bfa)",
-                opacity:isLast?1:0.7, boxShadow:isLast?"0 0 8px rgba(244,114,182,0.5)":"none" }} />
-              <div style={{ fontSize:9, color:isLast?"#f472b6":"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
+                background:barBg, opacity:isLast?1:0.7, boxShadow:isLast?`0 0 8px ${baseColor}55`:"none" }} />
+              <div style={{ fontSize:9, color:isLast?baseColor:"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
             </div>;
           })}
         </div>
