@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { loadData, saveData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "1.7.0";
-const LAST_UPDATE = "2026-03-26";
+const APP_VERSION = "1.8.0";
+const LAST_UPDATE = "2026-03-30";
 const CHANGELOG = [
-  { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 (semana actual) y P2 (calendario)","Versión dorada con fecha y changelog clickeable","Editar estado de actividades directamente desde P2","Tareas en serie (recurrentes semanal/mensual)","Goals con countdown para deadlines","Stats rediseñado: gráfico horas por categoría, insights algorítmicos potentes"] },
-  { v:"1.6.0", date:"2026-03-25", notes:["Fix stats semanas futuras excluidas","Calendario navega a semana correcta al añadir evento","Distinción Tarea vs Evento con visual","Distribuir eventos entre semanas","Historial P3 sin semanas futuras","Emojis con fondo de color en calendario"] },
+  { v:"1.8.0", date:"2026-03-30", notes:["Categoría Viaje + multi-categoría por tarea/evento","Filtro global por persona persiste entre tabs","Metas: tipo Mínimo/Máximo","Countdown en segundos cuando queda <24h","Gráfico horas por categoría (trabajo en escala propia)","Filtro Esta semana en Historial","Meta enlazada: selector desplegable","Barras de progreso relativas","Insights más potentes"] },
+  { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 y P2","Versión dorada con fecha y changelog","Editar estado desde P2","Tareas recurrentes (semanal/mensual)","Goals con countdown deadline","Stats rediseñado"] },
+  { v:"1.6.0", date:"2026-03-25", notes:["Fix stats semanas futuras","Calendario navega a semana correcta","Distinción Tarea vs Evento","Distribuir eventos","Historial sin semanas futuras","Emojis con fondo en calendario"] },
 ];
 const SEED_VERSION = 5;
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
@@ -25,7 +26,9 @@ const CATEGORIES = [
   { id:"trabajo", label:"Trabajo", icon:"💼", color:"#fbbf24" },
   { id:"ocio",    label:"Ocio",    icon:"🎉", color:"#f97316" },
   { id:"social",  label:"Social",  icon:"🥂", color:"#e879f9" },
+  { id:"viaje",   label:"Viaje",   icon:"✈️", color:"#38bdf8" },
 ];
+const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 const EMOJI_GROUPS = [
@@ -217,7 +220,10 @@ function computeGoalProgress(goal, weeks, cwn, cyr) {
       return m.wy===now.getFullYear();
     }).length;
   }
-  return { current, target:goal.target, pct:goal.target>0?Math.min((current/goal.target)*100,100):0 };
+  const isMax = goal.goalType==="max";
+  // For max: met if current <= target; pct fills as you approach target (inverse)
+  const pct = goal.target>0 ? (isMax ? Math.min((current/goal.target)*100,100) : Math.min((current/goal.target)*100,100)) : 0;
+  return { current, target:goal.target, pct, isMax, met: isMax ? current<=goal.target : current>=goal.target };
 }
 
 function computeGoalHistory(goal, weeks) {
@@ -336,14 +342,13 @@ export default function CoupleMissions() {
   const [savingError, setSavingError] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [error, setError] = useState(null);
-  const [histPersonFilter, setHistPersonFilter] = useState("all");
   const [histWeekRange, setHistWeekRange] = useState("all");
-  const [p1PersonFilter, setP1PersonFilter] = useState("all");
+  const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
   const [showChangelog, setShowChangelog] = useState(false);
 
   useEffect(() => {
@@ -419,8 +424,9 @@ export default function CoupleMissions() {
 
   const addMission = () => {
     if (!newM.title.trim()) return;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, category:newM.category||null, who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null, type:newM.type||"task" }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", category:null, who:"together", duration:"", goalId:null, type:"task" });
+    const sid = newM.seriesPattern ? (newM.seriesId||uid()) : null;
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
     setShowAddForm(false);
   };
 
@@ -717,11 +723,17 @@ ${ms.map(m=>{
         </div>
 
         {/* Tabs */}
-        <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:4, marginBottom:22, overflowX:"auto", scrollbarWidth:"none" }}>
+        <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:4, marginBottom:10, overflowX:"auto", scrollbarWidth:"none" }}>
           {[{id:"current",label:"🎯 Semana"},{id:"calendar",label:"📅 Cal."},{id:"history",label:"🗂️ Hist."},{id:"goals",label:"🏅 Metas"},{id:"stats",label:"📊 Stats"}].map(t=>(
             <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flexShrink:0, padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:500, fontFamily:"inherit", transition:"all 0.2s", background:activeTab===t.id?"rgba(167,139,250,0.18)":"transparent", color:activeTab===t.id?"#c4b8ff":"#6b5f88", whiteSpace:"nowrap" }}>{t.label}</button>
           ))}
         </div>
+        {/* Global person filter — persiste entre tabs (excepto Stats que tiene su propio) */}
+        {activeTab!=="stats"&&<div style={{ display:"flex", gap:4, marginBottom:16, flexWrap:"wrap" }}>
+          {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
+            <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
+          ))}
+        </div>}
 
         {/* Current Week */}
         {activeTab==="current" && <div>
@@ -743,13 +755,8 @@ ${ms.map(m=>{
               : <div onClick={()=>setEditObj(true)} style={{ cursor:"text", fontSize:16, fontFamily:"'Fraunces',serif", fontWeight:300, color:week.epicObjective?"#f8f4ff":"#3d3360", fontStyle:week.epicObjective?"normal":"italic" }}>{week.epicObjective||"Pulsa para añadir el objetivo épico..."}</div>
             }
           </div>
-          <div style={{ display:"flex", gap:4, marginBottom:6, flexWrap:"wrap" }}>
-            {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
-              <button key={v} onClick={()=>setP1PersonFilter(v)} style={{ background:p1PersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${p1PersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:p1PersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:p1PersonFilter===v?600:400 }}>{l}</button>
-            ))}
-          </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {week.missions?.filter(m=>p1PersonFilter==="all"||m.who===p1PersonFilter).map(m=>(
+            {week.missions?.filter(m=>globalPersonFilter==="all"||m.who===globalPersonFilter).map(m=>(
               <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
             {showAddForm
@@ -762,7 +769,7 @@ ${ms.map(m=>{
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors}
+          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} personFilter={globalPersonFilter}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
             update(s => ({...s, currentWeekNumber:wn, currentYear:yr}));
@@ -780,24 +787,16 @@ ${ms.map(m=>{
           const _htodayKey = isoWeekKey(_htw, _hty);
           const allHistSorted = Object.entries(data.weeks).filter(([key])=>key<=_htodayKey).sort((a,b)=>b[0].localeCompare(a[0]));
           const histFiltered = histWeekRange==="all" ? allHistSorted : allHistSorted.slice(0, parseInt(histWeekRange));
-          const filterHM = ms => histPersonFilter==="all" ? ms : ms.filter(m=>m.who===histPersonFilter);
+          const filterHM = ms => globalPersonFilter==="all" ? ms : ms.filter(m=>m.who===globalPersonFilter);
           return (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {/* Filter bar */}
             <div style={{ ...S.card, padding:"10px 14px" }}>
               <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                 <div>
-                  <div style={S.label}>Persona</div>
-                  <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
-                    {[["all","Todos"],["person1",p1],["person2",p2],["together","Juntos"]].map(([v,l])=>(
-                      <button key={v} onClick={()=>setHistPersonFilter(v)} style={{ background:histPersonFilter===v?"rgba(244,114,182,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${histPersonFilter===v?"rgba(244,114,182,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:histPersonFilter===v?"#f472b6":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-                <div>
                   <div style={S.label}>Semanas</div>
                   <div style={{ display:"flex", gap:3 }}>
-                    {[["all","Todas"],["8","8 últ."],["4","4 últ."]].map(([v,l])=>(
+                    {[["all","Todas"],["1","Esta sem."],["4","4 últ."],["8","8 últ."]].map(([v,l])=>(
                       <button key={v} onClick={()=>setHistWeekRange(v)} style={{ background:histWeekRange===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${histWeekRange===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:histWeekRange===v?"#a78bfa":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
                     ))}
                   </div>
@@ -807,7 +806,7 @@ ${ms.map(m=>{
             {/* Export buttons */}
             <div style={{ display:"flex", gap:8 }}>
               <button onClick={() => downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 .ics semana actual</button>
-              <button onClick={() => downloadFilteredPDF(histFiltered, histPersonFilter, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF filtrado ({histFiltered.length} sem.)</button>
+              <button onClick={() => downloadFilteredPDF(histFiltered, globalPersonFilter, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF filtrado ({histFiltered.length} sem.)</button>
             </div>
             {/* Week cards */}
             {histFiltered.map(([key,w]) => {
@@ -924,14 +923,15 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder={isEvent?"Nombre del evento...":"Nombre de la misión..."} style={S.input} />
       </div>
       <div style={{ marginBottom:10 }}>
-        <label style={S.label}>Categoría</label>
+        <label style={S.label}>Categoría (multi)</label>
         <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-          {CATEGORIES.map(c=>(
-            <button key={c.id} onClick={()=>setNewM(p=>({...p,category:p.category===c.id?null:c.id}))}
-              style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${newM.category===c.id?"":"20"}`, opacity:newM.category===c.id||!newM.category?1:0.4 }}>
+          {CATEGORIES.map(c=>{
+            const sel=(newM.categories||[]).includes(c.id);
+            return <button key={c.id} onClick={()=>setNewM(p=>{const cats=p.categories||[];return {...p,categories:sel?cats.filter(x=>x!==c.id):[...cats,c.id]};})}
+              style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!(newM.categories||[]).length?1:0.4 }}>
               {c.icon} {c.label}
-            </button>
-          ))}
+            </button>;
+          })}
         </div>
       </div>
       <div style={{ marginBottom:10 }}>
@@ -945,19 +945,17 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
           ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
         <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({...p,date:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({...p,time:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-        <div><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({...p,duration:e.target.value}))} placeholder="1" style={S.inputSm} /></div>
       </div>
+      <div style={{ marginBottom:10 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({...p,duration:e.target.value}))} placeholder="1" style={S.inputSm} /></div>
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-          {activeGoals.map(g=>{
-            const sel=newM.goalId===g.id;
-            return <button key={g.id} onClick={()=>setNewM(p=>({...p,goalId:sel?null:g.id}))} style={{ background:sel?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${sel?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?"#c4b8ff":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{g.emoji} {g.title}</button>;
-          })}
-        </div>
+        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark" }}>
+          <option value="">— Sin meta —</option>
+          {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
+        </select>
       </div>}
       {newM.type==="task"&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🔁 Tarea recurrente</label>
@@ -984,13 +982,14 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
 function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals }) {
   const [expanded, setExpanded] = useState(false);
   const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
-  const cat = mission.category ? CAT_MAP[mission.category] : null;
+  const mCats = getMCats(mission).map(id=>CAT_MAP[id]).filter(Boolean);
   const clr = colors || DEFAULT_COLORS;
   const whoColor = mission.who==="person1"?clr.person1:mission.who==="person2"?clr.person2:clr.together;
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
   const gcalUrl = googleCalendarUrl(mission, p1, p2);
   const isEvent = mission.type==="event";
-  const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":`${whoColor}22`;
+  const firstCat = mCats[0];
+  const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":firstCat?`${firstCat.color}30`:`${whoColor}22`;
   return (
     <div style={{ ...S.card, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
       {isCarried&&!isDone&&<div style={{ fontSize:10, color:"#fb923c", letterSpacing:1, marginBottom:6 }}>🔁 Arrastrada</div>}
@@ -999,7 +998,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
         <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>
           <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
           <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
-            {cat&&<span style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>}
+            {mCats.map(cat=><span key={cat.id} style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>)}
             {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
             {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
@@ -1007,7 +1006,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":"Mensual"}</span>}
-            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏅 {g.emoji} {g.title}</span>:null;})()}
+            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
         <button onClick={onCycleStatus} style={badgeStyle(mission.status)}>{STATUS[mission.status].icon}</button>
@@ -1029,9 +1028,13 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             </div>
           </div>
           <div style={{ marginBottom:10 }}>
-            <label style={S.label}>Categoría</label>
+            <label style={S.label}>Categoría (multi)</label>
             <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-              {CATEGORIES.map(c=><button key={c.id} onClick={()=>onPatch({category:mission.category===c.id?null:c.id})} style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${mission.category===c.id?"":"20"}`, opacity:mission.category===c.id||!mission.category?1:0.4 }}>{c.icon} {c.label}</button>)}
+              {CATEGORIES.map(c=>{
+                const curCats=getMCats(mission);const sel=curCats.includes(c.id);
+                return <button key={c.id} onClick={()=>onPatch({categories:sel?curCats.filter(x=>x!==c.id):[...curCats,c.id],category:null})}
+                  style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!curCats.length?1:0.4 }}>{c.icon} {c.label}</button>;
+              })}
             </div>
           </div>
           <div style={{ marginBottom:10 }}>
@@ -1044,19 +1047,17 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
               })}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom: gcalUrl?8:0 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({duration:parseFloat(e.target.value)||null})} placeholder="1" style={S.inputSm} /></div>
           </div>
+          <div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({duration:parseFloat(e.target.value)||null})} placeholder="1" style={S.inputSm} /></div>
           {(goals||[]).filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:8 }}>
             <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-              {(goals||[]).filter(g=>g.active!==false).map(g=>{
-                const sel=mission.goalId===g.id;
-                return <button key={g.id} onClick={()=>onPatch({goalId:sel?null:g.id})} style={{ background:sel?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${sel?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?"#c4b8ff":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{g.emoji} {g.title}</button>;
-              })}
-            </div>
+            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark" }}>
+              <option value="">— Sin meta —</option>
+              {(goals||[]).filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
+            </select>
           </div>}
           {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
         </div>
@@ -1111,6 +1112,68 @@ function SettingsModal({ data, update, onClose }) {
   );
 }
 
+function CatStatsCard({ catStats }) {
+  const [tab, setTab] = useState("act");
+  const maxC = Math.max(...catStats.map(x=>x.count),1);
+  const lifeStats = catStats.filter(c=>c.id!=="trabajo");
+  const workStat = catStats.find(c=>c.id==="trabajo");
+  const maxLifeH = Math.max(...lifeStats.map(c=>c.dur),0.1);
+  const maxWorkH = Math.max(workStat?.dur||0, 0.1);
+  return (
+    <div style={S.card}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>🏷️ Por categoría</span>
+        <div style={{ display:"flex", gap:3 }}>
+          {[["act","Actividades"],["h","Horas"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
+          ))}
+        </div>
+      </div>
+      {tab==="act"?catStats.map(c=>{ const cpct=c.count>0?Math.round((c.done/c.count)*100):0; return (
+        <div key={c.id} style={{ marginBottom:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+            <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
+            <span style={{ fontSize:12, color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
+          </div>
+          <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
+          </div>
+        </div>
+      );}):(<>
+        {lifeStats.filter(c=>c.dur>0).length>0&&<>
+          <div style={{ fontSize:10, color:"#4a4166", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
+          {lifeStats.filter(c=>c.dur>0).map(c=>(
+            <div key={c.id} style={{ marginBottom:10 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
+                <span style={{ fontSize:12, color:"#60a5fa" }}>{c.dur}h</span>
+              </div>
+              <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${(c.dur/maxLifeH)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
+              </div>
+            </div>
+          ))}
+        </>}
+        {workStat&&workStat.dur>0&&<>
+          <div style={{ borderTop:"1px dashed rgba(251,191,36,0.2)", marginTop:10, paddingTop:10, marginBottom:8 }}>
+            <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"#4a4166", fontWeight:400 }}>(escala propia)</span></div>
+          </div>
+          <div style={{ marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:12, color:"#fbbf24", fontWeight:600 }}>💼 Trabajo</span>
+              <span style={{ fontSize:12, color:"#fbbf24", fontWeight:700 }}>{workStat.dur}h</span>
+            </div>
+            <div style={{ background:"rgba(251,191,36,0.08)", borderRadius:99, height:8, overflow:"hidden", border:"1px solid rgba(251,191,36,0.15)" }}>
+              <div style={{ height:"100%", width:"100%", background:"linear-gradient(90deg,#fbbf24,#f59e0b)", borderRadius:99, opacity:0.8 }} />
+            </div>
+          </div>
+        </>}
+        {!catStats.some(c=>c.dur>0)&&<div style={{ textAlign:"center", color:"#4a4166", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
+      </>)}
+    </div>
+  );
+}
+
 function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const clr = { ...DEFAULT_COLORS, ...(colors||{}) };
   const [stWho, setStWho] = useState("all");
@@ -1140,7 +1203,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const maxSt = Math.max(...bySt.map(x=>x.count), 1);
   const totalDuration = allM.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0);
   const catStats = CATEGORIES.map(c => {
-    const ms=allM.filter(m=>m.category===c.id);
+    const ms=allM.filter(m=>getMCats(m).includes(c.id));
     return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
   // ph usa misiones sin filtrar por persona para que "participación" muestre siempre la distribución real
@@ -1156,32 +1219,54 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
   const filterLabel = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
 
-  // ── AI Insights (E3: con weekNumber/year para navegación) ──────────────────
+  // ── AI Insights ─────────────────────────────────────────────────────────────
   const insights = [];
+  // 1. Trend: compare last 3 vs prev 3
   if (series.length>=3) {
-    const last3 = series.slice(-3), prev3 = series.slice(-6,-3);
-    const avgLast = last3.reduce((s,w)=>s+w.pct,0)/last3.length;
-    const avgPrev = prev3.length>0 ? prev3.reduce((s,w)=>s+w.pct,0)/prev3.length : avgLast;
-    const lastW = last3[last3.length-1];
-    if (avgLast>avgPrev+10) insights.push({ icon:"📈", title:"Tendencia al alza 🔥", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% — ${Math.round(avgLast-avgPrev)} puntos más que las anteriores.`, weekNumber:lastW?.weekNumber, year:lastW?.year });
-    else if (avgLast<avgPrev-10) insights.push({ icon:"📉", title:"Bajada de ritmo", desc:`Últimas 3 semanas al ${Math.round(avgLast)}% vs ${Math.round(avgPrev)}% anteriores. ¡A por todas esta semana!`, weekNumber:lastW?.weekNumber, year:lastW?.year });
-    else insights.push({ icon:"➡️", title:"Ritmo constante", desc:`Mantened el ${Math.round(avgLast)}% de las últimas semanas. Eso es consistencia 💪` });
+    const last3=series.slice(-3),prev3=series.slice(-6,-3);
+    const avgL=last3.reduce((s,w)=>s+w.pct,0)/last3.length;
+    const avgP=prev3.length>0?prev3.reduce((s,w)=>s+w.pct,0)/prev3.length:avgL;
+    const lastW=last3[last3.length-1];
+    if (avgL>avgP+12) insights.push({icon:"🚀",title:`Momento imparable: +${Math.round(avgL-avgP)}pts en 3 semanas`,desc:`De ${Math.round(avgP)}% a ${Math.round(avgL)}% de media. ¡Seguid así!`,weekNumber:lastW?.weekNumber,year:lastW?.year});
+    else if (avgL<avgP-12) insights.push({icon:"📉",title:"Bajada de ritmo detectada",desc:`De ${Math.round(avgP)}% bajasteis a ${Math.round(avgL)}%. Esta semana es la oportunidad de remontar.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
+    else insights.push({icon:"➡️",title:`Consistencia sólida al ${Math.round(avgL)}%`,desc:`Lleváis 3 semanas sin grandes altibajos. Consistencia = progreso real 💪`});
   }
-  const bestW = allW.reduce((best,w)=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0,p=t>0?d/t:0; return p>best.p?{p,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective}:best; },{p:0,wn:0,yr:0,obj:""});
-  if (bestW.wn) insights.push({ icon:"🏆", title:`Mejor semana: la ${bestW.wn}${bestW.obj?` — "${bestW.obj}"`:""}`, desc:`${Math.round(bestW.p*100)}% de completitud. ¡Vuestra semana récord!`, weekNumber:bestW.wn, year:bestW.yr });
-  if (catStats.length>0) {
-    const bestCat = [...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1))[0];
-    if (bestCat.count>1) insights.push({ icon:bestCat.icon, title:`${bestCat.label}: vuestra categoría estrella`, desc:`${Math.round((bestCat.done/bestCat.count)*100)}% de completitud en ${bestCat.count} misiones. ¡Puntos fuertes!` });
+  // 2. Best and worst week
+  const weekScores=allW.map(w=>{const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0;return{p:t>0?d/t:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t,d};}).filter(w=>w.p!==null&&w.t>=2);
+  if (weekScores.length>=2){
+    const bW=weekScores.reduce((a,b)=>b.p>a.p?b:a);
+    const wW=weekScores.reduce((a,b)=>b.p<a.p?b:a);
+    insights.push({icon:"🏆",title:`Mejor semana: S${bW.wn}${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d}/${bW.t} completadas (${Math.round(bW.p*100)}%). ¡Vuestra semana récord!`,weekNumber:bW.wn,year:bW.yr});
+    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<50) insights.push({icon:"💡",title:`Semana floja: S${wW.wn} (${Math.round(wW.p*100)}%)`,desc:`Solo ${wW.d}/${wW.t} completadas. Explorad qué pasó para no repetirlo.`,weekNumber:wW.wn,year:wW.yr});
   }
-  const totalP1only = ph("person1").count, totalP2only = ph("person2").count;
-  if (totalP1only+totalP2only>0) {
-    const leadName = totalP1only>totalP2only?p1:p2;
-    const diff = Math.abs(totalP1only-totalP2only);
-    if (diff>2) insights.push({ icon:"👫", title:`${leadName} lleva más misiones individuales`, desc:`${leadName}: ${Math.max(totalP1only,totalP2only)} propias vs ${Math.min(totalP1only,totalP2only)}. ¿Equilibráis?` });
-    else insights.push({ icon:"⚖️", title:"Equilibrio perfecto entre vosotros", desc:`Las misiones individuales están bien repartidas (${totalP1only} vs ${totalP2only}). ¡Equipo!` });
+  // 3. Category star + weak spot
+  if (catStats.length>1){
+    const sorted=[...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1));
+    const best=sorted[0],weak=sorted[sorted.length-1];
+    if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: vuestra categoría estrella`,desc:`${Math.round((best.done/best.count)*100)}% de completitud en ${best.count} misiones. Punto fuerte del equipo.`});
+    if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría con margen de mejora`,desc:`Solo ${Math.round((weak.done/weak.count)*100)}% completadas. Puede valer la pena revisar si las misiones son demasiado ambiciosas.`});
   }
-  if (totalDuration>0) insights.push({ icon:"⏱", title:`${totalDuration.toFixed(1)}h de actividades planificadas`, desc:`Duración total registrada en ${wc} semana${wc!==1?"s":""}.` });
-  if (currStreakNow>=2) insights.push({ icon:"🔥", title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`, desc:`Lleváis ${currStreakNow} semanas seguidas completando todo. ¡Imparables!` });
+  // 4. Balance P1 vs P2
+  const p1c=ph("person1").count,p2c=ph("person2").count;
+  if (p1c+p2c>0){
+    const diff=Math.abs(p1c-p2c);
+    if (diff>3) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} lleva ${diff} misiones más`,desc:`${p1}: ${p1c} propias · ${p2}: ${p2c} propias. ¿Está el peso bien repartido?`});
+    else insights.push({icon:"🤝",title:"Reparto equilibrado del trabajo",desc:`${p1}: ${p1c} · ${p2}: ${p2c}. Diferencia mínima — gran trabajo en equipo.`});
+  }
+  // 5. Work-life balance: ratio trabajo vs resto
+  if (catStats.length>0){
+    const workC=catStats.find(c=>c.id==="trabajo");
+    const lifeTotal=catStats.filter(c=>c.id!=="trabajo").reduce((s,c)=>s+c.count,0);
+    if (workC&&lifeTotal>0){
+      const ratio=(workC.count/(workC.count+lifeTotal)*100);
+      if (ratio>60) insights.push({icon:"💼",title:`Trabajo ocupa el ${Math.round(ratio)}% de las misiones`,desc:`Las misiones de trabajo dominan el plan. ¿Estáis dedicando suficiente tiempo a pareja y ocio?`});
+      else if (ratio<20&&workC.count>0) insights.push({icon:"🌈",title:"Gran equilibrio vida-trabajo",desc:`Solo ${Math.round(ratio)}% de misiones son de trabajo. Tiempo de calidad bien aprovechado.`});
+    }
+  }
+  // 6. Streak
+  if (currStreakNow>=2) insights.push({icon:"🔥",title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} perfectas`,desc:`Lleváis ${currStreakNow} semanas al 100%. ¡No rompáis la cadena!`});
+  // 7. Completion velocity (missions per week)
+  if (wc>=4){const avgMpW=(total/wc).toFixed(1);insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana`,desc:`Con ${total} misiones en ${wc} semanas. ${avgMpW<3?"Podéis añadir más retos":avgMpW>8?"Ritmo muy alto — aseguraos de que es sostenible":"Ritmo saludable"}.`});}
 
   if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
 
@@ -1313,41 +1398,26 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* Completion % per week */}
-      {series.length>1&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:100, paddingBottom:0 }}>
-          {series.map((w,i)=>{
-            const isLast=i===series.length-1;
-            const baseColor = barPersonColor||"#f472b6";
-            const barBg = w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor},${baseColor}88)`;
-            return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-              <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
-              <div style={{ width:"100%", borderRadius:"4px 4px 0 0", minHeight:3, height:`${Math.max(w.pct,3)}%`,
-                background:barBg, opacity:isLast?1:0.7, boxShadow:isLast?`0 0 8px ${baseColor}55`:"none" }} />
-              <div style={{ fontSize:9, color:isLast?baseColor:"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
-            </div>;
-          })}
-        </div>
-      </div>}
-
-      {/* Duración por semana */}
-      {series.some(s=>s.durH>0)&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>⏱ Duración por semana</div>
-        <div style={{ textAlign:"center", marginBottom:12 }}>
-          <span style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, color:"#60a5fa" }}>{totalDuration.toFixed(1)}h</span>
-          <span style={{ fontSize:12, color:"#6b5f88", marginLeft:8 }}>total planificadas</span>
-        </div>
-        <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:70 }}>
-          {series.filter(w=>w.durH>0).map(w=>(
-            <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-              <div style={{ fontSize:9, color:"#6b5f88" }}>{w.durH>0?`${w.durH}h`:""}</div>
-              <div style={{ width:"100%", borderRadius:"3px 3px 0 0", height:`${(w.durH/maxH)*100}%`, background:"rgba(96,165,250,0.6)", minHeight:3 }} />
-              <div style={{ fontSize:9, color:"#4a4166" }}>{w.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>}
+      {/* Completion % per week — normalizado al máximo */}
+      {series.length>1&&(()=>{
+        const maxPct=Math.max(...series.map(s=>s.pct),1);
+        const baseColor=barPersonColor||"#f472b6";
+        return <div style={S.card}>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:110 }}>
+            {series.map((w,i)=>{
+              const isLast=i===series.length-1;
+              const h=Math.max((w.pct/maxPct)*96,w.pct>0?4:1);
+              const barBg=w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor}99,${baseColor}55)`;
+              return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
+                <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${h}%`, background:barBg, opacity:isLast?1:0.75, boxShadow:isLast?`0 0 8px ${baseColor}55`:"none", transition:"height 0.4s" }} />
+                <div style={{ fontSize:9, color:isLast?baseColor:"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
+              </div>;
+            })}
+          </div>
+        </div>;
+      })()}
 
       {/* Per person with mini visual bars — siempre desde rawAllM (sin filtro persona) */}
       <div style={S.card}>
@@ -1371,24 +1441,8 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* By category */}
-      {catStats.length>0&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>🏷️ Por categoría</div>
-        {catStats.map(c=>{ const maxC=Math.max(...catStats.map(x=>x.count),1); const cpct=c.count>0?Math.round((c.done/c.count)*100):0; return (
-          <div key={c.id} style={{ marginBottom:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4, alignItems:"center" }}>
-              <span style={{ fontSize:13, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
-              <div style={{ display:"flex", gap:8, fontSize:12, alignItems:"center" }}>
-                {c.dur>0&&<span style={{ color:"#60a5fa" }}>⏱ {c.dur}h</span>}
-                <span style={{ color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
-              </div>
-            </div>
-            <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.75 }} />
-            </div>
-          </div>
-        );})}
-      </div>}
+      {/* By category — dual view (actividades / horas) */}
+      {catStats.length>0&&<CatStatsCard catStats={catStats} />}
 
       {/* Work hours */}
       {(totalWork1>0||totalWork2>0)&&<div style={S.card}>
@@ -1471,8 +1525,7 @@ function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus }) {
-  const [p2Filter, setP2Filter] = useState("all");
+function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, personFilter="all" }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -1485,7 +1538,7 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   const clrC=colors||DEFAULT_COLORS;
   const byDate={};
-  allDatedMissions.filter(m=>p2Filter==="all"||m.who===p2Filter).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
+  allDatedMissions.filter(m=>personFilter==="all"||m.who===personFilter).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
   const selMs=selStr?(byDate[selStr]||[]):[];
@@ -1495,11 +1548,6 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
       <div style={{ display:"flex", gap:6, marginBottom:18 }}>
         <button onClick={onDownloadICS} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Google Calendar (.ics)</button>
         <button onClick={onDownloadPDF} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
-      </div>
-      <div style={{ display:"flex", gap:4, marginBottom:14, flexWrap:"wrap" }}>
-        {[["all","Todos","#6b5f88"],["person1",p1,clrC.person1],["person2",p2,clrC.person2],["together","Juntos",clrC.together]].map(([v,l,c])=>(
-          <button key={v} onClick={()=>setP2Filter(v)} style={{ background:p2Filter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${p2Filter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:p2Filter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:p2Filter===v?600:400 }}>{l}</button>
-        ))}
       </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:20 }}>
         <button onClick={prevM} style={S.btnNav}>‹</button>
@@ -1615,12 +1663,20 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
           </div>
         </div>
         <div style={{ textAlign:"center" }}>
-          <label style={S.label}>Mínimo</label>
+          <label style={S.label}>{(form.goalType||"min")==="min"?"Mínimo":"Máximo"}</label>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             <button onClick={()=>setForm(f=>({...f,target:Math.max(1,f.target-1)}))} style={{ ...S.btnSecondary, padding:"4px 10px", fontSize:16 }}>−</button>
             <span style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"#f8f4ff", minWidth:20, textAlign:"center" }}>{form.target}</span>
             <button onClick={()=>setForm(f=>({...f,target:f.target+1}))} style={{ ...S.btnSecondary, padding:"4px 10px", fontSize:16 }}>+</button>
           </div>
+        </div>
+      </div>
+      <div style={{ marginBottom:10 }}>
+        <label style={S.label}>Tipo de límite</label>
+        <div style={{ display:"flex", gap:4 }}>
+          {[{id:"min",label:"✅ Mínimo (hacer al menos X)"},{id:"max",label:"🚫 Máximo (no más de X)"}].map(t=>(
+            <button key={t.id} onClick={()=>setForm(f=>({...f,goalType:t.id}))} style={{ flex:1, background:(form.goalType||"min")===t.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${(form.goalType||"min")===t.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:(form.goalType||"min")===t.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{t.label}</button>
+          ))}
         </div>
       </div>
       <div style={{ marginBottom:12 }}>
@@ -1640,7 +1696,16 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
   const whoColor = goal.who==="person1"?clr.person1:goal.who==="person2"?clr.person2:clr.together;
   const whoLabel = goal.who==="person1"?p1:goal.who==="person2"?p2:"Juntos";
   const whoIcon = goal.who==="together"?"👫":"🙋";
-  const met = progress.current>=progress.target;
+  const isMax = goal.goalType==="max";
+  const met = isMax ? progress.current<=progress.target : progress.current>=progress.target;
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!goal.deadline) return;
+    const dl=new Date(goal.deadline); dl.setHours(23,59,59);
+    if ((dl-new Date())>86400000) return; // only run interval for <24h
+    const id=setInterval(()=>setTick(t=>t+1),1000);
+    return ()=>clearInterval(id);
+  },[goal.deadline]);
   return (
     <div style={{ ...S.card, borderColor:met?`${clr.together}50`:"rgba(167,139,250,0.12)", transition:"border-color 0.3s" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
@@ -1650,7 +1715,7 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
             <div style={{ fontSize:14, fontWeight:600, color:"#f0e8ff" }}>{goal.title}</div>
             <div style={{ display:"flex", gap:5, marginTop:3, flexWrap:"wrap" }}>
               <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
-              <span style={{ fontSize:11, color:"#6b5f88" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · mín. {goal.target}×</span>
+              <span style={{ fontSize:11, color:"#6b5f88" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · {isMax?"máx.":"mín."} {goal.target}×</span>
             </div>
           </div>
         </div>
@@ -1665,14 +1730,30 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
       <div style={{ marginBottom:10 }}>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:5 }}>
           <span style={{ color:"#8b7fa8" }}>{goal.period==="weekly"?"Esta semana":goal.period==="monthly"?"Este mes":"Este año"}</span>
-          <span style={{ color:met?"#34d399":"#f8f4ff", fontWeight:600 }}>{met?"✅ ":""}{progress.current}/{progress.target}</span>
+          <span style={{ color:met?"#34d399":isMax&&progress.current>progress.target?"#f472b6":"#f8f4ff", fontWeight:600 }}>{met?"✅ ":isMax&&progress.current>progress.target?"❌ ":""}{progress.current}/{progress.target}{isMax?" (máx.)":""}</span>
         </div>
         <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
-          <div style={{ height:"100%", width:`${progress.pct}%`, background:met?"linear-gradient(90deg,#34d399,#60a5fa)":`linear-gradient(90deg,${whoColor},${whoColor}99)`, borderRadius:99, transition:"width 0.5s" }} />
+          <div style={{ height:"100%", width:`${progress.pct}%`, background:met?"linear-gradient(90deg,#34d399,#60a5fa)":isMax&&progress.current>progress.target?"linear-gradient(90deg,#f472b6,#fb923c)":`linear-gradient(90deg,${whoColor},${whoColor}99)`, borderRadius:99, transition:"width 0.5s" }} />
         </div>
       </div>
       {/* Countdown */}
-      {goal.deadline&&(()=>{ const dl=new Date(goal.deadline); const now=new Date(); dl.setHours(23,59,59); const diff=Math.ceil((dl-now)/(1000*60*60*24)); const urgent=diff<=7; const expired=diff<0; return <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:6, background:expired?"rgba(244,114,182,0.08)":urgent?"rgba(251,146,60,0.08)":"rgba(167,139,250,0.06)", border:`1px solid ${expired?"rgba(244,114,182,0.25)":urgent?"rgba(251,146,60,0.25)":"rgba(167,139,250,0.15)"}`, borderRadius:8, padding:"6px 10px" }}><span style={{ fontSize:14 }}>{expired?"💀":urgent?"⚠️":"⏳"}</span><span style={{ fontSize:12, color:expired?"#f472b6":urgent?"#fb923c":"#8b7fa8", fontWeight:600 }}>{expired?`Venció hace ${-diff} día${-diff!==1?"s":""}`:`${diff} día${diff!==1?"s":""} para el deadline`}</span><span style={{ fontSize:11, color:"#4a4166", marginLeft:"auto" }}>{goal.deadline}</span></div>; })()}
+      {goal.deadline&&(()=>{
+        const dl=new Date(goal.deadline); dl.setHours(23,59,59);
+        const msLeft=dl-new Date();
+        const expired=msLeft<0;
+        const under24h=!expired&&msLeft<86400000;
+        let label;
+        if (expired){const d=Math.floor(-msLeft/86400000);label=`💀 Venció hace ${d||1} día${d!==1?"s":""}`;}
+        else if (under24h){
+          const h=Math.floor(msLeft/3600000),m=Math.floor((msLeft%3600000)/60000),s=Math.floor((msLeft%60000)/1000);
+          label=`⏰ ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")} restantes`;
+        } else {const d=Math.ceil(msLeft/86400000);label=`⏳ ${d} día${d!==1?"s":""} para el deadline`;}
+        const urgent=!expired&&msLeft<7*86400000;
+        return <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:6, background:expired?"rgba(244,114,182,0.1)":under24h?"rgba(244,114,182,0.08)":urgent?"rgba(251,146,60,0.08)":"rgba(167,139,250,0.06)", border:`1px solid ${expired||under24h?"rgba(244,114,182,0.3)":urgent?"rgba(251,146,60,0.25)":"rgba(167,139,250,0.15)"}`, borderRadius:8, padding:"6px 10px" }}>
+          <span style={{ fontSize:12, color:expired||under24h?"#f472b6":urgent?"#fb923c":"#8b7fa8", fontWeight:600, fontFamily:under24h?"monospace":"inherit", letterSpacing:under24h?1:0 }}>{label}</span>
+          <span style={{ fontSize:11, color:"#4a4166", marginLeft:"auto" }}>{goal.deadline}</span>
+        </div>;
+      })()}
       {/* Historial */}
       {history.length>0&&<div>
         <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
@@ -1698,8 +1779,8 @@ function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAdd, onUpdate, on
   const [editGoal, setEditGoal] = useState(null);
   const [form, setForm] = useState({ emoji:"🏅", title:"", who:"together", period:"monthly", target:1 });
 
-  const openNew = () => { setEditGoal(null); setForm({emoji:"🏅",title:"",who:"together",period:"monthly",target:1,deadline:""}); setShowForm(true); };
-  const openEdit = g => { setEditGoal(g); setForm({emoji:g.emoji,title:g.title,who:g.who,period:g.period,target:g.target,deadline:g.deadline||""}); setShowForm(true); };
+  const openNew = () => { setEditGoal(null); setForm({emoji:"🏅",title:"",who:"together",period:"monthly",target:1,deadline:"",goalType:"min"}); setShowForm(true); };
+  const openEdit = g => { setEditGoal(g); setForm({emoji:g.emoji,title:g.title,who:g.who,period:g.period,target:g.target,deadline:g.deadline||"",goalType:g.goalType||"min"}); setShowForm(true); };
   const cancel = () => { setShowForm(false); setEditGoal(null); };
   const save = () => {
     if (!form.title.trim()) return;
