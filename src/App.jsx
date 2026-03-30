@@ -829,7 +829,7 @@ ${ms.map(m=>{
                       <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
                         <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
                       </div>
-                      <div style={{ fontSize:10, color:"#4a4166", marginTop:3 }}>{p}%{histPersonFilter!=="all"?` (${histPersonFilter==="person1"?p1:histPersonFilter==="person2"?p2:"Juntos"})`:""}</div>
+                      <div style={{ fontSize:10, color:"#4a4166", marginTop:3 }}>{p}%{globalPersonFilter!=="all"?` (${globalPersonFilter==="person1"?p1:globalPersonFilter==="person2"?p2:"Juntos"})`:""}</div>
                     </div>
                     {w.photo
                       ? <div style={{ position:"relative", flexShrink:0 }}>
@@ -1401,13 +1401,16 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* Completion % per week — normalizado al máximo */}
       {series.length>1&&(()=>{
         const maxPct=Math.max(...series.map(s=>s.pct),1);
+        const minPct=Math.min(...series.filter(s=>s.total>0).map(s=>s.pct),maxPct);
+        const range=Math.max(maxPct-minPct,10); // al menos 10pts de rango para que haya diferencia visual
         const baseColor=barPersonColor||"#f472b6";
         return <div style={S.card}>
           <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
           <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:110 }}>
             {series.map((w,i)=>{
               const isLast=i===series.length-1;
-              const h=Math.max((w.pct/maxPct)*96,w.pct>0?4:1);
+              const normalized=w.total>0?((w.pct-minPct)/range*70)+20:2; // 20-90% de altura, normalizados al rango real
+              const h=Math.max(normalized,2);
               const barBg=w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor}99,${baseColor}55)`;
               return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
                 <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
