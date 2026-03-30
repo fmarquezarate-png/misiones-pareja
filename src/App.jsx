@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { loadData, saveData } from "./supabase.js";
+import { loadData, saveData, loadLocalBackup, exportData, importData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const APP_VERSION = "1.8.0";
@@ -357,10 +357,16 @@ export default function CoupleMissions() {
         let base = await loadData();
         if (base) {
           if (!base.seedVersion || base.seedVersion < SEED_VERSION) {
-            base = { ...SEED, settings: base.settings || SEED.settings, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
+            base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
           }
         } else {
-          base = { ...SEED };
+          // No data from Supabase – check local backup before falling back to SEED
+          const local = loadLocalBackup();
+          if (local && local.data && local.data.weeks && Object.keys(local.data.weeks).length > 1) {
+            base = local.data;
+          } else {
+            base = { ...SEED };
+          }
         }
         if (!base.settings) base.settings = DEFAULT_SETTINGS;
         if (!base.goals) base.goals = SEED.goals;
@@ -1070,8 +1076,20 @@ function SettingsModal({ data, update, onClose }) {
   const [p1, setP1] = useState(data.settings?.person1||"Pololo");
   const [p2, setP2] = useState(data.settings?.person2||"Banana");
   const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors||{}) });
+  const [importMsg, setImportMsg] = useState(null);
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
   const save = () => { update(d=>({...d,settings:{...d.settings,person1:p1.trim()||"Pololo",person2:p2.trim()||"Banana",colors}})); onClose(); };
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = await importData(file);
+      update(() => imported);
+      setImportMsg("✅ Datos restaurados correctamente");
+      setTimeout(() => { setImportMsg(null); onClose(); }, 1500);
+    } catch (err) { setImportMsg("❌ " + err.message); setTimeout(() => setImportMsg(null), 3000); }
+    e.target.value = "";
+  };
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
       <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:400 }}>
@@ -1099,6 +1117,17 @@ function SettingsModal({ data, update, onClose }) {
             <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
               style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color juntos" />
           </div>
+        </div>
+        <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:16, paddingTop:16, marginBottom:16 }}>
+          <div style={{ fontSize:11, color:"#6b5f88", marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Backup de datos</div>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={()=>exportData(data)} style={{ ...S.btnSecondary, fontSize:11, flex:1 }}>📥 Exportar JSON</button>
+            <label style={{ ...S.btnSecondary, fontSize:11, flex:1, textAlign:"center", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              📤 Importar JSON
+              <input type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
+            </label>
+          </div>
+          {importMsg && <div style={{ fontSize:12, marginTop:8, color: importMsg.startsWith("✅") ? "#34d399" : "#fb923c" }}>{importMsg}</div>}
         </div>
         <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11 }}>↺ Colores por defecto</button>

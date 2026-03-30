@@ -6,7 +6,52 @@ const supabase = createClient(
 );
 
 const ROW_ID = "couple-missions";
+const LOCAL_KEY = "couple-missions-backup";
+const LOCAL_TS_KEY = "couple-missions-backup-ts";
 
+/* ── localStorage helpers ────────────────────────────────────────── */
+function saveLocalBackup(appData) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(appData));
+    localStorage.setItem(LOCAL_TS_KEY, new Date().toISOString());
+  } catch { /* quota exceeded – silent */ }
+}
+
+export function loadLocalBackup() {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (!raw) return null;
+    return { data: JSON.parse(raw), ts: localStorage.getItem(LOCAL_TS_KEY) };
+  } catch { return null; }
+}
+
+/* ── Export / Import ─────────────────────────────────────────────── */
+export function exportData(appData) {
+  const blob = new Blob([JSON.stringify(appData, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `couple-missions-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function importData(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed.weeks || !parsed.settings) reject(new Error("Formato inválido"));
+        else resolve(parsed);
+      } catch { reject(new Error("JSON inválido")); }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+/* ── Supabase CRUD ───────────────────────────────────────────────── */
 export async function loadData() {
   try {
     const { data, error } = await supabase
@@ -17,17 +62,34 @@ export async function loadData() {
 
     if (error) {
       console.error("Load error:", error);
+      // Fallback: try local backup when Supabase fails
+      const local = loadLocalBackup();
+      if (local) {
+        console.warn("Using local backup from", local.ts);
+        return local.data;
+      }
       return null;
     }
 
-    return data?.data || null;
+    const result = data?.data || null;
+    // Save local backup whenever we successfully load from Supabase
+    if (result) saveLocalBackup(result);
+    return result;
   } catch (e) {
     console.error(e);
+    // Fallback: try local backup
+    const local = loadLocalBackup();
+    if (local) {
+      console.warn("Using local backup from", local.ts);
+      return local.data;
+    }
     return null;
   }
 }
 
 export async function saveData(appData) {
+  // Always save local backup first (instant, synchronous)
+  saveLocalBackup(appData);
   try {
     const { error } = await supabase
       .from("app_data")
