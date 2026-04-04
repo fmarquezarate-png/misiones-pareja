@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { loadData, saveData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "1.8.0";
-const LAST_UPDATE = "2026-03-30";
+const APP_VERSION = "1.9.0";
+const LAST_UPDATE = "2026-04-04";
 const CHANGELOG = [
+  { v:"1.9.0", date:"2026-04-04", notes:["Fix guardado: debounce evita pérdidas de datos","Filtro de categoría global (persiste entre tabs)","Calendario: columna sin-fecha con drag & drop","Editar actividades directamente en calendario (sin salir)","Metas: períodos no cumplidos en rojo, cumplidos en verde"] },
   { v:"1.8.0", date:"2026-03-30", notes:["Categoría Viaje + multi-categoría por tarea/evento","Filtro global por persona persiste entre tabs","Metas: tipo Mínimo/Máximo","Countdown en segundos cuando queda <24h","Gráfico horas por categoría (trabajo en escala propia)","Filtro Esta semana en Historial","Meta enlazada: selector desplegable","Barras de progreso relativas","Insights más potentes"] },
   { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 y P2","Versión dorada con fecha y changelog","Editar estado desde P2","Tareas recurrentes (semanal/mensual)","Goals con countdown deadline","Stats rediseñado"] },
   { v:"1.6.0", date:"2026-03-25", notes:["Fix stats semanas futuras","Calendario navega a semana correcta","Distinción Tarea vs Evento","Distribuir eventos","Historial sin semanas futuras","Emojis con fondo en calendario"] },
@@ -340,6 +341,7 @@ export default function CoupleMissions() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingError, setSavingError] = useState(false);
+  const saveTimerRef = useRef(null);
   const [activeTab, setActiveTab] = useState("current");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
@@ -349,6 +351,7 @@ export default function CoupleMissions() {
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
+  const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [showChangelog, setShowChangelog] = useState(false);
 
   useEffect(() => {
@@ -376,25 +379,22 @@ export default function CoupleMissions() {
     })();
   }, []);
 
-  const persist = useCallback(async next => {
-    setSaving(true);
-    setSavingError(false);
-    try {
-      await saveData(next);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1800);
-    } catch(e) {
-      console.error("Error guardando:", e);
-      setSavingError(true);
-      setTimeout(() => setSavingError(false), 3000);
-    } finally {
-      setSaving(false);
-    }
-  }, []);
-
   const update = useCallback(fn => {
-    setData(p => { const n = fn(p); persist(n); return n; });
-  }, [persist]);
+    setData(prev => {
+      const next = fn(prev);
+      // Debounced save: 700ms after last change
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        setSaving(true);
+        setSavingError(false);
+        saveData(next)
+          .then(() => { setSaved(true); setTimeout(() => setSaved(false), 1800); })
+          .catch(e => { console.error("Error guardando:", e); setSavingError(true); setTimeout(() => setSavingError(false), 3000); })
+          .finally(() => setSaving(false));
+      }, 700);
+      return next;
+    });
+  }, []);
 
   if (loading) return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
@@ -455,6 +455,20 @@ export default function CoupleMissions() {
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
       const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
       return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nx,completedAt:nx==="DONE"?Date.now():null}:x) } } };
+    });
+  };
+  const patchMissionGlobal = (wn, yr, id, patch) => {
+    const key = isoWeekKey(wn, yr);
+    update(d => {
+      const w = d.weeks[key]; if (!w) return d;
+      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,...patch}:x) } } };
+    });
+  };
+  const deleteMissionGlobal = (wn, yr, id) => {
+    const key = isoWeekKey(wn, yr);
+    update(d => {
+      const w = d.weeks[key]; if (!w) return d;
+      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.filter(x=>x.id!==id) } } };
     });
   };
   const runRepair = () => {
@@ -659,6 +673,7 @@ ${ms.map(m=>{
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
   const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
   const allDated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
+  const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
 
   return (
     <div style={{ minHeight:"100vh", background:"#0a0714", backgroundImage:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
@@ -729,10 +744,18 @@ ${ms.map(m=>{
           ))}
         </div>
         {/* Global person filter — persiste entre tabs (excepto Stats que tiene su propio) */}
-        {activeTab!=="stats"&&<div style={{ display:"flex", gap:4, marginBottom:16, flexWrap:"wrap" }}>
-          {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
-            <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
-          ))}
+        {activeTab!=="stats"&&<div style={{ marginBottom:12 }}>
+          {/* Persona */}
+          <div style={{ display:"flex", gap:4, marginBottom:6, flexWrap:"wrap" }}>
+            {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
+              <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
+            ))}
+          </div>
+          {/* Categoría */}
+          <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+            <button onClick={()=>setGlobalCatFilter([])} style={{ background:!globalCatFilter.length?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${!globalCatFilter.length?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:!globalCatFilter.length?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:!globalCatFilter.length?600:400 }}>Todas</button>
+            {CATEGORIES.map(c=>{const on=globalCatFilter.includes(c.id);return<button key={c.id} onClick={()=>setGlobalCatFilter(p=>on?p.filter(x=>x!==c.id):[...p,c.id])} style={{ background:on?`${c.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${on?c.color+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:on?c.color:"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:on?600:400 }}>{c.icon} {c.label}</button>;})}
+          </div>
         </div>}
 
         {/* Current Week */}
@@ -756,7 +779,7 @@ ${ms.map(m=>{
             }
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {week.missions?.filter(m=>globalPersonFilter==="all"||m.who===globalPersonFilter).map(m=>(
+            {week.missions?.filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))).map(m=>(
               <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
             {showAddForm
@@ -769,7 +792,8 @@ ${ms.map(m=>{
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} personFilter={globalPersonFilter}
+          allDatedMissions={allDated} allUndatedMissions={allUndated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
+          onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
             update(s => ({...s, currentWeekNumber:wn, currentYear:yr}));
@@ -787,7 +811,7 @@ ${ms.map(m=>{
           const _htodayKey = isoWeekKey(_htw, _hty);
           const allHistSorted = Object.entries(data.weeks).filter(([key])=>key<=_htodayKey).sort((a,b)=>b[0].localeCompare(a[0]));
           const histFiltered = histWeekRange==="all" ? allHistSorted : allHistSorted.slice(0, parseInt(histWeekRange));
-          const filterHM = ms => globalPersonFilter==="all" ? ms : ms.filter(m=>m.who===globalPersonFilter);
+          const filterHM = ms => ms.filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
           return (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {/* Filter bar */}
@@ -1528,11 +1552,13 @@ function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, personFilter="all" }) {
+function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[] }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
   const [selectedDay,setSelectedDay]=useState(null);
+  const [editingMission,setEditingMission]=useState(null); // { mission, wn, yr }
+  const [dragOver,setDragOver]=useState(null); // date string or "undated"
   const MONTHS=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DAYS=["L","M","X","J","V","S","D"];
   const prevM=()=>{if(calMonth===0){setCalMonth(11);setCalYear(y=>y-1);}else setCalMonth(m=>m-1);setSelectedDay(null);};
@@ -1540,83 +1566,164 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
   const firstDow=(new Date(calYear,calMonth,1).getDay()+6)%7, daysInM=new Date(calYear,calMonth+1,0).getDate();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   const clrC=colors||DEFAULT_COLORS;
+
+  const applyFilters = ms => ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   const byDate={};
-  allDatedMissions.filter(m=>personFilter==="all"||m.who===personFilter).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
+  applyFilters(allDatedMissions).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
+  const undated = applyFilters(allUndatedMissions||[]);
+
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
   const selMs=selStr?(byDate[selStr]||[]):[];
+
+  // DnD handlers
+  const onDragStart = (e, m) => e.dataTransfer.setData("missionId", JSON.stringify({id:m.id,wn:m.weekNumber,yr:m._yr}));
+  const onDropDay = (e, dateStr) => {
+    e.preventDefault(); setDragOver(null);
+    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("missionId")); onPatchMission&&onPatchMission(wn,yr,id,{date:dateStr}); } catch{}
+  };
+  const onDropUndated = e => {
+    e.preventDefault(); setDragOver(null);
+    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("missionId")); onPatchMission&&onPatchMission(wn,yr,id,{date:null,time:null}); } catch{}
+  };
+
+  const openEdit = m => setEditingMission({mission:m,wn:m.weekNumber,yr:m._yr});
+  const closeEdit = () => setEditingMission(null);
+  const patchEditing = patch => {
+    if (!editingMission) return;
+    onPatchMission&&onPatchMission(editingMission.wn,editingMission.yr,editingMission.mission.id,patch);
+    setEditingMission(p=>({...p,mission:{...p.mission,...patch}}));
+  };
+
   return (
     <div>
       {/* Download buttons */}
-      <div style={{ display:"flex", gap:6, marginBottom:18 }}>
+      <div style={{ display:"flex", gap:6, marginBottom:14 }}>
         <button onClick={onDownloadICS} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Google Calendar (.ics)</button>
         <button onClick={onDownloadPDF} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
       </div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:20 }}>
-        <button onClick={prevM} style={S.btnNav}>‹</button>
-        <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:600, minWidth:180, textAlign:"center" }}>{MONTHS[calMonth]} {calYear}</div>
-        <button onClick={nextM} style={S.btnNav}>›</button>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
-        {DAYS.map(d=><div key={d} style={{ textAlign:"center", fontSize:11, color:"#4a4166", fontWeight:600, padding:"4px 0" }}>{d}</div>)}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
-        {cells.map((day,i)=>{
-          if(!day)return <div key={`e${i}`}/>;
-          const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-          const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay;
-          return <div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
-            style={{ borderRadius:10, minHeight:54, padding:"5px 4px", cursor:ms.length>0||isTd?"pointer":"default",
-              background:isSel?"rgba(167,139,250,0.25)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.07)":"rgba(255,255,255,0.02)",
-              border:isSel?"1px solid rgba(167,139,250,0.6)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.15s" }}>
-            <div style={{ fontSize:11, fontWeight:600, marginBottom:3, textAlign:"center", color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166" }}>{day}</div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:2, justifyContent:"center" }}>
-              {ms.slice(0,4).map(m=>{
-                const clrM=colors||DEFAULT_COLORS;
-                const bg=m.who==="person1"?clrM.person1:m.who==="person2"?clrM.person2:clrM.together;
-                return <span key={m.id} title={m.title} style={{ fontSize:12, lineHeight:1, background:`${bg}30`, border:`1px solid ${bg}55`, borderRadius:4, padding:"1px 3px", opacity:m.status==="DONE"?0.4:1 }}>{m.emoji}</span>;
-              })}
-              {ms.length>4&&<span style={{ fontSize:9, color:"#4a4166" }}>+{ms.length-4}</span>}
-            </div>
-          </div>;
-        })}
-      </div>
-      {selectedDay&&<div style={{ ...S.card, marginTop:16, borderColor:"rgba(167,139,250,0.3)" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-          <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
-          <div style={{ display:"flex", gap:6 }}>
-            {selMs.some(m=>m.date)&&<button onClick={()=>selMs.filter(m=>m.date).forEach((m,i)=>setTimeout(()=>window.open(googleCalendarUrl(m,p1,p2),"_blank"),i*300))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 10px" }} title="Se pueden bloquear si tienes popups desactivados">📅 Todos al GCal</button>}
-            {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px", display:"flex", alignItems:"center", gap:4 }}>+ Añadir misión</button>}
+
+      {/* Layout: calendar + sin-fecha column */}
+      <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
+        {/* Calendar */}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:16 }}>
+            <button onClick={prevM} style={S.btnNav}>‹</button>
+            <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, minWidth:160, textAlign:"center" }}>{MONTHS[calMonth]} {calYear}</div>
+            <button onClick={nextM} style={S.btnNav}>›</button>
           </div>
-        </div>
-        {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:14 }}>Sin misiones asignadas 🙂</div>:
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {selMs.map(m=>{
-              const clr = colors || DEFAULT_COLORS;
-              const whoColor = m.who==="person1"?clr.person1:m.who==="person2"?clr.person2:clr.together;
-              const whoLabel = m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
-              const whoIcon = m.who==="together"?"👫":"🙋";
-              const gcalUrl = googleCalendarUrl(m, p1, p2);
-              return <div key={m.id} style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
-                <span style={{ fontSize:22, flexShrink:0, marginTop:2 }}>{m.emoji}</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:3 }}>
-                    <span style={{ fontSize:11, color:"#4a4166" }}>S{m.weekNumber}</span>
-                    {m.time&&<span style={{ fontSize:11, color:"#a78bfa", fontWeight:600 }}>🕐 {m.time}</span>}
-                    {m.category&&<span style={{ fontSize:11, color:"#6b5f88" }}>{CAT_MAP[m.category]?.icon} {CAT_MAP[m.category]?.label}</span>}
-                    <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
-                    {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ fontSize:11, color:"#34d399", textDecoration:"none" }} title="Añadir a Google Calendar">📅 GCal</a>}
-                  </div>
-                </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end", flexShrink:0 }}>
-                  <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)} title="Cambiar estado">{STATUS[m.status].icon} {STATUS[m.status].label}</button>
-                  {onGoToWeek&&<button onClick={()=>onGoToWeek(m.weekNumber,m._yr)} style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, color:"#a78bfa", fontSize:10, padding:"3px 8px", cursor:"pointer", fontFamily:"inherit" }}>✏️ Editar</button>}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:3 }}>
+            {DAYS.map(d=><div key={d} style={{ textAlign:"center", fontSize:10, color:"#4a4166", fontWeight:600, padding:"3px 0" }}>{d}</div>)}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
+            {cells.map((day,i)=>{
+              if(!day)return <div key={`e${i}`}/>;
+              const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+              const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay,isDO=dragOver===ds;
+              return <div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
+                onDragOver={e=>{e.preventDefault();setDragOver(ds);}} onDragLeave={()=>setDragOver(null)} onDrop={e=>onDropDay(e,ds)}
+                style={{ borderRadius:8, minHeight:50, padding:"4px 3px", cursor:"pointer",
+                  background:isDO?"rgba(167,139,250,0.3)":isSel?"rgba(167,139,250,0.22)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.06)":"rgba(255,255,255,0.02)",
+                  border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s" }}>
+                <div style={{ fontSize:10, fontWeight:600, marginBottom:2, textAlign:"center", color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166" }}>{day}</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:2, justifyContent:"center" }}>
+                  {ms.slice(0,3).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={m.id} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} title={m.title} style={{ fontSize:11, lineHeight:1, background:`${bg}30`, border:`1px solid ${bg}55`, borderRadius:3, padding:"1px 2px", opacity:m.status==="DONE"?0.4:1, cursor:"grab" }}>{m.emoji}</span>;})}
+                  {ms.length>3&&<span style={{ fontSize:8, color:"#4a4166" }}>+{ms.length-3}</span>}
                 </div>
               </div>;
             })}
           </div>
-        }
+
+          {/* Day detail panel */}
+          {selectedDay&&<div style={{ ...S.card, marginTop:12, borderColor:"rgba(167,139,250,0.3)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
+              {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px" }}>+ Añadir</button>}
+            </div>
+            {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:13 }}>Sin misiones — arrastra una desde "Sin fecha" 👉</div>:
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {selMs.map(m=>{
+                  const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
+                  return <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid rgba(167,139,250,0.08)" }}>
+                    <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:2 }}>
+                        {m.time&&<span style={{ fontSize:10, color:"#a78bfa" }}>🕐 {m.time}</span>}
+                        {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon}</span>:null;})}
+                        <span style={{ fontSize:10, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                      <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
+                      <button onClick={()=>openEdit(m)} style={{ background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:7, color:"#a78bfa", fontSize:11, padding:"4px 8px", cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
+                    </div>
+                  </div>;
+                })}
+              </div>
+            }
+          </div>}
+        </div>
+
+        {/* Sin fecha column */}
+        <div style={{ width:140, flexShrink:0 }}
+          onDragOver={e=>{e.preventDefault();setDragOver("undated");}} onDragLeave={()=>setDragOver(null)} onDrop={onDropUndated}>
+          <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:8, paddingBottom:4, borderBottom:"1px solid rgba(167,139,250,0.1)" }}>
+            📌 Sin fecha <span style={{ color:"#3d3360" }}>({undated.length})</span>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:5, minHeight:60, padding:4, borderRadius:8, background:dragOver==="undated"?"rgba(167,139,250,0.1)":"transparent", border:dragOver==="undated"?"1px dashed rgba(167,139,250,0.4)":"1px dashed rgba(255,255,255,0.04)", transition:"all 0.15s" }}>
+            {undated.length===0&&<div style={{ fontSize:10, color:"#3d3360", fontStyle:"italic", textAlign:"center", padding:"8px 4px" }}>Arrastra aquí para quitar fecha</div>}
+            {undated.map(m=>{
+              const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
+              return <div key={m.id} draggable onDragStart={e=>onDragStart(e,m)}
+                style={{ background:`${bg}15`, border:`1px solid ${bg}30`, borderRadius:7, padding:"5px 6px", cursor:"grab", display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ fontSize:14, flexShrink:0 }}>{m.emoji}</span>
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontSize:10, color:"#c4b8ff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                  <div style={{ fontSize:9, color:"#4a4166" }}>S{m.weekNumber}</div>
+                </div>
+              </div>;
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Inline edit modal */}
+      {editingMission&&<div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={closeEdit}>
+        <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.35)", borderRadius:16, padding:20, width:"100%", maxWidth:420, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+            <span style={{ fontSize:13, fontWeight:600, color:"#c4b8ff" }}>✏️ Editar actividad</span>
+            <button onClick={closeEdit} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:20, cursor:"pointer" }}>×</button>
+          </div>
+          <div style={{ marginBottom:10 }}><label style={S.label}>Título</label><input value={editingMission.mission.title} onChange={e=>patchEditing({title:e.target.value})} style={S.input} /></div>
+          <div style={{ marginBottom:10 }}>
+            <label style={S.label}>Categoría (multi)</label>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+              {CATEGORIES.map(c=>{const sel=getMCats(editingMission.mission).includes(c.id);return<button key={c.id} onClick={()=>{const cur=getMCats(editingMission.mission);patchEditing({categories:sel?cur.filter(x=>x!==c.id):[...cur,c.id],category:null});}} style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!getMCats(editingMission.mission).length?1:0.4 }}>{c.icon} {c.label}</button>;})}
+            </div>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+            <div><label style={S.label}>📆 Fecha</label><input type="date" value={editingMission.mission.date||""} onChange={e=>patchEditing({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            <div><label style={S.label}>🕐 Hora</label><input type="time" value={editingMission.mission.time||""} onChange={e=>patchEditing({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <label style={S.label}>Estado</label>
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+              {STATUS_ORDER.map(s=><button key={s} onClick={()=>patchEditing({status:s,completedAt:s==="DONE"?Date.now():null})} style={{ ...badgeStyle(s), opacity:editingMission.mission.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}
+            </div>
+          </div>
+          {goals.filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:10 }}>
+            <label style={S.label}>🏅 Meta</label>
+            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark" }}>
+              <option value="">— Sin meta —</option>
+              {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
+            </select>
+          </div>}
+          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:14 }}>
+            <button onClick={()=>{if(window.confirm("¿Eliminar esta actividad?"))onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();}} style={{ ...S.btnSecondary, color:"#f472b6", borderColor:"rgba(244,114,182,0.3)" }}>🗑 Eliminar</button>
+            <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
+          </div>
+        </div>
       </div>}
     </div>
   );
@@ -1761,16 +1868,20 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
       {history.length>0&&<div>
         <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-          {history.map((h,i)=>(
-            <div key={i} title={`${h.label}: ${h.count}/${goal.target}`}
+          {history.map((h,i)=>{
+            const hasData=h.count>0;
+            const metColor=isMax?h.count<=goal.target:"#34d399";
+            const failed=isMax?h.count>goal.target:(!h.met&&hasData);
+            const pending=!hasData&&!h.met;
+            return <div key={i} title={`${h.label}: ${h.count}/${goal.target}`}
               style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
-                background:h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
-                border:`1px solid ${h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
-                color:h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
-              <span style={{ fontSize:11 }}>{h.met?"✅":"·"}</span>
+                background:failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
+                border:`1px solid ${failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
+                color:failed?"#f472b6":h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
+              <span style={{ fontSize:11 }}>{failed?"❌":h.met?"✅":pending?"·":"○"}</span>
               <span style={{ fontSize:8 }}>{h.label}</span>
-            </div>
-          ))}
+            </div>;
+          })}
         </div>
       </div>}
     </div>
