@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "1.9.0";
-const LAST_UPDATE = "2026-04-04";
+const APP_VERSION = "1.9.1";
+const LAST_UPDATE = "2026-04-05";
 const CHANGELOG = [
+  { v:"1.9.1", date:"2026-04-05", notes:["Sin fecha: sin duplicados, tarjetas compactas, click para editar + arrastrar","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: gráfico de barras con escala absoluta (0-100%)","Fecha de hoy visible bajo 'Semana X'","Botón nueva misión arriba y más sutil"] },
   { v:"1.9.0", date:"2026-04-04", notes:["Fix guardado: debounce evita pérdidas de datos","Filtro de categoría global (persiste entre tabs)","Calendario: columna sin-fecha con drag & drop","Editar actividades directamente en calendario (sin salir)","Metas: períodos no cumplidos en rojo, cumplidos en verde"] },
   { v:"1.8.0", date:"2026-03-30", notes:["Categoría Viaje + multi-categoría por tarea/evento","Filtro global por persona persiste entre tabs","Metas: tipo Mínimo/Máximo","Countdown en segundos cuando queda <24h","Gráfico horas por categoría (trabajo en escala propia)","Filtro Esta semana en Historial","Meta enlazada: selector desplegable","Barras de progreso relativas","Insights más potentes"] },
   { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 y P2","Versión dorada con fecha y changelog","Editar estado desde P2","Tareas recurrentes (semanal/mensual)","Goals con countdown deadline","Stats rediseñado"] },
@@ -233,33 +234,40 @@ function computeGoalHistory(goal, weeks) {
     (w.missions||[]).filter(m => m.goalId===goal.id && m.status==="DONE")
       .map(m => ({ ...m, wn:w.weekNumber, wy:w.year||now.getFullYear() }))
   );
+  const isMax = goal.goalType==="max";
   const MONTHS_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   if (goal.period==="weekly") {
     return Array.from({length:8},(_,i)=>{
       const d = new Date(now); d.setDate(d.getDate()-(7-i)*7);
       const { week:wn, year:wy } = getWeekAndYear(d);
+      const isPast = i < 7;
       const count = allDone.filter(m=>m.wn===wn&&m.wy===wy).length;
-      return { label:`S${wn}`, count, met:count>=goal.target };
+      const met = isMax ? count<=goal.target : count>=goal.target;
+      return { label:`S${wn}`, count, met, isPast };
     });
   } else if (goal.period==="monthly") {
     return Array.from({length:6},(_,i)=>{
       const d = new Date(now.getFullYear(), now.getMonth()-(5-i), 1);
       const mo=d.getMonth(), yr=d.getFullYear();
+      const isPast = i < 5;
       const count = allDone.filter(m=>{
         if (m.date){const md=new Date(m.date);return md.getMonth()===mo&&md.getFullYear()===yr;}
         const approx=new Date(m.wy,0,1+(m.wn-1)*7);
         return approx.getMonth()===mo&&approx.getFullYear()===yr;
       }).length;
-      return { label:MONTHS_SHORT[mo], count, met:count>=goal.target };
+      const met = isMax ? count<=goal.target : count>=goal.target;
+      return { label:MONTHS_SHORT[mo], count, met, isPast };
     });
   } else {
     return Array.from({length:4},(_,i)=>{
       const yr = now.getFullYear()-(3-i);
+      const isPast = i < 3;
       const count = allDone.filter(m=>{
         if(m.date)return new Date(m.date).getFullYear()===yr;
         return m.wy===yr;
       }).length;
-      return { label:String(yr), count, met:count>=goal.target };
+      const met = isMax ? count<=goal.target : count>=goal.target;
+      return { label:String(yr), count, met, isPast };
     });
   }
 }
@@ -698,6 +706,7 @@ ${ms.map(m=>{
             <div>
               <div style={{ fontFamily:"'Fraunces',serif", fontSize:40, fontWeight:700, lineHeight:1, letterSpacing:-1 }}>Semana {data.currentWeekNumber}</div>
               <div style={{ fontSize:12, color:"#6b5f88", marginTop:2 }}>{data.currentYear}</div>
+              <div style={{ fontSize:11, color:"#4a4166", marginTop:2 }}>{(()=>{const d=new Date();const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];const meses=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;})()}</div>
             </div>
             <button onClick={()=>changeWeek(1)} style={S.btnNav}>›</button>
           </div>
@@ -784,16 +793,15 @@ ${ms.map(m=>{
               : <div onClick={()=>setEditObj(true)} style={{ cursor:"text", fontSize:16, fontFamily:"'Fraunces',serif", fontWeight:300, color:week.epicObjective?"#f8f4ff":"#3d3360", fontStyle:week.epicObjective?"normal":"italic" }}>{week.epicObjective||"Pulsa para añadir el objetivo épico..."}</div>
             }
           </div>
+          <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:6 }}>
+            {!showAddForm&&<button onClick={()=>setShowAddForm(true)} style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:99, color:"#a78bfa", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"4px 12px", display:"flex", alignItems:"center", gap:5 }}
+              onMouseEnter={e=>e.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(167,139,250,0.1)"}><span>+</span> Nueva misión</button>}
+          </div>
+          {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />}
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {week.missions?.filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))).map(m=>(
               <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
-            {showAddForm
-              ? <AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />
-              : <button onClick={()=>setShowAddForm(true)} style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"14px", border:"2px dashed rgba(167,139,250,0.2)", borderRadius:13, background:"transparent", color:"#5a4f80", cursor:"pointer", fontSize:14, fontFamily:"inherit" }}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.45)";e.currentTarget.style.color="#a78bfa";}}
-                  onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.2)";e.currentTarget.style.color="#5a4f80";}}><span style={{ fontSize:20 }}>+</span> Nueva misión</button>
-            }
           </div>
         </div>}
 
@@ -1453,21 +1461,18 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
       {/* Completion % per week — normalizado al máximo */}
       {series.length>1&&(()=>{
-        const maxPct=Math.max(...series.map(s=>s.pct),1);
-        const minPct=Math.min(...series.filter(s=>s.total>0).map(s=>s.pct),maxPct);
-        const range=Math.max(maxPct-minPct,10); // al menos 10pts de rango para que haya diferencia visual
         const baseColor=barPersonColor||"#f472b6";
+        const BAR_MAX=72; // px
         return <div style={S.card}>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:16, fontWeight:600 }}>✅ Progreso semana a semana</div>
-          <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:110 }}>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>✅ Progreso semana a semana</div>
+          <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_MAX+28 }}>
             {series.map((w,i)=>{
               const isLast=i===series.length-1;
-              const normalized=w.total>0?((w.pct-minPct)/range*70)+20:2; // 20-90% de altura, normalizados al rango real
-              const h=Math.max(normalized,2);
-              const barBg=w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor}99,${baseColor}55)`;
+              const barH=w.total>0?Math.max(Math.round(w.pct/100*BAR_MAX),3):3;
+              const barBg=w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor}88,${baseColor}44)`;
               return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-                <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400 }}>{w.pct>0?`${w.pct}%`:""}</div>
-                <div style={{ width:"100%", borderRadius:"4px 4px 0 0", height:`${h}%`, background:barBg, opacity:isLast?1:0.75, boxShadow:isLast?`0 0 8px ${baseColor}55`:"none", transition:"height 0.4s" }} />
+                <div style={{ fontSize:9, color:isLast?baseColor:"#6b5f88", fontWeight:isLast?700:400, height:14, display:"flex", alignItems:"flex-end" }}>{w.total>0?`${w.pct}%`:""}</div>
+                <div style={{ width:"100%", borderRadius:"3px 3px 0 0", height:barH, background:barBg, opacity:isLast?1:0.8, boxShadow:isLast?`0 0 6px ${baseColor}55`:"none", transition:"height 0.4s" }} />
                 <div style={{ fontSize:9, color:isLast?baseColor:"#4a4166", fontWeight:isLast?700:400 }}>{w.label}</div>
               </div>;
             })}
@@ -1599,7 +1604,8 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
   const applyFilters = ms => ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   const byDate={};
   applyFilters(allDatedMissions).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
-  const undated = applyFilters(allUndatedMissions||[]);
+  // dedup by id in case same mission appears twice across week keys
+  const undated = applyFilters((allUndatedMissions||[]).filter((m,i,a)=>a.findIndex(x=>x.id===m.id)===i));
 
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
@@ -1695,21 +1701,21 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
         </div>
 
         {/* Sin fecha column */}
-        <div style={{ width:140, flexShrink:0 }}
+        <div style={{ width:110, flexShrink:0 }}
           onDragOver={e=>{e.preventDefault();setDragOver("undated");}} onDragLeave={()=>setDragOver(null)} onDrop={onDropUndated}>
-          <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:8, paddingBottom:4, borderBottom:"1px solid rgba(167,139,250,0.1)" }}>
-            📌 Sin fecha <span style={{ color:"#3d3360" }}>({undated.length})</span>
+          <div style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:6, paddingBottom:3, borderBottom:"1px solid rgba(167,139,250,0.1)" }}>
+            📌 Sin fecha {undated.length>0&&<span style={{ color:"#3d3360" }}>({undated.length})</span>}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:5, minHeight:60, padding:4, borderRadius:8, background:dragOver==="undated"?"rgba(167,139,250,0.1)":"transparent", border:dragOver==="undated"?"1px dashed rgba(167,139,250,0.4)":"1px dashed rgba(255,255,255,0.04)", transition:"all 0.15s" }}>
-            {undated.length===0&&<div style={{ fontSize:10, color:"#3d3360", fontStyle:"italic", textAlign:"center", padding:"8px 4px" }}>Arrastra aquí para quitar fecha</div>}
+          <div style={{ display:"flex", flexDirection:"column", gap:3, minHeight:50, padding:3, borderRadius:7, background:dragOver==="undated"?"rgba(167,139,250,0.1)":"transparent", border:dragOver==="undated"?"1px dashed rgba(167,139,250,0.4)":"1px dashed rgba(255,255,255,0.04)", transition:"all 0.15s" }}>
+            {undated.length===0&&<div style={{ fontSize:9, color:"#3d3360", fontStyle:"italic", textAlign:"center", padding:"6px 2px" }}>Suelta aquí para quitar fecha</div>}
             {undated.map(m=>{
               const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
-              return <div key={m.id} draggable onDragStart={e=>onDragStart(e,m)}
-                style={{ background:`${bg}15`, border:`1px solid ${bg}30`, borderRadius:7, padding:"5px 6px", cursor:"grab", display:"flex", alignItems:"center", gap:5 }}>
-                <span style={{ fontSize:14, flexShrink:0 }}>{m.emoji}</span>
+              return <div key={m.id} draggable onDragStart={e=>onDragStart(e,m)} onClick={()=>openEdit(m)}
+                style={{ background:`${bg}12`, border:`1px solid ${bg}28`, borderRadius:5, padding:"3px 5px", cursor:"grab", display:"flex", alignItems:"center", gap:4 }}
+                title={m.title+" · toca para editar, arrastra para asignar fecha"}>
+                <span style={{ fontSize:12, flexShrink:0 }}>{m.emoji}</span>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:10, color:"#c4b8ff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-                  <div style={{ fontSize:9, color:"#4a4166" }}>S{m.weekNumber}</div>
+                  <div style={{ fontSize:9, color:"#c4b8ff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:72 }}>{m.title}</div>
                 </div>
               </div>;
             })}
@@ -1898,16 +1904,13 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
         <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
           {history.map((h,i)=>{
-            const hasData=h.count>0;
-            const metColor=isMax?h.count<=goal.target:"#34d399";
-            const failed=isMax?h.count>goal.target:(!h.met&&hasData);
-            const pending=!hasData&&!h.met;
+            const failed=!h.met&&(h.count>0||h.isPast);
             return <div key={i} title={`${h.label}: ${h.count}/${goal.target}`}
               style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
                 background:failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
                 border:`1px solid ${failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
                 color:failed?"#f472b6":h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
-              <span style={{ fontSize:11 }}>{failed?"❌":h.met?"✅":pending?"·":"○"}</span>
+              <span style={{ fontSize:11 }}>{failed?"❌":h.met?"✅":"·"}</span>
               <span style={{ fontSize:8 }}>{h.label}</span>
             </div>;
           })}
