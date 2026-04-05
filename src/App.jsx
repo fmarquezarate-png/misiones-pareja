@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "1.9.1";
+const APP_VERSION = "1.9.2";
 const LAST_UPDATE = "2026-04-05";
 const CHANGELOG = [
-  { v:"1.9.1", date:"2026-04-05", notes:["Sin fecha: sin duplicados, tarjetas compactas, click para editar + arrastrar","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: gráfico de barras con escala absoluta (0-100%)","Fecha de hoy visible bajo 'Semana X'","Botón nueva misión arriba y más sutil"] },
+  { v:"1.9.2", date:"2026-04-05", notes:["Sin fecha: solo no-hechas, dedup por título+quién+emoji (semana más reciente)","Drag & drop corregido: onDragEnter + relatedTarget fix","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: barras con escala absoluta 0-100%","Fecha de hoy bajo 'Semana X', botón nueva misión arriba"] },
   { v:"1.9.0", date:"2026-04-04", notes:["Fix guardado: debounce evita pérdidas de datos","Filtro de categoría global (persiste entre tabs)","Calendario: columna sin-fecha con drag & drop","Editar actividades directamente en calendario (sin salir)","Metas: períodos no cumplidos en rojo, cumplidos en verde"] },
   { v:"1.8.0", date:"2026-03-30", notes:["Categoría Viaje + multi-categoría por tarea/evento","Filtro global por persona persiste entre tabs","Metas: tipo Mínimo/Máximo","Countdown en segundos cuando queda <24h","Gráfico horas por categoría (trabajo en escala propia)","Filtro Esta semana en Historial","Meta enlazada: selector desplegable","Barras de progreso relativas","Insights más potentes"] },
   { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 y P2","Versión dorada con fecha y changelog","Editar estado desde P2","Tareas recurrentes (semanal/mensual)","Goals con countdown deadline","Stats rediseñado"] },
@@ -687,7 +687,7 @@ ${ms.map(m=>{
   const carried = week.missions?.filter(m=>m.carriedFrom)||[];
   const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
   const allDated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
-  const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
+  const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date&&m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear(),_key:key})));
 
   return (
     <div style={{ minHeight:"100vh", background:"#0a0714", backgroundImage:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
@@ -1604,22 +1604,24 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
   const applyFilters = ms => ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   const byDate={};
   applyFilters(allDatedMissions).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
-  // dedup by id in case same mission appears twice across week keys
-  const undated = applyFilters((allUndatedMissions||[]).filter((m,i,a)=>a.findIndex(x=>x.id===m.id)===i));
+  // dedup: keep most recent week per unique title+who+emoji, exclude DONE
+  const _uf = applyFilters((allUndatedMissions||[]).filter(m=>m.status!=="DONE"));
+  const _ufSorted = [..._uf].sort((a,b)=>(b._key||"").localeCompare(a._key||""));
+  const undated = _ufSorted.filter((m,i,a)=>a.findIndex(x=>x.title===m.title&&x.who===m.who&&x.emoji===m.emoji)===i);
 
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
   const selMs=selStr?(byDate[selStr]||[]):[];
 
   // DnD handlers
-  const onDragStart = (e, m) => e.dataTransfer.setData("missionId", JSON.stringify({id:m.id,wn:m.weekNumber,yr:m._yr}));
+  const onDragStart = (e, m) => { e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", JSON.stringify({id:m.id,wn:m.weekNumber,yr:m._yr})); };
   const onDropDay = (e, dateStr) => {
     e.preventDefault(); setDragOver(null);
-    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("missionId")); onPatchMission&&onPatchMission(wn,yr,id,{date:dateStr}); } catch{}
+    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("text/plain")); onPatchMission&&onPatchMission(wn,yr,id,{date:dateStr}); } catch(err){console.warn("drop err",err);}
   };
   const onDropUndated = e => {
     e.preventDefault(); setDragOver(null);
-    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("missionId")); onPatchMission&&onPatchMission(wn,yr,id,{date:null,time:null}); } catch{}
+    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("text/plain")); onPatchMission&&onPatchMission(wn,yr,id,{date:null,time:null}); } catch(err){console.warn("drop err",err);}
   };
 
   const openEdit = m => setEditingMission({mission:m,wn:m.weekNumber,yr:m._yr});
@@ -1656,13 +1658,13 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
               const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
               const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay,isDO=dragOver===ds;
               return <div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
-                onDragOver={e=>{e.preventDefault();setDragOver(ds);}} onDragLeave={()=>setDragOver(null)} onDrop={e=>onDropDay(e,ds)}
+                onDragEnter={e=>{e.preventDefault();setDragOver(ds);}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={e=>onDropDay(e,ds)}
                 style={{ borderRadius:8, minHeight:50, padding:"4px 3px", cursor:"pointer",
                   background:isDO?"rgba(167,139,250,0.3)":isSel?"rgba(167,139,250,0.22)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.06)":"rgba(255,255,255,0.02)",
                   border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s" }}>
                 <div style={{ fontSize:10, fontWeight:600, marginBottom:2, textAlign:"center", color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166" }}>{day}</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:2, justifyContent:"center" }}>
-                  {ms.slice(0,3).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={m.id} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} title={m.title} style={{ fontSize:11, lineHeight:1, background:`${bg}30`, border:`1px solid ${bg}55`, borderRadius:3, padding:"1px 2px", opacity:m.status==="DONE"?0.4:1, cursor:"grab" }}>{m.emoji}</span>;})}
+                  {ms.slice(0,3).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={m.id} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{ fontSize:11, lineHeight:1, background:`${bg}30`, border:`1px solid ${bg}55`, borderRadius:3, padding:"1px 2px", opacity:m.status==="DONE"?0.4:1, cursor:"grab" }}>{m.emoji}</span>;})}
                   {ms.length>3&&<span style={{ fontSize:8, color:"#4a4166" }}>+{ms.length-3}</span>}
                 </div>
               </div>;
@@ -1702,7 +1704,7 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
 
         {/* Sin fecha column */}
         <div style={{ width:110, flexShrink:0 }}
-          onDragOver={e=>{e.preventDefault();setDragOver("undated");}} onDragLeave={()=>setDragOver(null)} onDrop={onDropUndated}>
+          onDragEnter={e=>{e.preventDefault();setDragOver("undated");}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={onDropUndated}>
           <div style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:6, paddingBottom:3, borderBottom:"1px solid rgba(167,139,250,0.1)" }}>
             📌 Sin fecha {undated.length>0&&<span style={{ color:"#3d3360" }}>({undated.length})</span>}
           </div>
@@ -1710,7 +1712,7 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
             {undated.length===0&&<div style={{ fontSize:9, color:"#3d3360", fontStyle:"italic", textAlign:"center", padding:"6px 2px" }}>Suelta aquí para quitar fecha</div>}
             {undated.map(m=>{
               const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
-              return <div key={m.id} draggable onDragStart={e=>onDragStart(e,m)} onClick={()=>openEdit(m)}
+              return <div key={m.id} draggable onDragStart={e=>onDragStart(e,m)} onDragEnd={()=>setDragOver(null)} onClick={()=>openEdit(m)}
                 style={{ background:`${bg}12`, border:`1px solid ${bg}28`, borderRadius:5, padding:"3px 5px", cursor:"grab", display:"flex", alignItems:"center", gap:4 }}
                 title={m.title+" · toca para editar, arrastra para asignar fecha"}>
                 <span style={{ fontSize:12, flexShrink:0 }}>{m.emoji}</span>
