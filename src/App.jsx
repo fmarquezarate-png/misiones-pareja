@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "1.9.2";
+const APP_VERSION = "1.9.3";
 const LAST_UPDATE = "2026-04-05";
 const CHANGELOG = [
+  { v:"1.9.3", date:"2026-04-06", notes:["P2: columna 'Sin fecha' eliminada, calendario vuelve a pantalla completa","Se mantiene edición inline de actividades desde el panel del día"] },
   { v:"1.9.2", date:"2026-04-05", notes:["Sin fecha: solo no-hechas, dedup por título+quién+emoji (semana más reciente)","Drag & drop corregido: onDragEnter + relatedTarget fix","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: barras con escala absoluta 0-100%","Fecha de hoy bajo 'Semana X', botón nueva misión arriba"] },
   { v:"1.9.0", date:"2026-04-04", notes:["Fix guardado: debounce evita pérdidas de datos","Filtro de categoría global (persiste entre tabs)","Calendario: columna sin-fecha con drag & drop","Editar actividades directamente en calendario (sin salir)","Metas: períodos no cumplidos en rojo, cumplidos en verde"] },
   { v:"1.8.0", date:"2026-03-30", notes:["Categoría Viaje + multi-categoría por tarea/evento","Filtro global por persona persiste entre tabs","Metas: tipo Mínimo/Máximo","Countdown en segundos cuando queda <24h","Gráfico horas por categoría (trabajo en escala propia)","Filtro Esta semana en Historial","Meta enlazada: selector desplegable","Barras de progreso relativas","Insights más potentes"] },
@@ -806,7 +807,7 @@ ${ms.map(m=>{
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} allUndatedMissions={allUndated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
+          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
           onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
@@ -1586,7 +1587,7 @@ function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[] }) {
+function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[] }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -1604,24 +1605,16 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
   const applyFilters = ms => ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   const byDate={};
   applyFilters(allDatedMissions).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
-  // dedup: keep most recent week per unique title+who+emoji, exclude DONE
-  const _uf = applyFilters((allUndatedMissions||[]).filter(m=>m.status!=="DONE"));
-  const _ufSorted = [..._uf].sort((a,b)=>(b._key||"").localeCompare(a._key||""));
-  const undated = _ufSorted.filter((m,i,a)=>a.findIndex(x=>x.title===m.title&&x.who===m.who&&x.emoji===m.emoji)===i);
 
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
   const selMs=selStr?(byDate[selStr]||[]):[];
 
-  // DnD handlers
+  // DnD handlers (drag between calendar days)
   const onDragStart = (e, m) => { e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", JSON.stringify({id:m.id,wn:m.weekNumber,yr:m._yr})); };
   const onDropDay = (e, dateStr) => {
     e.preventDefault(); setDragOver(null);
     try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("text/plain")); onPatchMission&&onPatchMission(wn,yr,id,{date:dateStr}); } catch(err){console.warn("drop err",err);}
-  };
-  const onDropUndated = e => {
-    e.preventDefault(); setDragOver(null);
-    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("text/plain")); onPatchMission&&onPatchMission(wn,yr,id,{date:null,time:null}); } catch(err){console.warn("drop err",err);}
   };
 
   const openEdit = m => setEditingMission({mission:m,wn:m.weekNumber,yr:m._yr});
@@ -1640,11 +1633,9 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
         <button onClick={onDownloadPDF} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
       </div>
 
-      {/* Layout: calendar + sin-fecha column */}
-      <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
-        {/* Calendar */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:16 }}>
+      {/* Calendar */}
+      <div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:16 }}>
             <button onClick={prevM} style={S.btnNav}>‹</button>
             <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, minWidth:160, textAlign:"center" }}>{MONTHS[calMonth]} {calYear}</div>
             <button onClick={nextM} style={S.btnNav}>›</button>
@@ -1671,13 +1662,13 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
             })}
           </div>
 
-          {/* Day detail panel */}
-          {selectedDay&&<div style={{ ...S.card, marginTop:12, borderColor:"rgba(167,139,250,0.3)" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
-              {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px" }}>+ Añadir</button>}
-            </div>
-            {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:13 }}>Sin misiones — arrastra una desde "Sin fecha" 👉</div>:
+        {/* Day detail panel */}
+        {selectedDay&&<div style={{ ...S.card, marginTop:12, borderColor:"rgba(167,139,250,0.3)" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
+            {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px" }}>+ Añadir</button>}
+          </div>
+          {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:13 }}>Sin misiones para este día</div>:
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {selMs.map(m=>{
                   const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
@@ -1698,31 +1689,8 @@ function CalendarView({ allDatedMissions, allUndatedMissions, week, wkey, p1, p2
                   </div>;
                 })}
               </div>
-            }
-          </div>}
-        </div>
-
-        {/* Sin fecha column */}
-        <div style={{ width:110, flexShrink:0 }}
-          onDragEnter={e=>{e.preventDefault();setDragOver("undated");}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={onDropUndated}>
-          <div style={{ fontSize:9, letterSpacing:1, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:6, paddingBottom:3, borderBottom:"1px solid rgba(167,139,250,0.1)" }}>
-            📌 Sin fecha {undated.length>0&&<span style={{ color:"#3d3360" }}>({undated.length})</span>}
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:3, minHeight:50, padding:3, borderRadius:7, background:dragOver==="undated"?"rgba(167,139,250,0.1)":"transparent", border:dragOver==="undated"?"1px dashed rgba(167,139,250,0.4)":"1px dashed rgba(255,255,255,0.04)", transition:"all 0.15s" }}>
-            {undated.length===0&&<div style={{ fontSize:9, color:"#3d3360", fontStyle:"italic", textAlign:"center", padding:"6px 2px" }}>Suelta aquí para quitar fecha</div>}
-            {undated.map(m=>{
-              const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
-              return <div key={m.id} draggable onDragStart={e=>onDragStart(e,m)} onDragEnd={()=>setDragOver(null)} onClick={()=>openEdit(m)}
-                style={{ background:`${bg}12`, border:`1px solid ${bg}28`, borderRadius:5, padding:"3px 5px", cursor:"grab", display:"flex", alignItems:"center", gap:4 }}
-                title={m.title+" · toca para editar, arrastra para asignar fecha"}>
-                <span style={{ fontSize:12, flexShrink:0 }}>{m.emoji}</span>
-                <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:9, color:"#c4b8ff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:72 }}>{m.title}</div>
-                </div>
-              </div>;
-            })}
-          </div>
-        </div>
+          }
+        </div>}
       </div>
 
       {/* Inline edit modal */}
