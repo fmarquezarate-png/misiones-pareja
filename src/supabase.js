@@ -7,6 +7,7 @@ const supabase = createClient(
 
 const LOCAL_KEY    = "couple-missions-backup";
 const LOCAL_TS_KEY = "couple-missions-backup-ts";
+const LEGACY_ROW_ID = "couple-missions";
 
 /* ── Auth ────────────────────────────────────────────────────────── */
 
@@ -166,7 +167,7 @@ export function importData(file) {
 export async function loadData(coupleId) {
   try {
     const { data, error } = await supabase
-      .from("app_data")
+      .from("couples")
       .select("data")
       .eq("couple_id", coupleId)
       .single();
@@ -191,6 +192,20 @@ export async function loadData(coupleId) {
 
 export async function saveData(appData, coupleId) {
   saveLocalBackup(appData);
+
+  // Legacy single-row mode: keep for backup/import flow
+  if (!coupleId) {
+    try {
+      const { error } = await supabase
+        .from("app_data")
+        .upsert({ id: LEGACY_ROW_ID, data: appData, updated_at: new Date().toISOString() });
+      if (error) console.error("Save error:", error);
+    } catch (e) {
+      console.error(e);
+    }
+    return;
+  }
+
   try {
     const { error } = await supabase
       .from("app_data")

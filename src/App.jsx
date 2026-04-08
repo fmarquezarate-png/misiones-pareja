@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, saveData, loadLocalBackup, exportData, importData } from "./supabase.js";
+import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates } from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "1.9.3";
-const LAST_UPDATE = "2026-04-05";
+const APP_VERSION = "2.0.0";
+const LAST_UPDATE = "2026-04-08";
 const CHANGELOG = [
+  { v:"2.0.0", date:"2026-04-08", notes:["Login con Google OAuth","Espacio privado por pareja con código compartido","Sincronización en tiempo real con Supabase Realtime","Backup automático en localStorage"] },
   { v:"1.9.3", date:"2026-04-06", notes:["P2: columna 'Sin fecha' eliminada, calendario vuelve a pantalla completa","Se mantiene edición inline de actividades desde el panel del día"] },
   { v:"1.9.2", date:"2026-04-05", notes:["Sin fecha: solo no-hechas, dedup por título+quién+emoji (semana más reciente)","Drag & drop corregido: onDragEnter + relatedTarget fix","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: barras con escala absoluta 0-100%","Fecha de hoy bajo 'Semana X', botón nueva misión arriba"] },
   { v:"1.9.0", date:"2026-04-04", notes:["Fix guardado: debounce evita pérdidas de datos","Filtro de categoría global (persiste entre tabs)","Calendario: columna sin-fecha con drag & drop","Editar actividades directamente en calendario (sin salir)","Metas: períodos no cumplidos en rojo, cumplidos en verde"] },
@@ -345,7 +346,185 @@ const badgeStyle = s => ({ background:STATUS[s].bg, color:STATUS[s].color, borde
 const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; return { background:`${c.color}18`, color:c.color, border:`1px solid ${c.color}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" }; };
 
 // ─── App ──────────────────────────────────────────────────────────────────────
-export default function CoupleMissions() {
+// ─── Auth wrapper ─────────────────────────────────────────────────────────────
+export default function AppWithAuth() {
+  const [session, setSession]       = useState(undefined); // undefined = loading
+  const [coupleData, setCoupleData] = useState(null); // { couple_id, person_name }
+  const [authStep, setAuthStep]     = useState("checking"); // checking | login | onboarding | app
+
+  useEffect(() => {
+    // Get initial session
+    getSession().then(s => {
+      setSession(s);
+      if (!s) { setAuthStep("login"); return; }
+      // Has session — check if in a couple
+      getMyCoupleId().then(cd => {
+        if (cd?.couple_id) { setCoupleData(cd); setAuthStep("app"); }
+        else setAuthStep("onboarding");
+      });
+    });
+    // Listen for auth changes
+    const sub = onAuthChange(s => {
+      setSession(s);
+      if (!s) { setAuthStep("login"); setCoupleData(null); }
+      else {
+        getMyCoupleId().then(cd => {
+          if (cd?.couple_id) { setCoupleData(cd); setAuthStep("app"); }
+          else setAuthStep("onboarding");
+        });
+      }
+    });
+    return () => sub.unsubscribe();
+  }, []);
+
+  if (authStep === "checking") return (
+    <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:48, marginBottom:12 }}>💞</div>
+        <div style={{ color:"#8b7fa8", fontSize:14 }}>Comprobando sesión...</div>
+      </div>
+    </div>
+  );
+
+  if (authStep === "login") return <LoginScreen />;
+  if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { setCoupleData(cd); setAuthStep("app"); }} />;
+  return <CoupleMissions coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={() => { signOut(); setAuthStep("login"); }} />;
+}
+
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+function LoginScreen() {
+  return (
+    <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff", padding:20 }}>
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+      <div style={{ textAlign:"center", maxWidth:340, width:"100%" }}>
+        <div style={{ fontSize:64, marginBottom:16 }}>💞</div>
+        <div style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, marginBottom:8, letterSpacing:-1 }}>Misiones de Pareja</div>
+        <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:40, lineHeight:1.6 }}>Tu espacio privado para planificar<br/>la semana juntos</div>
+        <button onClick={signInWithGoogle}
+          style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, width:"100%", padding:"14px 20px", background:"#fff", border:"none", borderRadius:12, cursor:"pointer", fontSize:15, fontWeight:600, color:"#1a1a2e", fontFamily:"inherit", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", transition:"transform 0.15s" }}
+          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
+          onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}>
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Entrar con Google
+        </button>
+        <div style={{ fontSize:11, color:"#4a4166", marginTop:20, lineHeight:1.6 }}>
+          Tus datos son privados y solo accesibles<br/>con tu código de pareja
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Onboarding Screen ────────────────────────────────────────────────────────
+function OnboardingScreen({ session, onDone }) {
+  const [step, setStep]       = useState("choice"); // choice | create | join
+  const [name, setName]       = useState(session?.user?.user_metadata?.full_name?.split(" ")[0] || "");
+  const [code, setCode]       = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState(null);
+
+  const handleCreate = async () => {
+    if (!name.trim() || !code.trim()) return;
+    setLoading(true); setError(null);
+    const res = await createCouple(code.trim().toUpperCase(), name.trim());
+    if (res.error) { setError(res.error); setLoading(false); return; }
+    onDone({ couple_id: res.couple_id, person_name: name.trim() });
+  };
+
+  const handleJoin = async () => {
+    if (!name.trim() || !code.trim()) return;
+    setLoading(true); setError(null);
+    const res = await joinCouple(code.trim().toUpperCase(), name.trim());
+    if (res.error) { setError(res.error); setLoading(false); return; }
+    onDone({ couple_id: res.couple_id, person_name: name.trim() });
+  };
+
+  const inputStyle = { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:10, padding:"12px 14px", color:"#f8f4ff", fontSize:15, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box", letterSpacing:0.3 };
+  const btnStyle = { background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:10, color:"#fff", padding:"13px", cursor:"pointer", fontSize:15, fontWeight:600, fontFamily:"inherit", width:"100%", opacity:loading?0.6:1 };
+  const backBtn = { background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:13, fontFamily:"inherit", marginBottom:20, padding:0 };
+
+  return (
+    <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff", padding:20 }}>
+      <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+      <div style={{ maxWidth:360, width:"100%" }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ fontSize:48, marginBottom:10 }}>💞</div>
+          <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700 }}>¡Bienvenido/a!</div>
+          <div style={{ fontSize:13, color:"#8b7fa8", marginTop:8 }}>
+            {session?.user?.email && <span>Conectado como <strong style={{ color:"#a78bfa" }}>{session.user.email}</strong></span>}
+          </div>
+        </div>
+
+        {step === "choice" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            <div style={{ fontSize:13, color:"#8b7fa8", textAlign:"center", marginBottom:8 }}>¿Qué quieres hacer?</div>
+            <button onClick={() => setStep("create")}
+              style={{ ...btnStyle, background:"linear-gradient(135deg,#f472b6,#a78bfa)" }}>
+              ✨ Crear una pareja nueva
+            </button>
+            <button onClick={() => setStep("join")}
+              style={{ ...btnStyle, background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", color:"#c4b8ff" }}>
+              🔗 Unirme a una pareja existente
+            </button>
+            <button onClick={() => signOut()} style={{ ...backBtn, marginTop:8, textAlign:"center", width:"100%", display:"block" }}>
+              ← Cerrar sesión
+            </button>
+          </div>
+        )}
+
+        {step === "create" && (
+          <div>
+            <button onClick={() => { setStep("choice"); setError(null); }} style={backBtn}>← Volver</button>
+            <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:20 }}>
+              Crea un espacio privado para vuestra pareja con un código único que compartiréis.
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Pololo 👑" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
+              <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="Ej: FRAN-ANA" maxLength={20} style={{ ...inputStyle, letterSpacing:2, textTransform:"uppercase" }} />
+              <div style={{ fontSize:11, color:"#4a4166", marginTop:5 }}>Este código lo usará tu pareja para unirse. Elige algo memorable.</div>
+            </div>
+            {error && <div style={{ fontSize:13, color:"#fb923c", marginBottom:12, background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:8, padding:"8px 12px" }}>{error}</div>}
+            <button onClick={handleCreate} disabled={loading || !name.trim() || !code.trim()} style={btnStyle}>
+              {loading ? "Creando..." : "🚀 Crear pareja"}
+            </button>
+          </div>
+        )}
+
+        {step === "join" && (
+          <div>
+            <button onClick={() => { setStep("choice"); setError(null); }} style={backBtn}>← Volver</button>
+            <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:20 }}>
+              Tu pareja ya creó el espacio. Introduce el código que te compartió.
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Banana 🍌" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
+              <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="Ej: FRAN-ANA" maxLength={20} style={{ ...inputStyle, letterSpacing:2, textTransform:"uppercase" }} />
+            </div>
+            {error && <div style={{ fontSize:13, color:"#fb923c", marginBottom:12, background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:8, padding:"8px 12px" }}>{error}</div>}
+            <button onClick={handleJoin} disabled={loading || !name.trim() || !code.trim()} style={btnStyle}>
+              {loading ? "Uniéndome..." : "🔗 Unirme a la pareja"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -366,7 +545,7 @@ export default function CoupleMissions() {
   useEffect(() => {
     (async () => {
       try {
-        let base = await loadData();
+        let base = await loadData(coupleId);
         if (base) {
           if (!base.seedVersion || base.seedVersion < SEED_VERSION) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
@@ -394,6 +573,21 @@ export default function CoupleMissions() {
     })();
   }, []);
 
+  // Realtime: reload when partner saves
+  useEffect(() => {
+    if (!coupleId) return;
+    const channel = subscribeToUpdates(coupleId, remoteData => {
+      if (remoteData) {
+        setData(prev => {
+          // Only update if remote is newer (avoid overwriting own unsaved changes)
+          if (!prev) return remoteData;
+          return remoteData;
+        });
+      }
+    });
+    return () => { import("./supabase.js").then(m => m.default?.removeChannel?.(channel)); };
+  }, [coupleId]);
+
   const update = useCallback(fn => {
     setData(prev => {
       const next = fn(prev);
@@ -402,7 +596,7 @@ export default function CoupleMissions() {
       saveTimerRef.current = setTimeout(() => {
         setSaving(true);
         setSavingError(false);
-        saveData(next)
+        saveData(next, coupleId)
           .then(() => { setSaved(true); setTimeout(() => setSaved(false), 1800); })
           .catch(e => { console.error("Error guardando:", e); setSavingError(true); setTimeout(() => setSavingError(false), 3000); })
           .finally(() => setSaving(false));
@@ -694,7 +888,7 @@ ${ms.map(m=>{
     <div style={{ minHeight:"100vh", background:"#0a0714", backgroundImage:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
-      {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} />}
+      {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} onSignOut={onSignOut} />}
 
       <div style={{ maxWidth:640, margin:"0 auto", padding:"28px 16px 140px" }}>
 
@@ -1105,7 +1299,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function SettingsModal({ data, update, onClose }) {
+function SettingsModal({ data, update, onClose, onSignOut }) {
   const [p1, setP1] = useState(data.settings?.person1||"Pololo");
   const [p2, setP2] = useState(data.settings?.person2||"Banana");
   const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors||{}) });
@@ -1161,6 +1355,11 @@ function SettingsModal({ data, update, onClose }) {
             </label>
           </div>
           {importMsg && <div style={{ fontSize:12, marginTop:8, color: importMsg.startsWith("✅") ? "#34d399" : "#fb923c" }}>{importMsg}</div>}
+        </div>
+        <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:8, paddingTop:16, marginBottom:4 }}>
+          <button onClick={onSignOut} style={{ width:"100%", background:"rgba(244,114,182,0.08)", border:"1px solid rgba(244,114,182,0.2)", borderRadius:8, color:"#f472b6", padding:"9px", cursor:"pointer", fontSize:13, fontFamily:"inherit" }}>
+            🚪 Cerrar sesión
+          </button>
         </div>
         <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11 }}>↺ Colores por defecto</button>
@@ -1435,7 +1634,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           {/* Donut SVG */}
           <div style={{ flexShrink:0 }}>
             <svg viewBox="0 0 36 36" width={90} height={90} style={{ transform:"rotate(-90deg)" }}>
-              <circle cx="18" cy="18" r={C/(2*Math.PI)*2*Math.PI/C*C} strokeWidth="3.8" fill="none" stroke="rgba(255,255,255,0.05)" r="15.9155"/>
+              <circle cx="18" cy="18" r="15.9155" strokeWidth="3.8" fill="none" stroke="rgba(255,255,255,0.05)"/>
               {donutSegments.map(({s,pct:p,offset})=>(
                 <circle key={s} cx="18" cy="18" r="15.9155" fill="none" strokeWidth="3.8"
                   stroke={STATUS[s].color}
