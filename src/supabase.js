@@ -68,11 +68,17 @@ export async function createCouple(code, personName) {
   if (existing) return { error: "Ese código ya está en uso, elige otro" };
 
   // Create couple
+
   const { data: couple, error: coupleErr } = await supabase
     .from("couples")
-    .insert({ code: code.toUpperCase(), name: `Pareja ${code.toUpperCase()}` })
+    .insert({
+      code: code.toUpperCase(),
+      name: `Pareja ${code.toUpperCase()}`,
+      owner_user_id: session.user.id   // 🔥 ESTA ES LA CLAVE
+    })
     .select()
     .single();
+
 
   if (coupleErr) return { error: coupleErr.message };
 
