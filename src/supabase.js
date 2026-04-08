@@ -7,7 +7,6 @@ const supabase = createClient(
 
 const LOCAL_KEY    = "couple-missions-backup";
 const LOCAL_TS_KEY = "couple-missions-backup-ts";
-const LEGACY_ROW_ID = "couple-missions";
 
 /* ── Auth ────────────────────────────────────────────────────────── */
 
@@ -40,7 +39,6 @@ export function onAuthChange(callback) {
 
 /* ── Couple helpers ──────────────────────────────────────────────── */
 
-// Get the couple_id for the current user (null if not in a couple yet)
 export async function getMyCoupleId() {
   const session = await getSession();
   if (!session) return null;
@@ -48,12 +46,11 @@ export async function getMyCoupleId() {
     .from("couple_members")
     .select("couple_id, person_name")
     .eq("user_id", session.user.id)
-    .single();
-  if (error) return null;
-  return data;
+    .maybeSingle(); // maybeSingle: no error when row doesn't exist
+  if (error) { console.error("getMyCoupleId error:", error); return null; }
+  return data; // null if not in a couple yet
 }
 
-// Create a new couple with a code and join it
 export async function createCouple(code, personName) {
   const session = await getSession();
   if (!session) return { error: "No hay sesión activa" };
@@ -63,36 +60,24 @@ export async function createCouple(code, personName) {
     .from("couples")
     .select("id")
     .eq("code", code.toUpperCase())
-    .single();
+    .maybeSingle();
 
   if (existing) return { error: "Ese código ya está en uso, elige otro" };
 
-  // Create couple
-
-
-const { error: coupleErr } = await supabase
-  .from("couples")
-  .insert({
-    code: code.toUpperCase(),
-    name: `Pareja ${code.toUpperCase()}`,
-    owner_user_id: session.user.id
-  });
-
-if (coupleErr) return { error: coupleErr.message };
-
-// ahora busca el couple_id por code
-const { data: couple } = await supabase
-  .from("couples")
-  .select("id")
-  .eq("code", code.toUpperCase())
-  .single();
-``
-
-
+  // Create couple row
+  const { data: couple, error: coupleErr } = await supabase
+    .from("couples")
+    .insert({
+      code: code.toUpperCase(),
+      name: `Pareja ${code.toUpperCase()}`,
+      owner_user_id: session.user.id,
+    })
+    .select("id")
+    .single();
 
   if (coupleErr) return { error: coupleErr.message };
 
-  // Join it
+  // Add creator as member
   const { error: memberErr } = await supabase
     .from("couple_members")
     .insert({ user_id: session.user.id, couple_id: couple.id, person_name: personName });
@@ -102,7 +87,6 @@ const { data: couple } = await supabase
   return { couple_id: couple.id };
 }
 
-// Join an existing couple with a code
 export async function joinCouple(code, personName) {
   const session = await getSession();
   if (!session) return { error: "No hay sesión activa" };
@@ -112,14 +96,15 @@ export async function joinCouple(code, personName) {
     .from("couples")
     .select("id")
     .eq("code", code.toUpperCase())
-    .single();
+    .maybeSingle();
 
-  if (findErr || !couple) return { error: "Código de pareja no encontrado" };
+  if (findErr) { console.error("joinCouple error:", findErr); return { error: "Error al buscar la pareja" }; }
+  if (!couple) return { error: "Código de pareja no encontrado" };
 
   // Check not already 2 members
   const { data: members } = await supabase
     .from("couple_members")
-    .select("id")
+    .select("user_id")
     .eq("couple_id", couple.id);
 
   if (members && members.length >= 2) return { error: "Esta pareja ya tiene dos miembros" };
@@ -183,10 +168,10 @@ export function importData(file) {
 export async function loadData(coupleId) {
   try {
     const { data, error } = await supabase
-      .from("couples")
+      .from("app_data")          // ← app_data, not couples
       .select("data")
       .eq("couple_id", coupleId)
-      .single();
+      .maybeSingle();            // null (not error) when row doesn't exist yet
 
     if (error) {
       console.error("Load error:", error);
@@ -208,24 +193,15 @@ export async function loadData(coupleId) {
 
 export async function saveData(appData, coupleId) {
   saveLocalBackup(appData);
-
-  // Legacy single-row mode: keep for backup/import flow
-  if (!coupleId) {
-    try {
-      const { error } = await supabase
-        .from("app_data")
-        .upsert({ id: LEGACY_ROW_ID, data: appData, updated_at: new Date().toISOString() });
-      if (error) console.error("Save error:", error);
-    } catch (e) {
-      console.error(e);
-    }
-    return;
-  }
+  if (!coupleId) return; // no coupleId = no-op in v2.0.0
 
   try {
     const { error } = await supabase
       .from("app_data")
-      .upsert({ couple_id: coupleId, data: appData, updated_at: new Date().toISOString() });
+      .upsert(
+        { couple_id: coupleId, data: appData, updated_at: new Date().toISOString() },
+        { onConflict: "couple_id" } // ← tell Supabase which col to check for duplicates
+      );
     if (error) console.error("Save error:", error);
   } catch (e) {
     console.error(e);
@@ -245,3 +221,5 @@ export function subscribeToUpdates(coupleId, onUpdate) {
     .subscribe();
   return channel; // call supabase.removeChannel(channel) to unsubscribe
 }
+
+export default supabase;
