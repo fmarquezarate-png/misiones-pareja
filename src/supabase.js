@@ -5,8 +5,10 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-const LOCAL_KEY    = "couple-missions-backup";
-const LOCAL_TS_KEY = "couple-missions-backup-ts";
+// Keys are couple-specific so each partner's browser stores their shared data
+// correctly and old solo-mode backups don't interfere.
+const localKey    = id => `couple-missions-${id}`;
+const localTsKey  = id => `couple-missions-${id}-ts`;
 
 /* ── Auth ────────────────────────────────────────────────────────── */
 
@@ -121,18 +123,20 @@ export async function joinCouple(code, personName) {
 
 /* ── localStorage helpers ────────────────────────────────────────── */
 
-function saveLocalBackup(appData) {
+function saveLocalBackup(appData, coupleId) {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(appData));
-    localStorage.setItem(LOCAL_TS_KEY, new Date().toISOString());
+    const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
+    localStorage.setItem(key, JSON.stringify(appData));
+    localStorage.setItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts", new Date().toISOString());
   } catch { /* quota exceeded – silent */ }
 }
 
-export function loadLocalBackup() {
+export function loadLocalBackup(coupleId) {
   try {
-    const raw = localStorage.getItem(LOCAL_KEY);
+    const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
-    return { data: JSON.parse(raw), ts: localStorage.getItem(LOCAL_TS_KEY) };
+    return { data: JSON.parse(raw), ts: localStorage.getItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts") };
   } catch { return null; }
 }
 
@@ -167,8 +171,7 @@ export function importData(file) {
 
 export async function loadData(coupleId) {
   try {
-    // Use limit(1) + array result instead of .maybeSingle() so it never
-    // throws when duplicate rows exist (e.g. missing UNIQUE constraint)
+    // limit(1) + array instead of .maybeSingle() → never throws on duplicates
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
@@ -178,48 +181,45 @@ export async function loadData(coupleId) {
 
     if (error) {
       console.error("Load error:", error);
-      const local = loadLocalBackup();
+      const local = loadLocalBackup(coupleId);
       if (local) { console.warn("Using local backup from", local.ts); return local.data; }
       return null;
     }
 
     const result = rows?.[0]?.data ?? null;
-    if (result) saveLocalBackup(result);
+    if (result) saveLocalBackup(result, coupleId); // couple-specific cache
     return result;
   } catch (e) {
     console.error("Load exception:", e);
-    const local = loadLocalBackup();
+    const local = loadLocalBackup(coupleId);
     if (local) { console.warn("Using local backup from", local.ts); return local.data; }
     return null;
   }
 }
 
 export async function saveData(appData, coupleId) {
-  saveLocalBackup(appData);
+  saveLocalBackup(appData, coupleId); // couple-specific cache
   if (!coupleId) return;
 
   try {
-    // Check if a row already exists to decide INSERT vs UPDATE.
-    // This avoids relying on a UNIQUE constraint for upsert.
+    // SELECT first then INSERT or UPDATE → works without UNIQUE constraint
     const { data: existing } = await supabase
       .from("app_data")
       .select("couple_id")
       .eq("couple_id", coupleId)
       .limit(1);
 
-    const rowExists = existing && existing.length > 0;
-    const payload = { couple_id: coupleId, data: appData, updated_at: new Date().toISOString() };
-
-    if (rowExists) {
+    const ts = new Date().toISOString();
+    if (existing && existing.length > 0) {
       const { error } = await supabase
         .from("app_data")
-        .update({ data: appData, updated_at: payload.updated_at })
+        .update({ data: appData, updated_at: ts })
         .eq("couple_id", coupleId);
       if (error) console.error("Save (update) error:", error);
     } else {
       const { error } = await supabase
         .from("app_data")
-        .insert(payload);
+        .insert({ couple_id: coupleId, data: appData, updated_at: ts });
       if (error) console.error("Save (insert) error:", error);
     }
   } catch (e) {
