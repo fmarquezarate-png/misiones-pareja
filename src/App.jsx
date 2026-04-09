@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates } from "./supabase.js";
+import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const APP_VERSION = "2.0.0";
@@ -541,6 +542,19 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [showChangelog, setShowChangelog] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const forceSync = async () => {
+    setSyncing(true);
+    try {
+      const remote = await loadData(coupleId);
+      if (remote) setData(remote);
+      else alert("No se encontraron datos en Supabase para esta pareja.");
+    } catch (e) {
+      console.error("Force sync error:", e);
+    }
+    setSyncing(false);
+  };
 
   useEffect(() => {
     (async () => {
@@ -551,8 +565,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
           }
         } else {
-          // No data from Supabase – check local backup before falling back to SEED
-          const local = loadLocalBackup();
+          // No data from Supabase – check couple-specific local backup before SEED
+          const local = loadLocalBackup(coupleId);
           if (local && local.data && local.data.weeks && Object.keys(local.data.weeks).length > 1) {
             base = local.data;
           } else {
@@ -585,7 +599,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         });
       }
     });
-    return () => { import("./supabase.js").then(m => m.default?.removeChannel?.(channel)); };
+    return () => { supabase.removeChannel(channel); };
   }, [coupleId]);
 
   const update = useCallback(fn => {
@@ -925,6 +939,9 @@ ${ms.map(m=>{
             <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#fb923c":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
               {savingError?"⚠ Error al guardar":saving?"⟳ Guardando…":saved?"✓ Guardado":"·"}
             </span>
+            <button onClick={forceSync} disabled={syncing} title="Recargar datos desde Supabase" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:13, opacity:syncing?0.4:0.6, transition:"opacity 0.2s" }}>
+              {syncing?"⟳":"🔄"}
+            </button>
           </div>
           {showChangelog&&<div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
             <div style={{ background:"#1d1733", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>

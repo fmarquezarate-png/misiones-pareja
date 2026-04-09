@@ -5,8 +5,10 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-const LOCAL_KEY    = "couple-missions-backup";
-const LOCAL_TS_KEY = "couple-missions-backup-ts";
+// Keys are couple-specific so each partner's browser stores their shared data
+// correctly and old solo-mode backups don't interfere.
+const localKey    = id => `couple-missions-${id}`;
+const localTsKey  = id => `couple-missions-${id}-ts`;
 
 /* ── Auth ────────────────────────────────────────────────────────── */
 
@@ -121,18 +123,20 @@ export async function joinCouple(code, personName) {
 
 /* ── localStorage helpers ────────────────────────────────────────── */
 
-function saveLocalBackup(appData) {
+function saveLocalBackup(appData, coupleId) {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(appData));
-    localStorage.setItem(LOCAL_TS_KEY, new Date().toISOString());
+    const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
+    localStorage.setItem(key, JSON.stringify(appData));
+    localStorage.setItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts", new Date().toISOString());
   } catch { /* quota exceeded – silent */ }
 }
 
-export function loadLocalBackup() {
+export function loadLocalBackup(coupleId) {
   try {
-    const raw = localStorage.getItem(LOCAL_KEY);
+    const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
-    return { data: JSON.parse(raw), ts: localStorage.getItem(LOCAL_TS_KEY) };
+    return { data: JSON.parse(raw), ts: localStorage.getItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts") };
   } catch { return null; }
 }
 
@@ -167,56 +171,76 @@ export function importData(file) {
 
 export async function loadData(coupleId) {
   try {
-    const { data, error } = await supabase
-      .from("app_data")          // ← app_data, not couples
+    // limit(1) + array instead of .maybeSingle() → never throws on duplicates
+    const { data: rows, error } = await supabase
+      .from("app_data")
       .select("data")
       .eq("couple_id", coupleId)
-      .maybeSingle();            // null (not error) when row doesn't exist yet
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error("Load error:", error);
-      const local = loadLocalBackup();
+      const local = loadLocalBackup(coupleId);
       if (local) { console.warn("Using local backup from", local.ts); return local.data; }
       return null;
     }
 
-    const result = data?.data || null;
-    if (result) saveLocalBackup(result);
+    const result = rows?.[0]?.data ?? null;
+    if (result) saveLocalBackup(result, coupleId); // couple-specific cache
     return result;
   } catch (e) {
-    console.error(e);
-    const local = loadLocalBackup();
+    console.error("Load exception:", e);
+    const local = loadLocalBackup(coupleId);
     if (local) { console.warn("Using local backup from", local.ts); return local.data; }
     return null;
   }
 }
 
 export async function saveData(appData, coupleId) {
-  saveLocalBackup(appData);
-  if (!coupleId) return; // no coupleId = no-op in v2.0.0
+  saveLocalBackup(appData, coupleId); // couple-specific cache
+  if (!coupleId) return;
 
   try {
-    const { error } = await supabase
+    // SELECT first then INSERT or UPDATE → works without UNIQUE constraint
+    const { data: existing } = await supabase
       .from("app_data")
-      .upsert(
-        { couple_id: coupleId, data: appData, updated_at: new Date().toISOString() },
-        { onConflict: "couple_id" } // ← tell Supabase which col to check for duplicates
-      );
-    if (error) console.error("Save error:", error);
+      .select("couple_id")
+      .eq("couple_id", coupleId)
+      .limit(1);
+
+    const ts = new Date().toISOString();
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from("app_data")
+        .update({ data: appData, updated_at: ts })
+        .eq("couple_id", coupleId);
+      if (error) console.error("Save (update) error:", error);
+    } else {
+      const { error } = await supabase
+        .from("app_data")
+        .insert({ couple_id: coupleId, data: appData, updated_at: ts });
+      if (error) console.error("Save (insert) error:", error);
+    }
   } catch (e) {
-    console.error(e);
+    console.error("Save exception:", e);
   }
 }
 
 /* ── Realtime: notify when partner saves ─────────────────────────── */
 
 export function subscribeToUpdates(coupleId, onUpdate) {
+  // Listen to "*" (INSERT + UPDATE + DELETE) so the partner gets notified
+  // even on the very first save (INSERT), not only on subsequent saves (UPDATE).
   const channel = supabase
     .channel(`couple-${coupleId}`)
     .on(
       "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "app_data", filter: `couple_id=eq.${coupleId}` },
-      payload => { onUpdate(payload.new?.data); }
+      { event: "*", schema: "public", table: "app_data", filter: `couple_id=eq.${coupleId}` },
+      payload => {
+        const newData = payload.new?.data;
+        if (newData) onUpdate(newData);
+      }
     )
     .subscribe();
   return channel; // call supabase.removeChannel(channel) to unsubscribe
