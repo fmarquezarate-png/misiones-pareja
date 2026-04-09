@@ -563,7 +563,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         if (!base.goals) base.goals = SEED.goals;
         if (isTodayMonday()) base = applyCarryOver(base);
         setData(base);
-        await saveData(base);
+        await saveData(base, coupleId);
       } catch(e) {
         console.error(e);
         setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
@@ -603,7 +603,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       }, 700);
       return next;
     });
-  }, []);
+  }, [coupleId]);
 
   if (loading) return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
