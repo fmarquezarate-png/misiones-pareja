@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates } from "./supabase.js";
+import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const APP_VERSION = "2.0.0";
@@ -585,7 +586,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         });
       }
     });
-    return () => { import("./supabase.js").then(m => m.default?.removeChannel?.(channel)); };
+    return () => { supabase.removeChannel(channel); };
   }, [coupleId]);
 
   const update = useCallback(fn => {

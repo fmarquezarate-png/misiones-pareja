@@ -167,11 +167,14 @@ export function importData(file) {
 
 export async function loadData(coupleId) {
   try {
-    const { data, error } = await supabase
-      .from("app_data")          // ← app_data, not couples
+    // Use limit(1) + array result instead of .maybeSingle() so it never
+    // throws when duplicate rows exist (e.g. missing UNIQUE constraint)
+    const { data: rows, error } = await supabase
+      .from("app_data")
       .select("data")
       .eq("couple_id", coupleId)
-      .maybeSingle();            // null (not error) when row doesn't exist yet
+      .order("updated_at", { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error("Load error:", error);
@@ -180,11 +183,11 @@ export async function loadData(coupleId) {
       return null;
     }
 
-    const result = data?.data || null;
+    const result = rows?.[0]?.data ?? null;
     if (result) saveLocalBackup(result);
     return result;
   } catch (e) {
-    console.error(e);
+    console.error("Load exception:", e);
     const local = loadLocalBackup();
     if (local) { console.warn("Using local backup from", local.ts); return local.data; }
     return null;
@@ -193,30 +196,51 @@ export async function loadData(coupleId) {
 
 export async function saveData(appData, coupleId) {
   saveLocalBackup(appData);
-  if (!coupleId) return; // no coupleId = no-op in v2.0.0
+  if (!coupleId) return;
 
   try {
-    const { error } = await supabase
+    // Check if a row already exists to decide INSERT vs UPDATE.
+    // This avoids relying on a UNIQUE constraint for upsert.
+    const { data: existing } = await supabase
       .from("app_data")
-      .upsert(
-        { couple_id: coupleId, data: appData, updated_at: new Date().toISOString() },
-        { onConflict: "couple_id" } // ← tell Supabase which col to check for duplicates
-      );
-    if (error) console.error("Save error:", error);
+      .select("couple_id")
+      .eq("couple_id", coupleId)
+      .limit(1);
+
+    const rowExists = existing && existing.length > 0;
+    const payload = { couple_id: coupleId, data: appData, updated_at: new Date().toISOString() };
+
+    if (rowExists) {
+      const { error } = await supabase
+        .from("app_data")
+        .update({ data: appData, updated_at: payload.updated_at })
+        .eq("couple_id", coupleId);
+      if (error) console.error("Save (update) error:", error);
+    } else {
+      const { error } = await supabase
+        .from("app_data")
+        .insert(payload);
+      if (error) console.error("Save (insert) error:", error);
+    }
   } catch (e) {
-    console.error(e);
+    console.error("Save exception:", e);
   }
 }
 
 /* ── Realtime: notify when partner saves ─────────────────────────── */
 
 export function subscribeToUpdates(coupleId, onUpdate) {
+  // Listen to "*" (INSERT + UPDATE + DELETE) so the partner gets notified
+  // even on the very first save (INSERT), not only on subsequent saves (UPDATE).
   const channel = supabase
     .channel(`couple-${coupleId}`)
     .on(
       "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "app_data", filter: `couple_id=eq.${coupleId}` },
-      payload => { onUpdate(payload.new?.data); }
+      { event: "*", schema: "public", table: "app_data", filter: `couple_id=eq.${coupleId}` },
+      payload => {
+        const newData = payload.new?.data;
+        if (newData) onUpdate(newData);
+      }
     )
     .subscribe();
   return channel; // call supabase.removeChannel(channel) to unsubscribe
