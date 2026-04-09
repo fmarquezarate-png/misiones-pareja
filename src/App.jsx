@@ -560,24 +560,31 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     (async () => {
       try {
         let base = await loadData(coupleId);
+        let isRealData = !!base; // true = came from Supabase or real local backup
+
         if (base) {
           if (!base.seedVersion || base.seedVersion < SEED_VERSION) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
           }
         } else {
-          // No data from Supabase – check couple-specific local backup before SEED
+          // No data from Supabase – check couple-specific local backup (with old-key migration)
           const local = loadLocalBackup(coupleId);
           if (local && local.data && local.data.weeks && Object.keys(local.data.weeks).length > 1) {
             base = local.data;
+            isRealData = true;
           } else {
             base = { ...SEED };
+            isRealData = false; // only SEED – do NOT overwrite Supabase with this
           }
         }
+
         if (!base.settings) base.settings = DEFAULT_SETTINGS;
         if (!base.goals) base.goals = SEED.goals;
         if (isTodayMonday()) base = applyCarryOver(base);
         setData(base);
-        await saveData(base, coupleId);
+
+        // Only push to Supabase if we have real data – never overwrite with SEED
+        if (isRealData) await saveData(base, coupleId);
       } catch(e) {
         console.error(e);
         setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
