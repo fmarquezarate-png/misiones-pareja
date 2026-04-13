@@ -5,7 +5,7 @@ import { googleCalendarUrl } from "../utils.js";
 import { S, badgeStyle, catBadgeStyle } from "../styles.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 
-export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals }) {
+export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
   const [expanded, setExpanded] = useState(false);
   const isDone = mission.status === "DONE";
   const isCarried = !!mission.carriedFrom;
@@ -18,9 +18,30 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
   const firstCat = mCats[0];
   const cardBorder = isDone ? "rgba(52,211,153,0.15)" : isCarried ? "rgba(251,146,60,0.2)" : isEvent ? "rgba(96,165,250,0.3)" : firstCat ? `${firstCat.color}30` : `${whoColor}22`;
 
+  // Count how many weeks this task has been carried over
+  const carriedWeeks = (() => {
+    if (!isCarried || isDone || !weeksData) return 0;
+    let count = 0, originId = mission.carriedFrom, originWeek = mission.carriedFromWeek;
+    while (originId && originWeek && count < 20) {
+      count++;
+      const w = weeksData[originWeek];
+      if (!w) break;
+      const origin = (w.missions || []).find(m => m.id === originId);
+      if (!origin?.carriedFrom) break;
+      originId = origin.carriedFrom;
+      originWeek = origin.carriedFromWeek;
+    }
+    return count;
+  })();
+
   return (
     <div style={{ ...S.card, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
-      {isCarried && !isDone && <div style={{ fontSize:10, color:"#fb923c", letterSpacing:1, marginBottom:6 }}>🔁 Arrastrada</div>}
+      {isCarried && !isDone && (
+        <div style={{ fontSize:10, color: carriedWeeks >= 3 ? "#f87171" : "#fb923c", letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
+          {carriedWeeks >= 3 ? "⚠️" : "🔁"}
+          {carriedWeeks >= 3 ? `Arrastrada ${carriedWeeks} semanas` : "Arrastrada"}
+        </div>
+      )}
       <div style={{ display:"flex", gap:10, alignItems:"center" }}>
         <EmojiSelect value={mission.emoji} onChange={e=>onPatch({ emoji:e })} />
         <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>

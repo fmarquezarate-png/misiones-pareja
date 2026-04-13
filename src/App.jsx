@@ -543,8 +543,12 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [showChangelog, setShowChangelog] = useState(false);
+  const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
-  const [syncError, setSyncError]   = useState(null); // string | null
+  const [syncError, setSyncError]   = useState(null);   // string | null
+  const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
+
+  const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
   // Pull remote data; if Supabase has nothing, push local data up.
   const forceSync = async () => {
@@ -553,16 +557,31 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     try {
       const remote = await loadData(coupleId);
       if (remote) {
-        setData(remote);
+        // Compare timestamps to know if we actually updated anything
+        const remoteTs = remote.updatedAt || remote.currentWeekNumber;
+        setData(prev => {
+          const prevTs = prev?.updatedAt || prev?.currentWeekNumber;
+          if (JSON.stringify(remote) === JSON.stringify(prev)) {
+            showSyncMsg("✓ Ya estás al día");
+          } else {
+            showSyncMsg("⬇ Datos actualizados desde Supabase");
+          }
+          return remote;
+        });
       } else {
-        // No row in Supabase yet — push whatever we have locally
+        // No row in Supabase yet — push local data up
         setData(current => {
-          if (current) saveData(current, coupleId).catch(e => setSyncError(e.message));
+          if (current) {
+            saveData(current, coupleId)
+              .then(() => showSyncMsg("⬆ Datos subidos a Supabase"))
+              .catch(e => { setSyncError(e.message); showSyncMsg("⚠ Error al subir"); });
+          }
           return current;
         });
       }
     } catch (e) {
       setSyncError(e.message);
+      showSyncMsg("⚠ Error de conexión");
     }
     setSyncing(false);
   };
@@ -956,13 +975,18 @@ ${ms.map(m=>{
             </button>
             <div style={{ display:"flex", alignItems:"center", gap:4 }}>
               <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#60a5fa":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
-                {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Sincronizado":"·"}
+                {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Guardado":"·"}
               </span>
-              <button onClick={forceSync} disabled={syncing} title={syncing?"Sincronizando...":"Forzar sincronización con Supabase"} style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:12, opacity:syncing?0.4:0.7, transition:"opacity 0.2s" }}>
+              <button onClick={forceSync} disabled={syncing} title="Sincronizar con Supabase" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:12, opacity:syncing?0.4:0.7, transition:"opacity 0.2s" }}>
                 {syncing?"⟳":"🔄"}
               </button>
             </div>
-            {syncError && (
+            {syncMsg && (
+              <div style={{ fontSize:10, color: syncMsg.startsWith("⚠") ? "#fb923c" : syncMsg.startsWith("✓") ? "#34d399" : "#60a5fa", maxWidth:140, lineHeight:1.3, fontWeight:500 }}>
+                {syncMsg}
+              </div>
+            )}
+            {syncError && !syncMsg && (
               <div style={{ fontSize:9, color:"#fb923c", maxWidth:140, wordBreak:"break-all", lineHeight:1.3 }} title={syncError}>
                 {syncError.slice(0, 60)}{syncError.length > 60 ? "…" : ""}
               </div>
@@ -1030,14 +1054,24 @@ ${ms.map(m=>{
               : <div onClick={()=>setEditObj(true)} style={{ cursor:"text", fontSize:16, fontFamily:"'Fraunces',serif", fontWeight:300, color:week.epicObjective?"#f8f4ff":"#3d3360", fontStyle:week.epicObjective?"normal":"italic" }}>{week.epicObjective||"Pulsa para añadir el objetivo épico..."}</div>
             }
           </div>
-          <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:6 }}>
-            {!showAddForm&&<button onClick={()=>setShowAddForm(true)} style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:99, color:"#a78bfa", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"4px 12px", display:"flex", alignItems:"center", gap:5 }}
-              onMouseEnter={e=>e.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(167,139,250,0.1)"}><span>+</span> Nueva misión</button>}
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginBottom:6 }}>
+            {!showAddForm && <>
+              <button onClick={()=>{ setNewM(p=>({...p,type:"task",emoji:"🎯"})); setShowAddForm(true); }}
+                style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:99, color:"#a78bfa", cursor:"pointer", fontSize:12, fontFamily:"inherit", padding:"5px 13px", display:"flex", alignItems:"center", gap:5 }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(167,139,250,0.1)"}>
+                ✅ + Tarea
+              </button>
+              <button onClick={()=>{ setNewM(p=>({...p,type:"event",emoji:"📅"})); setShowAddForm(true); }}
+                style={{ background:"rgba(96,165,250,0.08)", border:"1px solid rgba(96,165,250,0.22)", borderRadius:99, color:"#60a5fa", cursor:"pointer", fontSize:12, fontFamily:"inherit", padding:"5px 13px", display:"flex", alignItems:"center", gap:5 }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(96,165,250,0.18)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(96,165,250,0.08)"}>
+                📅 + Evento
+              </button>
+            </>}
           </div>
           {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />}
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {week.missions?.filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))).map(m=>(
-              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
+              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
             ))}
           </div>
         </div>}
@@ -1108,7 +1142,7 @@ ${ms.map(m=>{
                     </div>
                     {w.photo
                       ? <div style={{ position:"relative", flexShrink:0 }}>
-                          <img src={w.photo} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)" }} alt="foto" />
+                          <img src={w.photo} onClick={()=>setLightboxSrc(w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
                           <button onClick={()=>update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null}}}))}
                             style={{ position:"absolute", top:-5, right:-5, background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#8b7fa8", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                         </div>
@@ -1123,10 +1157,11 @@ ${ms.map(m=>{
                   {(w.missions||[]).some(m=>m.date)&&<div style={{ marginTop:8 }}>
                     <button onClick={()=>downloadWeekICS(w, key, p1, p2)} style={{ ...S.btnSecondary, fontSize:11, padding:"4px 10px", borderColor:"rgba(52,211,153,0.25)", color:"#34d399", width:"100%" }}>📅 Importar semana {w.weekNumber} a Google Calendar (.ics)</button>
                   </div>}
-                  {w.photo&&<div style={{ marginTop:8, position:"relative" }}>
-                    <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:200, objectFit:"cover", display:"block" }} alt="foto semana" />
-                    <a href={w.photo} download={`semana-${w.weekNumber}-${w.year||""}.jpg`}
-                      style={{ position:"absolute", bottom:8, right:8, background:"rgba(0,0,0,0.55)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:7, color:"#f8f4ff", fontSize:11, padding:"4px 9px", textDecoration:"none", backdropFilter:"blur(4px)" }}>⬇ Guardar foto</a>
+                  {w.photo&&<div style={{ marginTop:8, position:"relative", cursor:"zoom-in" }} onClick={()=>setLightboxSrc(w.photo)}>
+                    <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:130, objectFit:"cover", display:"block" }} alt="foto semana" />
+                    <div style={{ position:"absolute", inset:0, borderRadius:10, background:"rgba(0,0,0,0)", display:"flex", alignItems:"flex-end", justifyContent:"flex-end", padding:6 }}>
+                      <span style={{ background:"rgba(0,0,0,0.45)", borderRadius:6, fontSize:10, color:"#f8f4ff", padding:"2px 7px", backdropFilter:"blur(4px)" }}>🔍 Ver completa</span>
+                    </div>
                   </div>}
                 </div>
               );
@@ -1139,6 +1174,14 @@ ${ms.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
       </div>
+
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div onClick={()=>setLightboxSrc(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16, cursor:"zoom-out" }}>
+          <img src={lightboxSrc} style={{ maxWidth:"100%", maxHeight:"100%", borderRadius:12, objectFit:"contain", boxShadow:"0 20px 60px rgba(0,0,0,0.8)" }} alt="foto completa" />
+          <button onClick={()=>setLightboxSrc(null)} style={{ position:"absolute", top:16, right:16, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:99, color:"#f8f4ff", fontSize:20, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+        </div>
+      )}
     </div>
   );
 }

@@ -62,9 +62,15 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
         </div>
       </div>
 
-      <div style={{ marginBottom:12 }}>
-        <label style={S.label}>📅 Deadline (opcional)</label>
-        <input type="date" value={form.deadline||""} onChange={e=>setForm(f=>({ ...f, deadline:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
+        <div>
+          <label style={S.label}>📅 Analizar desde (opcional)</label>
+          <input type="date" value={form.startDate||""} onChange={e=>setForm(f=>({ ...f, startDate:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} />
+        </div>
+        <div>
+          <label style={S.label}>📅 Deadline (opcional)</label>
+          <input type="date" value={form.deadline||""} onChange={e=>setForm(f=>({ ...f, deadline:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} />
+        </div>
       </div>
 
       <div style={{ display:"flex", gap:6, justifyContent:"flex-end" }}>
@@ -150,13 +156,14 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
           <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
             {history.map((h, i) => {
-              const failed = !h.met && (h.count > 0 || h.isPast);
-              return <div key={i} title={`${h.label}: ${h.count}/${goal.target}`}
+              const failed  = !h.met && (h.count > 0 || h.isPast) && !h.noData;
+              const noData  = !!h.noData;
+              return <div key={i} title={noData ? `${h.label}: sin datos` : `${h.label}: ${h.count}/${goal.target}`}
                 style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
-                  background:failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
-                  border:`1px solid ${failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
-                  color:failed?"#f472b6":h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
-                <span style={{ fontSize:11 }}>{failed ? "❌" : h.met ? "✅" : "·"}</span>
+                  background:noData?"rgba(255,255,255,0.02)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
+                  border:`1px solid ${noData?"rgba(255,255,255,0.06)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
+                  color:noData?"#2d2450":failed?"#f472b6":h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
+                <span style={{ fontSize:11 }}>{noData ? "–" : failed ? "❌" : h.met ? "✅" : "·"}</span>
                 <span style={{ fontSize:8 }}>{h.label}</span>
               </div>;
             })}
@@ -173,8 +180,8 @@ export default function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAd
   const [editGoal, setEditGoal] = useState(null);
   const [form, setForm] = useState({ emoji:"🏅", title:"", who:"together", period:"monthly", target:1 });
 
-  const openNew  = () => { setEditGoal(null); setForm({ emoji:"🏅", title:"", who:"together", period:"monthly", target:1, deadline:"", goalType:"min" }); setShowForm(true); };
-  const openEdit = g  => { setEditGoal(g); setForm({ emoji:g.emoji, title:g.title, who:g.who, period:g.period, target:g.target, deadline:g.deadline||"", goalType:g.goalType||"min" }); setShowForm(true); };
+  const openNew  = () => { setEditGoal(null); setForm({ emoji:"🏅", title:"", who:"together", period:"monthly", target:1, deadline:"", goalType:"min", startDate:"" }); setShowForm(true); };
+  const openEdit = g  => { setEditGoal(g); setForm({ emoji:g.emoji, title:g.title, who:g.who, period:g.period, target:g.target, deadline:g.deadline||"", goalType:g.goalType||"min", startDate:g.startDate||"" }); setShowForm(true); };
   const cancel   = () => { setShowForm(false); setEditGoal(null); };
   const save     = () => {
     if (!form.title.trim()) return;
