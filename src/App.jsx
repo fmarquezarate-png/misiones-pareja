@@ -542,16 +542,26 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [showChangelog, setShowChangelog] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [syncing, setSyncing]       = useState(false);
+  const [syncError, setSyncError]   = useState(null); // string | null
 
+  // Pull remote data; if Supabase has nothing, push local data up.
   const forceSync = async () => {
     setSyncing(true);
+    setSyncError(null);
     try {
       const remote = await loadData(coupleId);
-      if (remote) setData(remote);
-      else alert("No se encontraron datos en Supabase para esta pareja.");
+      if (remote) {
+        setData(remote);
+      } else {
+        // No row in Supabase yet — push whatever we have locally
+        setData(current => {
+          if (current) saveData(current, coupleId).catch(e => setSyncError(e.message));
+          return current;
+        });
+      }
     } catch (e) {
-      console.error("Force sync error:", e);
+      setSyncError(e.message);
     }
     setSyncing(false);
   };
@@ -618,8 +628,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         setSaving(true);
         setSavingError(false);
         saveData(next, coupleId)
-          .then(() => { setSaved(true); setTimeout(() => setSaved(false), 1800); })
-          .catch(e => { console.error("Error guardando:", e); setSavingError(true); setTimeout(() => setSavingError(false), 3000); })
+          .then(() => { setSaved(true); setSyncError(null); setTimeout(() => setSaved(false), 1800); })
+          .catch(e => { console.error("Supabase save failed:", e.message); setSavingError(true); setSyncError(e.message); setTimeout(() => setSavingError(false), 6000); })
           .finally(() => setSaving(false));
       }, 700);
       return next;
@@ -909,7 +919,7 @@ ${ms.map(m=>{
     <div style={{ minHeight:"100vh", background:"#0a0714", backgroundImage:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
-      {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} onSignOut={onSignOut} />}
+      {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} onSignOut={onSignOut} coupleId={coupleId} />}
 
       <div style={{ maxWidth:640, margin:"0 auto", padding:"28px 16px 140px" }}>
 
@@ -943,12 +953,19 @@ ${ms.map(m=>{
               <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.4)" }}>v{APP_VERSION}</span>
               <span style={{ fontSize:8, color:"#4a4166" }}>{LAST_UPDATE}</span>
             </button>
-            <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#fb923c":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
-              {savingError?"⚠ Error al guardar":saving?"⟳ Guardando…":saved?"✓ Guardado":"·"}
-            </span>
-            <button onClick={forceSync} disabled={syncing} title="Recargar datos desde Supabase" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:13, opacity:syncing?0.4:0.6, transition:"opacity 0.2s" }}>
-              {syncing?"⟳":"🔄"}
-            </button>
+            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+              <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#60a5fa":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
+                {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Sincronizado":"·"}
+              </span>
+              <button onClick={forceSync} disabled={syncing} title={syncing?"Sincronizando...":"Forzar sincronización con Supabase"} style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:12, opacity:syncing?0.4:0.7, transition:"opacity 0.2s" }}>
+                {syncing?"⟳":"🔄"}
+              </button>
+            </div>
+            {syncError && (
+              <div style={{ fontSize:9, color:"#fb923c", maxWidth:140, wordBreak:"break-all", lineHeight:1.3 }} title={syncError}>
+                {syncError.slice(0, 60)}{syncError.length > 60 ? "…" : ""}
+              </div>
+            )}
           </div>
           {showChangelog&&<div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
             <div style={{ background:"#1d1733", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
