@@ -184,9 +184,9 @@ export function importData(file) {
 
 /* ── Supabase CRUD (couple-aware) ────────────────────────────────── */
 
+/** Returns the remote data object or null if no row exists yet. Never throws. */
 export async function loadData(coupleId) {
   try {
-    // limit(1) + array instead of .maybeSingle() → never throws on duplicates
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
@@ -195,50 +195,49 @@ export async function loadData(coupleId) {
       .limit(1);
 
     if (error) {
-      console.error("Load error:", error);
-      const local = loadLocalBackup(coupleId);
-      if (local) { console.warn("Using local backup from", local.ts); return local.data; }
-      return null;
+      console.error("loadData error:", error.message);
+      return null; // caller falls back to localStorage
     }
 
     const result = rows?.[0]?.data ?? null;
-    if (result) saveLocalBackup(result, coupleId); // couple-specific cache
+    if (result) saveLocalBackup(result, coupleId);
     return result;
   } catch (e) {
-    console.error("Load exception:", e);
-    const local = loadLocalBackup(coupleId);
-    if (local) { console.warn("Using local backup from", local.ts); return local.data; }
+    console.error("loadData exception:", e);
     return null;
   }
 }
 
+/**
+ * Saves data to Supabase.  THROWS on failure so the caller can surface the
+ * error in the UI instead of silently showing "✓ Guardado".
+ */
 export async function saveData(appData, coupleId) {
-  saveLocalBackup(appData, coupleId); // couple-specific cache
+  saveLocalBackup(appData, coupleId);
   if (!coupleId) return;
 
-  try {
-    // SELECT first then INSERT or UPDATE → works without UNIQUE constraint
-    const { data: existing } = await supabase
-      .from("app_data")
-      .select("couple_id")
-      .eq("couple_id", coupleId)
-      .limit(1);
+  // Check whether a row already exists (avoids needing a UNIQUE constraint)
+  const { data: existing, error: selErr } = await supabase
+    .from("app_data")
+    .select("couple_id")
+    .eq("couple_id", coupleId)
+    .limit(1);
 
-    const ts = new Date().toISOString();
-    if (existing && existing.length > 0) {
-      const { error } = await supabase
-        .from("app_data")
-        .update({ data: appData, updated_at: ts })
-        .eq("couple_id", coupleId);
-      if (error) console.error("Save (update) error:", error);
-    } else {
-      const { error } = await supabase
-        .from("app_data")
-        .insert({ couple_id: coupleId, data: appData, updated_at: ts });
-      if (error) console.error("Save (insert) error:", error);
-    }
-  } catch (e) {
-    console.error("Save exception:", e);
+  if (selErr) throw new Error("Supabase SELECT: " + selErr.message);
+
+  const ts = new Date().toISOString();
+
+  if (existing && existing.length > 0) {
+    const { error } = await supabase
+      .from("app_data")
+      .update({ data: appData, updated_at: ts })
+      .eq("couple_id", coupleId);
+    if (error) throw new Error("Supabase UPDATE: " + error.message);
+  } else {
+    const { error } = await supabase
+      .from("app_data")
+      .insert({ couple_id: coupleId, data: appData, updated_at: ts });
+    if (error) throw new Error("Supabase INSERT: " + error.message);
   }
 }
 

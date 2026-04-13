@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { DEFAULT_COLORS } from "../constants.js";
-import { exportData, importData } from "../supabase.js";
+import { exportData, importData, saveData } from "../supabase.js";
 import { S } from "../styles.js";
 
-export default function SettingsModal({ data, update, onClose, onSignOut }) {
+export default function SettingsModal({ data, update, onClose, onSignOut, coupleId }) {
   const [p1, setP1]         = useState(data.settings?.person1 || "Pololo");
   const [p2, setP2]         = useState(data.settings?.person2 || "Banana");
   const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors || {}) });
@@ -19,9 +19,20 @@ export default function SettingsModal({ data, update, onClose, onSignOut }) {
     if (!file) return;
     try {
       const imported = await importData(file);
+      // 1. Update local state (triggers debounced save)
       update(() => imported);
-      setImportMsg("✅ Datos restaurados correctamente");
-      setTimeout(() => { setImportMsg(null); onClose(); }, 1500);
+      // 2. Also push to Supabase immediately so both devices sync right away
+      if (coupleId) {
+        try {
+          await saveData(imported, coupleId);
+          setImportMsg("✅ Restaurado y subido a Supabase");
+        } catch (saveErr) {
+          setImportMsg("⚠️ Restaurado localmente, error Supabase: " + saveErr.message);
+        }
+      } else {
+        setImportMsg("✅ Datos restaurados correctamente");
+      }
+      setTimeout(() => { setImportMsg(null); onClose(); }, 2500);
     } catch (err) {
       setImportMsg("❌ " + err.message);
       setTimeout(() => setImportMsg(null), 3000);
