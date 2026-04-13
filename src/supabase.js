@@ -187,16 +187,17 @@ export function importData(file) {
 /** Returns the remote data object or null if no row exists yet. Never throws. */
 export async function loadData(coupleId) {
   try {
+    // The app_data table uses 'id' as the couple UUID column (not 'couple_id')
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
-      .eq("couple_id", coupleId)
+      .eq("id", coupleId)
       .order("updated_at", { ascending: false })
       .limit(1);
 
     if (error) {
       console.error("loadData error:", error.message);
-      return null; // caller falls back to localStorage
+      return null;
     }
 
     const result = rows?.[0]?.data ?? null;
@@ -209,18 +210,18 @@ export async function loadData(coupleId) {
 }
 
 /**
- * Saves data to Supabase.  THROWS on failure so the caller can surface the
- * error in the UI instead of silently showing "✓ Guardado".
+ * Saves data to Supabase. THROWS on failure so the caller surfaces the error
+ * in the UI instead of silently showing "✓ Guardado".
  */
 export async function saveData(appData, coupleId) {
   saveLocalBackup(appData, coupleId);
   if (!coupleId) return;
 
-  // Check whether a row already exists (avoids needing a UNIQUE constraint)
+  // Check whether a row already exists for this couple
   const { data: existing, error: selErr } = await supabase
     .from("app_data")
-    .select("couple_id")
-    .eq("couple_id", coupleId)
+    .select("id")
+    .eq("id", coupleId)
     .limit(1);
 
   if (selErr) throw new Error("Supabase SELECT: " + selErr.message);
@@ -231,12 +232,12 @@ export async function saveData(appData, coupleId) {
     const { error } = await supabase
       .from("app_data")
       .update({ data: appData, updated_at: ts })
-      .eq("couple_id", coupleId);
+      .eq("id", coupleId);
     if (error) throw new Error("Supabase UPDATE: " + error.message);
   } else {
     const { error } = await supabase
       .from("app_data")
-      .insert({ couple_id: coupleId, data: appData, updated_at: ts });
+      .insert({ id: coupleId, data: appData, updated_at: ts });
     if (error) throw new Error("Supabase INSERT: " + error.message);
   }
 }
@@ -250,7 +251,7 @@ export function subscribeToUpdates(coupleId, onUpdate) {
     .channel(`couple-${coupleId}`)
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "app_data", filter: `couple_id=eq.${coupleId}` },
+      { event: "*", schema: "public", table: "app_data", filter: `id=eq.${coupleId}` },
       payload => {
         const newData = payload.new?.data;
         if (newData) onUpdate(newData);
