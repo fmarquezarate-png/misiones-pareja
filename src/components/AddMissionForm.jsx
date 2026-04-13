@@ -56,15 +56,19 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
         </div>
       </div>
 
-      {/* Fecha / hora */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-        <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({ ...p, date:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-        <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({ ...p, time:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-      </div>
-      <div style={{ marginBottom:10 }}>
-        <label style={S.label}>⏱ Duración (h)</label>
-        <input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({ ...p, duration:e.target.value }))} placeholder="1" style={S.inputSm} />
-      </div>
+      {/* Fecha / hora — solo visibles para eventos */}
+      {isEvent && (
+        <>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+            <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({ ...p, date:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({ ...p, time:e.target.value }))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <label style={S.label}>⏱ Duración (h)</label>
+            <input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({ ...p, duration:e.target.value }))} placeholder="1" style={S.inputSm} />
+          </div>
+        </>
+      )}
 
       {/* Meta */}
       {activeGoals.length > 0 && (
