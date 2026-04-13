@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.0";
-const LAST_UPDATE = "2026-04-08";
+const APP_VERSION = "2.0.1";
+const LAST_UPDATE = "2026-04-13";
 const CHANGELOG = [
+  { v:"2.0.1", date:"2026-04-13", notes:["Fix crítico: errores de Supabase ahora visibles en UI (antes silenciosos)","Import JSON sube datos a Supabase inmediatamente","Botón 🔄 sincroniza en ambas direcciones","localStorage por pareja (evita mezcla de datos entre usuarios)"] },
   { v:"2.0.0", date:"2026-04-08", notes:["Login con Google OAuth","Espacio privado por pareja con código compartido","Sincronización en tiempo real con Supabase Realtime","Backup automático en localStorage"] },
   { v:"1.9.3", date:"2026-04-06", notes:["P2: columna 'Sin fecha' eliminada, calendario vuelve a pantalla completa","Se mantiene edición inline de actividades desde el panel del día"] },
   { v:"1.9.2", date:"2026-04-05", notes:["Sin fecha: solo no-hechas, dedup por título+quién+emoji (semana más reciente)","Drag & drop corregido: onDragEnter + relatedTarget fix","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: barras con escala absoluta 0-100%","Fecha de hoy bajo 'Semana X', botón nueva misión arriba"] },
