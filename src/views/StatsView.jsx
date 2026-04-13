@@ -125,8 +125,9 @@ function WeekDetailList({ allW, onGoToWeek }) {
 // ─── StatsView ────────────────────────────────────────────────────────────────
 export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const clr = { ...DEFAULT_COLORS, ...(colors || {}) };
-  const [stWho,   setStWho]   = useState("all");
-  const [stRange, setStRange] = useState("all");
+  const [stWho,         setStWho]         = useState("all");
+  const [stRange,       setStRange]       = useState("all");
+  const [showPartInfo,  setShowPartInfo]  = useState(false);
 
   const { week: _tw, year: _ty } = getWeekAndYear();
   const todayKey    = isoWeekKey(_tw, _ty);
@@ -180,12 +181,12 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     else if (avgL < avgP-12) insights.push({icon:"📉",title:"Bajada de ritmo detectada",desc:`De ${Math.round(avgP)}% bajasteis a ${Math.round(avgL)}%. Esta semana es la oportunidad de remontar.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
     else insights.push({icon:"➡️",title:`Consistencia sólida al ${Math.round(avgL)}%`,desc:`Lleváis 3 semanas sin grandes altibajos. Consistencia = progreso real 💪`});
   }
-  const weekScores = allW.map(w=>{const d2=w.missions?.filter(m=>m.status==="DONE").length||0,t2=w.missions?.length||0;return{p:t2>0?d2/t2:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t:t2,d:d2};}).filter(w=>w.p!==null&&w.t>=2);
+  const weekScores = allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d2=w.missions?.filter(m=>m.status==="DONE").length||0,t2=w.missions?.length||0;return{p:t2>0?d2/t2:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t:t2,d:d2};}).filter(w=>w.p!==null&&w.t>=3);
   if (weekScores.length >= 2) {
     const bW = weekScores.reduce((a,b)=>b.p>a.p?b:a);
     const wW = weekScores.reduce((a,b)=>b.p<a.p?b:a);
     insights.push({icon:"🏆",title:`Mejor semana: S${bW.wn}${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d}/${bW.t} completadas (${Math.round(bW.p*100)}%). ¡Vuestra semana récord!`,weekNumber:bW.wn,year:bW.yr});
-    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<50) insights.push({icon:"💡",title:`Semana floja: S${wW.wn} (${Math.round(wW.p*100)}%)`,desc:`Solo ${wW.d}/${wW.t} completadas. Explorad qué pasó para no repetirlo.`,weekNumber:wW.wn,year:wW.yr});
+    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana floja: S${wW.wn} (${Math.round(wW.p*100)}%)`,desc:`Solo ${wW.d}/${wW.t} completadas. Explorad qué pasó para no repetirlo.`,weekNumber:wW.wn,year:wW.yr});
   }
   if (catStats.length > 1) {
     const sorted = [...catStats].sort((a,b)=>(b.done/Math.max(b.count,1))-(a.done/Math.max(a.count,1)));
@@ -348,10 +349,18 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
       {/* Participación por persona */}
       <div style={S.card}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:showPartInfo?8:14 }}>
           <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>👥 Participación por persona</span>
-          {stWho!=="all" && <span style={{ fontSize:10, color:"#4a4166", fontStyle:"italic" }}>distribución real del rango</span>}
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            {stWho!=="all" && <span style={{ fontSize:10, color:"#4a4166", fontStyle:"italic" }}>distribución real del rango</span>}
+            <button onClick={()=>setShowPartInfo(v=>!v)} title="¿Qué mide esto?" style={{ background:showPartInfo?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.05)", border:`1px solid ${showPartInfo?"rgba(167,139,250,0.45)":"rgba(255,255,255,0.1)"}`, borderRadius:99, color:showPartInfo?"#c4b8ff":"#6b5f88", fontSize:11, padding:"1px 7px", cursor:"pointer", fontFamily:"inherit", lineHeight:1.6 }}>ℹ</button>
+          </div>
         </div>
+        {showPartInfo && (
+          <div style={{ marginBottom:12, padding:"8px 10px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:12, color:"#8b7fa8", lineHeight:1.6 }}>
+            Muestra cuántas actividades tiene asignadas cada persona en el período seleccionado y qué porcentaje completó. No mide quién hizo más trabajo, sino cómo están distribuidas las responsabilidades.
+          </div>
+        )}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {[{ name:p1, h:ph1, color:clr.person1 },{ name:p2, h:ph2, color:clr.person2 },{ name:"Juntos", h:phT, color:clr.together }].map(({ name, h, color }) => {
             const tot = ph1.count + ph2.count + phT.count || 1;
