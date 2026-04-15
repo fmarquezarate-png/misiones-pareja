@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.2";
-const LAST_UPDATE = "2026-04-13";
+const APP_VERSION = "2.0.3";
+const LAST_UPDATE = "2026-04-15";
 const CHANGELOG = [
+  { v:"2.0.3", date:"2026-04-15", notes:["Rediseño UX: menú hamburguesa lateral con navegación","Página de inicio con resumen del día (hoy/mañana + semana)","Top bar persistente (☰ + 🏠 + ⚙️) adaptado a móvil/web","Versión y changelog movidos al pie del menú","Semana actual con navegación ‹ › en su propia vista"] },
   { v:"2.0.2", date:"2026-04-13", notes:["Stats: semana actual excluida de mejor/peor semana","Stats: botón ℹ en Participación por persona","Metas: campo 'Analizar desde' para ignorar períodos anteriores","Metas: historial muestra '–' para períodos sin datos","Objetivo épico integrado en cabecera de semana","Warning arrastrada muestra cuántas semanas lleva pendiente"] },
   { v:"2.0.1", date:"2026-04-13", notes:["Fix crítico: errores de Supabase ahora visibles en UI (antes silenciosos)","Import JSON sube datos a Supabase inmediatamente","Botón 🔄 sincroniza en ambas direcciones","localStorage por pareja (evita mezcla de datos entre usuarios)"] },
   { v:"2.0.0", date:"2026-04-08", notes:["Login con Google OAuth","Espacio privado por pareja con código compartido","Sincronización en tiempo real con Supabase Realtime","Backup automático en localStorage"] },
@@ -539,7 +540,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [saving, setSaving] = useState(false);
   const [savingError, setSavingError] = useState(false);
   const saveTimerRef = useRef(null);
-  const [activeTab, setActiveTab] = useState("current");
+  const [activeTab, setActiveTab] = useState("home");
+  const [menuOpen,  setMenuOpen]  = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
   const [editObj, setEditObj] = useState(false);
@@ -948,110 +950,245 @@ ${ms.map(m=>{
 
       {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} onSignOut={onSignOut} coupleId={coupleId} />}
 
-      <div style={{ maxWidth:640, margin:"0 auto", padding:"28px 16px 140px" }}>
-
-        {/* Header */}
-        <div style={{ textAlign:"center", marginBottom:24, position:"relative" }}>
-          <button onClick={()=>setShowSettings(true)} style={{ position:"absolute", right:0, top:0, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#6b5f88", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
-          <div style={{ fontSize:13, color:"#8b7fa8", letterSpacing:1, marginBottom:12 }}>💞 {p1} & {p2}</div>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:week.epicObjective?4:8 }}>
-            <button onClick={()=>changeWeek(-1)} style={S.btnNav}>‹</button>
-            <div>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:40, fontWeight:700, lineHeight:1, letterSpacing:-1 }}>Semana {data.currentWeekNumber}</div>
-              <div style={{ fontSize:12, color:"#6b5f88", marginTop:2 }}>{data.currentYear}</div>
-              <div style={{ fontSize:11, color:"#4a4166", marginTop:2 }}>{(()=>{const d=new Date();const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];const meses=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;})()}</div>
+      {/* Changelog modal */}
+      {showChangelog && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
+          <div style={{ background:"#1d1733", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+              <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"#fbbf24" }}>📋 Changelog</span>
+              <button onClick={()=>setShowChangelog(false)} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:20, cursor:"pointer" }}>×</button>
             </div>
-            <button onClick={()=>changeWeek(1)} style={S.btnNav}>›</button>
-          </div>
-          {/* Objetivo épico inline bajo el título */}
-          <div style={{ marginBottom:6, minHeight:24 }}>
-            {editObj
-              ? <input autoFocus value={week.epicObjective} onChange={e=>patchWeek(w=>({...w,epicObjective:e.target.value}))} onBlur={()=>setEditObj(false)} onKeyDown={e=>e.key==="Enter"&&setEditObj(false)} placeholder="¿Cuál es la misión épica de la semana?" style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(244,114,182,0.4)", color:"#f472b6", fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", textAlign:"center", width:"80%", outline:"none", padding:"2px 0" }} />
-              : <div onClick={()=>setEditObj(true)} style={{ cursor:"text", fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:week.epicObjective?"#f472b6":"#3d3360", textAlign:"center" }}>
-                  {week.epicObjective ? `"${week.epicObjective}"` : <span style={{ fontSize:11, color:"#2d2450" }}>+ objetivo épico de la semana</span>}
+            {CHANGELOG.map(c=>(
+              <div key={c.v} style={{ marginBottom:16 }}>
+                <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>v{c.v}</span>
+                  <span style={{ fontSize:11, color:"#4a4166" }}>{c.date}</span>
                 </div>
-            }
+                <ul style={{ margin:0, padding:"0 0 0 16px" }}>
+                  {c.notes.map((n,i)=><li key={i} style={{ fontSize:12, color:"#8b7fa8", marginBottom:3 }}>{n}</li>)}
+                </ul>
+              </div>
+            ))}
           </div>
-          {!isCurrentWeek && (
-            <div style={{ marginBottom:8 }}>
-              <button onClick={goToToday} style={{ background:"rgba(244,114,182,0.12)", border:"1px solid rgba(244,114,182,0.3)", borderRadius:99, color:"#f472b6", fontSize:12, fontWeight:600, padding:"5px 14px", cursor:"pointer", fontFamily:"inherit" }}>📍 Volver a hoy</button>
-            </div>
-          )}
-          {total>0 && <>
-            <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden", margin:"0 20px" }}>
-              <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
-            </div>
-            <div style={{ fontSize:12, color:"#8b7fa8", marginTop:7 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
-          </>}
-          {/* Version + sync indicator */}
-          <div style={{ position:"absolute", left:0, top:0, display:"flex", flexDirection:"column", alignItems:"flex-start", gap:2 }}>
-            <button onClick={()=>setShowChangelog(true)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, display:"flex", flexDirection:"column", alignItems:"flex-start", gap:1 }}>
-              <span style={{ fontSize:10, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.4)" }}>v{APP_VERSION}</span>
-              <span style={{ fontSize:8, color:"#4a4166" }}>{LAST_UPDATE}</span>
+        </div>
+      )}
+
+      {/* Slide-out menu backdrop */}
+      {menuOpen && <div onClick={()=>setMenuOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90, backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />}
+
+      {/* Slide-out menu */}
+      <div style={{ position:"fixed", top:0, left:0, height:"100vh", width:248, background:"rgba(12,8,26,0.97)", borderRight:"1px solid rgba(167,139,250,0.1)", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
+        {/* Menu header */}
+        <div style={{ padding:"20px 20px 16px", borderBottom:"1px solid rgba(167,139,250,0.07)" }}>
+          <div style={{ fontSize:11, color:"#4a4166", letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>Misiones de Pareja</div>
+          <div style={{ fontSize:16, color:"#c4b8ff", fontWeight:600 }}>💞 {p1} & {p2}</div>
+        </div>
+        {/* Nav items */}
+        <nav style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
+          {[
+            { id:"home",     label:"Inicio",      icon:"🏠" },
+            { id:"current",  label:"Semana",       icon:"🎯" },
+            { id:"calendar", label:"Calendario",   icon:"📅" },
+            { id:"history",  label:"Histórico",    icon:"🗂️" },
+            { id:"goals",    label:"Metas",        icon:"🏅" },
+            { id:"stats",    label:"Stats",        icon:"📊" },
+          ].map(n => (
+            <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
+              style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"rgba(167,139,250,0.14)":"transparent", color:activeTab===n.id?"#c4b8ff":"#6b5f88", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
+              <span style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
+              <span style={{ flex:1 }}>{n.label}</span>
+              {activeTab===n.id && <span style={{ width:5, height:5, borderRadius:99, background:"#a78bfa", flexShrink:0 }} />}
             </button>
-            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#60a5fa":saved?"#34d399":"transparent", transition:"color 0.3s" }}>
-                {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Guardado":"·"}
-              </span>
-              <button onClick={forceSync} disabled={syncing} title="Sincronizar con Supabase" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:12, opacity:syncing?0.4:0.7, transition:"opacity 0.2s" }}>
-                {syncing?"⟳":"🔄"}
-              </button>
-            </div>
-            {syncMsg && (
-              <div style={{ fontSize:10, color: syncMsg.startsWith("⚠") ? "#fb923c" : syncMsg.startsWith("✓") ? "#34d399" : "#60a5fa", maxWidth:140, lineHeight:1.3, fontWeight:500 }}>
-                {syncMsg}
-              </div>
-            )}
-            {syncError && !syncMsg && (
-              <div style={{ fontSize:9, color:"#fb923c", maxWidth:140, wordBreak:"break-all", lineHeight:1.3 }} title={syncError}>
-                {syncError.slice(0, 60)}{syncError.length > 60 ? "…" : ""}
-              </div>
-            )}
-          </div>
-          {showChangelog&&<div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
-            <div style={{ background:"#1d1733", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-                <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"#fbbf24" }}>📋 Changelog</span>
-                <button onClick={()=>setShowChangelog(false)} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:20, cursor:"pointer" }}>×</button>
-              </div>
-              {CHANGELOG.map(c=>(
-                <div key={c.v} style={{ marginBottom:16 }}>
-                  <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
-                    <span style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>v{c.v}</span>
-                    <span style={{ fontSize:11, color:"#4a4166" }}>{c.date}</span>
-                  </div>
-                  <ul style={{ margin:0, padding:"0 0 0 16px" }}>
-                    {c.notes.map((n,i)=><li key={i} style={{ fontSize:12, color:"#8b7fa8", marginBottom:3 }}>{n}</li>)}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>}
-        </div>
-
-        {/* Tabs */}
-        <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:4, marginBottom:10, overflowX:"auto", scrollbarWidth:"none" }}>
-          {[{id:"current",label:"🎯 Semana"},{id:"calendar",label:"📅 Cal."},{id:"history",label:"🗂️ Hist."},{id:"goals",label:"🏅 Metas"},{id:"stats",label:"📊 Stats"}].map(t=>(
-            <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{ flexShrink:0, padding:"8px 10px", borderRadius:9, border:"none", cursor:"pointer", fontSize:11, fontWeight:500, fontFamily:"inherit", transition:"all 0.2s", background:activeTab===t.id?"rgba(167,139,250,0.18)":"transparent", color:activeTab===t.id?"#c4b8ff":"#6b5f88", whiteSpace:"nowrap" }}>{t.label}</button>
           ))}
+        </nav>
+        {/* Menu footer: sync + version */}
+        <div style={{ padding:"14px 16px", borderTop:"1px solid rgba(167,139,250,0.07)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
+            <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#60a5fa":saved?"#34d399":"#4a4166", flex:1 }}>
+              {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Guardado":"· En reposo"}
+            </span>
+            <button onClick={forceSync} disabled={syncing} title="Sincronizar" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:14, opacity:syncing?0.4:0.8 }}>
+              {syncing?"⟳":"🔄"}
+            </button>
+          </div>
+          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:8, lineHeight:1.4 }}>{syncMsg}</div>}
+          {syncError && !syncMsg && <div style={{ fontSize:9, color:"#fb923c", wordBreak:"break-all", marginBottom:8, lineHeight:1.3 }} title={syncError}>{syncError.slice(0,60)}{syncError.length>60?"…":""}</div>}
+          <button onClick={()=>{ setShowChangelog(true); setMenuOpen(false); }}
+            style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
+            <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
+            <span style={{ fontSize:10, color:"#3d3360" }}>{LAST_UPDATE}</span>
+            <span style={{ fontSize:10, color:"#3d3360", marginLeft:"auto" }}>Ver cambios →</span>
+          </button>
         </div>
-        {/* Global person filter — persiste entre tabs (excepto Stats que tiene su propio) */}
-        {activeTab!=="stats"&&<div style={{ marginBottom:12 }}>
-          {/* Persona */}
+      </div>
+
+      {/* ── Sticky top bar ── */}
+      <div style={{ position:"sticky", top:0, zIndex:80, background:"rgba(10,7,20,0.9)", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid rgba(167,139,250,0.08)", padding:"0 12px", height:52, display:"flex", alignItems:"center", gap:8 }}>
+        {/* Hamburger */}
+        <button onClick={()=>setMenuOpen(v=>!v)} aria-label="Menú"
+          style={{ background:"none", border:"none", cursor:"pointer", color:"#8b7fa8", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
+          <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
+          <span style={{ display:"block", width:13, height:1.5, background:"currentColor", borderRadius:99 }} />
+          <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
+        </button>
+        {/* Home button */}
+        <button onClick={()=>setActiveTab("home")} aria-label="Inicio"
+          style={{ background:"none", border:"none", cursor:"pointer", color:activeTab==="home"?"#c4b8ff":"#4a4166", fontSize:18, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0, transition:"color 0.15s" }}>🏠</button>
+        {/* Page title */}
+        <div style={{ flex:1, textAlign:"center" }}>
+          <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
+            {activeTab==="home"     ? `💞 ${p1} & ${p2}`
+            :activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
+            :activeTab==="calendar" ? "📅 Calendario"
+            :activeTab==="history"  ? "🗂️ Histórico"
+            :activeTab==="goals"    ? "🏅 Metas"
+            :activeTab==="stats"    ? "📊 Stats"
+            : ""}
+          </span>
+        </div>
+        {/* Settings */}
+        <button onClick={()=>setShowSettings(true)} aria-label="Ajustes"
+          style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, color:"#6b5f88", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>⚙️</button>
+      </div>
+
+      <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px 120px" }}>
+
+        {/* Global filters — show only for tabs that need them */}
+        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && <div style={{ marginBottom:12 }}>
           <div style={{ display:"flex", gap:4, marginBottom:6, flexWrap:"wrap" }}>
             {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
               <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
             ))}
           </div>
-          {/* Categoría */}
           <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
             <button onClick={()=>setGlobalCatFilter([])} style={{ background:!globalCatFilter.length?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${!globalCatFilter.length?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:!globalCatFilter.length?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:!globalCatFilter.length?600:400 }}>Todas</button>
             {CATEGORIES.map(c=>{const on=globalCatFilter.includes(c.id);return<button key={c.id} onClick={()=>setGlobalCatFilter(p=>on?p.filter(x=>x!==c.id):[...p,c.id])} style={{ background:on?`${c.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${on?c.color+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:on?c.color:"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:on?600:400 }}>{c.icon} {c.label}</button>;})}
           </div>
         </div>}
 
+        {/* ── HOME ── */}
+        {activeTab==="home" && (() => {
+          const now = new Date();
+          const todayStr = now.toISOString().slice(0,10);
+          const tom = new Date(now); tom.setDate(tom.getDate()+1);
+          const tomStr = tom.toISOString().slice(0,10);
+          const todayAll = allDated.filter(m=>m.date===todayStr);
+          const tomAll   = allDated.filter(m=>m.date===tomStr);
+          const pending  = (week.missions||[]).filter(m=>m.status!=="DONE");
+          const wDone    = (week.missions||[]).filter(m=>m.status==="DONE").length;
+          const wTotal   = (week.missions||[]).length;
+          const wPct     = wTotal>0?Math.round((wDone/wTotal)*100):0;
+          const hour     = now.getHours();
+          const greeting = hour<13?"Buenos días":hour<20?"Buenas tardes":"Buenas noches";
+          return (
+            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+              {/* Hero */}
+              <div style={{ textAlign:"center", padding:"28px 0 12px" }}>
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:30, fontWeight:300, color:"#f8f4ff", marginBottom:4, letterSpacing:-0.5 }}>{greeting}</div>
+                <div style={{ fontSize:12, color:"#6b5f88", letterSpacing:1 }}>💞 {p1} & {p2}</div>
+                {week.epicObjective && (
+                  <div style={{ marginTop:14, fontSize:15, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"#f472b6" }}>"{week.epicObjective}"</div>
+                )}
+              </div>
+
+              {/* Semana progress card */}
+              {wTotal>0 && (
+                <div style={{ ...S.card, cursor:"pointer", borderColor:wPct===100?"rgba(52,211,153,0.25)":"rgba(167,139,250,0.18)" }} onClick={()=>setActiveTab("current")}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                    <span style={{ fontSize:10, color:"#6b5f88", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5 }}>🎯 Semana {data.currentWeekNumber}</span>
+                    <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wDone}/{wTotal} · {wPct}%</span>
+                  </div>
+                  <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", marginBottom:10 }}>
+                    <div style={{ height:"100%", width:`${wPct}%`, background:wPct===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
+                  </div>
+                  {pending.slice(0,5).map(m=>(
+                    <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#8b7fa8", marginBottom:6 }}>
+                      <span style={{ fontSize:16 }}>{m.emoji}</span>
+                      <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
+                      <span style={{ fontSize:10, color:STATUS[m.status]?.color, background:STATUS[m.status]?.bg, border:`1px solid ${STATUS[m.status]?.border}`, borderRadius:99, padding:"1px 6px", flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
+                    </div>
+                  ))}
+                  {pending.length>5 && <div style={{ fontSize:11, color:"#4a4166", textAlign:"center", marginTop:2 }}>+{pending.length-5} más pendientes</div>}
+                  <div style={{ fontSize:11, color:"#4a4166", textAlign:"right", marginTop:6 }}>Ver semana completa →</div>
+                </div>
+              )}
+
+              {/* Hoy */}
+              {todayAll.length>0 && (
+                <div style={{ ...S.card, borderColor:"rgba(96,165,250,0.2)" }}>
+                  <div style={{ fontSize:10, color:"#60a5fa", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Hoy</div>
+                  {todayAll.map(m=>(
+                    <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
+                      <span style={{ fontSize:20 }}>{m.emoji}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ color:m.status==="DONE"?"#4a4166":"#f0e8ff", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                        {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
+                      </div>
+                      <span style={{ fontSize:12, color:STATUS[m.status]?.color, flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Mañana */}
+              {tomAll.length>0 && (
+                <div style={{ ...S.card, opacity:0.8 }}>
+                  <div style={{ fontSize:10, color:"#8b7fa8", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Mañana</div>
+                  {tomAll.map(m=>(
+                    <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
+                      <span style={{ fontSize:20 }}>{m.emoji}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ color:"#8b7fa8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                        {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {wTotal===0 && todayAll.length===0 && (
+                <div style={{ textAlign:"center", padding:"56px 0" }}>
+                  <div style={{ fontSize:52, marginBottom:14 }}>💞</div>
+                  <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:300, color:"#4a4166", marginBottom:6 }}>Todo despejado</div>
+                  <div style={{ fontSize:13, color:"#2d2450", marginBottom:24 }}>Sin misiones ni eventos para hoy</div>
+                  <button onClick={()=>setActiveTab("current")} style={S.btnPrimary}>✅ Añadir misión</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Current Week */}
         {activeTab==="current" && <div>
+          {/* Week navigation */}
+          <div style={{ textAlign:"center", marginBottom:16 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:week.epicObjective?4:8 }}>
+              <button onClick={()=>changeWeek(-1)} style={S.btnNav}>‹</button>
+              <div>
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:36, fontWeight:700, lineHeight:1, letterSpacing:-1 }}>Semana {data.currentWeekNumber}</div>
+                <div style={{ fontSize:11, color:"#4a4166", marginTop:3 }}>{(()=>{const d=new Date();const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];const meses=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;})()}</div>
+              </div>
+              <button onClick={()=>changeWeek(1)} style={S.btnNav}>›</button>
+            </div>
+            <div style={{ marginBottom:6, minHeight:22 }}>
+              {editObj
+                ? <input autoFocus value={week.epicObjective} onChange={e=>patchWeek(w=>({...w,epicObjective:e.target.value}))} onBlur={()=>setEditObj(false)} onKeyDown={e=>e.key==="Enter"&&setEditObj(false)} placeholder="¿Cuál es la misión épica de la semana?" style={{ background:"transparent", border:"none", borderBottom:"1px solid rgba(244,114,182,0.4)", color:"#f472b6", fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", textAlign:"center", width:"80%", outline:"none", padding:"2px 0" }} />
+                : <div onClick={()=>setEditObj(true)} style={{ cursor:"text", fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:week.epicObjective?"#f472b6":"#3d3360", textAlign:"center" }}>
+                    {week.epicObjective ? `"${week.epicObjective}"` : <span style={{ fontSize:11, color:"#2d2450" }}>+ objetivo épico de la semana</span>}
+                  </div>
+              }
+            </div>
+            {!isCurrentWeek && (
+              <button onClick={goToToday} style={{ background:"rgba(244,114,182,0.1)", border:"1px solid rgba(244,114,182,0.25)", borderRadius:99, color:"#f472b6", fontSize:11, fontWeight:600, padding:"4px 14px", cursor:"pointer", fontFamily:"inherit", marginBottom:6 }}>📍 Volver a hoy</button>
+            )}
+            {total>0 && <>
+              <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", margin:"8px 24px 0" }}>
+                <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
+              </div>
+              <div style={{ fontSize:11, color:"#8b7fa8", marginTop:5 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
+            </>}
+          </div>
           {carriedCount>0 && <div style={{ background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:12, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10, fontSize:13 }}>
             <span style={{ fontSize:20 }}>🔁</span>
             <span style={{ color:"#fdba74" }}><strong>{carriedCount} misión{carriedCount>1?"es":""}</strong> arrastrada{carriedCount>1?"s":""} de la semana anterior</span>
