@@ -1296,78 +1296,105 @@ ${ms.map(m=>{
           const wPct     = wTotal>0?Math.round((wDone/wTotal)*100):0;
           const hour     = now.getHours();
           const greeting = hour<13?"Buenos días":hour<20?"Buenas tardes":"Buenas noches";
+          const hasContent = wTotal>0 || todayAll.length>0 || tomAll.length>0;
           return (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-              {/* Hero */}
-              <div style={{ textAlign:"center", padding:"28px 0 12px" }}>
+              {/* Hero — full width */}
+              <div style={{ textAlign:"center", padding:"24px 0 8px" }}>
                 {data.settings?.photos?.couple
-                  ? <img src={data.settings.photos.couple} style={{ width:88, height:88, borderRadius:99, objectFit:"cover", border:"3px solid var(--t-accent,#a78bfa)", boxShadow:"0 0 28px color-mix(in srgb,var(--t-accent,#a78bfa) 40%,transparent)", marginBottom:16 }} alt="pareja" />
-                  : <div style={{ fontSize:52, marginBottom:12, filter:"drop-shadow(0 0 12px rgba(167,139,250,0.4))" }}>{data.settings?.coupleEmoji||"💞"}</div>
+                  ? <img src={data.settings.photos.couple} style={{ width:80, height:80, borderRadius:99, objectFit:"cover", border:"3px solid var(--t-accent,#a78bfa)", boxShadow:"0 0 28px color-mix(in srgb,var(--t-accent,#a78bfa) 40%,transparent)", marginBottom:12 }} alt="pareja" />
+                  : <div style={{ fontSize:48, marginBottom:10, filter:"drop-shadow(0 0 12px rgba(167,139,250,0.4))" }}>{data.settings?.coupleEmoji||"💞"}</div>
                 }
-                <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:300, color:"var(--t-text,#f8f4ff)", marginBottom:4, letterSpacing:-0.5 }}>{greeting}</div>
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:300, color:"var(--t-text,#f8f4ff)", marginBottom:3, letterSpacing:-0.5 }}>{greeting}</div>
                 <div style={{ fontSize:12, color:"var(--t-text-muted,#6b5f88)", letterSpacing:1 }}>{p1} & {p2}</div>
                 {week.epicObjective && (
-                  <div style={{ marginTop:14, fontSize:15, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{week.epicObjective}"</div>
+                  <div style={{ marginTop:10, fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{week.epicObjective}"</div>
                 )}
               </div>
 
-              {/* Semana progress card */}
-              {wTotal>0 && (
-                <div style={{ ...S.card, cursor:"pointer", borderColor:wPct===100?"rgba(52,211,153,0.25)":"rgba(167,139,250,0.18)" }} onClick={()=>setActiveTab("current")}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                    <span style={{ fontSize:10, color:"#6b5f88", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5 }}>🎯 Semana {data.currentWeekNumber}</span>
-                    <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wDone}/{wTotal} · {wPct}%</span>
-                  </div>
-                  <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", marginBottom:10 }}>
-                    <div style={{ height:"100%", width:`${wPct}%`, background:wPct===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
-                  </div>
-                  {pending.slice(0,5).map(m=>(
-                    <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#8b7fa8", marginBottom:6 }}>
-                      <span style={{ fontSize:16 }}>{m.emoji}</span>
-                      <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
-                      <span style={{ fontSize:10, color:STATUS[m.status]?.color, background:STATUS[m.status]?.bg, border:`1px solid ${STATUS[m.status]?.border}`, borderRadius:99, padding:"1px 6px", flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
-                    </div>
-                  ))}
-                  {pending.length>5 && <div style={{ fontSize:11, color:"#4a4166", textAlign:"center", marginTop:2 }}>+{pending.length-5} más pendientes</div>}
-                  <div style={{ fontSize:11, color:"#4a4166", textAlign:"right", marginTop:6 }}>Ver semana completa →</div>
-                </div>
-              )}
+              {/* 2-column grid — auto-fit collapses to 1 col on mobile */}
+              {hasContent && (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:12, alignItems:"start" }}>
 
-              {/* Hoy */}
-              {todayAll.length>0 && (
-                <div style={{ ...S.card, borderColor:"rgba(96,165,250,0.2)" }}>
-                  <div style={{ fontSize:10, color:"#60a5fa", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Hoy</div>
-                  {todayAll.map(m=>(
-                    <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
-                      <span style={{ fontSize:20 }}>{m.emoji}</span>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ color:m.status==="DONE"?"#4a4166":"#f0e8ff", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-                        {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
-                      </div>
-                      <span style={{ fontSize:12, color:STATUS[m.status]?.color, flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Mañana */}
-              {tomAll.length>0 && (
-                <div style={{ ...S.card, opacity:0.8 }}>
-                  <div style={{ fontSize:10, color:"#8b7fa8", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Mañana</div>
-                  {tomAll.map(m=>(
-                    <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
-                      <span style={{ fontSize:20 }}>{m.emoji}</span>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ color:"#8b7fa8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-                        {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
+                  {/* LEFT — Tareas pendientes */}
+                  {wTotal>0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>🎯 Semana {data.currentWeekNumber}</div>
+                      <div style={{ ...S.card, cursor:"pointer", borderColor:wPct===100?"rgba(52,211,153,0.25)":"rgba(167,139,250,0.18)" }} onClick={()=>setActiveTab("current")}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                          <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wDone}/{wTotal} completadas</span>
+                          <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wPct}%</span>
+                        </div>
+                        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", marginBottom:12 }}>
+                          <div style={{ height:"100%", width:`${wPct}%`, background:wPct===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
+                        </div>
+                        {pending.length===0
+                          ? <div style={{ fontSize:13, color:"#34d399", textAlign:"center", padding:"8px 0" }}>🎉 ¡Semana completada!</div>
+                          : pending.map(m=>(
+                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#8b7fa8", marginBottom:7 }}>
+                              <span style={{ fontSize:15 }}>{m.emoji}</span>
+                              <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
+                              <span style={{ fontSize:10, color:STATUS[m.status]?.color, background:STATUS[m.status]?.bg, border:`1px solid ${STATUS[m.status]?.border}`, borderRadius:99, padding:"1px 6px", flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
+                            </div>
+                          ))
+                        }
+                        <div style={{ fontSize:11, color:"#4a4166", textAlign:"right", marginTop:4 }}>Ver semana →</div>
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {/* RIGHT — Eventos de hoy y mañana */}
+                  {(todayAll.length>0 || tomAll.length>0) && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                      <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>📅 Esta semana</div>
+                      {todayAll.length>0 && (
+                        <div style={{ ...S.card, borderColor:"rgba(96,165,250,0.2)" }}>
+                          <div style={{ fontSize:10, color:"#60a5fa", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Hoy</div>
+                          {todayAll.map(m=>(
+                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
+                              <span style={{ fontSize:19 }}>{m.emoji}</span>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ color:m.status==="DONE"?"#4a4166":"var(--t-text,#f0e8ff)", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                                {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
+                              </div>
+                              <span style={{ fontSize:12, color:STATUS[m.status]?.color, flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {tomAll.length>0 && (
+                        <div style={{ ...S.card, opacity:0.82 }}>
+                          <div style={{ fontSize:10, color:"#8b7fa8", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Mañana</div>
+                          {tomAll.map(m=>(
+                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
+                              <span style={{ fontSize:19 }}>{m.emoji}</span>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ color:"#8b7fa8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                                {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {todayAll.length===0 && tomAll.length===0 && (
+                        <div style={{ ...S.card, textAlign:"center", padding:"20px 0", color:"#3d3360", fontSize:13 }}>Sin eventos próximos</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* If only one side has content, fill a placeholder on the other */}
+                  {wTotal===0 && (todayAll.length>0||tomAll.length>0) && (
+                    <div style={{ ...S.card, textAlign:"center", padding:"24px 0", cursor:"pointer" }} onClick={()=>setActiveTab("current")}>
+                      <div style={{ fontSize:28, marginBottom:8 }}>🎯</div>
+                      <div style={{ fontSize:13, color:"#4a4166", marginBottom:10 }}>Sin misiones esta semana</div>
+                      <button style={S.btnPrimary}>+ Añadir misión</button>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Empty state */}
-              {wTotal===0 && todayAll.length===0 && (
+              {!hasContent && (
                 <div style={{ textAlign:"center", padding:"56px 0" }}>
                   <div style={{ fontSize:52, marginBottom:14 }}>{data.settings?.coupleEmoji||"💞"}</div>
                   <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:300, color:"#4a4166", marginBottom:6 }}>Todo despejado</div>
