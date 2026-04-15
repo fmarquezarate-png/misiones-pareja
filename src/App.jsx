@@ -3,10 +3,12 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.3";
+const APP_VERSION = "2.0.5";
 const LAST_UPDATE = "2026-04-15";
 const CHANGELOG = [
-  { v:"2.0.3", date:"2026-04-15", notes:["Rediseño UX: menú hamburguesa lateral con navegación","Página de inicio con resumen del día (hoy/mañana + semana)","Top bar persistente (☰ + 🏠 + ⚙️) adaptado a móvil/web","Versión y changelog movidos al pie del menú","Semana actual con navegación ‹ › en su propia vista"] },
+  { v:"2.0.5", date:"2026-04-15", notes:["Menú lateral: pie siempre visible en móvil (solo versión + changelog, sin scroll)","Sincronización movida a ⚙️ dropdown (junto a Exportar/Importar/Cerrar sesión)","Sync muestra 'Sincronizando…' mientras está activo"] },
+  { v:"2.0.4", date:"2026-04-15", notes:["Foto de pareja en home, menú lateral y perfil (crop circular 72px, JPEG)","Fotos individuales por persona en perfil (con previsualización de avatar)","5 temas visuales con fondos más saturados y contrastados","Tipografía propia por tema: Jakarta Sans / DM Sans / Nunito / Lato / Space Grotesk","Fuente se carga dinámicamente desde Google Fonts al cambiar tema","Hoja de ruta: v3.0 — modo individual + grupos de amigos (pendiente)"] },
+  { v:"2.0.3", date:"2026-04-15", notes:["Rediseño UX: menú hamburguesa lateral con navegación","Página de inicio con resumen del día (hoy/mañana + semana)","Top bar persistente (☰ + 🏠 + ⚙️) adaptado a móvil/web","⚙️ abre dropdown: Mi perfil / Exportar / Importar / Cerrar sesión","ProfileModal: nombres, colores, fotos individuales y selector de tema","5 temas de color (Noche Violeta, Océano, Jardín, Atardecer, Obsidiana)","Versión y changelog movidos al pie del menú lateral"] },
   { v:"2.0.2", date:"2026-04-13", notes:["Stats: semana actual excluida de mejor/peor semana","Stats: botón ℹ en Participación por persona","Metas: campo 'Analizar desde' para ignorar períodos anteriores","Metas: historial muestra '–' para períodos sin datos","Objetivo épico integrado en cabecera de semana","Warning arrastrada muestra cuántas semanas lleva pendiente"] },
   { v:"2.0.1", date:"2026-04-13", notes:["Fix crítico: errores de Supabase ahora visibles en UI (antes silenciosos)","Import JSON sube datos a Supabase inmediatamente","Botón 🔄 sincroniza en ambas direcciones","localStorage por pareja (evita mezcla de datos entre usuarios)"] },
   { v:"2.0.0", date:"2026-04-08", notes:["Login con Google OAuth","Espacio privado por pareja con código compartido","Sincronización en tiempo real con Supabase Realtime","Backup automático en localStorage"] },
@@ -72,48 +74,58 @@ const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399
 const THEMES = [
   {
     id:"violet", name:"Noche Violeta", preview:["#f472b6","#a78bfa","#34d399"],
-    bg:"#0a0714",
-    bgGrad:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)",
-    menuBg:"rgba(12,8,26,0.97)", topBarBg:"rgba(10,7,20,0.9)",
-    card:"#1d1733", cardBorder:"rgba(167,139,250,0.12)",
+    bg:"#080512",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(167,139,250,0.40) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(244,114,182,0.35) 0%,transparent 52%)",
+    menuBg:"rgba(6,3,16,0.98)", topBarBg:"rgba(6,3,14,0.94)",
+    card:"#130d2a", cardBorder:"rgba(167,139,250,0.18)",
     btnGrad:"linear-gradient(135deg,#f472b6,#a78bfa)",
     accent:"#a78bfa", accentSoft:"rgba(167,139,250,0.14)",
+    fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif",
+    googleFonts:null,
   },
   {
-    id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#34d399"],
-    bg:"#020c18",
-    bgGrad:"radial-gradient(ellipse at 20% 50%,rgba(34,211,238,0.09) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(129,140,248,0.08) 0%,transparent 50%)",
-    menuBg:"rgba(2,8,20,0.97)", topBarBg:"rgba(2,12,24,0.9)",
-    card:"#071828", cardBorder:"rgba(34,211,238,0.12)",
-    btnGrad:"linear-gradient(135deg,#22d3ee,#818cf8)",
-    accent:"#22d3ee", accentSoft:"rgba(34,211,238,0.14)",
+    id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#06b6d4"],
+    bg:"#010c18",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(6,182,212,0.38) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(99,102,241,0.32) 0%,transparent 52%)",
+    menuBg:"rgba(1,7,15,0.98)", topBarBg:"rgba(1,9,18,0.94)",
+    card:"#071a2c", cardBorder:"rgba(6,182,212,0.18)",
+    btnGrad:"linear-gradient(135deg,#06b6d4,#818cf8)",
+    accent:"#22d3ee", accentSoft:"rgba(34,211,238,0.13)",
+    fontBody:"'DM Sans',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
   },
   {
     id:"sage", name:"Jardín Botánico", preview:["#4ade80","#a3e635","#fbbf24"],
-    bg:"#040d08",
-    bgGrad:"radial-gradient(ellipse at 20% 55%,rgba(74,222,128,0.08) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(251,191,36,0.07) 0%,transparent 50%)",
-    menuBg:"rgba(4,10,6,0.97)", topBarBg:"rgba(4,13,8,0.9)",
-    card:"#0b1f10", cardBorder:"rgba(74,222,128,0.12)",
+    bg:"#030c06",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(74,222,128,0.35) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,191,36,0.28) 0%,transparent 52%)",
+    menuBg:"rgba(2,8,4,0.98)", topBarBg:"rgba(3,11,5,0.94)",
+    card:"#08180d", cardBorder:"rgba(74,222,128,0.18)",
     btnGrad:"linear-gradient(135deg,#4ade80,#fbbf24)",
-    accent:"#4ade80", accentSoft:"rgba(74,222,128,0.14)",
+    accent:"#4ade80", accentSoft:"rgba(74,222,128,0.13)",
+    fontBody:"'Nunito',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
   },
   {
     id:"sunset", name:"Atardecer", preview:["#fb923c","#f43f5e","#fbbf24"],
-    bg:"#120508",
-    bgGrad:"radial-gradient(ellipse at 20% 55%,rgba(251,146,60,0.09) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(244,63,94,0.09) 0%,transparent 50%)",
-    menuBg:"rgba(18,4,8,0.97)", topBarBg:"rgba(18,5,8,0.9)",
-    card:"#220c0c", cardBorder:"rgba(251,146,60,0.14)",
+    bg:"#110507",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(251,146,60,0.38) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(244,63,94,0.32) 0%,transparent 52%)",
+    menuBg:"rgba(14,4,6,0.98)", topBarBg:"rgba(14,5,7,0.94)",
+    card:"#1e0b0e", cardBorder:"rgba(251,146,60,0.2)",
     btnGrad:"linear-gradient(135deg,#fb923c,#f43f5e)",
-    accent:"#fb923c", accentSoft:"rgba(251,146,60,0.14)",
+    accent:"#fb923c", accentSoft:"rgba(251,146,60,0.13)",
+    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
   },
   {
     id:"obsidian", name:"Obsidiana", preview:["#e2e8f0","#94a3b8","#60a5fa"],
-    bg:"#080808",
-    bgGrad:"radial-gradient(ellipse at 20% 50%,rgba(148,163,184,0.05) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(96,165,250,0.06) 0%,transparent 50%)",
-    menuBg:"rgba(8,8,8,0.98)", topBarBg:"rgba(8,8,8,0.92)",
-    card:"#111111", cardBorder:"rgba(148,163,184,0.1)",
+    bg:"#050505",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(96,165,250,0.18) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(148,163,184,0.12) 0%,transparent 52%)",
+    menuBg:"rgba(4,4,4,0.99)", topBarBg:"rgba(5,5,5,0.96)",
+    card:"#101010", cardBorder:"rgba(148,163,184,0.14)",
     btnGrad:"linear-gradient(135deg,#94a3b8,#60a5fa)",
-    accent:"#94a3b8", accentSoft:"rgba(148,163,184,0.12)",
+    accent:"#94a3b8", accentSoft:"rgba(148,163,184,0.1)",
+    fontBody:"'Space Grotesk',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
   },
 ];
 
@@ -401,20 +413,31 @@ const S = {
   label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6, display:"block" },
 };
 
-// Injects CSS custom properties for theming onto <html>
+// Injects CSS custom properties + loads Google Font for the active theme
 function ThemeInjector({ themeId }) {
   useEffect(() => {
     const t = THEMES.find(x=>x.id===themeId) || THEMES[0];
+    // Load theme font dynamically
+    const LINK_ID = "theme-font";
+    let link = document.getElementById(LINK_ID);
+    if (t.googleFonts) {
+      if (!link) { link = document.createElement("link"); link.id = LINK_ID; link.rel = "stylesheet"; document.head.appendChild(link); }
+      link.href = t.googleFonts;
+    } else if (link) {
+      link.href = ""; // remove external font for built-in themes
+    }
+    // Apply CSS custom properties
     const r = document.documentElement.style;
-    r.setProperty("--t-bg",         t.bg);
-    r.setProperty("--t-bg-grad",    t.bgGrad);
-    r.setProperty("--t-menu-bg",    t.menuBg);
-    r.setProperty("--t-topbar-bg",  t.topBarBg);
-    r.setProperty("--t-card",       t.card);
-    r.setProperty("--t-card-border",t.cardBorder);
-    r.setProperty("--t-btn-grad",   t.btnGrad);
-    r.setProperty("--t-accent",     t.accent);
-    r.setProperty("--t-accent-soft",t.accentSoft);
+    r.setProperty("--t-bg",          t.bg);
+    r.setProperty("--t-bg-grad",     t.bgGrad);
+    r.setProperty("--t-menu-bg",     t.menuBg);
+    r.setProperty("--t-topbar-bg",   t.topBarBg);
+    r.setProperty("--t-card",        t.card);
+    r.setProperty("--t-card-border", t.cardBorder);
+    r.setProperty("--t-btn-grad",    t.btnGrad);
+    r.setProperty("--t-accent",      t.accent);
+    r.setProperty("--t-accent-soft", t.accentSoft);
+    r.setProperty("--t-font-body",   t.fontBody);
   }, [themeId]);
   return null;
 }
@@ -1026,7 +1049,7 @@ ${ms.map(m=>{
   const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date&&m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear(),_key:key})));
 
   return (
-    <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
+    <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"#f8f4ff" }}>
       <ThemeInjector themeId={themeId} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
@@ -1065,9 +1088,15 @@ ${ms.map(m=>{
       {/* Slide-out menu */}
       <div style={{ position:"fixed", top:0, left:0, height:"100vh", width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
         {/* Menu header */}
-        <div style={{ padding:"20px 20px 16px", borderBottom:"1px solid rgba(167,139,250,0.07)" }}>
-          <div style={{ fontSize:11, color:"#4a4166", letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>Misiones de Pareja</div>
-          <div style={{ fontSize:16, color:"#c4b8ff", fontWeight:600 }}>💞 {p1} & {p2}</div>
+        <div style={{ padding:"18px 20px 14px", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
+          {data.settings?.photos?.couple
+            ? <img src={data.settings.photos.couple} style={{ width:44, height:44, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0 }} alt="pareja" />
+            : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>💞</div>
+          }
+          <div>
+            <div style={{ fontSize:10, color:"#4a4166", letterSpacing:1.5, textTransform:"uppercase" }}>Misiones de Pareja</div>
+            <div style={{ fontSize:14, color:"#c4b8ff", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
+          </div>
         </div>
         {/* Nav items */}
         <nav style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
@@ -1087,18 +1116,9 @@ ${ms.map(m=>{
             </button>
           ))}
         </nav>
-        {/* Menu footer: sync + version */}
-        <div style={{ padding:"14px 16px", borderTop:"1px solid rgba(167,139,250,0.07)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
-            <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#60a5fa":saved?"#34d399":"#4a4166", flex:1 }}>
-              {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Guardado":"· En reposo"}
-            </span>
-            <button onClick={forceSync} disabled={syncing} title="Sincronizar" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:14, opacity:syncing?0.4:0.8 }}>
-              {syncing?"⟳":"🔄"}
-            </button>
-          </div>
-          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:8, lineHeight:1.4 }}>{syncMsg}</div>}
-          {syncError && !syncMsg && <div style={{ fontSize:9, color:"#fb923c", wordBreak:"break-all", marginBottom:8, lineHeight:1.3 }} title={syncError}>{syncError.slice(0,60)}{syncError.length>60?"…":""}</div>}
+        {/* Menu footer: version only — always visible, no scroll needed */}
+        <div style={{ padding:"12px 16px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", flexShrink:0 }}>
+          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:6, lineHeight:1.4 }}>{syncMsg}</div>}
           <button onClick={()=>{ setShowChangelog(true); setMenuOpen(false); }}
             style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
             <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
@@ -1140,9 +1160,10 @@ ${ms.map(m=>{
             <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
             <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
               {[
-                { icon:"👤", label:"Mi perfil",     action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
-                { icon:"📥", label:"Exportar",       action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
-                { icon:"📤", label:"Importar",       action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
+                { icon:"👤", label:"Mi perfil",  action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
+                { icon:"📥", label:"Exportar",   action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
+                { icon:"📤", label:"Importar",   action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
+                { icon:"🔄", label:syncing?"Sincronizando…":"Actualizar datos", action:()=>{ forceSync(); setSettingsMenuOpen(false); } },
               ].map((item,i)=>(
                 <button key={i} onClick={item.action}
                   style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#c4b8ff", width:"100%", textAlign:"left", transition:"background 0.12s" }}
@@ -1196,10 +1217,14 @@ ${ms.map(m=>{
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               {/* Hero */}
               <div style={{ textAlign:"center", padding:"28px 0 12px" }}>
-                <div style={{ fontFamily:"'Fraunces',serif", fontSize:30, fontWeight:300, color:"#f8f4ff", marginBottom:4, letterSpacing:-0.5 }}>{greeting}</div>
-                <div style={{ fontSize:12, color:"#6b5f88", letterSpacing:1 }}>💞 {p1} & {p2}</div>
+                {data.settings?.photos?.couple
+                  ? <img src={data.settings.photos.couple} style={{ width:88, height:88, borderRadius:99, objectFit:"cover", border:"3px solid var(--t-accent,#a78bfa)", boxShadow:"0 0 28px color-mix(in srgb,var(--t-accent,#a78bfa) 40%,transparent)", marginBottom:16 }} alt="pareja" />
+                  : <div style={{ fontSize:52, marginBottom:12, filter:"drop-shadow(0 0 12px rgba(167,139,250,0.4))" }}>💞</div>
+                }
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:300, color:"#f8f4ff", marginBottom:4, letterSpacing:-0.5 }}>{greeting}</div>
+                <div style={{ fontSize:12, color:"#6b5f88", letterSpacing:1 }}>{p1} & {p2}</div>
                 {week.epicObjective && (
-                  <div style={{ marginTop:14, fontSize:15, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"#f472b6" }}>"{week.epicObjective}"</div>
+                  <div style={{ marginTop:14, fontSize:15, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{week.epicObjective}"</div>
                 )}
               </div>
 
@@ -1666,7 +1691,7 @@ function ProfileModal({ data, update, onClose }) {
   const [p2,      setP2]      = useState(settings.person2||"Banana");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const [themeId, setThemeId] = useState(settings.themeId||"violet");
-  const [photos,  setPhotos]  = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null });
+  const [photos,  setPhotos]  = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
   const compressAvatar = (file) => new Promise(resolve => {
@@ -1739,8 +1764,32 @@ function ProfileModal({ data, update, onClose }) {
         {/* Scrollable body */}
         <div style={{ overflowY:"auto", padding:"16px 20px 20px", flex:1 }}>
 
+          {/* Foto de pareja */}
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>Foto de pareja</div>
+          <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24, padding:"14px 16px", background:"var(--t-accent-soft,rgba(167,139,250,0.06))", borderRadius:14, border:"1px solid var(--t-card-border)" }}>
+            <label style={{ cursor:"pointer", flexShrink:0 }}>
+              <div style={{ width:72, height:72, borderRadius:99, background:"var(--t-accent-soft)", border:`2px solid var(--t-accent,#a78bfa)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
+                {photos.couple
+                  ? <img src={photos.couple} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
+                  : <span style={{ fontSize:32 }}>💞</span>}
+              </div>
+              <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
+            </label>
+            <div>
+              <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500, marginBottom:4 }}>Vuestra foto juntos</div>
+              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8, lineHeight:1.5 }}>Aparece en la pantalla de inicio y en el menú lateral</div>
+              <div style={{ display:"flex", gap:8 }}>
+                <label style={{ ...S.btnSecondary, fontSize:11, cursor:"pointer", padding:"5px 12px", display:"inline-block" }}>
+                  📷 Cambiar
+                  <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
+                </label>
+                {photos.couple && <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px" }}>✕ Quitar</button>}
+              </div>
+            </div>
+          </div>
+
           {/* Personas */}
-          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14, marginTop:4 }}>Personas</div>
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Personas</div>
           {personRow("person1","Persona 1",p1,setP1)}
           {personRow("person2","Persona 2",p2,setP2)}
           <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20 }}>
