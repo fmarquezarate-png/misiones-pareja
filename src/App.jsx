@@ -69,6 +69,54 @@ const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr -
 const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
 const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
 
+const THEMES = [
+  {
+    id:"violet", name:"Noche Violeta", preview:["#f472b6","#a78bfa","#34d399"],
+    bg:"#0a0714",
+    bgGrad:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)",
+    menuBg:"rgba(12,8,26,0.97)", topBarBg:"rgba(10,7,20,0.9)",
+    card:"#1d1733", cardBorder:"rgba(167,139,250,0.12)",
+    btnGrad:"linear-gradient(135deg,#f472b6,#a78bfa)",
+    accent:"#a78bfa", accentSoft:"rgba(167,139,250,0.14)",
+  },
+  {
+    id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#34d399"],
+    bg:"#020c18",
+    bgGrad:"radial-gradient(ellipse at 20% 50%,rgba(34,211,238,0.09) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(129,140,248,0.08) 0%,transparent 50%)",
+    menuBg:"rgba(2,8,20,0.97)", topBarBg:"rgba(2,12,24,0.9)",
+    card:"#071828", cardBorder:"rgba(34,211,238,0.12)",
+    btnGrad:"linear-gradient(135deg,#22d3ee,#818cf8)",
+    accent:"#22d3ee", accentSoft:"rgba(34,211,238,0.14)",
+  },
+  {
+    id:"sage", name:"Jardín Botánico", preview:["#4ade80","#a3e635","#fbbf24"],
+    bg:"#040d08",
+    bgGrad:"radial-gradient(ellipse at 20% 55%,rgba(74,222,128,0.08) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(251,191,36,0.07) 0%,transparent 50%)",
+    menuBg:"rgba(4,10,6,0.97)", topBarBg:"rgba(4,13,8,0.9)",
+    card:"#0b1f10", cardBorder:"rgba(74,222,128,0.12)",
+    btnGrad:"linear-gradient(135deg,#4ade80,#fbbf24)",
+    accent:"#4ade80", accentSoft:"rgba(74,222,128,0.14)",
+  },
+  {
+    id:"sunset", name:"Atardecer", preview:["#fb923c","#f43f5e","#fbbf24"],
+    bg:"#120508",
+    bgGrad:"radial-gradient(ellipse at 20% 55%,rgba(251,146,60,0.09) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(244,63,94,0.09) 0%,transparent 50%)",
+    menuBg:"rgba(18,4,8,0.97)", topBarBg:"rgba(18,5,8,0.9)",
+    card:"#220c0c", cardBorder:"rgba(251,146,60,0.14)",
+    btnGrad:"linear-gradient(135deg,#fb923c,#f43f5e)",
+    accent:"#fb923c", accentSoft:"rgba(251,146,60,0.14)",
+  },
+  {
+    id:"obsidian", name:"Obsidiana", preview:["#e2e8f0","#94a3b8","#60a5fa"],
+    bg:"#080808",
+    bgGrad:"radial-gradient(ellipse at 20% 50%,rgba(148,163,184,0.05) 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,rgba(96,165,250,0.06) 0%,transparent 50%)",
+    menuBg:"rgba(8,8,8,0.98)", topBarBg:"rgba(8,8,8,0.92)",
+    card:"#111111", cardBorder:"rgba(148,163,184,0.1)",
+    btnGrad:"linear-gradient(135deg,#94a3b8,#60a5fa)",
+    accent:"#94a3b8", accentSoft:"rgba(148,163,184,0.12)",
+  },
+];
+
 const googleCalendarUrl = (mission, name1, name2) => {
   if (!mission.date) return null;
   const ds = mission.date.replace(/-/g, "");
@@ -344,14 +392,32 @@ function syncCarryDone(data, weekKey, missionId) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
-  card: { background:"#1d1733", border:"1px solid rgba(167,139,250,0.12)", borderRadius:14, padding:"14px 16px" },
-  input: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:8, padding:"8px 12px", color:"#f8f4ff", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  inputSm: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, padding:"5px 8px", color:"#f8f4ff", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  btnNav: { background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#a78bfa", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
-  btnPrimary: { background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
-  btnSecondary: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#8b7fa8", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
-  label: { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6, display:"block" },
+  card:        { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.12))", borderRadius:14, padding:"14px 16px" },
+  input:       { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:8, padding:"8px 12px", color:"#f8f4ff", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
+  inputSm:     { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, padding:"5px 8px", color:"#f8f4ff", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
+  btnNav:      { background:"rgba(255,255,255,0.05)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:8, color:"var(--t-accent,#a78bfa)", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
+  btnPrimary:  { background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
+  btnSecondary:{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#8b7fa8", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
+  label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6, display:"block" },
 };
+
+// Injects CSS custom properties for theming onto <html>
+function ThemeInjector({ themeId }) {
+  useEffect(() => {
+    const t = THEMES.find(x=>x.id===themeId) || THEMES[0];
+    const r = document.documentElement.style;
+    r.setProperty("--t-bg",         t.bg);
+    r.setProperty("--t-bg-grad",    t.bgGrad);
+    r.setProperty("--t-menu-bg",    t.menuBg);
+    r.setProperty("--t-topbar-bg",  t.topBarBg);
+    r.setProperty("--t-card",       t.card);
+    r.setProperty("--t-card-border",t.cardBorder);
+    r.setProperty("--t-btn-grad",   t.btnGrad);
+    r.setProperty("--t-accent",     t.accent);
+    r.setProperty("--t-accent-soft",t.accentSoft);
+  }, [themeId]);
+  return null;
+}
 const badgeStyle = s => ({ background:STATUS[s].bg, color:STATUS[s].color, border:`1px solid ${STATUS[s].border}`, padding:"3px 8px", borderRadius:99, fontSize:11, fontWeight:600, fontFamily:"inherit", letterSpacing:0.3, cursor:"pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 });
 const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; return { background:`${c.color}18`, color:c.color, border:`1px solid ${c.color}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" }; };
 
@@ -540,13 +606,16 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [saving, setSaving] = useState(false);
   const [savingError, setSavingError] = useState(false);
   const saveTimerRef = useRef(null);
-  const [activeTab, setActiveTab] = useState("home");
-  const [menuOpen,  setMenuOpen]  = useState(false);
+  const [activeTab,       setActiveTab]       = useState("home");
+  const [menuOpen,        setMenuOpen]        = useState(false);
+  const [showProfile,     setShowProfile]     = useState(false);
+  const [settingsMenuOpen,setSettingsMenuOpen]= useState(false);
+  const [importMsg,       setImportMsg]       = useState(null);
+  const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
@@ -687,6 +756,18 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const p1 = data.settings?.person1 || "Pololo";
   const p2 = data.settings?.person2 || "Banana";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
+  const themeId = data.settings?.themeId || "violet";
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = await importData(file);
+      update(() => imported);
+      setImportMsg("✅ Datos restaurados correctamente");
+      setTimeout(() => setImportMsg(null), 2500);
+    } catch (err) { setImportMsg("❌ " + err.message); setTimeout(() => setImportMsg(null), 3500); }
+    e.target.value = "";
+  };
   const wkey = isoWeekKey(data.currentWeekNumber, data.currentYear);
   const week = data.weeks[wkey] || { weekNumber:data.currentWeekNumber, year:data.currentYear, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const patchWeek = fn => update(d => ({ ...d, weeks: { ...d.weeks, [wkey]: fn(d.weeks[wkey] || week) } }));
@@ -945,10 +1026,15 @@ ${ms.map(m=>{
   const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date&&m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear(),_key:key})));
 
   return (
-    <div style={{ minHeight:"100vh", background:"#0a0714", backgroundImage:"radial-gradient(ellipse at 15% 50%,rgba(167,139,250,0.09) 0%,transparent 55%),radial-gradient(ellipse at 85% 20%,rgba(244,114,182,0.08) 0%,transparent 50%)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
+    <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff" }}>
+      <ThemeInjector themeId={themeId} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
-      {showSettings && <SettingsModal data={data} update={update} onClose={()=>setShowSettings(false)} onSignOut={onSignOut} coupleId={coupleId} />}
+      {/* Hidden file input for import */}
+      <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
+      {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap" }}>{importMsg}</div>}
+
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} />}
 
       {/* Changelog modal */}
       {showChangelog && (
@@ -977,7 +1063,7 @@ ${ms.map(m=>{
       {menuOpen && <div onClick={()=>setMenuOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90, backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />}
 
       {/* Slide-out menu */}
-      <div style={{ position:"fixed", top:0, left:0, height:"100vh", width:248, background:"rgba(12,8,26,0.97)", borderRight:"1px solid rgba(167,139,250,0.1)", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
+      <div style={{ position:"fixed", top:0, left:0, height:"100vh", width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
         {/* Menu header */}
         <div style={{ padding:"20px 20px 16px", borderBottom:"1px solid rgba(167,139,250,0.07)" }}>
           <div style={{ fontSize:11, color:"#4a4166", letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>Misiones de Pareja</div>
@@ -1023,7 +1109,7 @@ ${ms.map(m=>{
       </div>
 
       {/* ── Sticky top bar ── */}
-      <div style={{ position:"sticky", top:0, zIndex:80, background:"rgba(10,7,20,0.9)", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid rgba(167,139,250,0.08)", padding:"0 12px", height:52, display:"flex", alignItems:"center", gap:8 }}>
+      <div style={{ position:"sticky", top:0, zIndex:80, background:"var(--t-topbar-bg,rgba(10,7,20,0.9))", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.08))", padding:"0 12px", height:52, display:"flex", alignItems:"center", gap:8 }}>
         {/* Hamburger */}
         <button onClick={()=>setMenuOpen(v=>!v)} aria-label="Menú"
           style={{ background:"none", border:"none", cursor:"pointer", color:"#8b7fa8", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
@@ -1046,9 +1132,35 @@ ${ms.map(m=>{
             : ""}
           </span>
         </div>
-        {/* Settings */}
-        <button onClick={()=>setShowSettings(true)} aria-label="Ajustes"
-          style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, color:"#6b5f88", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>⚙️</button>
+        {/* Settings dropdown trigger */}
+        <div style={{ position:"relative", flexShrink:0 }}>
+          <button onClick={()=>setSettingsMenuOpen(v=>!v)} aria-label="Ajustes"
+            style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"#6b5f88", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
+          {settingsMenuOpen && <>
+            <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
+            <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
+              {[
+                { icon:"👤", label:"Mi perfil",     action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
+                { icon:"📥", label:"Exportar",       action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
+                { icon:"📤", label:"Importar",       action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
+              ].map((item,i)=>(
+                <button key={i} onClick={item.action}
+                  style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#c4b8ff", width:"100%", textAlign:"left", transition:"background 0.12s" }}
+                  onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-soft,rgba(167,139,250,0.1))"}
+                  onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                  <span style={{ fontSize:15 }}>{item.icon}</span>{item.label}
+                </button>
+              ))}
+              <div style={{ height:1, background:"var(--t-card-border,rgba(167,139,250,0.1))", margin:"4px 0" }} />
+              <button onClick={()=>{ onSignOut(); setSettingsMenuOpen(false); }}
+                style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#f472b6", width:"100%", textAlign:"left" }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(244,114,182,0.08)"}
+                onMouseLeave={e=>e.currentTarget.style.background="none"}>
+                <span style={{ fontSize:15 }}>🚪</span>Cerrar sesión
+              </button>
+            </div>
+          </>}
+        </div>
       </div>
 
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px 120px" }}>
@@ -1548,74 +1660,129 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function SettingsModal({ data, update, onClose, onSignOut }) {
-  const [p1, setP1] = useState(data.settings?.person1||"Pololo");
-  const [p2, setP2] = useState(data.settings?.person2||"Banana");
-  const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors||{}) });
-  const [importMsg, setImportMsg] = useState(null);
+function ProfileModal({ data, update, onClose }) {
+  const settings = data.settings || {};
+  const [p1,      setP1]      = useState(settings.person1||"Pololo");
+  const [p2,      setP2]      = useState(settings.person2||"Banana");
+  const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
+  const [themeId, setThemeId] = useState(settings.themeId||"violet");
+  const [photos,  setPhotos]  = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null });
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
-  const save = () => { update(d=>({...d,settings:{...d.settings,person1:p1.trim()||"Pololo",person2:p2.trim()||"Banana",colors}})); onClose(); };
-  const handleImport = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const imported = await importData(file);
-      update(() => imported);
-      setImportMsg("✅ Datos restaurados correctamente");
-      setTimeout(() => { setImportMsg(null); onClose(); }, 1500);
-    } catch (err) { setImportMsg("❌ " + err.message); setTimeout(() => setImportMsg(null), 3000); }
+
+  const compressAvatar = (file) => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const size = 180;
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        // crop square from center
+        const s = Math.min(img.width, img.height);
+        const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const handlePhoto = async (key, e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const b64 = await compressAvatar(file);
+    setPhotos(p=>({...p,[key]:b64}));
     e.target.value = "";
   };
+
+  const save = () => {
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Pololo", person2:p2.trim()||"Banana", colors, themeId, photos}}));
+    onClose();
+  };
+
+  const personRow = (key, label, nameVal, setName) => (
+    <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:18 }}>
+      {/* Avatar */}
+      <label style={{ cursor:"pointer", flexShrink:0 }}>
+        <div style={{ width:56, height:56, borderRadius:99, background:colors[key]+"22", border:`2px solid ${colors[key]}55`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
+          {photos[key]
+            ? <img src={photos[key]} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
+            : <span style={{ fontSize:22 }}>{key==="person1"?"👤":"👤"}</span>}
+          <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", opacity:0, transition:"opacity 0.15s", borderRadius:99 }}
+            onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+            <span style={{ fontSize:16 }}>📷</span>
+          </div>
+        </div>
+        <input type="file" accept="image/*" onChange={e=>handlePhoto(key,e)} style={{ display:"none" }} />
+      </label>
+      <div style={{ flex:1 }}>
+        <label style={S.label}>{label}</label>
+        <input value={nameVal} onChange={e=>setName(e.target.value)} style={S.input} placeholder={label} />
+      </div>
+      <div style={{ flexShrink:0 }}>
+        <label style={{ ...S.label, textAlign:"center" }}>Color</label>
+        <input type="color" value={colors[key]} onChange={e=>setColor(key,e.target.value)}
+          style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, display:"block" }} />
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:400 }}>
-        <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:600, marginBottom:20 }}>⚙️ Configuración</div>
-        <div style={{ marginBottom:14 }}>
-          <label style={S.label}>Persona 1</label>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <input value={p1} onChange={e=>setP1(e.target.value)} style={{ ...S.input, flex:1 }} placeholder="Pololo" />
-            <input type="color" value={colors.person1} onChange={e=>setColor("person1",e.target.value)}
-              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color persona 1" />
-          </div>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:150, display:"flex", flexDirection:"column", overflow:"hidden" }} onClick={onClose}>
+      <div style={{ background:"var(--t-menu-bg,#0f0a1e)", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:"20px 20px 0 0", marginTop:"auto", maxHeight:"92vh", overflow:"hidden", display:"flex", flexDirection:"column" }} onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 20px 0" }}>
+          <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, color:"#f8f4ff" }}>👤 Mi Perfil</span>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:22, cursor:"pointer", lineHeight:1 }}>×</button>
         </div>
-        <div style={{ marginBottom:14 }}>
-          <label style={S.label}>Persona 2</label>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <input value={p2} onChange={e=>setP2(e.target.value)} style={{ ...S.input, flex:1 }} placeholder="Banana" />
-            <input type="color" value={colors.person2} onChange={e=>setColor("person2",e.target.value)}
-              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color persona 2" />
-          </div>
-        </div>
-        <div style={{ marginBottom:20 }}>
-          <label style={S.label}>Actividades juntos</label>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <div style={{ flex:1, fontSize:13, color:"#6b5f88", fontStyle:"italic" }}>Color para actividades en pareja</div>
+        {/* Scrollable body */}
+        <div style={{ overflowY:"auto", padding:"16px 20px 20px", flex:1 }}>
+
+          {/* Personas */}
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14, marginTop:4 }}>Personas</div>
+          {personRow("person1","Persona 1",p1,setP1)}
+          {personRow("person2","Persona 2",p2,setP2)}
+          <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20 }}>
+            <div style={{ width:56, height:56, borderRadius:99, background:colors.together+"22", border:`2px solid ${colors.together}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <span style={{ fontSize:22 }}>💞</span>
+            </div>
+            <div style={{ flex:1 }}>
+              <label style={S.label}>Juntos</label>
+              <div style={{ fontSize:12, color:"#6b5f88", fontStyle:"italic" }}>Color para actividades en pareja</div>
+            </div>
             <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
-              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2 }} title="Color juntos" />
+              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
+          </div>
+          <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
+
+          {/* Tema */}
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Tema de la app</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:8 }}>
+            {THEMES.map(t => (
+              <button key={t.id} onClick={()=>setThemeId(t.id)}
+                style={{ background:t.card, border:`2px solid ${themeId===t.id?t.accent:"transparent"}`, borderRadius:14, padding:"12px 14px", cursor:"pointer", textAlign:"left", position:"relative", overflow:"hidden", transition:"border-color 0.15s" }}>
+                {/* mini gradient preview */}
+                <div style={{ position:"absolute", inset:0, backgroundImage:t.bgGrad, opacity:0.6 }} />
+                <div style={{ position:"relative" }}>
+                  <div style={{ display:"flex", gap:5, marginBottom:8 }}>
+                    {t.preview.map((c,i)=>(
+                      <div key={i} style={{ width:14, height:14, borderRadius:99, background:c }} />
+                    ))}
+                    {themeId===t.id && <div style={{ marginLeft:"auto", width:16, height:16, borderRadius:99, background:t.accent, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <span style={{ fontSize:9, color:"#000" }}>✓</span>
+                    </div>}
+                  </div>
+                  <div style={{ fontSize:12, fontWeight:600, color:themeId===t.id?t.accent:"#8b7fa8", lineHeight:1.2 }}>{t.name}</div>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
-        <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:16, paddingTop:16, marginBottom:16 }}>
-          <div style={{ fontSize:11, color:"#6b5f88", marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Backup de datos</div>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>exportData(data)} style={{ ...S.btnSecondary, fontSize:11, flex:1 }}>📥 Exportar JSON</button>
-            <label style={{ ...S.btnSecondary, fontSize:11, flex:1, textAlign:"center", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              📤 Importar JSON
-              <input type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
-            </label>
-          </div>
-          {importMsg && <div style={{ fontSize:12, marginTop:8, color: importMsg.startsWith("✅") ? "#34d399" : "#fb923c" }}>{importMsg}</div>}
-        </div>
-        <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:8, paddingTop:16, marginBottom:4 }}>
-          <button onClick={onSignOut} style={{ width:"100%", background:"rgba(244,114,182,0.08)", border:"1px solid rgba(244,114,182,0.2)", borderRadius:8, color:"#f472b6", padding:"9px", cursor:"pointer", fontSize:13, fontFamily:"inherit" }}>
-            🚪 Cerrar sesión
-          </button>
-        </div>
-        <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
-          <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11 }}>↺ Colores por defecto</button>
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
-            <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
-          </div>
+        {/* Footer */}
+        <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
+          <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
         </div>
       </div>
     </div>
