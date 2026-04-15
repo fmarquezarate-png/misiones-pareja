@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.6";
+const APP_VERSION = "2.0.7";
 const LAST_UPDATE = "2026-04-15";
 const CHANGELOG = [
+  { v:"2.0.7", date:"2026-04-15", notes:["Emoji de pareja elegible desde Mi Perfil (24 opciones)", "Fix: menú lateral usa emoji elegido en vez de 💞 fijo","Fix: dropdown de tema en ProfileModal deja de cortarse (inline)","Fix: select de meta sin contraste blanco-sobre-blanco en Mac","Cursor: sin selección de texto accidental en escritorio","Stats: barras de semanas capeadas a 12 máximo","Nueva pestaña Pendientes en menú (todas las tareas no-DONE)","Inicio: layout 2 columnas en pantallas anchas (pendientes | eventos)","Compartir semana: imagen generada con Canvas + navigator.share/descarga"] },
   { v:"2.0.6", date:"2026-04-15", notes:["Fix: mensajes de sync (✓ al día / ⬆ subido / ⬇ actualizado / ⚠ error) ahora son toasts flotantes visibles siempre","Fix: error de Supabase también aparece como toast si no hay syncMsg activo","5 temas nuevos: Aurora Boreal (neon verde+magenta), Neón Tokyo (cyan+fucsia), Vino & Oro (burdeos+dorado), Mañana Clara (tema claro crema/blanco), Café Oscuro (chocolate+ámbar)","Sistema de colores de texto por tema (--t-text/muted/dim) — Mañana Clara tiene texto oscuro legible","Selector de tema cambiado de grid de tarjetas a dropdown desplegable con 10 temas listados","S.input, S.label, S.btnSecondary usan CSS vars de texto para adaptarse al tema claro"] },
   { v:"2.0.5", date:"2026-04-15", notes:["Menú lateral: pie siempre visible en móvil (solo versión + changelog, sin scroll)","Sincronización movida a ⚙️ dropdown (junto a Exportar/Importar/Cerrar sesión)","Sync muestra 'Sincronizando…' mientras está activo"] },
   { v:"2.0.4", date:"2026-04-15", notes:["Foto de pareja en home, menú lateral y perfil (crop circular 72px, JPEG)","Fotos individuales por persona en perfil (con previsualización de avatar)","5 temas visuales con fondos más saturados y contrastados","Tipografía propia por tema: Jakarta Sans / DM Sans / Nunito / Lato / Space Grotesk","Fuente se carga dinámicamente desde Google Fonts al cambiar tema","Hoja de ruta: v3.0 — modo individual + grupos de amigos (pendiente)"] },
@@ -483,6 +484,15 @@ const S = {
 
 // Injects CSS custom properties + loads Google Font for the active theme
 function ThemeInjector({ themeId }) {
+  // One-time: inject global cursor + user-select rules
+  useEffect(() => {
+    if (document.getElementById("global-cursor")) return;
+    const s = document.createElement("style");
+    s.id = "global-cursor";
+    s.textContent = `*,*::before,*::after{user-select:none;-webkit-user-select:none}input,textarea,[contenteditable=true]{user-select:text;-webkit-user-select:text;cursor:text!important}button,a,select,label{cursor:pointer!important}`;
+    document.head.appendChild(s);
+  }, []);
+
   useEffect(() => {
     const t = THEMES.find(x=>x.id===themeId) || THEMES[0];
     // Load theme font dynamically
@@ -1159,16 +1169,16 @@ ${ms.map(m=>{
       {menuOpen && <div onClick={()=>setMenuOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90, backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />}
 
       {/* Slide-out menu */}
-      <div style={{ position:"fixed", top:0, left:0, height:"100vh", width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
+      <div style={{ position:"fixed", top:0, left:0, bottom:0, width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
         {/* Menu header */}
         <div style={{ padding:"18px 20px 14px", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
           {data.settings?.photos?.couple
             ? <img src={data.settings.photos.couple} style={{ width:44, height:44, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0 }} alt="pareja" />
-            : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>💞</div>
+            : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{data.settings?.coupleEmoji||"💞"}</div>
           }
           <div>
-            <div style={{ fontSize:10, color:"#4a4166", letterSpacing:1.5, textTransform:"uppercase" }}>Misiones de Pareja</div>
-            <div style={{ fontSize:14, color:"#c4b8ff", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, textTransform:"uppercase" }}>Misiones de Pareja</div>
+            <div style={{ fontSize:14, color:"var(--t-accent,#c4b8ff)", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
           </div>
         </div>
         {/* Nav items */}
@@ -1182,10 +1192,10 @@ ${ms.map(m=>{
             { id:"stats",    label:"Stats",        icon:"📊" },
           ].map(n => (
             <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
-              style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"rgba(167,139,250,0.14)":"transparent", color:activeTab===n.id?"#c4b8ff":"#6b5f88", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
+              style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent", color:activeTab===n.id?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
               <span style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
               <span style={{ flex:1 }}>{n.label}</span>
-              {activeTab===n.id && <span style={{ width:5, height:5, borderRadius:99, background:"#a78bfa", flexShrink:0 }} />}
+              {activeTab===n.id && <span style={{ width:5, height:5, borderRadius:99, background:"var(--t-accent,#a78bfa)", flexShrink:0 }} />}
             </button>
           ))}
         </nav>
@@ -1292,10 +1302,10 @@ ${ms.map(m=>{
               <div style={{ textAlign:"center", padding:"28px 0 12px" }}>
                 {data.settings?.photos?.couple
                   ? <img src={data.settings.photos.couple} style={{ width:88, height:88, borderRadius:99, objectFit:"cover", border:"3px solid var(--t-accent,#a78bfa)", boxShadow:"0 0 28px color-mix(in srgb,var(--t-accent,#a78bfa) 40%,transparent)", marginBottom:16 }} alt="pareja" />
-                  : <div style={{ fontSize:52, marginBottom:12, filter:"drop-shadow(0 0 12px rgba(167,139,250,0.4))" }}>💞</div>
+                  : <div style={{ fontSize:52, marginBottom:12, filter:"drop-shadow(0 0 12px rgba(167,139,250,0.4))" }}>{data.settings?.coupleEmoji||"💞"}</div>
                 }
-                <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:300, color:"#f8f4ff", marginBottom:4, letterSpacing:-0.5 }}>{greeting}</div>
-                <div style={{ fontSize:12, color:"#6b5f88", letterSpacing:1 }}>{p1} & {p2}</div>
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:300, color:"var(--t-text,#f8f4ff)", marginBottom:4, letterSpacing:-0.5 }}>{greeting}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#6b5f88)", letterSpacing:1 }}>{p1} & {p2}</div>
                 {week.epicObjective && (
                   <div style={{ marginTop:14, fontSize:15, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{week.epicObjective}"</div>
                 )}
@@ -1359,7 +1369,7 @@ ${ms.map(m=>{
               {/* Empty state */}
               {wTotal===0 && todayAll.length===0 && (
                 <div style={{ textAlign:"center", padding:"56px 0" }}>
-                  <div style={{ fontSize:52, marginBottom:14 }}>💞</div>
+                  <div style={{ fontSize:52, marginBottom:14 }}>{data.settings?.coupleEmoji||"💞"}</div>
                   <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:300, color:"#4a4166", marginBottom:6 }}>Todo despejado</div>
                   <div style={{ fontSize:13, color:"#2d2450", marginBottom:24 }}>Sin misiones ni eventos para hoy</div>
                   <button onClick={()=>setActiveTab("current")} style={S.btnPrimary}>✅ Añadir misión</button>
@@ -1626,7 +1636,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
       <div style={{ marginBottom:10 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({...p,duration:e.target.value}))} placeholder="1" style={S.inputSm} /></div>
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark" }}>
+        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
           <option value="">— Sin meta —</option>
           {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
         </select>
@@ -1746,7 +1756,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
           <div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({duration:parseFloat(e.target.value)||null})} placeholder="1" style={S.inputSm} /></div>
           {(goals||[]).filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:8 }}>
             <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark" }}>
+            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
               <option value="">— Sin meta —</option>
               {(goals||[]).filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
@@ -1763,9 +1773,11 @@ function ProfileModal({ data, update, onClose }) {
   const [p1,      setP1]      = useState(settings.person1||"Pololo");
   const [p2,      setP2]      = useState(settings.person2||"Banana");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
-  const [themeId, setThemeId] = useState(settings.themeId||"violet");
-  const [themeOpen, setThemeOpen] = useState(false);
-  const [photos,  setPhotos]  = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
+  const [themeId,      setThemeId]      = useState(settings.themeId||"violet");
+  const [themeOpen,    setThemeOpen]    = useState(false);
+  const [coupleEmoji,  setCoupleEmoji]  = useState(settings.coupleEmoji||"💞");
+  const [photos,       setPhotos]       = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
+  const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
   const compressAvatar = (file) => new Promise(resolve => {
@@ -1796,7 +1808,7 @@ function ProfileModal({ data, update, onClose }) {
   };
 
   const save = () => {
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Pololo", person2:p2.trim()||"Banana", colors, themeId, photos}}));
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Pololo", person2:p2.trim()||"Banana", colors, themeId, coupleEmoji, photos}}));
     onClose();
   };
 
@@ -1845,7 +1857,7 @@ function ProfileModal({ data, update, onClose }) {
               <div style={{ width:72, height:72, borderRadius:99, background:"var(--t-accent-soft)", border:`2px solid var(--t-accent,#a78bfa)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
                 {photos.couple
                   ? <img src={photos.couple} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
-                  : <span style={{ fontSize:32 }}>💞</span>}
+                  : <span style={{ fontSize:32 }}>{coupleEmoji}</span>}
               </div>
               <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
             </label>
@@ -1859,6 +1871,17 @@ function ProfileModal({ data, update, onClose }) {
                 </label>
                 {photos.couple && <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px" }}>✕ Quitar</button>}
               </div>
+              <div style={{ marginTop:10 }}>
+                <div style={{ fontSize:11, color:"#8b7fa8", marginBottom:6 }}>Emoji cuando no hay foto</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                  {COUPLE_EMOJIS.map(e=>(
+                    <button key={e} onClick={()=>setCoupleEmoji(e)}
+                      style={{ fontSize:19, background:coupleEmoji===e?"rgba(167,139,250,0.22)":"rgba(255,255,255,0.04)", border:`1px solid ${coupleEmoji===e?"rgba(167,139,250,0.55)":"rgba(255,255,255,0.08)"}`, borderRadius:8, padding:"4px 5px", cursor:"pointer", lineHeight:1, outline:"none" }}>
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1868,7 +1891,7 @@ function ProfileModal({ data, update, onClose }) {
           {personRow("person2","Persona 2",p2,setP2)}
           <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20 }}>
             <div style={{ width:56, height:56, borderRadius:99, background:colors.together+"22", border:`2px solid ${colors.together}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              <span style={{ fontSize:22 }}>💞</span>
+              <span style={{ fontSize:22 }}>{coupleEmoji}</span>
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Juntos</label>
@@ -1881,10 +1904,10 @@ function ProfileModal({ data, update, onClose }) {
 
           {/* Tema */}
           <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
-          <div style={{ position:"relative", marginBottom:8 }}>
+          <div style={{ marginBottom:8 }}>
             {/* Trigger */}
             <button onClick={()=>setThemeOpen(v=>!v)}
-              style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:10, cursor:"pointer", fontFamily:"inherit" }}>
+              style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:themeOpen?"10px 10px 0 0":10, cursor:"pointer", fontFamily:"inherit", borderBottom:themeOpen?"none":"1px solid var(--t-card-border,rgba(167,139,250,0.2))" }}>
               <div style={{ display:"flex", gap:5 }}>
                 {(THEMES.find(t=>t.id===themeId)||THEMES[0]).preview.map((c,i)=>(
                   <div key={i} style={{ width:11, height:11, borderRadius:99, background:c }} />
@@ -1895,22 +1918,21 @@ function ProfileModal({ data, update, onClose }) {
               </span>
               <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{themeOpen?"▲":"▼"}</span>
             </button>
-            {/* Dropdown list */}
-            {themeOpen && <>
-              <div onClick={()=>setThemeOpen(false)} style={{ position:"fixed", inset:0, zIndex:190 }} />
-              <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderRadius:12, zIndex:200, overflow:"hidden", boxShadow:"0 8px 32px rgba(0,0,0,0.6)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", maxHeight:340, overflowY:"auto" }}>
+            {/* Inline list — avoids overflow:auto clipping */}
+            {themeOpen && (
+              <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
                 {THEMES.map(t=>(
                   <button key={t.id} onClick={()=>{ setThemeId(t.id); setThemeOpen(false); }}
-                    style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:themeId===t.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"none", border:"none", cursor:"pointer", width:"100%", fontFamily:"inherit", borderBottom:"1px solid rgba(128,128,128,0.08)" }}>
+                    style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:themeId===t.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:"inherit" }}>
                     <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                       {t.preview.map((c,i)=><div key={i} style={{ width:10, height:10, borderRadius:99, background:c }} />)}
                     </div>
-                    <span style={{ flex:1, fontSize:13, color:themeId===t.id?"var(--t-accent,#a78bfa)":"#8b7fa8", textAlign:"left", fontWeight:themeId===t.id?600:400 }}>{t.name}</span>
+                    <span style={{ flex:1, fontSize:13, color:themeId===t.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:themeId===t.id?600:400 }}>{t.name}</span>
                     {themeId===t.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
                   </button>
                 ))}
               </div>
-            </>}
+            )}
           </div>
         </div>
         {/* Footer */}
@@ -2210,15 +2232,16 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* Completion % per week — normalizado al máximo */}
+      {/* Completion % per week — normalizado al máximo, máx 12 semanas */}
       {series.length>1&&(()=>{
         const baseColor=barPersonColor||"#f472b6";
         const BAR_MAX=72; // px
+        const displaySeries=series.slice(-12);
         return <div style={S.card}>
           <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>✅ Progreso semana a semana</div>
           <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_MAX+28 }}>
-            {series.map((w,i)=>{
-              const isLast=i===series.length-1;
+            {displaySeries.map((w,i)=>{
+              const isLast=i===displaySeries.length-1;
               const barH=w.total>0?Math.max(Math.round(w.pct/100*BAR_MAX),3):3;
               const barBg=w.pct===100?"linear-gradient(0deg,#34d399,#60a5fa)":isLast?`linear-gradient(0deg,${baseColor},${baseColor}cc)`:`linear-gradient(0deg,${baseColor}88,${baseColor}44)`;
               return <div key={w.label} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
@@ -2473,7 +2496,7 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
           </div>
           {goals.filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:10 }}>
             <label style={S.label}>🏅 Meta</label>
-            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark" }}>
+            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
               <option value="">— Sin meta —</option>
               {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
