@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.4";
+const APP_VERSION = "2.0.5";
 const LAST_UPDATE = "2026-04-15";
 const CHANGELOG = [
+  { v:"2.0.5", date:"2026-04-15", notes:["Menú lateral: pie siempre visible en móvil (solo versión + changelog, sin scroll)","Sincronización movida a ⚙️ dropdown (junto a Exportar/Importar/Cerrar sesión)","Sync muestra 'Sincronizando…' mientras está activo"] },
   { v:"2.0.4", date:"2026-04-15", notes:["Foto de pareja en home, menú lateral y perfil (crop circular 72px, JPEG)","Fotos individuales por persona en perfil (con previsualización de avatar)","5 temas visuales con fondos más saturados y contrastados","Tipografía propia por tema: Jakarta Sans / DM Sans / Nunito / Lato / Space Grotesk","Fuente se carga dinámicamente desde Google Fonts al cambiar tema","Hoja de ruta: v3.0 — modo individual + grupos de amigos (pendiente)"] },
   { v:"2.0.3", date:"2026-04-15", notes:["Rediseño UX: menú hamburguesa lateral con navegación","Página de inicio con resumen del día (hoy/mañana + semana)","Top bar persistente (☰ + 🏠 + ⚙️) adaptado a móvil/web","⚙️ abre dropdown: Mi perfil / Exportar / Importar / Cerrar sesión","ProfileModal: nombres, colores, fotos individuales y selector de tema","5 temas de color (Noche Violeta, Océano, Jardín, Atardecer, Obsidiana)","Versión y changelog movidos al pie del menú lateral"] },
   { v:"2.0.2", date:"2026-04-13", notes:["Stats: semana actual excluida de mejor/peor semana","Stats: botón ℹ en Participación por persona","Metas: campo 'Analizar desde' para ignorar períodos anteriores","Metas: historial muestra '–' para períodos sin datos","Objetivo épico integrado en cabecera de semana","Warning arrastrada muestra cuántas semanas lleva pendiente"] },
@@ -1115,18 +1116,9 @@ ${ms.map(m=>{
             </button>
           ))}
         </nav>
-        {/* Menu footer: sync + version */}
-        <div style={{ padding:"14px 16px", borderTop:"1px solid rgba(167,139,250,0.07)" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10 }}>
-            <span style={{ fontSize:11, color:savingError?"#fb923c":saving?"#60a5fa":saved?"#34d399":"#4a4166", flex:1 }}>
-              {savingError?"⚠ Sin sync":saving?"⟳ Guardando…":saved?"✓ Guardado":"· En reposo"}
-            </span>
-            <button onClick={forceSync} disabled={syncing} title="Sincronizar" style={{ background:"none", border:"none", cursor:"pointer", padding:0, fontSize:14, opacity:syncing?0.4:0.8 }}>
-              {syncing?"⟳":"🔄"}
-            </button>
-          </div>
-          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:8, lineHeight:1.4 }}>{syncMsg}</div>}
-          {syncError && !syncMsg && <div style={{ fontSize:9, color:"#fb923c", wordBreak:"break-all", marginBottom:8, lineHeight:1.3 }} title={syncError}>{syncError.slice(0,60)}{syncError.length>60?"…":""}</div>}
+        {/* Menu footer: version only — always visible, no scroll needed */}
+        <div style={{ padding:"12px 16px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", flexShrink:0 }}>
+          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:6, lineHeight:1.4 }}>{syncMsg}</div>}
           <button onClick={()=>{ setShowChangelog(true); setMenuOpen(false); }}
             style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
             <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
@@ -1168,9 +1160,10 @@ ${ms.map(m=>{
             <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
             <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
               {[
-                { icon:"👤", label:"Mi perfil",     action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
-                { icon:"📥", label:"Exportar",       action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
-                { icon:"📤", label:"Importar",       action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
+                { icon:"👤", label:"Mi perfil",  action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
+                { icon:"📥", label:"Exportar",   action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
+                { icon:"📤", label:"Importar",   action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
+                { icon:"🔄", label:syncing?"Sincronizando…":"Actualizar datos", action:()=>{ forceSync(); setSettingsMenuOpen(false); } },
               ].map((item,i)=>(
                 <button key={i} onClick={item.action}
                   style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#c4b8ff", width:"100%", textAlign:"left", transition:"background 0.12s" }}
