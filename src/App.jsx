@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.5";
+const APP_VERSION = "2.0.6";
 const LAST_UPDATE = "2026-04-15";
 const CHANGELOG = [
+  { v:"2.0.6", date:"2026-04-15", notes:["Fix: mensajes de sync (✓ al día / ⬆ subido / ⬇ actualizado / ⚠ error) ahora son toasts flotantes visibles siempre","Fix: error de Supabase también aparece como toast si no hay syncMsg activo","5 temas nuevos: Aurora Boreal (neon verde+magenta), Neón Tokyo (cyan+fucsia), Vino & Oro (burdeos+dorado), Mañana Clara (tema claro crema/blanco), Café Oscuro (chocolate+ámbar)","Sistema de colores de texto por tema (--t-text/muted/dim) — Mañana Clara tiene texto oscuro legible","Selector de tema cambiado de grid de tarjetas a dropdown desplegable con 10 temas listados","S.input, S.label, S.btnSecondary usan CSS vars de texto para adaptarse al tema claro"] },
   { v:"2.0.5", date:"2026-04-15", notes:["Menú lateral: pie siempre visible en móvil (solo versión + changelog, sin scroll)","Sincronización movida a ⚙️ dropdown (junto a Exportar/Importar/Cerrar sesión)","Sync muestra 'Sincronizando…' mientras está activo"] },
   { v:"2.0.4", date:"2026-04-15", notes:["Foto de pareja en home, menú lateral y perfil (crop circular 72px, JPEG)","Fotos individuales por persona en perfil (con previsualización de avatar)","5 temas visuales con fondos más saturados y contrastados","Tipografía propia por tema: Jakarta Sans / DM Sans / Nunito / Lato / Space Grotesk","Fuente se carga dinámicamente desde Google Fonts al cambiar tema","Hoja de ruta: v3.0 — modo individual + grupos de amigos (pendiente)"] },
   { v:"2.0.3", date:"2026-04-15", notes:["Rediseño UX: menú hamburguesa lateral con navegación","Página de inicio con resumen del día (hoy/mañana + semana)","Top bar persistente (☰ + 🏠 + ⚙️) adaptado a móvil/web","⚙️ abre dropdown: Mi perfil / Exportar / Importar / Cerrar sesión","ProfileModal: nombres, colores, fotos individuales y selector de tema","5 temas de color (Noche Violeta, Océano, Jardín, Atardecer, Obsidiana)","Versión y changelog movidos al pie del menú lateral"] },
@@ -71,7 +72,9 @@ const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr -
 const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
 const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
 
+const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" }; // dark theme defaults
 const THEMES = [
+  // ── Oscuros originales ────────────────────────────────────────────────────
   {
     id:"violet", name:"Noche Violeta", preview:["#f472b6","#a78bfa","#34d399"],
     bg:"#080512",
@@ -80,8 +83,8 @@ const THEMES = [
     card:"#130d2a", cardBorder:"rgba(167,139,250,0.18)",
     btnGrad:"linear-gradient(135deg,#f472b6,#a78bfa)",
     accent:"#a78bfa", accentSoft:"rgba(167,139,250,0.14)",
-    fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif",
-    googleFonts:null,
+    fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", googleFonts:null,
+    ..._DT,
   },
   {
     id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#06b6d4"],
@@ -93,6 +96,7 @@ const THEMES = [
     accent:"#22d3ee", accentSoft:"rgba(34,211,238,0.13)",
     fontBody:"'DM Sans',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
+    ..._DT,
   },
   {
     id:"sage", name:"Jardín Botánico", preview:["#4ade80","#a3e635","#fbbf24"],
@@ -104,6 +108,7 @@ const THEMES = [
     accent:"#4ade80", accentSoft:"rgba(74,222,128,0.13)",
     fontBody:"'Nunito',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
+    ..._DT,
   },
   {
     id:"sunset", name:"Atardecer", preview:["#fb923c","#f43f5e","#fbbf24"],
@@ -115,6 +120,7 @@ const THEMES = [
     accent:"#fb923c", accentSoft:"rgba(251,146,60,0.13)",
     fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
+    ..._DT,
   },
   {
     id:"obsidian", name:"Obsidiana", preview:["#e2e8f0","#94a3b8","#60a5fa"],
@@ -126,6 +132,68 @@ const THEMES = [
     accent:"#94a3b8", accentSoft:"rgba(148,163,184,0.1)",
     fontBody:"'Space Grotesk',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+    ..._DT,
+  },
+  // ── Nuevos: Fuera de la caja ──────────────────────────────────────────────
+  {
+    id:"aurora", name:"Aurora Boreal", preview:["#00ff88","#ff00cc","#00d4ff"],
+    bg:"#030b10",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(0,255,136,0.45) 0%,transparent 50%),radial-gradient(ellipse at 105% -5%,rgba(255,0,204,0.40) 0%,transparent 50%)",
+    menuBg:"rgba(2,7,12,0.98)", topBarBg:"rgba(3,9,14,0.95)",
+    card:"#071520", cardBorder:"rgba(0,255,136,0.2)",
+    btnGrad:"linear-gradient(135deg,#00ff88,#ff00cc)",
+    accent:"#00ff88", accentSoft:"rgba(0,255,136,0.12)",
+    fontBody:"'Space Grotesk',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+    ..._DT,
+  },
+  {
+    id:"tokyo", name:"Neón Tokyo", preview:["#f0abfc","#22d3ee","#facc15"],
+    bg:"#06010f",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(240,171,252,0.42) 0%,transparent 50%),radial-gradient(ellipse at 105% -5%,rgba(34,211,238,0.38) 0%,transparent 50%)",
+    menuBg:"rgba(4,1,10,0.99)", topBarBg:"rgba(5,1,12,0.95)",
+    card:"#110820", cardBorder:"rgba(240,171,252,0.2)",
+    btnGrad:"linear-gradient(135deg,#d946ef,#22d3ee)",
+    accent:"#f0abfc", accentSoft:"rgba(240,171,252,0.12)",
+    fontBody:"'Space Grotesk',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+    ..._DT,
+  },
+  {
+    id:"wine", name:"Vino & Oro", preview:["#be123c","#fbbf24","#f9a8d4"],
+    bg:"#0e0208",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(190,18,60,0.45) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,191,36,0.35) 0%,transparent 52%)",
+    menuBg:"rgba(10,2,7,0.99)", topBarBg:"rgba(12,2,8,0.95)",
+    card:"#200614", cardBorder:"rgba(251,191,36,0.2)",
+    btnGrad:"linear-gradient(135deg,#9f1239,#fbbf24)",
+    accent:"#fbbf24", accentSoft:"rgba(251,191,36,0.12)",
+    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
+    ..._DT,
+  },
+  {
+    id:"dawn", name:"Mañana Clara", preview:["#7c3aed","#f472b6","#10b981"],
+    bg:"#f5f0ea",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(244,114,182,0.22) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(124,58,237,0.18) 0%,transparent 52%)",
+    menuBg:"rgba(245,240,234,0.98)", topBarBg:"rgba(245,240,234,0.94)",
+    card:"rgba(255,255,255,0.85)", cardBorder:"rgba(124,58,237,0.15)",
+    btnGrad:"linear-gradient(135deg,#f472b6,#7c3aed)",
+    accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
+    fontBody:"'Nunito',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
+    text:"#1e0d3c", textMuted:"#6b5f88", textDim:"#9b8faa",
+  },
+  {
+    id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"],
+    bg:"#0d0805",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(245,158,11,0.40) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(146,64,14,0.45) 0%,transparent 52%)",
+    menuBg:"rgba(10,6,3,0.99)", topBarBg:"rgba(11,7,4,0.95)",
+    card:"#1c1008", cardBorder:"rgba(245,158,11,0.2)",
+    btnGrad:"linear-gradient(135deg,#92400e,#f59e0b)",
+    accent:"#f59e0b", accentSoft:"rgba(245,158,11,0.12)",
+    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
+    ..._DT,
   },
 ];
 
@@ -405,12 +473,12 @@ function syncCarryDone(data, weekKey, missionId) {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
   card:        { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.12))", borderRadius:14, padding:"14px 16px" },
-  input:       { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:8, padding:"8px 12px", color:"#f8f4ff", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  inputSm:     { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, padding:"5px 8px", color:"#f8f4ff", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  btnNav:      { background:"rgba(255,255,255,0.05)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:8, color:"var(--t-accent,#a78bfa)", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
+  input:       { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.25))", borderRadius:8, padding:"8px 12px", color:"var(--t-text,#f8f4ff)", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
+  inputSm:     { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:7, padding:"5px 8px", color:"var(--t-text,#f8f4ff)", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
+  btnNav:      { background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:8, color:"var(--t-accent,#a78bfa)", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
   btnPrimary:  { background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
-  btnSecondary:{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#8b7fa8", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
-  label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6, display:"block" },
+  btnSecondary:{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
+  label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6, display:"block" },
 };
 
 // Injects CSS custom properties + loads Google Font for the active theme
@@ -438,6 +506,9 @@ function ThemeInjector({ themeId }) {
     r.setProperty("--t-accent",      t.accent);
     r.setProperty("--t-accent-soft", t.accentSoft);
     r.setProperty("--t-font-body",   t.fontBody);
+    r.setProperty("--t-text",        t.text      || "#f8f4ff");
+    r.setProperty("--t-text-muted",  t.textMuted || "#8b7fa8");
+    r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
   }, [themeId]);
   return null;
 }
@@ -1049,13 +1120,15 @@ ${ms.map(m=>{
   const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date&&m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear(),_key:key})));
 
   return (
-    <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"#f8f4ff" }}>
+    <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
       <ThemeInjector themeId={themeId} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
-      {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap" }}>{importMsg}</div>}
+      {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
+      {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
+      {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
 
       {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} />}
 
@@ -1691,6 +1764,7 @@ function ProfileModal({ data, update, onClose }) {
   const [p2,      setP2]      = useState(settings.person2||"Banana");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const [themeId, setThemeId] = useState(settings.themeId||"violet");
+  const [themeOpen, setThemeOpen] = useState(false);
   const [photos,  setPhotos]  = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
@@ -1806,26 +1880,37 @@ function ProfileModal({ data, update, onClose }) {
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
 
           {/* Tema */}
-          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Tema de la app</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:8 }}>
-            {THEMES.map(t => (
-              <button key={t.id} onClick={()=>setThemeId(t.id)}
-                style={{ background:t.card, border:`2px solid ${themeId===t.id?t.accent:"transparent"}`, borderRadius:14, padding:"12px 14px", cursor:"pointer", textAlign:"left", position:"relative", overflow:"hidden", transition:"border-color 0.15s" }}>
-                {/* mini gradient preview */}
-                <div style={{ position:"absolute", inset:0, backgroundImage:t.bgGrad, opacity:0.6 }} />
-                <div style={{ position:"relative" }}>
-                  <div style={{ display:"flex", gap:5, marginBottom:8 }}>
-                    {t.preview.map((c,i)=>(
-                      <div key={i} style={{ width:14, height:14, borderRadius:99, background:c }} />
-                    ))}
-                    {themeId===t.id && <div style={{ marginLeft:"auto", width:16, height:16, borderRadius:99, background:t.accent, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      <span style={{ fontSize:9, color:"#000" }}>✓</span>
-                    </div>}
-                  </div>
-                  <div style={{ fontSize:12, fontWeight:600, color:themeId===t.id?t.accent:"#8b7fa8", lineHeight:1.2 }}>{t.name}</div>
-                </div>
-              </button>
-            ))}
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
+          <div style={{ position:"relative", marginBottom:8 }}>
+            {/* Trigger */}
+            <button onClick={()=>setThemeOpen(v=>!v)}
+              style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:10, cursor:"pointer", fontFamily:"inherit" }}>
+              <div style={{ display:"flex", gap:5 }}>
+                {(THEMES.find(t=>t.id===themeId)||THEMES[0]).preview.map((c,i)=>(
+                  <div key={i} style={{ width:11, height:11, borderRadius:99, background:c }} />
+                ))}
+              </div>
+              <span style={{ flex:1, textAlign:"left", fontSize:13, color:"var(--t-text,#f8f4ff)", fontWeight:500 }}>
+                {(THEMES.find(t=>t.id===themeId)||THEMES[0]).name}
+              </span>
+              <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{themeOpen?"▲":"▼"}</span>
+            </button>
+            {/* Dropdown list */}
+            {themeOpen && <>
+              <div onClick={()=>setThemeOpen(false)} style={{ position:"fixed", inset:0, zIndex:190 }} />
+              <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderRadius:12, zIndex:200, overflow:"hidden", boxShadow:"0 8px 32px rgba(0,0,0,0.6)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", maxHeight:340, overflowY:"auto" }}>
+                {THEMES.map(t=>(
+                  <button key={t.id} onClick={()=>{ setThemeId(t.id); setThemeOpen(false); }}
+                    style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:themeId===t.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"none", border:"none", cursor:"pointer", width:"100%", fontFamily:"inherit", borderBottom:"1px solid rgba(128,128,128,0.08)" }}>
+                    <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                      {t.preview.map((c,i)=><div key={i} style={{ width:10, height:10, borderRadius:99, background:c }} />)}
+                    </div>
+                    <span style={{ flex:1, fontSize:13, color:themeId===t.id?"var(--t-accent,#a78bfa)":"#8b7fa8", textAlign:"left", fontWeight:themeId===t.id?600:400 }}>{t.name}</span>
+                    {themeId===t.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+            </>}
           </div>
         </div>
         {/* Footer */}
