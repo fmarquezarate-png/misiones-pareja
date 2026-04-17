@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.8";
+const APP_VERSION = "2.0.9";
 const LAST_UPDATE = "2026-04-17";
 const CHANGELOG = [
+  { v:"2.0.9", date:"2026-04-17", notes:["Calendario: columna única (detalle del día debajo, no al lado)","Tareas: sin campos de fecha/hora/duración (limpias)","Eventos: duración en minutos OR fecha+hora de fin (auto-calculado)","Menú: pestaña Pendientes con todas las tareas no-DONE de todas las semanas","Zoom móvil: fix real por CSS font-size≥16px en inputs (Safari iOS)","Stats AI v2.0: Deep Stats — Sincronía, Equidad en casa, Densidad de metas, Hábito ancla, Carga óptima, Ventana horaria","Código: dlBlob y getMissionDates movidos a nivel de módulo (sin duplicación)"] },
   { v:"2.0.8", date:"2026-04-17", notes:["Calendario: celdas responsivas (ResizeObserver, máximo espacio)", "Calendario: tareas multi-día ocupan todos los días según fecha+hora+duración","Calendario: compartir día / tarea / semana como imagen PNG (WhatsApp/descarga)","Calendario: editar participante al editar actividad inline","Nuevo usuario: pantalla en blanco (sin datos de ejemplo)","Top bar: emoji de pareja configurable (ajustes de perfil)","Tareas arrastradas: se marcan DONE en semana original con flag 'tarde' (no infla stats)","Stats AI: mínimo 5 misiones para considerar mejor/peor semana","Inicio: emoji de participante + tipo (tarea/evento) en cada fila de misiones","Filtros: secciones Participantes/Categorías diferenciadas + ordenar semana","Zoom móvil bloqueado (no queda pegado al hacer zoom in/out)","PWA: siempre carga versión más reciente (skipWaiting + networkFirst)"] },
   { v:"2.0.7", date:"2026-04-15", notes:["Emoji de pareja elegible desde Mi Perfil (24 opciones)", "Fix: menú lateral usa emoji elegido en vez de 💞 fijo","Fix: dropdown de tema en ProfileModal deja de cortarse (inline)","Fix: select de meta sin contraste blanco-sobre-blanco en Mac","Cursor: sin selección de texto accidental en escritorio","Stats: barras de semanas capeadas a 12 máximo","Nueva pestaña Pendientes en menú (todas las tareas no-DONE)","Inicio: layout 2 columnas en pantallas anchas (pendientes | eventos)","Compartir semana: imagen generada con Canvas + navigator.share/descarga"] },
   { v:"2.0.6", date:"2026-04-15", notes:["Fix: mensajes de sync (✓ al día / ⬆ subido / ⬇ actualizado / ⚠ error) ahora son toasts flotantes visibles siempre","Fix: error de Supabase también aparece como toast si no hay syncMsg activo","5 temas nuevos: Aurora Boreal (neon verde+magenta), Neón Tokyo (cyan+fucsia), Vino & Oro (burdeos+dorado), Mañana Clara (tema claro crema/blanco), Café Oscuro (chocolate+ámbar)","Sistema de colores de texto por tema (--t-text/muted/dim) — Mañana Clara tiene texto oscuro legible","Selector de tema cambiado de grid de tarjetas a dropdown desplegable con 10 temas listados","S.input, S.label, S.btnSecondary usan CSS vars de texto para adaptarse al tema claro"] },
@@ -382,6 +383,25 @@ const S = {
   label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6, display:"block" },
 };
 
+const dlBlob=(blob,name)=>{
+  const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
+};
+
+const getMissionDates=(m)=>{
+  if(!m.date)return[];
+  if(!m.time||!m.duration||m.duration<=0)return[m.date];
+  const startMs=new Date(m.date+"T"+m.time).getTime();
+  const endMs=startMs+m.duration*60000;
+  const dates=[];
+  const cur=new Date(m.date);
+  while(cur.getTime()<endMs){
+    const ds=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`;
+    if(!dates.includes(ds))dates.push(ds);
+    cur.setDate(cur.getDate()+1);
+  }
+  return dates;
+};
+
 // Injects CSS custom properties + loads Google Font for the active theme
 function ThemeInjector({ themeId }) {
   // One-time: inject global cursor + user-select rules
@@ -617,7 +637,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
   const [editObj, setEditObj] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
@@ -781,7 +801,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     if (!newM.title.trim()) return;
     const sid = newM.seriesPattern ? (newM.seriesId||uid()) : null;
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", categories:[], who:"together", duration:"", goalId:null, type:"task", seriesPattern:"" });
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
     setShowAddForm(false);
   };
 
@@ -893,9 +913,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     }
     lines.push("END:VCALENDAR");
     const blob = new Blob([lines.join("\r\n")], { type:"text/calendar;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href=url; a.download=`misiones-${weekKey}.ics`; a.click();
-    URL.revokeObjectURL(url);
+    dlBlob(blob,`misiones-${weekKey}.ics`);
   };
 
   const downloadWeekPDF = (weekData, weekKey, name1, name2) => {
@@ -1087,6 +1105,7 @@ ${ms.map(m=>{
           {[
             { id:"home",     label:"Inicio",      icon:"🏠" },
             { id:"current",  label:"Semana",       icon:"🎯" },
+            { id:"pending",  label:"Pendientes",   icon:"📋" },
             { id:"calendar", label:"Calendario",   icon:"📅" },
             { id:"history",  label:"Histórico",    icon:"🗂️" },
             { id:"goals",    label:"Metas",        icon:"🏅" },
@@ -1129,6 +1148,7 @@ ${ms.map(m=>{
           <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
             {activeTab==="home"     ? `${data.settings?.coupleEmoji||"💞"} ${p1} & ${p2}`
             :activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
+            :activeTab==="pending"  ? "📋 Pendientes"
             :activeTab==="calendar" ? "📅 Calendario"
             :activeTab==="history"  ? "🗂️ Histórico"
             :activeTab==="goals"    ? "🏅 Metas"
@@ -1491,6 +1511,44 @@ ${ms.map(m=>{
         {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
+
+        {activeTab==="pending" && (()=>{
+          const {week:_ptw,year:_pty}=getWeekAndYear();
+          const _ptodayKey=isoWeekKey(_ptw,_pty);
+          const pendingAll=Object.entries(data.weeks)
+            .sort((a,b)=>a[0].localeCompare(b[0]))
+            .flatMap(([key,w])=>(w.missions||[]).filter(m=>m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
+          const pendingFiltered=globalPersonFilter==="all"?pendingAll:pendingAll.filter(m=>m.who===globalPersonFilter);
+          return <div>
+            {pendingFiltered.length===0
+              ?<div style={{...S.card,textAlign:"center",color:"#3d3360",fontStyle:"italic",padding:40}}>
+                <div style={{fontSize:36,marginBottom:12}}>🎉</div>
+                <div>¡Sin pendientes! Todo al día.</div>
+              </div>
+              :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {pendingFiltered.map(m=>{
+                  const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
+                  return <div key={m.id+m._wkey} style={{...S.card,display:"flex",alignItems:"center",gap:10,padding:"10px 14px"}}>
+                    <span style={{fontSize:22,flexShrink:0}}>{m.emoji}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,color:"#e2d9ff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
+                        <span style={{fontSize:10,color:"#4a4166"}}>S{m.weekNumber} {m._yr}</span>
+                        {m.date&&<span style={{fontSize:10,color:"#a78bfa"}}>📆 {m.date}</span>}
+                        {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon} {c.label}</span>:null;})}
+                        <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:4,flexShrink:0}}>
+                      <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
+                      <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
+                    </div>
+                  </div>;
+                })}
+              </div>
+            }
+          </div>;
+        })()}
       </div>
 
       {/* Lightbox */}
@@ -1543,9 +1601,25 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
   const activeGoals = (goals||[]).filter(g=>g.active!==false);
   const isEvent = newM.type==="event";
+  const [endMode, setEndMode] = useState("duration");
+
+  const computeEnd = (date, time, durMin) => {
+    if (!date || !time || !durMin || durMin<=0) return { endDate:"", endTime:"" };
+    const e = new Date(new Date(date+"T"+time).getTime() + durMin*60000);
+    return { endDate:`${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-${String(e.getDate()).padStart(2,"0")}`, endTime:`${String(e.getHours()).padStart(2,"0")}:${String(e.getMinutes()).padStart(2,"0")}` };
+  };
+  const computeDur = (d, t, ed, et) => {
+    if (!d||!t||!ed||!et) return null;
+    const diff = Math.round((new Date(ed+"T"+et) - new Date(d+"T"+t)) / 60000);
+    return diff > 0 ? diff : null;
+  };
+  const durLabel = min => !min ? "" : min>=60 ? `${Math.floor(min/60)}h${min%60?` ${min%60}m`:""}` : `${min}m`;
+
+  const { endDate:calcEndDate, endTime:calcEndTime } = computeEnd(newM.date, newM.time, newM.duration);
+  const calcDurMin = computeDur(newM.date, newM.time, newM.endDate, newM.endTime);
+
   return (
     <div style={{ ...S.card, borderColor:isEvent?"rgba(96,165,250,0.35)":"rgba(167,139,250,0.3)" }}>
-      {/* Tipo: tarea vs evento */}
       <div style={{ display:"flex", gap:4, marginBottom:10 }}>
         {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>(
           <button key={t.id} onClick={()=>setNewM(p=>({...p,type:t.id}))}
@@ -1581,11 +1655,36 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
           ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-        <div><label style={S.label}>📆 Fecha</label><input type="date" value={newM.date} onChange={e=>setNewM(p=>({...p,date:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-        <div><label style={S.label}>🕐 Hora</label><input type="time" value={newM.time} onChange={e=>setNewM(p=>({...p,time:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-      </div>
-      <div style={{ marginBottom:10 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={newM.duration} onChange={e=>setNewM(p=>({...p,duration:e.target.value}))} placeholder="1" style={S.inputSm} /></div>
+      {isEvent&&<>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+          <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+          <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+        </div>
+        <div style={{ display:"flex", gap:4, marginBottom:8 }}>
+          {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
+            <button key={m.id} onClick={()=>setEndMode(m.id)}
+              style={{ flex:1, background:endMode===m.id?"rgba(96,165,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${endMode===m.id?"rgba(96,165,250,0.45)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:endMode===m.id?"#60a5fa":"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:endMode===m.id?600:400 }}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {endMode==="duration"
+          ?<div style={{ marginBottom:10 }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input type="number" min="0" step="15" value={newM.duration||""} onChange={e=>{const dur=parseInt(e.target.value)||0;const {endDate,endTime}=computeEnd(newM.date,newM.time,dur);setNewM(p=>({...p,duration:dur,endDate,endTime}));}} placeholder="90" style={{ ...S.inputSm, flex:1 }} />
+              <span style={{ fontSize:12, color:"#6b5f88", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
+            </div>
+            {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
+          </div>
+          :<div style={{ marginBottom:10 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              <div><label style={S.label}>📆 Fecha fin</label><input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const dur=computeDur(newM.date,newM.time,ed,newM.endTime);setNewM(p=>({...p,endDate:ed,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+              <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const dur=computeDur(newM.date,newM.time,newM.endDate,et);setNewM(p=>({...p,endTime:et,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            </div>
+            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
+          </div>
+        }
+      </>}
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
         <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
@@ -1593,7 +1692,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
           {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
         </select>
       </div>}
-      {newM.type==="task"&&<div style={{ marginBottom:10 }}>
+      {!isEvent&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🔁 Tarea recurrente</label>
         <div style={{ display:"flex", gap:4 }}>
           {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"monthly",label:"Mensual"}].map(o=>(
@@ -2132,6 +2231,77 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>}
 
+      {/* ── Deep Stats v2.0 ────────────────────────────────────────────── */}
+      {(()=>{
+        const dsM=Object.values(weeks).flatMap(w=>w.missions||[]);
+        if(dsM.length<5) return null;
+        const dsW=Object.values(weeks).filter(w=>(w.missions||[]).length>0);
+
+        // 1. Sync Score
+        const totDur=dsM.reduce((s,m)=>s+(m.duration||0),0);
+        const togDur=dsM.filter(m=>m.who==="together").reduce((s,m)=>s+(m.duration||0),0);
+        const workDur=dsM.filter(m=>getMCats(m).includes("trabajo")).reduce((s,m)=>s+(m.duration||0),0);
+        const Sc=totDur-workDur>0?Math.round((togDur/(totDur-workDur))*100):null;
+
+        // 2. Equity Index (casa tasks)
+        const casaM=dsM.filter(m=>getMCats(m).includes("casa"));
+        const cP1=casaM.filter(m=>m.who==="person1").length,cP2=casaM.filter(m=>m.who==="person2").length;
+        const Ie=cP1+cP2>=4?Math.round((1-Math.abs(cP1-cP2)/(cP1+cP2))*100):null;
+
+        // 3. Goal Density
+        const Gd=dsM.length>0?Math.round((dsM.filter(m=>m.goalId).length/dsM.length)*100):0;
+
+        // 4. Anchor Habit
+        const byS={};
+        dsM.filter(m=>m.seriesPattern&&m.seriesId).forEach(m=>{
+          if(!byS[m.seriesId])byS[m.seriesId]={title:m.title,emoji:m.emoji,total:0,done:0};
+          byS[m.seriesId].total++;if(m.status==="DONE")byS[m.seriesId].done++;
+        });
+        const series=Object.values(byS).filter(s=>s.total>=3);
+        const anchor=series.length?[...series].sort((a,b)=>b.done/b.total-a.done/a.total)[0]:null;
+
+        // 5. Burnout proxy: optimal week load
+        const wData=dsW.map(w=>{const ms=w.missions||[];return{n:ms.length,pct:ms.length?ms.filter(m=>m.status==="DONE").length/ms.length:0};});
+        const highComp=wData.filter(w=>w.pct>=0.7).map(w=>w.n);
+        const optLoad=highComp.length?Math.round(highComp.reduce((s,n)=>s+n,0)/highComp.length):null;
+
+        // 6. Best completion time window
+        const bk={morning:{l:"Mañana 6–12",d:0,t:0},afternoon:{l:"Tarde 12–17",d:0,t:0},evening:{l:"Tarde–noche 17–21",d:0,t:0},night:{l:"Noche 21+",d:0,t:0}};
+        dsM.filter(m=>m.time).forEach(m=>{
+          const h=parseInt(m.time)||0;
+          const k=h>=6&&h<12?"morning":h>=12&&h<17?"afternoon":h>=17&&h<21?"evening":"night";
+          bk[k].t++;if(m.status==="DONE")bk[k].d++;
+        });
+        const bestWin=Object.entries(bk).filter(([,b])=>b.t>=3).sort((a,b)=>b[1].d/b[1].t-a[1].d/a[1].t)[0]||null;
+
+        const pct2col=(v,hi,lo,hiClr="#34d399",loClr="#f472b6")=>v===null?"—":(<><span style={{color:v>=hi?hiClr:v>=lo?"#fbbf24":loClr,fontWeight:700,fontSize:18}}>{v}%</span></>);
+        const bar=(v,hi="#34d399")=><div style={{height:4,borderRadius:2,background:"rgba(255,255,255,0.06)",marginTop:4}}><div style={{height:4,borderRadius:2,width:v===null?"0%":Math.min(100,v)+"%",background:v>=70?hi:v>=40?"#fbbf24":"#f472b6",transition:"width 0.6s"}}/></div>;
+
+        const cards=[
+          Sc!==null&&{icon:"🔗",label:"Sincronía de pareja",value:pct2col(Sc,40,20),bar:bar(Sc),note:Sc>=40?"Gran tiempo compartido":Sc>=20?"Tiempo moderado juntos":"Pocas actividades conjuntas"},
+          Ie!==null&&{icon:"⚖️",label:"Equidad en casa",value:pct2col(Ie,80,50),bar:bar(Ie),note:Ie>=80?"Reparto muy equilibrado":Ie>=50?"Hay algo de desequilibrio":`${cP1>cP2?p1:p2} carga más las tareas de casa`},
+          {icon:"🎯",label:"Densidad de metas",value:pct2col(Gd,40,15),bar:bar(Gd),note:Gd>=40?"Alta orientación a metas":Gd>=15?"Moderado":"Pocas actividades vinculadas a metas"},
+          anchor&&{icon:anchor.emoji,label:"Hábito ancla",value:<span style={{color:"#a78bfa",fontWeight:700,fontSize:13}}>{anchor.title}</span>,bar:bar(Math.round(anchor.done/anchor.total*100)),note:`${Math.round(anchor.done/anchor.total*100)}% completitud en ${anchor.total} ocurrencias`},
+          optLoad&&{icon:"🔋",label:"Carga óptima/semana",value:<span style={{color:"#34d399",fontWeight:700,fontSize:18}}>{optLoad}</span>,bar:null,note:`Semanas con ≥70% de éxito promedian ${optLoad} misiones`},
+          bestWin&&{icon:"⏰",label:"Ventana óptima",value:<span style={{color:"#60a5fa",fontWeight:700,fontSize:13}}>{bestWin[1].l}</span>,bar:bar(Math.round(bestWin[1].d/bestWin[1].t*100),"#60a5fa"),note:`${Math.round(bestWin[1].d/bestWin[1].t*100)}% completitud en ese horario`},
+        ].filter(Boolean);
+
+        return <div style={{...S.card,borderColor:"rgba(96,165,250,0.2)",background:"linear-gradient(135deg,rgba(96,165,250,0.05),rgba(167,139,250,0.04))"}}>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#60a5fa",marginBottom:12,fontWeight:600}}>🧠 Deep Stats v2.0</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
+            {cards.map((c,i)=>(
+              <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"10px 12px"}}>
+                <div style={{fontSize:10,color:"#4a4166",marginBottom:4}}>{c.icon} {c.label}</div>
+                <div>{c.value}</div>
+                {c.bar}
+                <div style={{fontSize:10,color:"#6b5f88",marginTop:5,lineHeight:1.4}}>{c.note}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:9,color:"#3d3360",marginTop:10,textAlign:"right"}}>Basado en {dsM.length} actividades totales · Filtros de quién/rango no aplican</div>
+        </div>;
+      })()}
+
       {/* KPIs */}
       <div>
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:7 }}>
@@ -2350,21 +2520,6 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
   const maxPerCell=cellPx<40?2:3;
   const cellH=Math.max(48,cellPx);
 
-  const getMissionDates=(m)=>{
-    if(!m.date)return[];
-    if(!m.time||!m.duration||m.duration<=0)return[m.date];
-    const startMs=new Date(m.date+"T"+m.time).getTime();
-    const endMs=startMs+m.duration*60000;
-    const dates=[];
-    const cur=new Date(m.date);
-    while(cur.getTime()<endMs){
-      const ds=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`;
-      if(!dates.includes(ds))dates.push(ds);
-      cur.setDate(cur.getDate()+1);
-    }
-    return dates;
-  };
-
   const applyFilters=ms=>ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   const byDate={};
   applyFilters(allDatedMissions).forEach(m=>{
@@ -2390,10 +2545,6 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
     if(!editingMission)return;
     onPatchMission&&onPatchMission(editingMission.wn,editingMission.yr,editingMission.mission.id,patch);
     setEditingMission(p=>({...p,mission:{...p.mission,...patch}}));
-  };
-
-  const dlBlob=(blob,name)=>{
-    const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
   };
 
   const doShare=async(type,payload)=>{
@@ -2453,11 +2604,13 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
       ctx.fillText("Misiones de Pareja",W/2,H-14);
       cvs.toBlob(async blob=>{
         const fname=`misiones-${type}-${Date.now()}.png`;
-        if(navigator.share&&navigator.canShare){
-          const file=new File([blob],fname,{type:"image/png"});
-          if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:coupleLabel});setSharing(false);return;}
-        }
-        dlBlob(blob,fname);setSharing(false);
+        try{
+          if(navigator.share&&navigator.canShare){
+            const file=new File([blob],fname,{type:"image/png"});
+            if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:coupleLabel});return;}
+          }
+          dlBlob(blob,fname);
+        }finally{setSharing(false);}
       },"image/png");
     }catch(e){console.warn("share err",e);setSharing(false);}
   };
@@ -2471,10 +2624,8 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
         <button onClick={()=>doShare("week",{})} disabled={sharing} style={{...S.btnSecondary,display:"flex",alignItems:"center",gap:5,padding:"9px 10px",borderColor:"rgba(244,114,182,0.3)",color:"#f472b6",fontSize:12}}>{sharing?"⏳":"📤"} Compartir</button>
       </div>
 
-      {/* 2-col layout: calendar + day detail */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,alignItems:"start"}}>
-        {/* Calendar column */}
-        <div ref={calRef}>
+      {/* Calendar */}
+      <div ref={calRef}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:16}}>
             <button onClick={prevM} style={S.btnNav}>‹</button>
             <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:600,minWidth:160,textAlign:"center"}}>{MONTHS[calMonth]} {calYear}</div>
@@ -2497,7 +2648,7 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
                 <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166"}}>{day}</div>
                 {hasMultiDay&&<div style={{textAlign:"center",fontSize:8,color:"#a78bfa",lineHeight:1,marginBottom:1}}>↔</div>}
                 <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center"}}>
-                  {ms.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={m.id+ds} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
+                  {ms.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={`${m.id}-${ds}`} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
                   {ms.length>maxPerCell&&<span style={{fontSize:8,color:"#4a4166"}}>+{ms.length-maxPerCell}</span>}
                 </div>
               </div>;
@@ -2505,48 +2656,43 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
           </div>
         </div>
 
-        {/* Day detail column */}
-        <div>
-          {selectedDay?<div style={{...S.card,borderColor:"rgba(167,139,250,0.3)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#a78bfa",fontWeight:600}}>{selectedDay} de {MONTHS[calMonth]}</div>
-              <div style={{display:"flex",gap:6}}>
-                <button onClick={()=>doShare("day",{day:selectedDay,ms:selMs})} disabled={sharing||!selMs.length} style={{...S.btnSecondary,fontSize:11,padding:"4px 8px",color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>📤</button>
-                {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{...S.btnPrimary,fontSize:11,padding:"5px 10px"}}>+ Añadir</button>}
-              </div>
-            </div>
-            {selMs.length===0?<div style={{color:"#3d3360",fontStyle:"italic",fontSize:13}}>Sin misiones para este día</div>:
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {selMs.map(m=>{
-                  const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
-                  const isMultiDay=getMissionDates(m).length>1;
-                  return<div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(167,139,250,0.08)"}}>
-                    <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,color:m.status==="DONE"?"#4d4566":"#e2d9ff",textDecoration:m.status==="DONE"?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {m.title}{isMultiDay&&<span style={{fontSize:10,marginLeft:4,color:"#a78bfa"}}>↔</span>}
-                      </div>
-                      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>
-                        {m.time&&<span style={{fontSize:10,color:"#a78bfa"}}>🕐 {m.time}</span>}
-                        {m.duration>0&&<span style={{fontSize:10,color:"#7c6fa0"}}>{m.duration>=60?`${Math.floor(m.duration/60)}h${m.duration%60?m.duration%60+"m":""}`:m.duration+"m"}</span>}
-                        {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
-                        <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",gap:4,flexShrink:0}}>
-                      <button onClick={()=>doShare("task",{m})} disabled={sharing} style={{background:"rgba(244,114,182,0.1)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:7,color:"#f472b6",fontSize:11,padding:"4px 6px",cursor:"pointer",fontFamily:"inherit"}}>📤</button>
-                      <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
-                      <button onClick={()=>openEdit(m)} style={{background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:7,color:"#a78bfa",fontSize:11,padding:"4px 8px",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
-                    </div>
-                  </div>;
-                })}
-              </div>
-            }
-          </div>:<div style={{...S.card,borderColor:"rgba(167,139,250,0.1)",color:"#3d3360",fontStyle:"italic",fontSize:13,textAlign:"center",padding:"32px 16px"}}>
-            Toca un día para ver sus misiones
-          </div>}
+      {/* Day detail panel */}
+      {selectedDay&&<div style={{...S.card,marginTop:12,borderColor:"rgba(167,139,250,0.3)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#a78bfa",fontWeight:600}}>{selectedDay} de {MONTHS[calMonth]}</div>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={()=>doShare("day",{day:selectedDay,ms:selMs})} disabled={sharing||!selMs.length} style={{...S.btnSecondary,fontSize:11,padding:"4px 8px",color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>📤</button>
+            {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{...S.btnPrimary,fontSize:11,padding:"5px 10px"}}>+ Añadir</button>}
+          </div>
         </div>
-      </div>
+        {selMs.length===0?<div style={{color:"#3d3360",fontStyle:"italic",fontSize:13}}>Sin misiones para este día</div>:
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {selMs.map(m=>{
+              const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
+              const isMultiDay=getMissionDates(m).length>1;
+              return<div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(167,139,250,0.08)"}}>
+                <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,color:m.status==="DONE"?"#4d4566":"#e2d9ff",textDecoration:m.status==="DONE"?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {m.title}{isMultiDay&&<span style={{fontSize:10,marginLeft:4,color:"#a78bfa"}}>↔</span>}
+                  </div>
+                  <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>
+                    {m.time&&<span style={{fontSize:10,color:"#a78bfa"}}>🕐 {m.time}</span>}
+                    {m.duration>0&&<span style={{fontSize:10,color:"#7c6fa0"}}>{m.duration>=60?`${Math.floor(m.duration/60)}h${m.duration%60?m.duration%60+"m":""}`:m.duration+"m"}</span>}
+                    {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
+                    <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                  <button onClick={()=>doShare("task",{m})} disabled={sharing} style={{background:"rgba(244,114,182,0.1)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:7,color:"#f472b6",fontSize:11,padding:"4px 6px",cursor:"pointer",fontFamily:"inherit"}}>📤</button>
+                  <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
+                  <button onClick={()=>openEdit(m)} style={{background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:7,color:"#a78bfa",fontSize:11,padding:"4px 8px",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
+                </div>
+              </div>;
+            })}
+          </div>
+        }
+      </div>}
 
       {/* Inline edit modal */}
       {editingMission&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={closeEdit}>
