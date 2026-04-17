@@ -806,7 +806,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const addMission = () => {
     if (!newM.title.trim()) return;
     const sid = newM.seriesPattern ? (newM.seriesId||uid()) : null;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration?parseFloat(newM.duration):null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, endDate:newM.endDate||null, endTime:newM.endTime||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
     setShowAddForm(false);
   };
@@ -1761,7 +1761,8 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
             {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
-            {(mission.duration||mission.estimatedHours)&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {mission.duration||mission.estimatedHours}h</span>}
+            {(mission.duration||mission.estimatedHours)&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration||mission.estimatedHours;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
+            {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":"Mensual"}</span>}
@@ -1807,10 +1808,14 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-            <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
           </div>
-          <div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({duration:parseFloat(e.target.value)||null})} placeholder="1" style={S.inputSm} /></div>
+          {isEvent&&<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+            <div><label style={S.label}>🏁 Fecha fin</label><input type="date" value={mission.endDate||""} onChange={e=>{const ed=e.target.value||null;const dur=mission.date&&mission.time&&ed&&mission.endTime?Math.round((new Date(ed+"T"+mission.endTime)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endDate:ed,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+            <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={mission.endTime||""} onChange={e=>{const et=e.target.value||null;const dur=mission.date&&mission.time&&mission.endDate&&et?Math.round((new Date(mission.endDate+"T"+et)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+          </div>}
+          {!isEvent&&<div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (min)</label><input type="number" min="0" step="15" value={mission.duration||""} onChange={e=>onPatch({duration:parseInt(e.target.value)||null})} placeholder="90" style={S.inputSm} /></div>}
           {(goals||[]).filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:8 }}>
             <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
             <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
@@ -2742,9 +2747,13 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
             </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-            <div><label style={S.label}>📆 Fecha</label><input type="date" value={editingMission.mission.date||""} onChange={e=>patchEditing({date:e.target.value||null})} style={{...S.inputSm,colorScheme:"dark"}} /></div>
-            <div><label style={S.label}>🕐 Hora</label><input type="time" value={editingMission.mission.time||""} onChange={e=>patchEditing({time:e.target.value||null})} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+            <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={editingMission.mission.date||""} onChange={e=>patchEditing({date:e.target.value||null})} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+            <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={editingMission.mission.time||""} onChange={e=>patchEditing({time:e.target.value||null})} style={{...S.inputSm,colorScheme:"dark"}} /></div>
           </div>
+          {editingMission.mission.type==="event"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={S.label}>🏁 Fecha fin</label><input type="date" value={editingMission.mission.endDate||""} onChange={e=>{const ed=e.target.value||null;const s=editingMission.mission,d=s.date,t=s.time,et=s.endTime;const dur=d&&t&&ed&&et?Math.round((new Date(ed+"T"+et)-new Date(d+"T"+t))/60000):s.duration;patchEditing({endDate:ed,...(dur>0?{duration:dur}:{})});}} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+            <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={editingMission.mission.endTime||""} onChange={e=>{const et=e.target.value||null;const s=editingMission.mission,d=s.date,t=s.time,ed=s.endDate;const dur=d&&t&&ed&&et?Math.round((new Date(ed+"T"+et)-new Date(d+"T"+t))/60000):s.duration;patchEditing({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+          </div>}
           <div style={{marginBottom:10}}>
             <label style={S.label}>Estado</label>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
