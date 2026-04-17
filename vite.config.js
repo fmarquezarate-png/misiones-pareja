@@ -15,9 +15,9 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'Misiones de Pareja 💞',
-        short_name: 'Misiones',
-        description: 'Seguimiento de misiones semanales',
+        name: 'Shared Calendar',
+        short_name: 'Shared Cal',
+        description: 'Shared weekly planning for couples and teams',
         theme_color: '#0a0714',
         background_color: '#0a0714',
         display: 'standalone',

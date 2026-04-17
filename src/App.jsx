@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates } from "./supabase.js";
+import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.1.1";
+const APP_VERSION = "2.2.0";
 const LAST_UPDATE = "2026-04-17";
 const CHANGELOG = [
+  { v:"2.2.0", date:"2026-04-17", notes:["App renombrada a Shared Calendar (más abierta, menos de nicho)","5 nuevos temas claros: Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave","Chat integrado: mensajitos en tiempo real entre los miembros (pestaña 💬)","Zoom en móvil corregido: touch-action:manipulation en toda la app (Chrome + Safari)","Compartir botones de imagen eliminados (ocupaban espacio, poco uso)","Cerrar sesión ahora muestra selector de cuenta Google (no reconecta automáticamente)","Botón Compartir Stats al pie de la pestaña Stats (sensible a filtros activos)","Versión 2.2.0"] },
   { v:"2.1.1", date:"2026-04-17", notes:["Pendientes: sólo tareas (sin eventos), sin duplicados — tareas arrastradas muestran sólo su versión más reciente","Pendientes: badge 🔁/⚠️ indica cuántas semanas lleva arrastrada la tarea","Al marcar una tarea arrastrada como DONE desde pendientes: la original en la semana pasada se marca ⏰ Completada con retraso (no infla stats de esa semana)","Semana anterior: tareas completadas tarde muestran badge ⏰ en la tarjeta"] },
   { v:"2.1.0", date:"2026-04-17", notes:["Fix crítico: eventos multi-día ahora se muestran en TODOS sus días en el calendario","getMissionDates: tolera hora vacía (00:00 inicio, 23:59 fin) — multi-día garantizado","addMission: fuerza endTime='23:59' si hay endDate sin hora, time='00:00' si hay endDate sin hora inicio","Formulario: defecto automático 23:59 al seleccionar solo fecha fin","CalendarView: getMissionDates se llama una sola vez por misión (Map) — más rápido","Limpieza: eliminadas variables saving/savingError/saved ya no usadas"] },
   { v:"2.0.9", date:"2026-04-17", notes:["Calendario: columna única (detalle del día debajo, no al lado)","Tareas: sin campos de fecha/hora/duración (limpias)","Eventos: duración en minutos OR fecha+hora de fin (auto-calculado)","Menú: pestaña Pendientes con todas las tareas no-DONE de todas las semanas","Zoom móvil: fix real por CSS font-size≥16px en inputs (Safari iOS)","Stats AI v2.0: Deep Stats — Sincronía, Equidad en casa, Densidad de metas, Hábito ancla, Carga óptima, Ventana horaria","Código: dlBlob y getMissionDates movidos a nivel de módulo (sin duplicación)"] },
@@ -187,6 +188,66 @@ const THEMES = [
     fontBody:"'Nunito',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
     text:"#1e0d3c", textMuted:"#6b5f88", textDim:"#9b8faa",
+  },
+  // ── Temas claros ──────────────────────────────────────────────────────────
+  {
+    id:"blush", name:"Rosa Pastel", preview:["#e91e8c","#f472b6","#fb7185"],
+    bg:"#fff0f5",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(233,30,140,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,113,133,0.10) 0%,transparent 52%)",
+    menuBg:"rgba(255,240,245,0.98)", topBarBg:"rgba(255,240,245,0.94)",
+    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(233,30,140,0.15)",
+    btnGrad:"linear-gradient(135deg,#e91e8c,#f472b6)",
+    accent:"#e91e8c", accentSoft:"rgba(233,30,140,0.1)",
+    fontBody:"'Nunito',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
+    text:"#3d0028", textMuted:"#a0507a", textDim:"#c9a0b9",
+  },
+  {
+    id:"sky", name:"Cielo Azul", preview:["#0ea5e9","#38bdf8","#7dd3fc"],
+    bg:"#f0f8ff",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(14,165,233,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(56,189,248,0.10) 0%,transparent 52%)",
+    menuBg:"rgba(240,248,255,0.98)", topBarBg:"rgba(240,248,255,0.94)",
+    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(14,165,233,0.15)",
+    btnGrad:"linear-gradient(135deg,#0ea5e9,#38bdf8)",
+    accent:"#0ea5e9", accentSoft:"rgba(14,165,233,0.1)",
+    fontBody:"'DM Sans',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
+    text:"#0c2a48", textMuted:"#3a6fa8", textDim:"#7aaad0",
+  },
+  {
+    id:"mint", name:"Menta Fresca", preview:["#059669","#10b981","#34d399"],
+    bg:"#f0faf4",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(5,150,105,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(16,185,129,0.10) 0%,transparent 52%)",
+    menuBg:"rgba(240,250,244,0.98)", topBarBg:"rgba(240,250,244,0.94)",
+    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(5,150,105,0.15)",
+    btnGrad:"linear-gradient(135deg,#059669,#10b981)",
+    accent:"#059669", accentSoft:"rgba(5,150,105,0.1)",
+    fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", googleFonts:null,
+    text:"#0a2e1e", textMuted:"#2d7a52", textDim:"#6daa8b",
+  },
+  {
+    id:"peach", name:"Melocotón", preview:["#ea7026","#f97316","#fb923c"],
+    bg:"#fff8f0",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(234,112,38,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(249,115,22,0.10) 0%,transparent 52%)",
+    menuBg:"rgba(255,248,240,0.98)", topBarBg:"rgba(255,248,240,0.94)",
+    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(234,112,38,0.15)",
+    btnGrad:"linear-gradient(135deg,#ea7026,#f97316)",
+    accent:"#ea7026", accentSoft:"rgba(234,112,38,0.1)",
+    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
+    text:"#3d1500", textMuted:"#8a4a1e", textDim:"#c08060",
+  },
+  {
+    id:"lavender", name:"Lavanda Suave", preview:["#7c3aed","#8b5cf6","#a78bfa"],
+    bg:"#f5f0ff",
+    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(124,58,237,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(139,92,246,0.10) 0%,transparent 52%)",
+    menuBg:"rgba(245,240,255,0.98)", topBarBg:"rgba(245,240,255,0.94)",
+    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(124,58,237,0.15)",
+    btnGrad:"linear-gradient(135deg,#7c3aed,#8b5cf6)",
+    accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
+    fontBody:"'Space Grotesk',system-ui,sans-serif",
+    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+    text:"#1e0b4b", textMuted:"#5a3a8a", textDim:"#9a7acc",
   },
   {
     id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"],
@@ -520,9 +581,9 @@ function LoginScreen() {
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff", padding:20 }}>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <div style={{ textAlign:"center", maxWidth:340, width:"100%" }}>
-        <div style={{ fontSize:64, marginBottom:16 }}>💞</div>
-        <div style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, marginBottom:8, letterSpacing:-1 }}>Misiones de Pareja</div>
-        <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:40, lineHeight:1.6 }}>Tu espacio privado para planificar<br/>la semana juntos</div>
+        <div style={{ fontSize:64, marginBottom:16 }}>📅</div>
+        <div style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, marginBottom:8, letterSpacing:-1 }}>Shared Calendar</div>
+        <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:40, lineHeight:1.6 }}>Tu espacio compartido para planificar<br/>la semana en equipo</div>
         <button onClick={signInWithGoogle}
           style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, width:"100%", padding:"14px 20px", background:"#fff", border:"none", borderRadius:12, cursor:"pointer", fontSize:15, fontWeight:600, color:"#1a1a2e", fontFamily:"inherit", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", transition:"transform 0.15s" }}
           onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
@@ -941,7 +1002,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     const missions = weekData.missions || [];
     const done = missions.filter(m=>m.status==="DONE").length;
     const sorted = [...missions].sort((a,b)=>{ if(a.date&&b.date) return (a.date+(a.time||""))>(b.date+(b.time||""))?1:-1; if(a.date)return -1; if(b.date)return 1; return 0; });
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Misiones Semana ${weekData.weekNumber}</title>
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Shared Calendar Semana ${weekData.weekNumber}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -970,7 +1031,7 @@ td{padding:12px 10px;border-bottom:1px solid #f8f4ff;vertical-align:top}
 .footer{margin-top:32px;text-align:center;font-size:11px;color:#ccc;border-top:1px solid #f0e8ff;padding-top:16px}
 @media print{body{padding:20px}button{display:none!important}}
 </style></head><body>
-<h1>💞 Semana ${weekData.weekNumber} · ${weekData.year||new Date().getFullYear()}</h1>
+<h1>📅 Semana ${weekData.weekNumber} · ${weekData.year||new Date().getFullYear()}</h1>
 <div class="meta">${name1} & ${name2} · Generado el ${new Date().toLocaleDateString("es-ES",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
 ${weekData.epicObjective?`<div class="obj">🎯 ${weekData.epicObjective}</div>`:""}
 <div class="kpis">
@@ -990,7 +1051,7 @@ ${sorted.map(m=>{
   return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${dur?`<div class="detail">⏱ ${dur}h</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
 }).join("")}
 </tbody></table>
-<div class="footer">💞 Misiones de Pareja · misiones-pareja.netlify.app</div>
+<div class="footer">📅 Shared Calendar</div>
 </body></html>`;
     const win = window.open("","_blank");
     win.document.write(html);
@@ -1012,7 +1073,7 @@ ${sorted.map(m=>{
     });
     const doneCount = allMissions.filter(m=>m.status==="DONE").length;
     const total = allMissions.length;
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Misiones - ${personLabel}</title>
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Shared Calendar - ${personLabel}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1032,7 +1093,7 @@ td{padding:10px 8px;border-bottom:1px solid #f8f4ff;vertical-align:top}
 .footer{margin-top:28px;text-align:center;font-size:11px;color:#ccc;border-top:1px solid #f0e8ff;padding-top:14px}
 @media print{body{padding:20px}}
 </style></head><body>
-<h1>💞 Misiones — ${personLabel}</h1>
+<h1>📅 Shared Calendar — ${personLabel}</h1>
 <div class="meta">${weekEntries.length} semana${weekEntries.length!==1?"s":""} · Generado el ${new Date().toLocaleDateString("es-ES",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
 <div class="kpis">
   <div class="kpi"><div class="kpi-n">${total}</div><div class="kpi-l">Misiones</div></div>
@@ -1051,7 +1112,7 @@ ${ms.map(m=>{
 }).join("")}
 </tbody></table>`;
 }).join("")}
-<div class="footer">💞 Misiones de Pareja · misiones-pareja.netlify.app</div>
+<div class="footer">📅 Shared Calendar</div>
 </body></html>`;
     const win = window.open("","_blank");
     win.document.write(html);
@@ -1117,7 +1178,7 @@ ${ms.map(m=>{
             : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{data.settings?.coupleEmoji||"💞"}</div>
           }
           <div>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, textTransform:"uppercase" }}>Misiones de Pareja</div>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, textTransform:"uppercase" }}>Shared Calendar</div>
             <div style={{ fontSize:14, color:"var(--t-accent,#c4b8ff)", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
           </div>
         </div>
@@ -1131,6 +1192,7 @@ ${ms.map(m=>{
             { id:"history",  label:"Histórico",    icon:"🗂️" },
             { id:"goals",    label:"Metas",        icon:"🏅" },
             { id:"stats",    label:"Stats",        icon:"📊" },
+            { id:"chat",     label:"Chat",         icon:"💬" },
           ].map(n => (
             <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
               style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent", color:activeTab===n.id?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
@@ -1174,6 +1236,7 @@ ${ms.map(m=>{
             :activeTab==="history"  ? "🗂️ Histórico"
             :activeTab==="goals"    ? "🏅 Metas"
             :activeTab==="stats"    ? "📊 Stats"
+            :activeTab==="chat"     ? "💬 Chat"
             : ""}
           </span>
         </div>
@@ -1531,6 +1594,8 @@ ${ms.map(m=>{
         {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
+
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} />}
 
         {activeTab==="pending" && (()=>{
           // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
@@ -2469,6 +2534,98 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* E4: Detalle por semana */}
       <WeekDetailList allW={allW} onGoToWeek={onGoToWeek} />
 
+      {/* Share stats */}
+      <button onClick={()=>{
+        const lines=[
+          `📊 Shared Calendar Stats`,
+          `${p1} & ${p2}`,
+          ``,
+          `Total: ${total} actividades · ${pct}% completadas`,
+          `${p1}: ${ph1.count} actividades, ${ph1.done} hechas (${ph1.count>0?Math.round(ph1.done/ph1.count*100):0}%)`,
+          `${p2}: ${ph2.count} actividades, ${ph2.done} hechas (${ph2.count>0?Math.round(ph2.done/ph2.count*100):0}%)`,
+          ...catStats.slice(0,5).map(c=>`${c.icon} ${c.label}: ${c.count} (${c.count>0?Math.round(c.done/c.count*100):0}%✓)`),
+        ].join("\n");
+        if(navigator.share){navigator.share({title:"Shared Calendar Stats",text:lines}).catch(()=>{});}
+        else if(navigator.clipboard){navigator.clipboard.writeText(lines).then(()=>alert("Stats copiadas al portapapeles"));}
+      }} style={{...S.btnSecondary,width:"100%",textAlign:"center",padding:"11px",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4}}>
+        📤 Compartir stats
+      </button>
+
+    </div>
+  );
+}
+
+function ChatView({ coupleId, personName, p1, p2 }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (!coupleId) return;
+    loadMessages(coupleId).then(setMessages);
+    const ch = subscribeToMessages(coupleId, msg => setMessages(prev => [...prev, msg]));
+    return () => supabase.removeChannel(ch);
+  }, [coupleId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const send = async () => {
+    if (!input.trim() || sending) return;
+    setSending(true);
+    try {
+      await sendMessage(coupleId, personName, input.trim());
+      setInput("");
+    } catch (e) { console.warn("send err", e); }
+    finally { setSending(false); }
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 120px)", maxHeight:680 }}>
+      <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, padding:"4px 0 12px" }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign:"center", color:"#3d3360", padding:40 }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>💬</div>
+            <div style={{ fontSize:14, fontStyle:"italic", lineHeight:1.6 }}>Todavía no hay mensajes.<br/>¡Empieza la conversación!</div>
+          </div>
+        )}
+        {messages.map(m => {
+          const isMe = m.sender_name === personName;
+          return (
+            <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
+              {!isMe && <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginBottom:2, marginLeft:4 }}>{m.sender_name}</div>}
+              <div style={{
+                maxWidth:"78%", background:isMe?"var(--t-accent-soft,rgba(167,139,250,0.18))":"rgba(255,255,255,0.06)",
+                border:`1px solid ${isMe?"var(--t-card-border,rgba(167,139,250,0.3))":"rgba(255,255,255,0.1)"}`,
+                borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                padding:"8px 12px", fontSize:14, color:"var(--t-text,#f0e8ff)", lineHeight:1.5,
+              }}>
+                {m.content}
+              </div>
+              <div style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)", marginTop:2, marginLeft:4, marginRight:4 }}>
+                {new Date(m.created_at).toLocaleTimeString("es", { hour:"2-digit", minute:"2-digit" })}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div style={{ borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", paddingTop:10, display:"flex", gap:8, alignItems:"center" }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
+          placeholder="Escribe un mensaje..."
+          style={{ ...S.input, flex:1 }}
+          autoComplete="off"
+        />
+        <button onClick={send} disabled={sending || !input.trim()}
+          style={{ ...S.btnPrimary, padding:"10px 16px", flexShrink:0, minWidth:44 }}>
+          {sending ? "⏳" : "➤"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -2537,7 +2694,6 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
   const [editingMission,setEditingMission]=useState(null);
   const [dragOver,setDragOver]=useState(null);
   const [cellPx,setCellPx]=useState(44);
-  const [sharing,setSharing]=useState(false);
   const calRef=useRef(null);
   const MONTHS=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DAYS=["L","M","X","J","V","S","D"];
@@ -2594,81 +2750,12 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
     setEditingMission(p=>({...p,mission:{...p.mission,...patch}}));
   };
 
-  const doShare=async(type,payload)=>{
-    setSharing(true);
-    try{
-      const W=600,PAD=24;
-      const coupleEmoji=settings?.coupleEmoji||"💞";
-      const coupleLabel=`${p1} & ${p2}`;
-      let rows=[];
-      if(type==="week"){
-        const ms=applyFilters(allDatedMissions).slice(0,20);
-        rows=[{t:"h",text:`${coupleEmoji} ${coupleLabel}`},{t:"s",text:`${MONTHS[calMonth]} ${calYear}`},{t:"div"},...ms.map(m=>({t:"m",m}))];
-      }else if(type==="day"){
-        rows=[{t:"h",text:`${coupleEmoji} ${coupleLabel}`},{t:"s",text:`${payload.day} de ${MONTHS[calMonth]}`},{t:"div"},...payload.ms.map(m=>({t:"m",m}))];
-      }else if(type==="task"){
-        rows=[{t:"h",text:`${coupleEmoji} ${coupleLabel}`},{t:"div"},{t:"tk",m:payload.m}];
-      }
-      let H=PAD*2+52;
-      rows.forEach(r=>{if(r.t==="s")H+=22;else if(r.t==="div")H+=20;else if(r.t==="m")H+=30;else if(r.t==="tk")H+=66;});
-      H=Math.max(H,100);
-      const cvs=document.createElement("canvas");cvs.width=W;cvs.height=H;
-      const ctx=cvs.getContext("2d");
-      ctx.fillStyle="#0a0714";ctx.fillRect(0,0,W,H);
-      ctx.fillStyle="rgba(167,139,250,0.06)";ctx.fillRect(12,12,W-24,H-24);
-      ctx.strokeStyle="rgba(167,139,250,0.22)";ctx.lineWidth=1;ctx.strokeRect(12,12,W-24,H-24);
-      let y=PAD;
-      rows.forEach(r=>{
-        if(r.t==="h"){
-          ctx.font="bold 22px system-ui,sans-serif";ctx.fillStyle="#c4b8ff";ctx.textAlign="center";
-          ctx.fillText(r.text,W/2,y+28);y+=52;
-        }else if(r.t==="s"){
-          ctx.font="13px system-ui,sans-serif";ctx.fillStyle="#7c6fa0";ctx.textAlign="center";
-          ctx.fillText(r.text,W/2,y+14);y+=22;
-        }else if(r.t==="div"){
-          ctx.strokeStyle="rgba(167,139,250,0.18)";ctx.lineWidth=1;
-          ctx.beginPath();ctx.moveTo(PAD+16,y+10);ctx.lineTo(W-PAD-16,y+10);ctx.stroke();
-          y+=20;
-        }else if(r.t==="m"){
-          const m=r.m,icon=STATUS[m.status]?.icon||"⏳";
-          const who=m.who==="person1"?p1:m.who==="person2"?p2:"juntos";
-          ctx.font="14px system-ui,sans-serif";ctx.fillStyle=m.status==="DONE"?"#4d4566":"#e2d9ff";ctx.textAlign="left";
-          ctx.fillText(`${m.emoji} ${m.title}`,PAD+16,y+14);
-          ctx.font="11px system-ui,sans-serif";ctx.fillStyle="#7c6fa0";
-          ctx.fillText(`${icon} ${who}${m.date?" · "+m.date:""}`,PAD+16,y+26);
-          y+=30;
-        }else if(r.t==="tk"){
-          const m=r.m,icon=STATUS[m.status]?.icon||"⏳";
-          const who=m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
-          ctx.font="bold 20px system-ui,sans-serif";ctx.fillStyle="#e2d9ff";ctx.textAlign="left";
-          ctx.fillText(`${m.emoji} ${m.title}`,PAD+16,y+26);
-          ctx.font="13px system-ui,sans-serif";ctx.fillStyle="#a78bfa";
-          ctx.fillText(`${icon} ${who}${m.date?" · "+m.date:""}${m.time?" · "+m.time:""}`,PAD+16,y+48);
-          y+=66;
-        }
-      });
-      ctx.font="10px system-ui,sans-serif";ctx.fillStyle="rgba(100,80,140,0.45)";ctx.textAlign="center";
-      ctx.fillText("Misiones de Pareja",W/2,H-14);
-      cvs.toBlob(async blob=>{
-        const fname=`misiones-${type}-${Date.now()}.png`;
-        try{
-          if(navigator.share&&navigator.canShare){
-            const file=new File([blob],fname,{type:"image/png"});
-            if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:coupleLabel});return;}
-          }
-          dlBlob(blob,fname);
-        }finally{setSharing(false);}
-      },"image/png");
-    }catch(e){console.warn("share err",e);setSharing(false);}
-  };
-
   return (
     <div>
       {/* Action buttons */}
       <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
         <button onClick={onDownloadICS} style={{...S.btnSecondary,flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"9px 10px",borderColor:"rgba(52,211,153,0.3)",color:"#34d399",fontSize:12}}>📅 Google Calendar (.ics)</button>
         <button onClick={onDownloadPDF} style={{...S.btnSecondary,flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"9px 10px",borderColor:"rgba(167,139,250,0.3)",color:"#a78bfa",fontSize:12}}>🖨️ PDF semana</button>
-        <button onClick={()=>doShare("week",{})} disabled={sharing} style={{...S.btnSecondary,display:"flex",alignItems:"center",gap:5,padding:"9px 10px",borderColor:"rgba(244,114,182,0.3)",color:"#f472b6",fontSize:12}}>{sharing?"⏳":"📤"} Compartir</button>
       </div>
 
       {/* Calendar */}
@@ -2726,7 +2813,6 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#a78bfa",fontWeight:600}}>{selectedDay} de {MONTHS[calMonth]}</div>
           <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>doShare("day",{day:selectedDay,ms:selMs})} disabled={sharing||!selMs.length} style={{...S.btnSecondary,fontSize:11,padding:"4px 8px",color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>📤</button>
             {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{...S.btnPrimary,fontSize:11,padding:"5px 10px"}}>+ Añadir</button>}
           </div>
         </div>
@@ -2749,7 +2835,6 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
                   </div>
                 </div>
                 <div style={{display:"flex",gap:4,flexShrink:0}}>
-                  <button onClick={()=>doShare("task",{m})} disabled={sharing} style={{background:"rgba(244,114,182,0.1)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:7,color:"#f472b6",fontSize:11,padding:"4px 6px",cursor:"pointer",fontFamily:"inherit"}}>📤</button>
                   <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
                   <button onClick={()=>openEdit(m)} style={{background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:7,color:"#a78bfa",fontSize:11,padding:"4px 8px",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
                 </div>
