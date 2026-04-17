@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.9";
+const APP_VERSION = "2.1.0";
 const LAST_UPDATE = "2026-04-17";
 const CHANGELOG = [
+  { v:"2.1.0", date:"2026-04-17", notes:["Fix crítico: eventos multi-día ahora se muestran en TODOS sus días en el calendario","getMissionDates: tolera hora vacía (00:00 inicio, 23:59 fin) — multi-día garantizado","addMission: fuerza endTime='23:59' si hay endDate sin hora, time='00:00' si hay endDate sin hora inicio","Formulario: defecto automático 23:59 al seleccionar solo fecha fin","CalendarView: getMissionDates se llama una sola vez por misión (Map) — más rápido","Limpieza: eliminadas variables saving/savingError/saved ya no usadas"] },
   { v:"2.0.9", date:"2026-04-17", notes:["Calendario: columna única (detalle del día debajo, no al lado)","Tareas: sin campos de fecha/hora/duración (limpias)","Eventos: duración en minutos OR fecha+hora de fin (auto-calculado)","Menú: pestaña Pendientes con todas las tareas no-DONE de todas las semanas","Zoom móvil: fix real por CSS font-size≥16px en inputs (Safari iOS)","Stats AI v2.0: Deep Stats — Sincronía, Equidad en casa, Densidad de metas, Hábito ancla, Carga óptima, Ventana horaria","Código: dlBlob y getMissionDates movidos a nivel de módulo (sin duplicación)"] },
   { v:"2.0.8", date:"2026-04-17", notes:["Calendario: celdas responsivas (ResizeObserver, máximo espacio)", "Calendario: tareas multi-día ocupan todos los días según fecha+hora+duración","Calendario: compartir día / tarea / semana como imagen PNG (WhatsApp/descarga)","Calendario: editar participante al editar actividad inline","Nuevo usuario: pantalla en blanco (sin datos de ejemplo)","Top bar: emoji de pareja configurable (ajustes de perfil)","Tareas arrastradas: se marcan DONE en semana original con flag 'tarde' (no infla stats)","Stats AI: mínimo 5 misiones para considerar mejor/peor semana","Inicio: emoji de participante + tipo (tarea/evento) en cada fila de misiones","Filtros: secciones Participantes/Categorías diferenciadas + ordenar semana","Zoom móvil bloqueado (no queda pegado al hacer zoom in/out)","PWA: siempre carga versión más reciente (skipWaiting + networkFirst)"] },
   { v:"2.0.7", date:"2026-04-15", notes:["Emoji de pareja elegible desde Mi Perfil (24 opciones)", "Fix: menú lateral usa emoji elegido en vez de 💞 fijo","Fix: dropdown de tema en ProfileModal deja de cortarse (inline)","Fix: select de meta sin contraste blanco-sobre-blanco en Mac","Cursor: sin selección de texto accidental en escritorio","Stats: barras de semanas capeadas a 12 máximo","Nueva pestaña Pendientes en menú (todas las tareas no-DONE)","Inicio: layout 2 columnas en pantallas anchas (pendientes | eventos)","Compartir semana: imagen generada con Canvas + navigator.share/descarga"] },
@@ -207,14 +208,14 @@ const googleCalendarUrl = (mission, name1, name2) => {
   let dates;
   if (mission.time) {
     const [hh, mm] = mission.time.split(":").map(Number);
-    const tot = hh*60 + mm + Math.round((mission.duration || mission.estimatedHours || 1)*60);
+    const tot = hh*60 + mm + Math.round((mission.duration || 1)*60);
     const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
     dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
   } else {
     const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
     dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
   }
-  const dur = mission.duration || mission.estimatedHours;
+  const dur = mission.duration;
   const details = `Quién: ${who}${dur?` · ${dur}h`:""}`;
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
 };
@@ -389,23 +390,38 @@ const dlBlob=(blob,name)=>{
 
 const getMissionDates=(m)=>{
   if(!m.date)return[];
-  let endMs;
-  if(m.endDate&&m.endTime){
-    endMs=new Date(m.endDate+"T"+m.endTime).getTime();
-  }else if(m.duration>0&&m.time){
-    endMs=new Date(m.date+"T"+m.time).getTime()+m.duration*60000;
-  }else{
-    return[m.date];
+  // Safety defaults: if a piece of time info is missing, fill sensibly so
+  // multi-day events still span correctly in the calendar.
+  const startTime = m.time || "00:00";
+  const startMs = new Date(m.date+"T"+startTime).getTime();
+  if(isNaN(startMs)) return [m.date];
+  let endMs = null;
+  if(m.endDate){
+    // If endDate is set but endTime missing → assume end-of-day
+    const endTime = m.endTime || "23:59";
+    const t = new Date(m.endDate+"T"+endTime).getTime();
+    if(!isNaN(t)) endMs = t;
   }
-  const startMs=new Date(m.date+"T"+(m.time||"00:00")).getTime();
-  if(endMs<=startMs)return[m.date];
+  if(endMs===null && m.duration>0){
+    // Fallback via duration
+    endMs = startMs + m.duration*60000;
+  }
+  if(endMs===null || endMs<=startMs) return [m.date];
+  // Walk day-by-day from start date to (and including) end date
   const dates=[];
-  const cur=new Date(m.date);
-  while(cur.getTime()<endMs){
-    dates.push(`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`);
+  const cur=new Date(m.date+"T00:00");
+  // Determine last day string from endMs (local date parts)
+  const endD = new Date(endMs);
+  const lastStr = `${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,"0")}-${String(endD.getDate()).padStart(2,"0")}`;
+  // Safety cap to avoid runaway loops on bad data (max ~1 year span)
+  let guard = 0;
+  while(guard++ < 400){
+    const ds = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`;
+    dates.push(ds);
+    if(ds===lastStr) break;
     cur.setDate(cur.getDate()+1);
   }
-  return dates;
+  return dates.length ? dates : [m.date];
 };
 
 // Injects CSS custom properties + loads Google Font for the active theme
@@ -633,8 +649,6 @@ function OnboardingScreen({ session, onDone }) {
 function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [savingError, setSavingError] = useState(false);
   const saveTimerRef = useRef(null);
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
@@ -645,7 +659,6 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
   const [editObj, setEditObj] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
@@ -666,10 +679,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     try {
       const remote = await loadData(coupleId);
       if (remote) {
-        // Compare timestamps to know if we actually updated anything
-        const remoteTs = remote.updatedAt || remote.currentWeekNumber;
         setData(prev => {
-          const prevTs = prev?.updatedAt || prev?.currentWeekNumber;
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
             showSyncMsg("✓ Ya estás al día");
           } else {
@@ -725,7 +735,6 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         // Only push to Supabase if we have real data – never overwrite with SEED
         if (isRealData) await saveData(base, coupleId);
       } catch(e) {
-        console.error(e);
         setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
         setData({ ...SEED });
       }
@@ -754,12 +763,9 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       // Debounced save: 700ms after last change
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
-        setSaving(true);
-        setSavingError(false);
         saveData(next, coupleId)
-          .then(() => { setSaved(true); setSyncError(null); setTimeout(() => setSaved(false), 1800); })
-          .catch(e => { console.error("Supabase save failed:", e.message); setSavingError(true); setSyncError(e.message); setTimeout(() => setSavingError(false), 6000); })
-          .finally(() => setSaving(false));
+          .then(() => setSyncError(null))
+          .catch(e => setSyncError(e.message));
       }, 700);
       return next;
     });
@@ -806,7 +812,13 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const addMission = () => {
     if (!newM.title.trim()) return;
     const sid = newM.seriesPattern ? (newM.seriesId||uid()) : null;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:newM.time||null, endDate:newM.endDate||null, endTime:newM.endTime||null, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
+    // Safety defaults so multi-day events always render even if user left
+    // a time piece blank: endDate without endTime → 23:59, date without time
+    // when an endDate is set → 00:00.
+    const hasEnd = !!newM.endDate;
+    const startTime = newM.time || (hasEnd ? "00:00" : null);
+    const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
     setShowAddForm(false);
   };
@@ -903,7 +915,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         const ts = m.time.replace(":","")+"00";
         lines.push(`DTSTART:${ds}T${ts}`);
         const [hh,mm] = m.time.split(":").map(Number);
-        const tot = hh*60+mm+Math.round((m.duration||m.estimatedHours||1)*60);
+        const tot = hh*60+mm+Math.round((m.duration||1)*60);
         const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
         lines.push(`DTEND:${ds}T${eh}${em}00`);
       } else {
@@ -913,7 +925,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       }
       lines.push(`SUMMARY:${m.emoji} ${m.title}`);
       const parts = [`Semana ${weekData.weekNumber}`,`Estado: ${STATUS[m.status]?.label||m.status}`,`Quién: ${who}`];
-      if (m.duration||m.estimatedHours) parts.push(`Duración: ${m.duration||m.estimatedHours}h`);
+      if (m.duration) parts.push(`Duración: ${m.duration}h`);
       lines.push(`DESCRIPTION:${parts.join("\\n")}`);
       lines.push("END:VEVENT");
     }
@@ -971,7 +983,7 @@ ${weekData.epicObjective?`<div class="obj">🎯 ${weekData.epicObjective}</div>`
 ${sorted.map(m=>{
   const who=m.who==="person1"?name1:m.who==="person2"?name2:"Juntos";
   const when=m.date?(m.time?`${m.date} ${m.time}`:m.date):"Sin fecha";
-  const dur = m.duration||m.estimatedHours;
+  const dur = m.duration;
   return `<tr><td class="emoji">${m.emoji}</td><td><div class="title${m.status==="DONE"?" done":""}">${m.title}</div>${dur?`<div class="detail">⏱ ${dur}h</div>`:""}</td><td style="font-size:13px;color:#555">${when}</td><td style="font-size:13px;color:#555">${who}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
 }).join("")}
 </tbody></table>
@@ -1421,7 +1433,7 @@ ${ms.map(m=>{
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} settings={data.settings} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
+          allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} settings={data.settings} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
           onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
@@ -1431,7 +1443,6 @@ ${ms.map(m=>{
           }}
           onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
           onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
-          onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}}
           onCycleStatus={cycleStatusGlobal}
         />}
 
@@ -1662,9 +1673,9 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         </div>
       </div>
       {isEvent&&<>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-          <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-          <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
+          <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
+          <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
         </div>
         <div style={{ display:"flex", gap:4, marginBottom:8 }}>
           {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
@@ -1684,8 +1695,10 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
           </div>
           :<div style={{ marginBottom:10 }}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-              <div><label style={S.label}>📆 Fecha fin</label><input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const dur=computeDur(newM.date,newM.time,ed,newM.endTime);setNewM(p=>({...p,endDate:ed,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-              <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const dur=computeDur(newM.date,newM.time,newM.endDate,et);setNewM(p=>({...p,endTime:et,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+              <div><label style={S.label}>📆 Fecha fin</label><input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;// Default endTime to 23:59 when user sets end date without a time
+                const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
+              <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;// Default endDate to start date when user picks a time without an end date
+                const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
             </div>
             {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
           </div>
@@ -1761,7 +1774,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
             {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
-            {(mission.duration||mission.estimatedHours)&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration||mission.estimatedHours;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
+            {mission.duration&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
             {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
@@ -2097,7 +2110,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
   const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
   const maxSt = Math.max(...bySt.map(x=>x.count), 1);
-  const totalDuration = allM.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0);
+  const totalDuration = allM.reduce((s,m)=>s+(m.duration||0),0);
   const catStats = CATEGORIES.map(c => {
     const ms=allM.filter(m=>getMCats(m).includes(c.id));
     return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
@@ -2436,13 +2449,13 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       </div>}
 
       {/* E4: Detalle por semana */}
-      <WeekDetailList allW={allW} series={series} pctColor={pctColor} clr={clr} onGoToWeek={onGoToWeek} />
+      <WeekDetailList allW={allW} onGoToWeek={onGoToWeek} />
 
     </div>
   );
 }
 
-function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
+function WeekDetailList({ allW, onGoToWeek }) {
   const [open, setOpen] = useState(false);
   const rows = [...allW].reverse().map((w,ri) => {
     const ms = w.missions||[];
@@ -2498,7 +2511,7 @@ function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[], settings }) {
+function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[], settings }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -2532,13 +2545,18 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
   const cellH=Math.max(48,cellPx);
 
   const applyFilters=ms=>ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
+  // Precompute each mission's spanning dates once – avoids N×getMissionDates per cell
   const byDate={};
+  const datesFor=new Map(); // missionId → dates[]
   applyFilters(allDatedMissions).forEach(m=>{
-    getMissionDates(m).forEach(ds=>{
+    const d=getMissionDates(m);
+    datesFor.set(m.id,d);
+    d.forEach(ds=>{
       if(!byDate[ds])byDate[ds]=[];
       byDate[ds].push(m);
     });
   });
+  const spanOf=m=>datesFor.get(m.id)||[m.date];
 
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
@@ -2650,8 +2668,8 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
               if(!day)return<div key={`e${i}`}/>;
               const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
               const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay,isDO=dragOver===ds;
-              const multiMs=ms.filter(m=>getMissionDates(m).length>1);
-              const singleMs=ms.filter(m=>getMissionDates(m).length<=1);
+              const multiMs=ms.filter(m=>spanOf(m).length>1);
+              const singleMs=ms.filter(m=>spanOf(m).length<=1);
               return<div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
                 onDragEnter={e=>{e.preventDefault();setDragOver(ds);}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={e=>onDropDay(e,ds)}
                 style={{borderRadius:6,minHeight:cellH,overflow:"hidden",cursor:"pointer",
@@ -2659,7 +2677,7 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
                   border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s"}}>
                 {/* Multi-day event bars */}
                 {multiMs.map(m=>{
-                  const mDates=getMissionDates(m);
+                  const mDates=spanOf(m);
                   const isFirst=mDates[0]===ds,isLast=mDates[mDates.length-1]===ds;
                   const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
                   return<div key={`bar-${m.id}`} title={m.title} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)}
@@ -2698,7 +2716,7 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {selMs.map(m=>{
               const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
-              const isMultiDay=getMissionDates(m).length>1;
+              const isMultiDay=spanOf(m).length>1;
               return<div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(167,139,250,0.08)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
                 <div style={{flex:1,minWidth:0}}>
