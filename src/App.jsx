@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.0.7";
-const LAST_UPDATE = "2026-04-15";
+const APP_VERSION = "2.0.8";
+const LAST_UPDATE = "2026-04-17";
 const CHANGELOG = [
+  { v:"2.0.8", date:"2026-04-17", notes:["Calendario: celdas responsivas (ResizeObserver, máximo espacio)", "Calendario: tareas multi-día ocupan todos los días según fecha+hora+duración","Calendario: compartir día / tarea / semana como imagen PNG (WhatsApp/descarga)","Calendario: editar participante al editar actividad inline","Nuevo usuario: pantalla en blanco (sin datos de ejemplo)","Top bar: emoji de pareja configurable (ajustes de perfil)","Tareas arrastradas: se marcan DONE en semana original con flag 'tarde' (no infla stats)","Stats AI: mínimo 5 misiones para considerar mejor/peor semana","Inicio: emoji de participante + tipo (tarea/evento) en cada fila de misiones","Filtros: secciones Participantes/Categorías diferenciadas + ordenar semana","Zoom móvil bloqueado (no queda pegado al hacer zoom in/out)","PWA: siempre carga versión más reciente (skipWaiting + networkFirst)"] },
   { v:"2.0.7", date:"2026-04-15", notes:["Emoji de pareja elegible desde Mi Perfil (24 opciones)", "Fix: menú lateral usa emoji elegido en vez de 💞 fijo","Fix: dropdown de tema en ProfileModal deja de cortarse (inline)","Fix: select de meta sin contraste blanco-sobre-blanco en Mac","Cursor: sin selección de texto accidental en escritorio","Stats: barras de semanas capeadas a 12 máximo","Nueva pestaña Pendientes en menú (todas las tareas no-DONE)","Inicio: layout 2 columnas en pantallas anchas (pendientes | eventos)","Compartir semana: imagen generada con Canvas + navigator.share/descarga"] },
   { v:"2.0.6", date:"2026-04-15", notes:["Fix: mensajes de sync (✓ al día / ⬆ subido / ⬇ actualizado / ⚠ error) ahora son toasts flotantes visibles siempre","Fix: error de Supabase también aparece como toast si no hay syncMsg activo","5 temas nuevos: Aurora Boreal (neon verde+magenta), Neón Tokyo (cyan+fucsia), Vino & Oro (burdeos+dorado), Mañana Clara (tema claro crema/blanco), Café Oscuro (chocolate+ámbar)","Sistema de colores de texto por tema (--t-text/muted/dim) — Mañana Clara tiene texto oscuro legible","Selector de tema cambiado de grid de tarjetas a dropdown desplegable con 10 temas listados","S.input, S.label, S.btnSecondary usan CSS vars de texto para adaptarse al tema claro"] },
   { v:"2.0.5", date:"2026-04-15", notes:["Menú lateral: pie siempre visible en móvil (solo versión + changelog, sin scroll)","Sincronización movida a ⚙️ dropdown (junto a Exportar/Importar/Cerrar sesión)","Sync muestra 'Sincronizando…' mientras está activo"] },
@@ -21,7 +22,7 @@ const CHANGELOG = [
   { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 y P2","Versión dorada con fecha y changelog","Editar estado desde P2","Tareas recurrentes (semanal/mensual)","Goals con countdown deadline","Stats rediseñado"] },
   { v:"1.6.0", date:"2026-03-25", notes:["Fix stats semanas futuras","Calendario navega a semana correcta","Distinción Tarea vs Evento","Distribuir eventos","Historial sin semanas futuras","Emojis con fondo en calendario"] },
 ];
-const SEED_VERSION = 5;
+const SEED_VERSION = 6;
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 const STATUS = {
   TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
@@ -227,109 +228,8 @@ const SEED = {
   seedVersion: SEED_VERSION,
   currentWeekNumber: _seedWeek, currentYear: _seedYear,
   settings: DEFAULT_SETTINGS,
-  goals: [
-    { id:"sg1", emoji:"🍽️", title:"Cenar juntos fuera de casa", who:"together", period:"monthly", target:2, active:true, createdAt:1739059200000 },
-    { id:"sg2", emoji:"🏃", title:"Hacer deporte juntos", who:"together", period:"weekly", target:2, active:true, createdAt:1739059200000 },
-    { id:"sg3", emoji:"🧘", title:"Día de relax sin estrés", who:"together", period:"monthly", target:1, active:true, createdAt:1739059200000 },
-  ],
-  weeks: {
-    "2026-W07": {
-      weekNumber:7, year:2026, epicObjective:"A tope con healty style!", createdAt:1739059200000,
-      workHours:{person1:0,person2:0},
-      missions:[
-        mk("w07a","🎾","Padel mixto torneo!","DONE",1739059200000),
-        mk("w07b","💸","Terminar de meter en Split lo de Chile","ASAP"),
-        mk("w07c","👄","Comprar perfume banana","TBC"),
-        mk("w07d","🎳","Bowling miércoles!","TBC"),
-        mk("w07e","🧩","Avanzar en el puzzle","DONE",1739059200000),
-        mk("w07f","🌶️","Cocinar algo rico y healthy","DONE",1739059200000),
-        mk("w07g","🧖","Día de relax y Spa","TBC"),
-        mk("w07h","🚢","Revisar ofertas crucero Grecia!","TBC"),
-        mk("w07i","🦷","Citas Dentista","DONE",1739059200000),
-        mk("w07j","🏥","Conseguir cita pruebas médicas carnet","TBC"),
-      ],
-    },
-    "2026-W09": {
-      weekNumber:9, year:2026, epicObjective:"¡RECONECTAR!", createdAt:1740268800000,
-      workHours:{person1:0,person2:0},
-      missions:[
-        mk("w09a","🎾","Montar partidito próxima semana","TBC"),
-        mk("w09b","👔","Organizar ropa pololo","DONE",1740268800000),
-        mk("w09c","🛒","Super Gringo: materiales manualidades + mesita sofá","DONE",1740268800000),
-        mk("w09d","🤲","Hacer manualidades","DONE",1740268800000),
-        mk("w09e","💸","Terminar de meter en Split lo de Chile","ASAP"),
-        mk("w09f","👄","Comprar perfume banana","TBC"),
-        mk("w09g","🧩","Avanzar en el puzzle","TBC"),
-        mk("w09h","👩‍🍳","Cocinar algo rico y healthy","TBC"),
-        mk("w09i","🧖","Ir al SPA","TBC"),
-        mk("w09j","🚢","Revisar ofertas crucero Grecia!","TBC"),
-        mk("w09k","🦷","Citas Dentista","DONE",1740268800000),
-        mk("w09l","🏥","Conseguir cita pruebas médicas carnet","TBC"),
-      ],
-    },
-    "2026-W10": {
-      weekNumber:10, year:2026, epicObjective:"SER FELICES Y ESTAR RELAJAOS!", createdAt:1740873600000,
-      workHours:{person1:0,person2:0},
-      missions:[
-        mk("w10a","💸","Terminar de meter en Split lo de Chile","DONE",1740873600000),
-        mk("w10b","👄","Comprar perfume banana","TBC"),
-        mk("w10c","🛒","Comprar todo para la oncesita!!","DONE",1740873600000),
-        mk("w10d","🎾","Comprar patines y bambas correr banana!","TBC"),
-        mk("w10e","🧩","Avanzar en el puzzle","TBC"),
-        mk("w10f","🕺","Pololo perrear hasta el suelo con sus friends","DONE",1740873600000),
-        mk("w10g","🧖","Pedir cita para el SPA o ir si se puede","TBC"),
-        mk("w10h","🚢","Montar de una vez ya el viaje a Grecia!","TBC"),
-        mk("w10i","🤲","Cuidar nuestro cortisol sin ponernos demasiadas tareas","TBC"),
-      ],
-    },
-    "2026-W11": {
-      weekNumber:11, year:2026, epicObjective:"??????", createdAt:1741478400000,
-      workHours:{person1:0,person2:0},
-      missions:[
-        mk("w11a","👄","Comprar perfume banana","TBC"),
-        mk("w11b","🛒","Hacer compra carrito Amazon","TBC"),
-        mk("w11c","🎾","Comprar patines y bambas - Ver zapas pádel pololo","TBC"),
-        mk("w11d","🧩","Avanzar en el puzzle","TBC"),
-        mk("w11e","🏆","Torneo pololo el finde","TBC"),
-        mk("w11f","🧖","Pedir cita SPA o ir si se puede + Skincare plz","TBC"),
-        mk("w11g","🚢","Montar de una vez ya el viaje a Grecia!","TBC"),
-        mk("w11h","🤲","Cuidar nuestro cortisol sin ponernos demasiadas tareas","TBC"),
-      ],
-    },
-    "2026-W12": {
-      weekNumber:12, year:2026, epicObjective:"", createdAt:1742083200000,
-      workHours:{person1:0,person2:0},
-      missions:[
-        mk("w12a","🛒","Hacer compra carrito Amazon","TBC"),
-        mk("w12b","🛼","Comprar patines y bambas - Ver zapas pádel pololo","TBC"),
-        mk("w12c","🧩","Avanzar en el puzle","TBC"),
-        mk("w12d","🧖","Pedir cita SPA o ir si se puede + Skincare plz","TBC"),
-        mk("w12e","🚢","Montar de una vez ya el viaje a Grecia!","TBC"),
-        {...mk("w12f","🩺","Revisión médica para el carnet de conducir","ASAP"), who:"person1"},
-        mk("w12g","🖼️","Imprimir fotos para enchular la pieza","TBC"),
-        mk("w12h","🎳","Lunes de liga!!","TBC"),
-        mk("w12i","👁️","Comprar lentillas","TBC"),
-        mk("w12j","🤖","Montar Claude asistente financiero para banana","TBC"),
-      ],
-    },
-    "2026-W13": {
-      weekNumber:13, year:2026, epicObjective:"", createdAt:1742688000000,
-      workHours:{person1:0,person2:0},
-      missions:[
-        mk("w13a","🛒","Hacer compra carrito Amazon","TBC"),
-        mk("w13b","🛼","Comprar patines y bambas - Ver zapas pádel pololo","TBC"),
-        mk("w13c","🧩","Avanzar en el puzle","TBC"),
-        mk("w13d","🧖","Pedir cita SPA o ir si se puede + Skincare plz","TBC"),
-        mk("w13e","🚢","Montar de una vez ya el viaje a Grecia!","TBC"),
-        {...mk("w13f","🩺","Revisión médica para el carnet de conducir","ASAP"), who:"person1"},
-        mk("w13g","🖼️","Imprimir fotos para enchular la pieza","TBC"),
-        mk("w13h","🎳","Lunes de liga!!","TBC"),
-        {...mk("w13i","👁️","Comprar lentillas","DONE",1742688000001), who:"person2"},
-        {...mk("w13j","🤖","Montar Claude asistente financiero para banana","TBC"), who:"person1"},
-        mk("w13k","🙊","Banana prepararse para la boda","TBC"),
-      ],
-    },
-  },
+  goals: [],
+  weeks: {},
 };
 
 // ─── Goal helpers ─────────────────────────────────────────────────────────────
@@ -468,7 +368,7 @@ function syncCarryDone(data, weekKey, missionId) {
   const mission = week.missions.find(m=>m.id===missionId);
   if (!mission?.carriedFrom || !mission?.carriedFromWeek) return data;
   const origWeek = data.weeks[mission.carriedFromWeek]; if (!origWeek) return data;
-  return { ...data, weeks: { ...data.weeks, [mission.carriedFromWeek]: { ...origWeek, missions: origWeek.missions.map(m => m.id===mission.carriedFrom ? {...m, status:"DONE", completedAt:Date.now()} : m) } } };
+  return { ...data, weeks: { ...data.weeks, [mission.carriedFromWeek]: { ...origWeek, missions: origWeek.missions.map(m => m.id===mission.carriedFrom ? {...m, status:"DONE", completedAt:Date.now(), completedLate:true} : m) } } };
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -724,6 +624,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [histWeekRange, setHistWeekRange] = useState("all");
   const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
+  const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
   const [showChangelog, setShowChangelog] = useState(false);
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
@@ -1226,7 +1127,7 @@ ${ms.map(m=>{
         {/* Page title */}
         <div style={{ flex:1, textAlign:"center" }}>
           <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
-            {activeTab==="home"     ? `💞 ${p1} & ${p2}`
+            {activeTab==="home"     ? `${data.settings?.coupleEmoji||"💞"} ${p1} & ${p2}`
             :activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
             :activeTab==="calendar" ? "📅 Calendario"
             :activeTab==="history"  ? "🗂️ Histórico"
@@ -1270,13 +1171,15 @@ ${ms.map(m=>{
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px 120px" }}>
 
         {/* Global filters — show only for tabs that need them */}
-        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && <div style={{ marginBottom:12 }}>
-          <div style={{ display:"flex", gap:4, marginBottom:6, flexWrap:"wrap" }}>
+        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600, flexShrink:0 }}>👥</span>
             {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
               <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
             ))}
           </div>
-          <div style={{ display:"flex", gap:3, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600, flexShrink:0 }}>🏷️</span>
             <button onClick={()=>setGlobalCatFilter([])} style={{ background:!globalCatFilter.length?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${!globalCatFilter.length?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:!globalCatFilter.length?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:!globalCatFilter.length?600:400 }}>Todas</button>
             {CATEGORIES.map(c=>{const on=globalCatFilter.includes(c.id);return<button key={c.id} onClick={()=>setGlobalCatFilter(p=>on?p.filter(x=>x!==c.id):[...p,c.id])} style={{ background:on?`${c.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${on?c.color+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:on?c.color:"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:on?600:400 }}>{c.icon} {c.label}</button>;})}
           </div>
@@ -1330,13 +1233,18 @@ ${ms.map(m=>{
                         </div>
                         {pending.length===0
                           ? <div style={{ fontSize:13, color:"#34d399", textAlign:"center", padding:"8px 0" }}>🎉 ¡Semana completada!</div>
-                          : pending.map(m=>(
-                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#8b7fa8", marginBottom:7 }}>
-                              <span style={{ fontSize:15 }}>{m.emoji}</span>
+                          : pending.map(m=>{
+                            const whoClr=m.who==="person1"?colors.person1:m.who==="person2"?colors.person2:colors.together;
+                            const whoLbl=m.who==="person1"?"👤":m.who==="person2"?"👤":"👫";
+                            return (
+                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:7, fontSize:12, color:"#8b7fa8", marginBottom:7 }}>
+                              <span style={{ fontSize:14 }}>{m.emoji}</span>
                               <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
+                              <span style={{ fontSize:10, color:whoClr, flexShrink:0 }}>{m.who==="together"?"👫":"👤"}</span>
+                              <span style={{ fontSize:10, flexShrink:0 }}>{m.type==="event"?"📅":"✅"}</span>
                               <span style={{ fontSize:10, color:STATUS[m.status]?.color, background:STATUS[m.status]?.bg, border:`1px solid ${STATUS[m.status]?.border}`, borderRadius:99, padding:"1px 6px", flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
                             </div>
-                          ))
+                          );})
                         }
                         <div style={{ fontSize:11, color:"#4a4166", textAlign:"right", marginTop:4 }}>Ver semana →</div>
                       </div>
@@ -1462,15 +1370,32 @@ ${ms.map(m=>{
             </>}
           </div>
           {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />}
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {week.missions?.filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))).map(m=>(
-              <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
+          {/* Sort bar */}
+          <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8, flexWrap:"wrap" }}>
+            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
+            {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
             ))}
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {(()=>{
+              const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
+              const sorted=[...filtered].sort((a,b)=>{
+                if(weekSort==="chrono"){const da=a.date?a.date+"T"+(a.time||"00:00"):"9999";const db=b.date?b.date+"T"+(b.time||"00:00"):"9999";return da.localeCompare(db);}
+                if(weekSort==="type"){const ta=a.type==="event"?0:1;const tb=b.type==="event"?0:1;return ta-tb;}
+                if(weekSort==="who"){const wo=["person1","person2","together"];return wo.indexOf(a.who||"together")-wo.indexOf(b.who||"together");}
+                if(weekSort==="status"){return STATUS_ORDER.indexOf(a.status)-STATUS_ORDER.indexOf(b.status);}
+                return 0;
+              });
+              return sorted.map(m=>(
+                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
+              ));
+            })()}
           </div>
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
+          allDatedMissions={allDated} week={week} wkey={wkey} p1={p1} p2={p2} weeks={data.weeks} colors={colors} settings={data.settings} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
           onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
@@ -2051,7 +1976,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     return { ...w, missions:ms, _yr };
   });
   const allM = allW.flatMap(w=>w.missions||[]);
-  const total=allM.length, done=allM.filter(m=>m.status==="DONE").length;
+  const total=allM.length, done=allM.filter(m=>m.status==="DONE"&&!m.completedLate).length;
   const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
   let bestStreak=0, currStreak=0, currStreakNow=0;
@@ -2072,7 +1997,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const ph = key => { const ms=rawAllM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
+  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
   const maxH=Math.max(...series.map(s=>s.durH),1);
 
   // ── Etapa 2: computed display vars ──────────────────────────────────────────
@@ -2092,12 +2017,12 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     else if (avgL<avgP-12) insights.push({icon:"📉",title:"Bajada de ritmo detectada",desc:`De ${Math.round(avgP)}% bajasteis a ${Math.round(avgL)}%. Esta semana es la oportunidad de remontar.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
     else insights.push({icon:"➡️",title:`Consistencia sólida al ${Math.round(avgL)}%`,desc:`Lleváis 3 semanas sin grandes altibajos. Consistencia = progreso real 💪`});
   }
-  // 2. Best and worst week
-  const weekScores=allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d=w.missions?.filter(m=>m.status==="DONE").length||0,t=w.missions?.length||0;return{p:t>0?d/t:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t,d};}).filter(w=>w.p!==null&&w.t>=3);
+  // 2. Best and worst week — mínimo 5 misiones para ser representativa
+  const weekScores=allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0;return{p:t>0?d/t:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t,d};}).filter(w=>w.p!==null&&w.t>=5);
   if (weekScores.length>=2){
     const bW=weekScores.reduce((a,b)=>b.p>a.p?b:a);
     const wW=weekScores.reduce((a,b)=>b.p<a.p?b:a);
-    insights.push({icon:"🏆",title:`Mejor semana: S${bW.wn}${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d}/${bW.t} completadas (${Math.round(bW.p*100)}%). ¡Vuestra semana récord!`,weekNumber:bW.wn,year:bW.yr});
+    if (Math.round(bW.p*100)>=60) insights.push({icon:"🏆",title:`Mejor semana: S${bW.wn}${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d}/${bW.t} completadas (${Math.round(bW.p*100)}%). ¡Vuestra semana récord!`,weekNumber:bW.wn,year:bW.yr});
     if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana floja: S${wW.wn} (${Math.round(wW.p*100)}%)`,desc:`Solo ${wW.d}/${wW.t} completadas. Explorad qué pasó para no repetirlo.`,weekNumber:wW.wn,year:wW.yr});
   }
   // 3. Category star + weak spot
@@ -2107,12 +2032,13 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: vuestra categoría estrella`,desc:`${Math.round((best.done/best.count)*100)}% de completitud en ${best.count} misiones. Punto fuerte del equipo.`});
     if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría con margen de mejora`,desc:`Solo ${Math.round((weak.done/weak.count)*100)}% completadas. Puede valer la pena revisar si las misiones son demasiado ambiciosas.`});
   }
-  // 4. Balance P1 vs P2
+  // 4. Balance P1 vs P2 — mínimo 6 misiones individuales para ser significativo
   const p1c=ph("person1").count,p2c=ph("person2").count;
-  if (p1c+p2c>0){
+  if (p1c+p2c>=6){
     const diff=Math.abs(p1c-p2c);
-    if (diff>3) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} lleva ${diff} misiones más`,desc:`${p1}: ${p1c} propias · ${p2}: ${p2c} propias. ¿Está el peso bien repartido?`});
-    else insights.push({icon:"🤝",title:"Reparto equilibrado del trabajo",desc:`${p1}: ${p1c} · ${p2}: ${p2c}. Diferencia mínima — gran trabajo en equipo.`});
+    const diffPct=Math.round((diff/(p1c+p2c))*100);
+    if (diffPct>=25) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} lleva ${diff} misiones más`,desc:`${p1}: ${p1c} propias · ${p2}: ${p2c} propias. ¿Está el peso bien repartido?`});
+    else insights.push({icon:"🤝",title:"Reparto equilibrado del trabajo",desc:`${p1}: ${p1c} · ${p2}: ${p2c}. Diferencia del ${diffPct}% — gran trabajo en equipo.`});
   }
   // 5. Work-life balance: ratio trabajo vs resto
   if (catStats.length>0){
@@ -2391,13 +2317,16 @@ function WeekDetailList({ allW, series, pctColor, clr, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[] }) {
+function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onAddForDay, onDownloadICS, onDownloadPDF, onGoToWeek, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[], settings }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
   const [selectedDay,setSelectedDay]=useState(null);
-  const [editingMission,setEditingMission]=useState(null); // { mission, wn, yr }
-  const [dragOver,setDragOver]=useState(null); // date string or "undated"
+  const [editingMission,setEditingMission]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const [cellPx,setCellPx]=useState(44);
+  const [sharing,setSharing]=useState(false);
+  const calRef=useRef(null);
   const MONTHS=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DAYS=["L","M","X","J","V","S","D"];
   const prevM=()=>{if(calMonth===0){setCalMonth(11);setCalYear(y=>y-1);}else setCalMonth(m=>m-1);setSelectedDay(null);};
@@ -2406,130 +2335,261 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   const clrC=colors||DEFAULT_COLORS;
 
-  const applyFilters = ms => ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
+  useEffect(()=>{
+    if(!calRef.current)return;
+    const ro=new ResizeObserver(([e])=>{
+      const w=e.contentRect.width;
+      setCellPx(Math.max(32,Math.floor((w-18)/7)));
+    });
+    ro.observe(calRef.current);
+    return()=>ro.disconnect();
+  },[]);
+
+  const numSz=cellPx<40?8:10;
+  const emojiSz=cellPx<40?9:11;
+  const maxPerCell=cellPx<40?2:3;
+  const cellH=Math.max(48,cellPx);
+
+  const getMissionDates=(m)=>{
+    if(!m.date)return[];
+    if(!m.time||!m.duration||m.duration<=0)return[m.date];
+    const startMs=new Date(m.date+"T"+m.time).getTime();
+    const endMs=startMs+m.duration*60000;
+    const dates=[];
+    const cur=new Date(m.date);
+    while(cur.getTime()<endMs){
+      const ds=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`;
+      if(!dates.includes(ds))dates.push(ds);
+      cur.setDate(cur.getDate()+1);
+    }
+    return dates;
+  };
+
+  const applyFilters=ms=>ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   const byDate={};
-  applyFilters(allDatedMissions).forEach(m=>{if(!m.date)return;if(!byDate[m.date])byDate[m.date]=[];byDate[m.date].push(m);});
+  applyFilters(allDatedMissions).forEach(m=>{
+    getMissionDates(m).forEach(ds=>{
+      if(!byDate[ds])byDate[ds]=[];
+      byDate[ds].push(m);
+    });
+  });
 
   const cells=[...Array(firstDow).fill(null),...Array.from({length:daysInM},(_,i)=>i+1)];
   const selStr=selectedDay?`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`:null;
   const selMs=selStr?(byDate[selStr]||[]):[];
 
-  // DnD handlers (drag between calendar days)
-  const onDragStart = (e, m) => { e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", JSON.stringify({id:m.id,wn:m.weekNumber,yr:m._yr})); };
-  const onDropDay = (e, dateStr) => {
-    e.preventDefault(); setDragOver(null);
-    try { const {id,wn,yr}=JSON.parse(e.dataTransfer.getData("text/plain")); onPatchMission&&onPatchMission(wn,yr,id,{date:dateStr}); } catch(err){console.warn("drop err",err);}
+  const onDragStart=(e,m)=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",JSON.stringify({id:m.id,wn:m.weekNumber,yr:m._yr}));};
+  const onDropDay=(e,dateStr)=>{
+    e.preventDefault();setDragOver(null);
+    try{const{id,wn,yr}=JSON.parse(e.dataTransfer.getData("text/plain"));onPatchMission&&onPatchMission(wn,yr,id,{date:dateStr});}catch(err){console.warn("drop err",err);}
   };
 
-  const openEdit = m => setEditingMission({mission:m,wn:m.weekNumber,yr:m._yr});
-  const closeEdit = () => setEditingMission(null);
-  const patchEditing = patch => {
-    if (!editingMission) return;
+  const openEdit=m=>setEditingMission({mission:m,wn:m.weekNumber,yr:m._yr});
+  const closeEdit=()=>setEditingMission(null);
+  const patchEditing=patch=>{
+    if(!editingMission)return;
     onPatchMission&&onPatchMission(editingMission.wn,editingMission.yr,editingMission.mission.id,patch);
     setEditingMission(p=>({...p,mission:{...p.mission,...patch}}));
   };
 
+  const dlBlob=(blob,name)=>{
+    const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
+  };
+
+  const doShare=async(type,payload)=>{
+    setSharing(true);
+    try{
+      const W=600,PAD=24;
+      const coupleEmoji=settings?.coupleEmoji||"💞";
+      const coupleLabel=`${p1} & ${p2}`;
+      let rows=[];
+      if(type==="week"){
+        const ms=applyFilters(allDatedMissions).slice(0,20);
+        rows=[{t:"h",text:`${coupleEmoji} ${coupleLabel}`},{t:"s",text:`${MONTHS[calMonth]} ${calYear}`},{t:"div"},...ms.map(m=>({t:"m",m}))];
+      }else if(type==="day"){
+        rows=[{t:"h",text:`${coupleEmoji} ${coupleLabel}`},{t:"s",text:`${payload.day} de ${MONTHS[calMonth]}`},{t:"div"},...payload.ms.map(m=>({t:"m",m}))];
+      }else if(type==="task"){
+        rows=[{t:"h",text:`${coupleEmoji} ${coupleLabel}`},{t:"div"},{t:"tk",m:payload.m}];
+      }
+      let H=PAD*2+52;
+      rows.forEach(r=>{if(r.t==="s")H+=22;else if(r.t==="div")H+=20;else if(r.t==="m")H+=30;else if(r.t==="tk")H+=66;});
+      H=Math.max(H,100);
+      const cvs=document.createElement("canvas");cvs.width=W;cvs.height=H;
+      const ctx=cvs.getContext("2d");
+      ctx.fillStyle="#0a0714";ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="rgba(167,139,250,0.06)";ctx.fillRect(12,12,W-24,H-24);
+      ctx.strokeStyle="rgba(167,139,250,0.22)";ctx.lineWidth=1;ctx.strokeRect(12,12,W-24,H-24);
+      let y=PAD;
+      rows.forEach(r=>{
+        if(r.t==="h"){
+          ctx.font="bold 22px system-ui,sans-serif";ctx.fillStyle="#c4b8ff";ctx.textAlign="center";
+          ctx.fillText(r.text,W/2,y+28);y+=52;
+        }else if(r.t==="s"){
+          ctx.font="13px system-ui,sans-serif";ctx.fillStyle="#7c6fa0";ctx.textAlign="center";
+          ctx.fillText(r.text,W/2,y+14);y+=22;
+        }else if(r.t==="div"){
+          ctx.strokeStyle="rgba(167,139,250,0.18)";ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(PAD+16,y+10);ctx.lineTo(W-PAD-16,y+10);ctx.stroke();
+          y+=20;
+        }else if(r.t==="m"){
+          const m=r.m,icon=STATUS[m.status]?.icon||"⏳";
+          const who=m.who==="person1"?p1:m.who==="person2"?p2:"juntos";
+          ctx.font="14px system-ui,sans-serif";ctx.fillStyle=m.status==="DONE"?"#4d4566":"#e2d9ff";ctx.textAlign="left";
+          ctx.fillText(`${m.emoji} ${m.title}`,PAD+16,y+14);
+          ctx.font="11px system-ui,sans-serif";ctx.fillStyle="#7c6fa0";
+          ctx.fillText(`${icon} ${who}${m.date?" · "+m.date:""}`,PAD+16,y+26);
+          y+=30;
+        }else if(r.t==="tk"){
+          const m=r.m,icon=STATUS[m.status]?.icon||"⏳";
+          const who=m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
+          ctx.font="bold 20px system-ui,sans-serif";ctx.fillStyle="#e2d9ff";ctx.textAlign="left";
+          ctx.fillText(`${m.emoji} ${m.title}`,PAD+16,y+26);
+          ctx.font="13px system-ui,sans-serif";ctx.fillStyle="#a78bfa";
+          ctx.fillText(`${icon} ${who}${m.date?" · "+m.date:""}${m.time?" · "+m.time:""}`,PAD+16,y+48);
+          y+=66;
+        }
+      });
+      ctx.font="10px system-ui,sans-serif";ctx.fillStyle="rgba(100,80,140,0.45)";ctx.textAlign="center";
+      ctx.fillText("Misiones de Pareja",W/2,H-14);
+      cvs.toBlob(async blob=>{
+        const fname=`misiones-${type}-${Date.now()}.png`;
+        if(navigator.share&&navigator.canShare){
+          const file=new File([blob],fname,{type:"image/png"});
+          if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:coupleLabel});setSharing(false);return;}
+        }
+        dlBlob(blob,fname);setSharing(false);
+      },"image/png");
+    }catch(e){console.warn("share err",e);setSharing(false);}
+  };
+
   return (
     <div>
-      {/* Download buttons */}
-      <div style={{ display:"flex", gap:6, marginBottom:14 }}>
-        <button onClick={onDownloadICS} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Google Calendar (.ics)</button>
-        <button onClick={onDownloadPDF} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF semana</button>
+      {/* Action buttons */}
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        <button onClick={onDownloadICS} style={{...S.btnSecondary,flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"9px 10px",borderColor:"rgba(52,211,153,0.3)",color:"#34d399",fontSize:12}}>📅 Google Calendar (.ics)</button>
+        <button onClick={onDownloadPDF} style={{...S.btnSecondary,flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"9px 10px",borderColor:"rgba(167,139,250,0.3)",color:"#a78bfa",fontSize:12}}>🖨️ PDF semana</button>
+        <button onClick={()=>doShare("week",{})} disabled={sharing} style={{...S.btnSecondary,display:"flex",alignItems:"center",gap:5,padding:"9px 10px",borderColor:"rgba(244,114,182,0.3)",color:"#f472b6",fontSize:12}}>{sharing?"⏳":"📤"} Compartir</button>
       </div>
 
-      {/* Calendar */}
-      <div>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:16 }}>
+      {/* 2-col layout: calendar + day detail */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16,alignItems:"start"}}>
+        {/* Calendar column */}
+        <div ref={calRef}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:16}}>
             <button onClick={prevM} style={S.btnNav}>‹</button>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, minWidth:160, textAlign:"center" }}>{MONTHS[calMonth]} {calYear}</div>
+            <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:600,minWidth:160,textAlign:"center"}}>{MONTHS[calMonth]} {calYear}</div>
             <button onClick={nextM} style={S.btnNav}>›</button>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3, marginBottom:3 }}>
-            {DAYS.map(d=><div key={d} style={{ textAlign:"center", fontSize:10, color:"#4a4166", fontWeight:600, padding:"3px 0" }}>{d}</div>)}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:3}}>
+            {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:numSz,color:"#4a4166",fontWeight:600,padding:"3px 0"}}>{d}</div>)}
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:3 }}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
             {cells.map((day,i)=>{
-              if(!day)return <div key={`e${i}`}/>;
+              if(!day)return<div key={`e${i}`}/>;
               const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
               const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay,isDO=dragOver===ds;
-              return <div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
+              const hasMultiDay=ms.some(m=>getMissionDates(m).length>1);
+              return<div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
                 onDragEnter={e=>{e.preventDefault();setDragOver(ds);}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={e=>onDropDay(e,ds)}
-                style={{ borderRadius:8, minHeight:50, padding:"4px 3px", cursor:"pointer",
+                style={{borderRadius:8,minHeight:cellH,padding:"4px 3px",cursor:"pointer",
                   background:isDO?"rgba(167,139,250,0.3)":isSel?"rgba(167,139,250,0.22)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.06)":"rgba(255,255,255,0.02)",
-                  border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s" }}>
-                <div style={{ fontSize:10, fontWeight:600, marginBottom:2, textAlign:"center", color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166" }}>{day}</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:2, justifyContent:"center" }}>
-                  {ms.slice(0,3).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={m.id} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{ fontSize:11, lineHeight:1, background:`${bg}30`, border:`1px solid ${bg}55`, borderRadius:3, padding:"1px 2px", opacity:m.status==="DONE"?0.4:1, cursor:"grab" }}>{m.emoji}</span>;})}
-                  {ms.length>3&&<span style={{ fontSize:8, color:"#4a4166" }}>+{ms.length-3}</span>}
+                  border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s"}}>
+                <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166"}}>{day}</div>
+                {hasMultiDay&&<div style={{textAlign:"center",fontSize:8,color:"#a78bfa",lineHeight:1,marginBottom:1}}>↔</div>}
+                <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center"}}>
+                  {ms.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={m.id+ds} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
+                  {ms.length>maxPerCell&&<span style={{fontSize:8,color:"#4a4166"}}>+{ms.length-maxPerCell}</span>}
                 </div>
               </div>;
             })}
           </div>
+        </div>
 
-        {/* Day detail panel */}
-        {selectedDay&&<div style={{ ...S.card, marginTop:12, borderColor:"rgba(167,139,250,0.3)" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-            <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>{selectedDay} de {MONTHS[calMonth]}</div>
-            {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize:11, padding:"5px 10px" }}>+ Añadir</button>}
-          </div>
-          {selMs.length===0?<div style={{ color:"#3d3360", fontStyle:"italic", fontSize:13 }}>Sin misiones para este día</div>:
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {/* Day detail column */}
+        <div>
+          {selectedDay?<div style={{...S.card,borderColor:"rgba(167,139,250,0.3)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#a78bfa",fontWeight:600}}>{selectedDay} de {MONTHS[calMonth]}</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>doShare("day",{day:selectedDay,ms:selMs})} disabled={sharing||!selMs.length} style={{...S.btnSecondary,fontSize:11,padding:"4px 8px",color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>📤</button>
+                {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{...S.btnPrimary,fontSize:11,padding:"5px 10px"}}>+ Añadir</button>}
+              </div>
+            </div>
+            {selMs.length===0?<div style={{color:"#3d3360",fontStyle:"italic",fontSize:13}}>Sin misiones para este día</div>:
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {selMs.map(m=>{
                   const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
-                  return <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid rgba(167,139,250,0.08)" }}>
-                    <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji}</span>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-                      <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:2 }}>
-                        {m.time&&<span style={{ fontSize:10, color:"#a78bfa" }}>🕐 {m.time}</span>}
-                        {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon}</span>:null;})}
-                        <span style={{ fontSize:10, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                  const isMultiDay=getMissionDates(m).length>1;
+                  return<div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(167,139,250,0.08)"}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,color:m.status==="DONE"?"#4d4566":"#e2d9ff",textDecoration:m.status==="DONE"?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {m.title}{isMultiDay&&<span style={{fontSize:10,marginLeft:4,color:"#a78bfa"}}>↔</span>}
+                      </div>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>
+                        {m.time&&<span style={{fontSize:10,color:"#a78bfa"}}>🕐 {m.time}</span>}
+                        {m.duration>0&&<span style={{fontSize:10,color:"#7c6fa0"}}>{m.duration>=60?`${Math.floor(m.duration/60)}h${m.duration%60?m.duration%60+"m":""}`:m.duration+"m"}</span>}
+                        {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
+                        <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                       </div>
                     </div>
-                    <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                    <div style={{display:"flex",gap:4,flexShrink:0}}>
+                      <button onClick={()=>doShare("task",{m})} disabled={sharing} style={{background:"rgba(244,114,182,0.1)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:7,color:"#f472b6",fontSize:11,padding:"4px 6px",cursor:"pointer",fontFamily:"inherit"}}>📤</button>
                       <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
-                      <button onClick={()=>openEdit(m)} style={{ background:"rgba(167,139,250,0.12)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:7, color:"#a78bfa", fontSize:11, padding:"4px 8px", cursor:"pointer", fontFamily:"inherit" }}>✏️</button>
+                      <button onClick={()=>openEdit(m)} style={{background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:7,color:"#a78bfa",fontSize:11,padding:"4px 8px",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
                     </div>
                   </div>;
                 })}
               </div>
-          }
-        </div>}
+            }
+          </div>:<div style={{...S.card,borderColor:"rgba(167,139,250,0.1)",color:"#3d3360",fontStyle:"italic",fontSize:13,textAlign:"center",padding:"32px 16px"}}>
+            Toca un día para ver sus misiones
+          </div>}
+        </div>
       </div>
 
       {/* Inline edit modal */}
-      {editingMission&&<div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={closeEdit}>
-        <div style={{ background:"#1d1733", border:"1px solid rgba(167,139,250,0.35)", borderRadius:16, padding:20, width:"100%", maxWidth:420, maxHeight:"90vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <span style={{ fontSize:13, fontWeight:600, color:"#c4b8ff" }}>✏️ Editar actividad</span>
-            <button onClick={closeEdit} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:20, cursor:"pointer" }}>×</button>
+      {editingMission&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={closeEdit}>
+        <div style={{background:"#1d1733",border:"1px solid rgba(167,139,250,0.35)",borderRadius:16,padding:20,width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <span style={{fontSize:13,fontWeight:600,color:"#c4b8ff"}}>✏️ Editar actividad</span>
+            <button onClick={closeEdit} style={{background:"none",border:"none",color:"#6b5f88",fontSize:20,cursor:"pointer"}}>×</button>
           </div>
-          <div style={{ marginBottom:10 }}><label style={S.label}>Título</label><input value={editingMission.mission.title} onChange={e=>patchEditing({title:e.target.value})} style={S.input} /></div>
-          <div style={{ marginBottom:10 }}>
+          <div style={{marginBottom:10}}><label style={S.label}>Título</label><input value={editingMission.mission.title} onChange={e=>patchEditing({title:e.target.value})} style={S.input} /></div>
+          <div style={{marginBottom:10}}>
+            <label style={S.label}>Participante</label>
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {[{id:"person1",label:p1},{id:"person2",label:p2},{id:"together",label:"👫 Juntos"}].map(w=>(
+                <button key={w.id} onClick={()=>patchEditing({who:w.id})}
+                  style={{background:editingMission.mission.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)",border:`1px solid ${editingMission.mission.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`,borderRadius:8,color:editingMission.mission.who===w.id?"#c4b8ff":"#6b5f88",padding:"5px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{w.label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
             <label style={S.label}>Categoría (multi)</label>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-              {CATEGORIES.map(c=>{const sel=getMCats(editingMission.mission).includes(c.id);return<button key={c.id} onClick={()=>{const cur=getMCats(editingMission.mission);patchEditing({categories:sel?cur.filter(x=>x!==c.id):[...cur,c.id],category:null});}} style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!getMCats(editingMission.mission).length?1:0.4 }}>{c.icon} {c.label}</button>;})}
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {CATEGORIES.map(c=>{const sel=getMCats(editingMission.mission).includes(c.id);return<button key={c.id} onClick={()=>{const cur=getMCats(editingMission.mission);patchEditing({categories:sel?cur.filter(x=>x!==c.id):[...cur,c.id],category:null});}} style={{...catBadgeStyle(c.id),cursor:"pointer",border:`1px solid ${c.color}${sel?"":"20"}`,opacity:sel||!getMCats(editingMission.mission).length?1:0.4}}>{c.icon} {c.label}</button>;})}
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-            <div><label style={S.label}>📆 Fecha</label><input type="date" value={editingMission.mission.date||""} onChange={e=>patchEditing({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>🕐 Hora</label><input type="time" value={editingMission.mission.time||""} onChange={e=>patchEditing({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+            <div><label style={S.label}>📆 Fecha</label><input type="date" value={editingMission.mission.date||""} onChange={e=>patchEditing({date:e.target.value||null})} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+            <div><label style={S.label}>🕐 Hora</label><input type="time" value={editingMission.mission.time||""} onChange={e=>patchEditing({time:e.target.value||null})} style={{...S.inputSm,colorScheme:"dark"}} /></div>
           </div>
-          <div style={{ marginBottom:10 }}>
+          <div style={{marginBottom:10}}>
             <label style={S.label}>Estado</label>
-            <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-              {STATUS_ORDER.map(s=><button key={s} onClick={()=>patchEditing({status:s,completedAt:s==="DONE"?Date.now():null})} style={{ ...badgeStyle(s), opacity:editingMission.mission.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}
+            <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+              {STATUS_ORDER.map(s=><button key={s} onClick={()=>patchEditing({status:s,completedAt:s==="DONE"?Date.now():null})} style={{...badgeStyle(s),opacity:editingMission.mission.status===s?1:0.35}}>{STATUS[s].icon} {STATUS[s].label}</button>)}
             </div>
           </div>
-          {goals.filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:10 }}>
+          {goals.filter(g=>g.active!==false).length>0&&<div style={{marginBottom:10}}>
             <label style={S.label}>🏅 Meta</label>
-            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
+            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{...S.input,fontSize:13,colorScheme:"dark",background:"rgba(16,10,32,0.95)",color:"var(--t-text,#f8f4ff)"}}>
               <option value="">— Sin meta —</option>
               {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
           </div>}
-          <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:14 }}>
-            <button onClick={()=>{if(window.confirm("¿Eliminar esta actividad?"))onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();}} style={{ ...S.btnSecondary, color:"#f472b6", borderColor:"rgba(244,114,182,0.3)" }}>🗑 Eliminar</button>
+          <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:14}}>
+            <button onClick={()=>{if(window.confirm("¿Eliminar esta actividad?"))onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();}} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
             <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
           </div>
         </div>
