@@ -10,13 +10,17 @@ const supabase = createClient(
 const localKey    = id => `couple-missions-${id}`;
 const localTsKey  = id => `couple-missions-${id}-ts`;
 
-/* ── Auth ────────────────────────────────────────────────────────── */
+/* ── Auth ────────────────────────────────────────────────────────────── */
 
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
       redirectTo: "https://unrivaled-rugelach-43b291.netlify.app",
+      queryParams: {
+        // Force Google account chooser on every sign-in so users can switch accounts
+        prompt: "select_account",
+      },
     },
   });
   if (error) console.error("signInWithGoogle error:", error);
@@ -162,7 +166,7 @@ export function exportData(appData) {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
-  a.download = `couple-missions-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `shared-calendar-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -259,6 +263,38 @@ export function subscribeToUpdates(coupleId, onUpdate) {
     )
     .subscribe();
   return channel; // call supabase.removeChannel(channel) to unsubscribe
+}
+
+/* ── Chat (messages) ─────────────────────────────────────────────── */
+
+export async function loadMessages(coupleId, limit = 60) {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) { console.error("loadMessages error:", error); return []; }
+  return data || [];
+}
+
+export async function sendMessage(coupleId, senderName, content, emoji = "💬") {
+  const { error } = await supabase
+    .from("messages")
+    .insert({ couple_id: coupleId, sender_name: senderName, content, emoji });
+  if (error) throw new Error("Send message failed: " + error.message);
+}
+
+export function subscribeToMessages(coupleId, onMessage) {
+  const channel = supabase
+    .channel(`chat-${coupleId}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages", filter: `couple_id=eq.${coupleId}` },
+      payload => { if (payload.new) onMessage(payload.new); }
+    )
+    .subscribe();
+  return channel;
 }
 
 export default supabase;

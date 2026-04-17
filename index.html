@@ -6,14 +6,15 @@
     <meta name="theme-color" content="#0a0714" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Misiones" />
+    <meta name="apple-mobile-web-app-title" content="Shared Calendar" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    <title>Misiones de Pareja 💞</title>
+    <title>📅 Shared Calendar</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
+      * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
       body { background: #0a0714; color: #f8f4ff; }
       #root { min-height: 100vh; }
-      input, select, textarea { font-size: max(16px, 1em) !important; }
+      /* Prevent zoom on input focus (iOS Safari + Chrome) — 16px minimum */
+      input, select, textarea { font-size: max(16px, 1em) !important; touch-action: manipulation; }
     </style>
   </head>
   <body>
