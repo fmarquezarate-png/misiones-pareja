@@ -2113,14 +2113,14 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const totalDuration = allM.reduce((s,m)=>s+(m.duration||0),0);
   const catStats = CATEGORIES.map(c => {
     const ms=allM.filter(m=>getMCats(m).includes(c.id));
-    return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
+    return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
   }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
   // ph usa misiones sin filtrar por persona para que "participación" muestre siempre la distribución real
   const rawAllM = rangedEntries.flatMap(([,w]) => w.missions||[]);
   const ph = key => { const ms=rawAllM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
   const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
   const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||m.estimatedHours||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
+  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
   const maxH=Math.max(...series.map(s=>s.durH),1);
 
   // ── Etapa 2: computed display vars ──────────────────────────────────────────
