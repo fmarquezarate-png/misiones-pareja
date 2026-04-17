@@ -389,14 +389,20 @@ const dlBlob=(blob,name)=>{
 
 const getMissionDates=(m)=>{
   if(!m.date)return[];
-  if(!m.time||!m.duration||m.duration<=0)return[m.date];
-  const startMs=new Date(m.date+"T"+m.time).getTime();
-  const endMs=startMs+m.duration*60000;
+  let endMs;
+  if(m.endDate&&m.endTime){
+    endMs=new Date(m.endDate+"T"+m.endTime).getTime();
+  }else if(m.duration>0&&m.time){
+    endMs=new Date(m.date+"T"+m.time).getTime()+m.duration*60000;
+  }else{
+    return[m.date];
+  }
+  const startMs=new Date(m.date+"T"+(m.time||"00:00")).getTime();
+  if(endMs<=startMs)return[m.date];
   const dates=[];
   const cur=new Date(m.date);
   while(cur.getTime()<endMs){
-    const ds=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`;
-    if(!dates.includes(ds))dates.push(ds);
+    dates.push(`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,"0")}-${String(cur.getDate()).padStart(2,"0")}`);
     cur.setDate(cur.getDate()+1);
   }
   return dates;
@@ -2634,22 +2640,40 @@ function CalendarView({ allDatedMissions, week, wkey, p1, p2, weeks, colors, onA
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:3}}>
             {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:numSz,color:"#4a4166",fontWeight:600,padding:"3px 0"}}>{d}</div>)}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
             {cells.map((day,i)=>{
               if(!day)return<div key={`e${i}`}/>;
               const ds=`${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
               const ms=byDate[ds]||[],isTd=ds===todayStr,isSel=day===selectedDay,isDO=dragOver===ds;
-              const hasMultiDay=ms.some(m=>getMissionDates(m).length>1);
+              const multiMs=ms.filter(m=>getMissionDates(m).length>1);
+              const singleMs=ms.filter(m=>getMissionDates(m).length<=1);
               return<div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
                 onDragEnter={e=>{e.preventDefault();setDragOver(ds);}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={e=>onDropDay(e,ds)}
-                style={{borderRadius:8,minHeight:cellH,padding:"4px 3px",cursor:"pointer",
+                style={{borderRadius:6,minHeight:cellH,overflow:"hidden",cursor:"pointer",
                   background:isDO?"rgba(167,139,250,0.3)":isSel?"rgba(167,139,250,0.22)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.06)":"rgba(255,255,255,0.02)",
                   border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s"}}>
-                <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166"}}>{day}</div>
-                {hasMultiDay&&<div style={{textAlign:"center",fontSize:8,color:"#a78bfa",lineHeight:1,marginBottom:1}}>↔</div>}
-                <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center"}}>
-                  {ms.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={`${m.id}-${ds}`} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
-                  {ms.length>maxPerCell&&<span style={{fontSize:8,color:"#4a4166"}}>+{ms.length-maxPerCell}</span>}
+                {/* Multi-day event bars */}
+                {multiMs.map(m=>{
+                  const mDates=getMissionDates(m);
+                  const isFirst=mDates[0]===ds,isLast=mDates[mDates.length-1]===ds;
+                  const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
+                  return<div key={`bar-${m.id}`} title={m.title} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)}
+                    style={{height:15,display:"flex",alignItems:"center",overflow:"hidden",whiteSpace:"nowrap",
+                      marginLeft:isFirst?0:-2,marginRight:isLast?0:-2,marginBottom:1,
+                      paddingLeft:isFirst?4:0,paddingRight:isLast?2:0,
+                      background:`${bg}35`,borderTop:`2px solid ${bg}99`,
+                      borderRadius:isFirst&&isLast?"3px":isFirst?"3px 0 0 3px":isLast?"0 3px 3px 0":"0",
+                      opacity:m.status==="DONE"?0.45:1,cursor:"grab"}}>
+                    {isFirst&&<span style={{fontSize:7,color:bg,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis"}}>{m.emoji} {m.title}</span>}
+                  </div>;
+                })}
+                {/* Day number + single-day missions */}
+                <div style={{padding:"2px 3px"}}>
+                  <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166"}}>{day}</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center"}}>
+                    {singleMs.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={`${m.id}-${ds}`} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
+                    {singleMs.length>maxPerCell&&<span style={{fontSize:8,color:"#4a4166"}}>+{singleMs.length-maxPerCell}</span>}
+                  </div>
                 </div>
               </div>;
             })}
