@@ -90,7 +90,7 @@ const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
-const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
+const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
 const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
 
 const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" }; // dark theme defaults
@@ -296,11 +296,7 @@ const googleCalendarUrl = (mission, name1, name2) => {
   const details = `Quién: ${who}${dur?` · ${Math.round(dur/60*10)/10}h`:""}`;
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
 };
-const mk = (id, emoji, title, status, completedAt=null) => ({
-  id, emoji, title, status, createdAt: 1739059200000, completedAt,
-  date: null, time: null, carriedFrom: null, carriedFromWeek: null,
-  category: null, who: "together", duration: null, type: "task",
-});
+
 
 const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
 const SEED = {
@@ -689,7 +685,7 @@ function OnboardingScreen({ session, onDone }) {
             </div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Pololo 👑" style={inputStyle} />
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana, Carlos…" style={inputStyle} />
             </div>
             <div style={{ marginBottom:20 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
@@ -711,7 +707,7 @@ function OnboardingScreen({ session, onDone }) {
             </div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Banana 🍌" style={inputStyle} />
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana, Carlos…" style={inputStyle} />
             </div>
             <div style={{ marginBottom:20 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
@@ -955,8 +951,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     </div>
   );
 
-  const p1 = data.settings?.person1 || "Pololo";
-  const p2 = data.settings?.person2 || "Banana";
+  const p1 = data.settings?.person1 || "Persona 1";
+  const p2 = data.settings?.person2 || "Persona 2";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const themeId = data.settings?.themeId || "violet";
   const handleImport = async (e) => {
@@ -2041,8 +2037,8 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
 
 function ProfileModal({ data, update, onClose, onStartTutorial }) {
   const settings = data.settings || {};
-  const [p1,      setP1]      = useState(settings.person1||"Pololo");
-  const [p2,      setP2]      = useState(settings.person2||"Banana");
+  const [p1,      setP1]      = useState(settings.person1||"Persona 1");
+  const [p2,      setP2]      = useState(settings.person2||"Persona 2");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const [themeId,      setThemeId]      = useState(settings.themeId||"violet");
   const [themeOpen,    setThemeOpen]    = useState(false);
@@ -2079,7 +2075,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
   };
 
   const save = () => {
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Pololo", person2:p2.trim()||"Banana", colors, themeId, coupleEmoji, photos}}));
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos}}));
     onClose();
   };
 
