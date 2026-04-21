@@ -137,25 +137,11 @@ function saveLocalBackup(appData, coupleId) {
 
 export function loadLocalBackup(coupleId) {
   try {
-    // Try new couple-specific key first
-    const newKey = coupleId ? localKey(coupleId) : "couple-missions-backup";
-    const raw = localStorage.getItem(newKey);
-    if (raw) {
-      return { data: JSON.parse(raw), ts: localStorage.getItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts") };
-    }
-    // Migration: fall back to the old generic key so no data is lost after the key rename
-    const oldRaw = localStorage.getItem("couple-missions-backup");
-    if (oldRaw) {
-      const data = JSON.parse(oldRaw);
-      // Migrate to new key so next load is fast
-      try {
-        localStorage.setItem(newKey, oldRaw);
-        const oldTs = localStorage.getItem("couple-missions-backup-ts");
-        if (oldTs && coupleId) localStorage.setItem(localTsKey(coupleId), oldTs);
-      } catch { /* quota */ }
-      return { data, ts: localStorage.getItem("couple-missions-backup-ts") };
-    }
-    return null;
+    // Strictly couple-specific key — no generic fallback (prevents cross-couple data leakage)
+    const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return { data: JSON.parse(raw), ts: localStorage.getItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts") };
   } catch { return null; }
 }
 

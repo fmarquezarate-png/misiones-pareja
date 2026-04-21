@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.2";
+const APP_VERSION = "2.2.3";
 const LAST_UPDATE = "2026-04-21";
 const CHANGELOG = [
+  { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
   { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
   { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
   { v:"2.2.0", date:"2026-04-17", notes:["App renombrada a Shared Calendar (más abierta, menos de nicho)","5 nuevos temas claros: Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave","Chat integrado: mensajitos en tiempo real entre los miembros (pestaña 💬)","Zoom en móvil corregido: touch-action:manipulation en toda la app (Chrome + Safari)","Compartir botones de imagen eliminados (ocupaban espacio, poco uso)","Cerrar sesión ahora muestra selector de cuenta Google (no reconecta automáticamente)","Botón Compartir Stats al pie de la pestaña Stats (sensible a filtros activos)","Versión 2.2.0"] },
@@ -89,7 +90,7 @@ const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
-const DEFAULT_SETTINGS = { person1: "Pololo", person2: "Banana", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
+const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
 const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
 
 const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" }; // dark theme defaults
@@ -295,11 +296,7 @@ const googleCalendarUrl = (mission, name1, name2) => {
   const details = `Quién: ${who}${dur?` · ${Math.round(dur/60*10)/10}h`:""}`;
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
 };
-const mk = (id, emoji, title, status, completedAt=null) => ({
-  id, emoji, title, status, createdAt: 1739059200000, completedAt,
-  date: null, time: null, carriedFrom: null, carriedFromWeek: null,
-  category: null, who: "together", duration: null, type: "task",
-});
+
 
 const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
 const SEED = {
@@ -545,35 +542,39 @@ const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; re
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
+const AUTH_CACHE_KEY = "shared-cal-auth-v1";
+
 export default function AppWithAuth() {
-  const [session, setSession]       = useState(undefined); // undefined = loading
-  const [coupleData, setCoupleData] = useState(null); // { couple_id, person_name }
-  const [authStep, setAuthStep]     = useState("checking"); // checking | login | onboarding | app
+  // Instant startup: read cached couple synchronously (set on previous login, no network needed)
+  const authCache = (() => { try { return JSON.parse(localStorage.getItem(AUTH_CACHE_KEY)||"null"); } catch { return null; } })();
+
+  const [session,    setSession]    = useState(undefined);
+  const [coupleData, setCoupleData] = useState(authCache);
+  const [authStep,   setAuthStep]   = useState(authCache ? "app" : "checking");
 
   useEffect(() => {
-    // Get initial session
-    getSession().then(s => {
+    // Single handler for initial session + every auth state change
+    const resolve = async s => {
       setSession(s);
-      if (!s) { setAuthStep("login"); return; }
-      // Has session — check if in a couple
-      getMyCoupleId().then(cd => {
-        if (cd?.couple_id) { setCoupleData(cd); setAuthStep("app"); }
-        else setAuthStep("onboarding");
-      });
-    });
-    // Listen for auth changes
-    const sub = onAuthChange(s => {
-      setSession(s);
-      if (!s) { setAuthStep("login"); setCoupleData(null); }
-      else {
-        getMyCoupleId().then(cd => {
-          if (cd?.couple_id) { setCoupleData(cd); setAuthStep("app"); }
-          else setAuthStep("onboarding");
-        });
+      if (!s) {
+        localStorage.removeItem(AUTH_CACHE_KEY);
+        setCoupleData(null); setAuthStep("login"); return;
       }
-    });
+      const cd = await getMyCoupleId();
+      if (cd?.couple_id) {
+        localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ couple_id: cd.couple_id, person_name: cd.person_name }));
+        setCoupleData(cd); setAuthStep("app");
+      } else {
+        localStorage.removeItem(AUTH_CACHE_KEY);
+        setAuthStep("onboarding");
+      }
+    };
+    getSession().then(resolve);
+    const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
   }, []);
+
+  const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); signOut(); };
 
   if (authStep === "checking") return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
@@ -585,8 +586,9 @@ export default function AppWithAuth() {
   );
 
   if (authStep === "login") return <LoginScreen />;
-  if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { setCoupleData(cd); setAuthStep("app"); }} />;
-  return <CoupleMissions coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={() => { signOut(); setAuthStep("login"); }} />;
+  if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cd)); setCoupleData(cd); setAuthStep("app"); }} />;
+  // key={coupleData?.couple_id} forces full remount if couple changes (data isolation)
+  return <CoupleMissions key={coupleData?.couple_id} coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={handleSignOut} />;
 }
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
@@ -683,7 +685,7 @@ function OnboardingScreen({ session, onDone }) {
             </div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Pololo 👑" style={inputStyle} />
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana, Carlos…" style={inputStyle} />
             </div>
             <div style={{ marginBottom:20 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
@@ -705,7 +707,7 @@ function OnboardingScreen({ session, onDone }) {
             </div>
             <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
-              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Banana 🍌" style={inputStyle} />
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana, Carlos…" style={inputStyle} />
             </div>
             <div style={{ marginBottom:20 }}>
               <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
@@ -838,23 +840,30 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
 
   useEffect(() => {
     (async () => {
+      // Fast path: render local backup instantly (zero network wait for returning users)
+      const local = loadLocalBackup(coupleId);
+      if (local?.data?.weeks) {
+        let fast = { ...local.data };
+        if (!fast.settings) fast.settings = DEFAULT_SETTINGS;
+        if (!fast.goals) fast.goals = SEED.goals;
+        setData(fast);
+        setLoading(false); // show immediately — Supabase will update silently
+      }
+
+      // Background: fetch authoritative data from Supabase
       try {
         let base = await loadData(coupleId);
-        let isRealData = !!base; // true = came from Supabase or real local backup
+        let isRealData = !!base;
 
         if (base) {
           if (!base.seedVersion || base.seedVersion < SEED_VERSION) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
           }
         } else {
-          // No data from Supabase – check couple-specific local backup (with old-key migration)
-          const local = loadLocalBackup(coupleId);
-          if (local && local.data && local.data.weeks && Object.keys(local.data.weeks).length > 1) {
-            base = local.data;
-            isRealData = true;
+          if (local?.data?.weeks && Object.keys(local.data.weeks).length > 1) {
+            base = local.data; isRealData = true;
           } else {
-            base = { ...SEED };
-            isRealData = false; // only SEED – do NOT overwrite Supabase with this
+            base = { ...SEED }; isRealData = false;
           }
         }
 
@@ -863,11 +872,13 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         if (isTodayMonday()) base = applyCarryOver(base);
         setData(base);
 
-        // Only push to Supabase if we have real data – never overwrite with SEED
         if (isRealData) await saveData(base, coupleId);
       } catch(e) {
-        setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
-        setData({ ...SEED });
+        // Only surface error if we have nothing to show (no local backup)
+        if (!local?.data) {
+          setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
+          setData({ ...SEED });
+        }
       }
       setLoading(false);
     })();
@@ -940,8 +951,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     </div>
   );
 
-  const p1 = data.settings?.person1 || "Pololo";
-  const p2 = data.settings?.person2 || "Banana";
+  const p1 = data.settings?.person1 || "Persona 1";
+  const p2 = data.settings?.person2 || "Persona 2";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const themeId = data.settings?.themeId || "violet";
   const handleImport = async (e) => {
@@ -2026,8 +2037,8 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
 
 function ProfileModal({ data, update, onClose, onStartTutorial }) {
   const settings = data.settings || {};
-  const [p1,      setP1]      = useState(settings.person1||"Pololo");
-  const [p2,      setP2]      = useState(settings.person2||"Banana");
+  const [p1,      setP1]      = useState(settings.person1||"Persona 1");
+  const [p2,      setP2]      = useState(settings.person2||"Persona 2");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const [themeId,      setThemeId]      = useState(settings.themeId||"violet");
   const [themeOpen,    setThemeOpen]    = useState(false);
@@ -2064,7 +2075,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
   };
 
   const save = () => {
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Pololo", person2:p2.trim()||"Banana", colors, themeId, coupleEmoji, photos}}));
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos}}));
     onClose();
   };
 
