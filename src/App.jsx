@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.1";
+const APP_VERSION = "2.2.2";
 const LAST_UPDATE = "2026-04-21";
 const CHANGELOG = [
+  { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
   { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
   { v:"2.2.0", date:"2026-04-17", notes:["App renombrada a Shared Calendar (más abierta, menos de nicho)","5 nuevos temas claros: Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave","Chat integrado: mensajitos en tiempo real entre los miembros (pestaña 💬)","Zoom en móvil corregido: touch-action:manipulation en toda la app (Chrome + Safari)","Compartir botones de imagen eliminados (ocupaban espacio, poco uso)","Cerrar sesión ahora muestra selector de cuenta Google (no reconecta automáticamente)","Botón Compartir Stats al pie de la pestaña Stats (sensible a filtros activos)","Versión 2.2.0"] },
   { v:"2.1.1", date:"2026-04-17", notes:["Pendientes: sólo tareas (sin eventos), sin duplicados — tareas arrastradas muestran sólo su versión más reciente","Pendientes: badge 🔁/⚠️ indica cuántas semanas lleva arrastrada la tarea","Al marcar una tarea arrastrada como DONE desde pendientes: la original en la semana pasada se marca ⏰ Completada con retraso (no infla stats de esa semana)","Semana anterior: tareas completadas tarde muestran badge ⏰ en la tarjeta"] },
@@ -29,6 +30,18 @@ const CHANGELOG = [
 ];
 const SEED_VERSION = 6;
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
+
+const TUTORIAL_STEPS = [
+  { emoji:"👋", tab:null, title:"¡Bienvenido/a a Shared Calendar!", desc:"Tu espacio para planear la vida juntos. Te mostramos cada sección en 2 minutos — después podrás volver a este tutorial desde tu perfil." },
+  { emoji:"🏠", tab:"home",     tabIcon:"🏠", tabLabel:"Inicio",      title:"Vista de hoy",       desc:"Resumen instantáneo: eventos de hoy y mañana, tareas pendientes urgentes y el objetivo épico de la semana. Tu punto de partida." },
+  { emoji:"🎯", tab:"current",  tabIcon:"🎯", tabLabel:"Semana",      title:"Semana actual",      desc:"Añade tareas y eventos, cambia estados, arrástralos a la próxima semana o márcalos ✓ DONE. Es el corazón de la app." },
+  { emoji:"📋", tab:"pending",  tabIcon:"📋", tabLabel:"Pendientes",  title:"Todo pendiente",     desc:"Una lista con todo lo no completado de cualquier semana, sin duplicados. Las tareas recurrentes aparecen una sola vez." },
+  { emoji:"📅", tab:"calendar", tabIcon:"📅", tabLabel:"Calendario",  title:"Calendario mensual", desc:"Vista de cuadrícula del mes completo. Los eventos multi-día se extienden por todos sus días. Toca un día para ver el detalle." },
+  { emoji:"🏅", tab:"goals",    tabIcon:"🏅", tabLabel:"Metas",       title:"Metas y objetivos",  desc:"Define lo que más importa: fecha límite, tipo (mínimo/máximo) y vincula actividades semanales. El progreso se calcula solo." },
+  { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",       title:"Estadísticas",       desc:"Gráficos semanales, análisis inteligente, sincronía de pareja, equidad en casa, hábito ancla y mucho más. Datos que motivan." },
+  { emoji:"💬", tab:"chat",     tabIcon:"💬", tabLabel:"Chat",        title:"Chat en tiempo real", desc:"Mensajitos con tu pareja directamente en la app. Perfectos para coordinarse al vuelo sin salir del calendario." },
+  { emoji:"✨", tab:null,                                               title:"¡Todo listo!",       desc:"Ya conoces Shared Calendar. Empieza añadiendo algo a esta semana. Puedes repasar el tutorial desde ⚙️ → Mi perfil.", isFinal:true },
+];
 const STATUS = {
   TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
   ASAP:        { label:"ASAP",     icon:"🔥", color:"#fb923c", bg:"rgba(251,146,60,0.12)",  border:"rgba(251,146,60,0.3)"  },
@@ -709,6 +722,60 @@ function OnboardingScreen({ session, onDone }) {
   );
 }
 
+function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
+  const s = TUTORIAL_STEPS[step];
+  const total = TUTORIAL_STEPS.length;
+  const isFirst = step === 0;
+  const isLast = step === total - 1;
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,7,20,0.85)", backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
+      <style>{`
+        @keyframes tut-in { from { opacity:0; transform:translateY(20px) scale(0.97) } to { opacity:1; transform:translateY(0) scale(1) } }
+        @keyframes tut-emoji { 0%,100% { transform:scale(1) } 50% { transform:scale(1.08) } }
+      `}</style>
+
+      {/* Card */}
+      <div style={{ background:"linear-gradient(160deg,#1e1a35 0%,#14102a 100%)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:26, padding:"34px 28px 26px", width:"100%", maxWidth:390, boxShadow:"0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(167,139,250,0.06) inset", position:"relative", animation:"tut-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+
+        {/* Skip */}
+        {!isLast && <button onClick={onSkip} style={{ position:"absolute", top:16, right:18, background:"none", border:"none", cursor:"pointer", color:"#3d3360", fontSize:12, fontFamily:"inherit", padding:"4px 8px", letterSpacing:0.2 }}>Saltar</button>}
+
+        {/* Tab badge */}
+        {s.tab && <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:99, padding:"3px 12px", marginBottom:18, fontSize:11, color:"#a78bfa", fontWeight:600, letterSpacing:0.3 }}>{s.tabIcon} Pestaña: {s.tabLabel}</div>}
+
+        {/* Emoji */}
+        <div style={{ fontSize:54, lineHeight:1, textAlign:"center", marginBottom:16, display:"block", animation:"tut-emoji 2s ease-in-out infinite" }}>{s.emoji}</div>
+
+        {/* Title */}
+        <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", textAlign:"center", marginBottom:10, lineHeight:1.25 }}>{s.title}</div>
+
+        {/* Description */}
+        <div style={{ fontSize:14, color:"#8b7fa8", lineHeight:1.7, textAlign:"center", marginBottom:26 }}>{s.desc}</div>
+
+        {/* Progress dots */}
+        <div style={{ display:"flex", justifyContent:"center", gap:5, marginBottom:22 }}>
+          {TUTORIAL_STEPS.map((_,i) => (
+            <div key={i} style={{ height:6, width:i===step?22:6, borderRadius:99, background:i===step?"#a78bfa":i<step?"rgba(167,139,250,0.35)":"rgba(255,255,255,0.07)", transition:"all 0.35s cubic-bezier(0.4,0,0.2,1)" }} />
+          ))}
+        </div>
+
+        {/* CTA button */}
+        <button onClick={isLast ? onFinish : onNext} style={{ width:"100%", background:"linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)", border:"none", borderRadius:13, padding:"13px 0", color:"#fff", fontSize:15, fontWeight:700, cursor:"pointer", fontFamily:"inherit", boxShadow:"0 6px 20px rgba(124,58,237,0.4), 0 0 0 1px rgba(168,85,247,0.3) inset", letterSpacing:0.2, transition:"transform 0.1s, box-shadow 0.1s" }}
+          onMouseDown={e=>e.currentTarget.style.transform="scale(0.98)"}
+          onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}
+          onTouchStart={e=>e.currentTarget.style.transform="scale(0.98)"}
+          onTouchEnd={e=>e.currentTarget.style.transform="scale(1)"}>
+          {isLast ? "¡Empezar! 🚀" : isFirst ? "Mostrarme la app  →" : "Siguiente  →"}
+        </button>
+
+        {/* Step counter */}
+        <div style={{ textAlign:"center", fontSize:11, color:"#3d3360", marginTop:10 }}>{step+1} de {total}</div>
+      </div>
+    </div>
+  );
+}
+
 function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -732,6 +799,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [syncing, setSyncing]       = useState(false);
   const [syncError, setSyncError]   = useState(null);   // string | null
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
+  const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -804,6 +872,25 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       setLoading(false);
     })();
   }, []);
+
+  // Auto-launch tutorial on first visit
+  useEffect(() => {
+    if (!loading && coupleId && !localStorage.getItem("shared-cal-tutorial-v1")) {
+      const t = setTimeout(() => setTutorialStep(0), 700);
+      return () => clearTimeout(t);
+    }
+  }, [loading, coupleId]);
+
+  // Navigate to tab when tutorial step changes
+  useEffect(() => {
+    if (tutorialStep !== null && TUTORIAL_STEPS[tutorialStep]?.tab) {
+      setActiveTab(TUTORIAL_STEPS[tutorialStep].tab);
+    }
+  }, [tutorialStep]);
+
+  const tutorialNext   = () => setTutorialStep(s => Math.min(s+1, TUTORIAL_STEPS.length-1));
+  const tutorialFinish = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); setActiveTab("home"); };
+  const tutorialSkip   = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); };
 
   // Realtime: reload when partner saves
   useEffect(() => {
@@ -1142,7 +1229,7 @@ ${ms.map(m=>{
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} />}
 
       {/* Changelog modal */}
       {showChangelog && (
@@ -1651,6 +1738,9 @@ ${ms.map(m=>{
         })()}
       </div>
 
+      {/* Tutorial overlay */}
+      {tutorialStep !== null && <TutorialOverlay step={tutorialStep} onNext={tutorialNext} onSkip={tutorialSkip} onFinish={tutorialFinish} />}
+
       {/* Lightbox */}
       {lightboxSrc && (
         <div onClick={()=>setLightboxSrc(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16, cursor:"zoom-out" }}>
@@ -1934,7 +2024,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, onClose }) {
+function ProfileModal({ data, update, onClose, onStartTutorial }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Pololo");
   const [p2,      setP2]      = useState(settings.person2||"Banana");
@@ -2102,9 +2192,12 @@ function ProfileModal({ data, update, onClose }) {
           </div>
         </div>
         {/* Footer */}
-        <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", gap:10, justifyContent:"flex-end" }}>
-          <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
-          <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+        <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
+          {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
+            <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+          </div>
         </div>
       </div>
     </div>
