@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.0";
-const LAST_UPDATE = "2026-04-17";
+const APP_VERSION = "2.2.1";
+const LAST_UPDATE = "2026-04-21";
 const CHANGELOG = [
+  { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
   { v:"2.2.0", date:"2026-04-17", notes:["App renombrada a Shared Calendar (más abierta, menos de nicho)","5 nuevos temas claros: Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave","Chat integrado: mensajitos en tiempo real entre los miembros (pestaña 💬)","Zoom en móvil corregido: touch-action:manipulation en toda la app (Chrome + Safari)","Compartir botones de imagen eliminados (ocupaban espacio, poco uso)","Cerrar sesión ahora muestra selector de cuenta Google (no reconecta automáticamente)","Botón Compartir Stats al pie de la pestaña Stats (sensible a filtros activos)","Versión 2.2.0"] },
   { v:"2.1.1", date:"2026-04-17", notes:["Pendientes: sólo tareas (sin eventos), sin duplicados — tareas arrastradas muestran sólo su versión más reciente","Pendientes: badge 🔁/⚠️ indica cuántas semanas lleva arrastrada la tarea","Al marcar una tarea arrastrada como DONE desde pendientes: la original en la semana pasada se marca ⏰ Completada con retraso (no infla stats de esa semana)","Semana anterior: tareas completadas tarde muestran badge ⏰ en la tarjeta"] },
   { v:"2.1.0", date:"2026-04-17", notes:["Fix crítico: eventos multi-día ahora se muestran en TODOS sus días en el calendario","getMissionDates: tolera hora vacía (00:00 inicio, 23:59 fin) — multi-día garantizado","addMission: fuerza endTime='23:59' si hay endDate sin hora, time='00:00' si hay endDate sin hora inicio","Formulario: defecto automático 23:59 al seleccionar solo fecha fin","CalendarView: getMissionDates se llama una sola vez por misión (Map) — más rápido","Limpieza: eliminadas variables saving/savingError/saved ya no usadas"] },
@@ -270,7 +271,7 @@ const googleCalendarUrl = (mission, name1, name2) => {
   let dates;
   if (mission.time) {
     const [hh, mm] = mission.time.split(":").map(Number);
-    const tot = hh*60 + mm + Math.round((mission.duration || 1)*60);
+    const tot = hh*60 + mm + (mission.duration || 60);
     const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
     dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
   } else {
@@ -278,7 +279,7 @@ const googleCalendarUrl = (mission, name1, name2) => {
     dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
   }
   const dur = mission.duration;
-  const details = `Quién: ${who}${dur?` · ${dur}h`:""}`;
+  const details = `Quién: ${who}${dur?` · ${Math.round(dur/60*10)/10}h`:""}`;
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
 };
 const mk = (id, emoji, title, status, completedAt=null) => ({
@@ -979,7 +980,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         const ts = m.time.replace(":","")+"00";
         lines.push(`DTSTART:${ds}T${ts}`);
         const [hh,mm] = m.time.split(":").map(Number);
-        const tot = hh*60+mm+Math.round((m.duration||1)*60);
+        const tot = hh*60+mm+(m.duration||60);
         const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
         lines.push(`DTEND:${ds}T${eh}${em}00`);
       } else {
@@ -989,7 +990,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       }
       lines.push(`SUMMARY:${m.emoji} ${m.title}`);
       const parts = [`Semana ${weekData.weekNumber}`,`Estado: ${STATUS[m.status]?.label||m.status}`,`Quién: ${who}`];
-      if (m.duration) parts.push(`Duración: ${m.duration}h`);
+      if (m.duration) parts.push(`Duración: ${Math.round(m.duration/60*10)/10}h`);
       lines.push(`DESCRIPTION:${parts.join("\\n")}`);
       lines.push("END:VEVENT");
     }
@@ -1600,11 +1601,15 @@ ${ms.map(m=>{
         {activeTab==="pending" && (()=>{
           // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
           const carriedFromIds=new Set(Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.carriedFrom).map(m=>m.carriedFrom)));
-          const pendingAll=Object.entries(data.weeks)
+          const pendingRaw=Object.entries(data.weeks)
             .sort((a,b)=>a[0].localeCompare(b[0]))
             .flatMap(([key,w])=>(w.missions||[])
               .filter(m=>m.status!=="DONE" && m.type!=="event" && !carriedFromIds.has(m.id))
               .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
+          // Recurring dedup: for missions with seriesId, keep only the latest week's instance
+          const latestBySeries={};
+          for(const m of pendingRaw){if(m.seriesId&&(!latestBySeries[m.seriesId]||m._wkey>latestBySeries[m.seriesId]._wkey))latestBySeries[m.seriesId]=m;}
+          const pendingAll=pendingRaw.filter(m=>!m.seriesId||latestBySeries[m.seriesId]===m);
           const pendingFiltered=globalPersonFilter==="all"?pendingAll:pendingAll.filter(m=>m.who===globalPersonFilter);
           return <div>
             {pendingFiltered.length===0
@@ -1650,7 +1655,10 @@ ${ms.map(m=>{
       {lightboxSrc && (
         <div onClick={()=>setLightboxSrc(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16, cursor:"zoom-out" }}>
           <img src={lightboxSrc} style={{ maxWidth:"100%", maxHeight:"100%", borderRadius:12, objectFit:"contain", boxShadow:"0 20px 60px rgba(0,0,0,0.8)" }} alt="foto completa" />
-          <button onClick={()=>setLightboxSrc(null)} style={{ position:"absolute", top:16, right:16, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:99, color:"#f8f4ff", fontSize:20, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+          <div style={{ position:"absolute", top:16, right:16, display:"flex", gap:8 }}>
+            <a href={lightboxSrc} download="foto.jpg" onClick={e=>e.stopPropagation()} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:99, color:"#f8f4ff", fontSize:18, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", textDecoration:"none" }}>⬇</a>
+            <button onClick={()=>setLightboxSrc(null)} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:99, color:"#f8f4ff", fontSize:20, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+          </div>
         </div>
       )}
     </div>
@@ -2137,7 +2145,7 @@ function CatStatsCard({ catStats }) {
             <div key={c.id} style={{ marginBottom:10 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                 <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
-                <span style={{ fontSize:12, color:"#60a5fa" }}>{c.dur}h</span>
+                <span style={{ fontSize:12, color:"#60a5fa" }}>{Math.round(c.dur/60*10)/10}h</span>
               </div>
               <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
                 <div style={{ height:"100%", width:`${(c.dur/maxLifeH)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
@@ -2152,7 +2160,7 @@ function CatStatsCard({ catStats }) {
           <div style={{ marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
               <span style={{ fontSize:12, color:"#fbbf24", fontWeight:600 }}>💼 Trabajo</span>
-              <span style={{ fontSize:12, color:"#fbbf24", fontWeight:700 }}>{workStat.dur}h</span>
+              <span style={{ fontSize:12, color:"#fbbf24", fontWeight:700 }}>{Math.round(workStat.dur/60*10)/10}h</span>
             </div>
             <div style={{ background:"rgba(251,191,36,0.08)", borderRadius:99, height:8, overflow:"hidden", border:"1px solid rgba(251,191,36,0.15)" }}>
               <div style={{ height:"100%", width:"100%", background:"linear-gradient(90deg,#fbbf24,#f59e0b)", borderRadius:99, opacity:0.8 }} />
