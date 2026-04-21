@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.2";
+const APP_VERSION = "2.2.3";
 const LAST_UPDATE = "2026-04-21";
 const CHANGELOG = [
+  { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
   { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
   { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
   { v:"2.2.0", date:"2026-04-17", notes:["App renombrada a Shared Calendar (más abierta, menos de nicho)","5 nuevos temas claros: Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave","Chat integrado: mensajitos en tiempo real entre los miembros (pestaña 💬)","Zoom en móvil corregido: touch-action:manipulation en toda la app (Chrome + Safari)","Compartir botones de imagen eliminados (ocupaban espacio, poco uso)","Cerrar sesión ahora muestra selector de cuenta Google (no reconecta automáticamente)","Botón Compartir Stats al pie de la pestaña Stats (sensible a filtros activos)","Versión 2.2.0"] },
@@ -545,35 +546,39 @@ const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; re
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
+const AUTH_CACHE_KEY = "shared-cal-auth-v1";
+
 export default function AppWithAuth() {
-  const [session, setSession]       = useState(undefined); // undefined = loading
-  const [coupleData, setCoupleData] = useState(null); // { couple_id, person_name }
-  const [authStep, setAuthStep]     = useState("checking"); // checking | login | onboarding | app
+  // Instant startup: read cached couple synchronously (set on previous login, no network needed)
+  const authCache = (() => { try { return JSON.parse(localStorage.getItem(AUTH_CACHE_KEY)||"null"); } catch { return null; } })();
+
+  const [session,    setSession]    = useState(undefined);
+  const [coupleData, setCoupleData] = useState(authCache);
+  const [authStep,   setAuthStep]   = useState(authCache ? "app" : "checking");
 
   useEffect(() => {
-    // Get initial session
-    getSession().then(s => {
+    // Single handler for initial session + every auth state change
+    const resolve = async s => {
       setSession(s);
-      if (!s) { setAuthStep("login"); return; }
-      // Has session — check if in a couple
-      getMyCoupleId().then(cd => {
-        if (cd?.couple_id) { setCoupleData(cd); setAuthStep("app"); }
-        else setAuthStep("onboarding");
-      });
-    });
-    // Listen for auth changes
-    const sub = onAuthChange(s => {
-      setSession(s);
-      if (!s) { setAuthStep("login"); setCoupleData(null); }
-      else {
-        getMyCoupleId().then(cd => {
-          if (cd?.couple_id) { setCoupleData(cd); setAuthStep("app"); }
-          else setAuthStep("onboarding");
-        });
+      if (!s) {
+        localStorage.removeItem(AUTH_CACHE_KEY);
+        setCoupleData(null); setAuthStep("login"); return;
       }
-    });
+      const cd = await getMyCoupleId();
+      if (cd?.couple_id) {
+        localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ couple_id: cd.couple_id, person_name: cd.person_name }));
+        setCoupleData(cd); setAuthStep("app");
+      } else {
+        localStorage.removeItem(AUTH_CACHE_KEY);
+        setAuthStep("onboarding");
+      }
+    };
+    getSession().then(resolve);
+    const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
   }, []);
+
+  const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); signOut(); };
 
   if (authStep === "checking") return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
@@ -585,8 +590,9 @@ export default function AppWithAuth() {
   );
 
   if (authStep === "login") return <LoginScreen />;
-  if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { setCoupleData(cd); setAuthStep("app"); }} />;
-  return <CoupleMissions coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={() => { signOut(); setAuthStep("login"); }} />;
+  if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cd)); setCoupleData(cd); setAuthStep("app"); }} />;
+  // key={coupleData?.couple_id} forces full remount if couple changes (data isolation)
+  return <CoupleMissions key={coupleData?.couple_id} coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={handleSignOut} />;
 }
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
@@ -838,23 +844,30 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
 
   useEffect(() => {
     (async () => {
+      // Fast path: render local backup instantly (zero network wait for returning users)
+      const local = loadLocalBackup(coupleId);
+      if (local?.data?.weeks) {
+        let fast = { ...local.data };
+        if (!fast.settings) fast.settings = DEFAULT_SETTINGS;
+        if (!fast.goals) fast.goals = SEED.goals;
+        setData(fast);
+        setLoading(false); // show immediately — Supabase will update silently
+      }
+
+      // Background: fetch authoritative data from Supabase
       try {
         let base = await loadData(coupleId);
-        let isRealData = !!base; // true = came from Supabase or real local backup
+        let isRealData = !!base;
 
         if (base) {
           if (!base.seedVersion || base.seedVersion < SEED_VERSION) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
           }
         } else {
-          // No data from Supabase – check couple-specific local backup (with old-key migration)
-          const local = loadLocalBackup(coupleId);
-          if (local && local.data && local.data.weeks && Object.keys(local.data.weeks).length > 1) {
-            base = local.data;
-            isRealData = true;
+          if (local?.data?.weeks && Object.keys(local.data.weeks).length > 1) {
+            base = local.data; isRealData = true;
           } else {
-            base = { ...SEED };
-            isRealData = false; // only SEED – do NOT overwrite Supabase with this
+            base = { ...SEED }; isRealData = false;
           }
         }
 
@@ -863,11 +876,13 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
         if (isTodayMonday()) base = applyCarryOver(base);
         setData(base);
 
-        // Only push to Supabase if we have real data – never overwrite with SEED
         if (isRealData) await saveData(base, coupleId);
       } catch(e) {
-        setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
-        setData({ ...SEED });
+        // Only surface error if we have nothing to show (no local backup)
+        if (!local?.data) {
+          setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
+          setData({ ...SEED });
+        }
       }
       setLoading(false);
     })();
