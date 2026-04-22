@@ -1075,6 +1075,11 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     });
   }, [coupleId]);
 
+  // These must be declared before any early return so useSwipe (which calls
+  // useRef internally) is always called in the same order — Rules of Hooks.
+  const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>isoWeeksInYear(yr)){wn=1;yr++;} if(wn<1){yr--;wn=isoWeeksInYear(yr);} return {...s,currentWeekNumber:wn,currentYear:yr}; });
+  const swipeWeek = useSwipe(() => changeWeek(1), () => changeWeek(-1));
+
   if (loading) return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
       <div style={{ textAlign:"center" }}>
@@ -1140,8 +1145,6 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
 
   const delMission = id => patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
   const patchM = (id, patch) => patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
-  const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>isoWeeksInYear(yr)){wn=1;yr++;} if(wn<1){yr--;wn=isoWeeksInYear(yr);} return {...s,currentWeekNumber:wn,currentYear:yr}; });
-  const swipeWeek = useSwipe(() => changeWeek(1), () => changeWeek(-1));
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
