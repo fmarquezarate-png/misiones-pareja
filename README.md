@@ -1,4 +1,4 @@
-# Misiones de Pareja 💞
+# Shared Calendar 
 
 > Tracker semanal de misiones y actividades para parejas. Planificad juntos, medid el progreso, construid hábitos.
 
