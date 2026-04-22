@@ -58,8 +58,10 @@ export async function getMyCoupleId() {
 }
 
 export async function createCouple(code, personName) {
-  const session = await getSession();
-  if (!session) return { error: "No hay sesión activa" };
+  // getUser() validates the JWT with the Supabase Auth server, ensuring
+  // auth.uid() on the RLS side matches the user ID we send in the insert.
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return { error: "No hay sesión activa" };
 
   // Check code is not taken
   const { data: existing } = await supabase
@@ -70,13 +72,13 @@ export async function createCouple(code, personName) {
 
   if (existing) return { error: "Ese código ya está en uso, elige otro" };
 
-  // Create couple row
+  // Create couple row — owner_user_id must equal auth.uid() for RLS to pass
   const { data: couple, error: coupleErr } = await supabase
     .from("couples")
     .insert({
       code: code.toUpperCase(),
       name: `Pareja ${code.toUpperCase()}`,
-      owner_user_id: session.user.id,
+      owner_user_id: user.id,
     })
     .select("id")
     .single();
@@ -86,7 +88,7 @@ export async function createCouple(code, personName) {
   // Add creator as member
   const { error: memberErr } = await supabase
     .from("couple_members")
-    .insert({ user_id: session.user.id, couple_id: couple.id, person_name: personName });
+    .insert({ user_id: user.id, couple_id: couple.id, person_name: personName });
 
   if (memberErr) return { error: memberErr.message };
 
