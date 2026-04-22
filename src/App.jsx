@@ -3,9 +3,11 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.3";
-const LAST_UPDATE = "2026-04-21";
+const APP_VERSION = "2.3.0";
+const LAST_UPDATE = "2026-04-22";
 const CHANGELOG = [
+  { v:"2.3.0", date:"2026-04-22", notes:["Gestos de deslizamiento: desliza ← → en la semana actual para cambiar de semana sin tocar botones","Recurrencia potente: nueva opción Bisemanal (cada 2 semanas) + fecha de fin de serie opcional + botón 'Aplicar a todas las futuras' en el editor de calendario","Modo offline: banner de aviso cuando no hay conexión, los cambios se guardan localmente y se sincronizan solos al reconectar","Resumen diario mejorado: ahora también se programa durante la sesión si abres la app antes de la hora configurada","Versión 2.3.0"] },
+  { v:"2.2.4", date:"2026-04-22", notes:["Notificaciones push: recibe alertas de mensajes del chat, cambios de tu pareja y recordatorios de eventos aunque la app esté en segundo plano","Recordatorios de eventos: elige con cuánta antelación quieres que te avisemos (en el momento, 15 min, 30 min, 1 h o 1 día antes)","Resumen diario: notificación matutina con tus misiones del día y metas próximas a vencer","Gestión de notificaciones en ⚙️ Mi perfil — actívalas y personaliza cada tipo por separado","Versión 2.2.4"] },
   { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
   { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
   { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
@@ -89,9 +91,51 @@ const isTodayMonday = () => new Date().getDay() === 1;
 const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TABS = ["home","current","calendar","pending","goals","stats","chat"];
+
+// ─── Swipe hook (used for week navigation and tab switching on touch) ─────────
+function useSwipe(onLeft, onRight, minDist = 55) {
+  const x0 = useRef(null);
+  return {
+    onTouchStart: e => { x0.current = e.touches[0].clientX; },
+    onTouchEnd:   e => {
+      if (x0.current === null) return;
+      const dx = e.changedTouches[0].clientX - x0.current;
+      x0.current = null;
+      if (Math.abs(dx) < minDist) return;
+      if (dx < 0) onLeft?.(); else onRight?.();
+    },
+  };
+}
+
 // ─── Seed ─────────────────────────────────────────────────────────────────────
-const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
+const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
 const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
+
+// ─── Notification helpers ─────────────────────────────────────────────────────
+const showNotif = (title, body, opts={}) => {
+  if (typeof Notification==="undefined" || Notification.permission!=="granted") return;
+  try { new Notification(title, { icon:"/icon-192.png", badge:"/icon-192.png", body, ...opts }); }
+  catch { /* unsupported env */ }
+};
+let _rTimers = [];
+const clearRTimers = () => { _rTimers.forEach(clearTimeout); _rTimers = []; };
+const scheduleReminders = (data, p1, p2) => {
+  clearRTimers();
+  if (!data?.settings?.notifications?.eventReminders) return;
+  const OFFSETS = { ontime:0, "15min":15*60e3, "30min":30*60e3, "1h":60*60e3, "1day":24*3600e3 };
+  const now = Date.now();
+  Object.values(data.weeks||{}).flatMap(w=>w.missions||[]).forEach(m => {
+    if (m.type!=="event"||!m.date||!m.time||!m.reminder||m.reminder==="none") return;
+    const offset = OFFSETS[m.reminder]; if (offset===undefined) return;
+    const fireAt = new Date(`${m.date}T${m.time}:00`).getTime() - offset;
+    if (fireAt <= now) return;
+    const who = m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
+    const label = {ontime:"¡Ahora!","15min":"En 15 min","30min":"En 30 min","1h":"En 1 hora","1day":"Mañana"}[m.reminder]||"";
+    _rTimers.push(setTimeout(()=>showNotif(`${m.emoji} ${m.title}`,`${label} · ${who}`,{tag:`rem-${m.id}`}), fireAt-now));
+  });
+};
 
 const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" }; // dark theme defaults
 const THEMES = [
@@ -421,16 +465,39 @@ function applyCarryOver(data) {
   const currW = data.weeks[currKey] || { weekNumber:cwn, year:cyr, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const existingCarriedIds = new Set((currW.missions||[]).filter(m=>m.carriedFrom).map(m=>m.carriedFrom));
   const existingTitles = new Set((currW.missions||[]).map(m=>m.title));
-  const toCarry = (prevW.missions||[]).filter(m => m.status!=="DONE" && !existingCarriedIds.has(m.id) && !existingTitles.has(m.title));
-  // Recurring series: generate fresh instance for current week if not already there
-  const allPrevSeries = (prevW.missions||[]).filter(m => m.seriesPattern && m.seriesId);
   const existingSeriesIds = new Set((currW.missions||[]).filter(m=>m.seriesId).map(m=>m.seriesId));
+  const toCarry = (prevW.missions||[]).filter(m => m.status!=="DONE" && !existingCarriedIds.has(m.id) && !existingTitles.has(m.title));
+
+  // Recurring: look at prevW and also 2 weeks back for biweekly series
+  const { wn:p2wn, yr:p2yr } = prevWeekFn(pwn, pyr);
+  const prev2W = data.weeks[isoWeekKey(p2wn, p2yr)];
+  const prevSeries = (prevW.missions||[]).filter(m => m.seriesPattern && m.seriesId);
+  const prevSeriesIds = new Set(prevSeries.map(m => m.seriesId));
+  const biweeklyFromPrev2 = (prev2W?.missions||[]).filter(m =>
+    m.seriesPattern === "biweekly" && m.seriesId &&
+    !existingSeriesIds.has(m.seriesId) && !prevSeriesIds.has(m.seriesId)
+  );
+  const allSeriesSources = [...prevSeries, ...biweeklyFromPrev2];
+
   const today = new Date();
   const isFirstWeekOfMonth = cwn === getWeekAndYear(new Date(today.getFullYear(), today.getMonth(), 1)).week;
-  const newSeriesMissions = allPrevSeries.filter(m => {
+  const seriesEndOk = m => {
+    if (!m.seriesEndDate) return true;
+    const { week:eWn, year:eYr } = getWeekAndYear(new Date(m.seriesEndDate));
+    return !(cyr > eYr || (cyr === eYr && cwn > eWn));
+  };
+
+  const newSeriesMissions = allSeriesSources.filter(m => {
     if (existingSeriesIds.has(m.seriesId)) return false;
+    if (!seriesEndOk(m)) return false;
     if (m.seriesPattern === "weekly") return true;
     if (m.seriesPattern === "monthly") return isFirstWeekOfMonth;
+    if (m.seriesPattern === "biweekly") {
+      const sWn = m.seriesStartWeek || pwn;
+      const sYr = m.seriesStartYear || pyr;
+      const weeksDiff = (cyr - sYr) * 52 + (cwn - sWn);
+      return weeksDiff % 2 === 0;
+    }
     return false;
   }).map(m => ({ ...m, id:uid(), carriedFrom:null, carriedFromWeek:null, date:null, createdAt:Date.now(), completedAt:null, status:"TBC" }));
 
@@ -789,7 +856,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
   const [editObj, setEditObj] = useState(false);
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
@@ -802,6 +869,10 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [syncError, setSyncError]   = useState(null);   // string | null
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
+  const [notifGranted, setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
+  const notifSettingsRef = useRef(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [pendingSave, setPendingSave] = useState(false);
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -903,20 +974,92 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const tutorialFinish = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); setActiveTab("home"); };
   const tutorialSkip   = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); };
 
+  // Keep notifSettingsRef current for use inside async callbacks
+  useEffect(() => { notifSettingsRef.current = data?.settings?.notifications; }, [data?.settings?.notifications]);
+
+  // Schedule event reminders whenever data changes
+  useEffect(() => {
+    if (!data || !notifGranted) return;
+    scheduleReminders(data, data.settings?.person1||"Persona 1", data.settings?.person2||"Persona 2");
+    return clearRTimers;
+  }, [data, notifGranted]);
+
+  // On data load: goal deadline reminders + daily briefing (#10)
+  useEffect(() => {
+    if (!data || !notifGranted) return;
+    const ns = data.settings?.notifications || {};
+
+    // Goal deadlines: notify 7 days, 1 day, and day-of
+    if (ns.goalDeadlines) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      (data.goals||[]).filter(g=>g.active!==false&&g.deadline).forEach(g=>{
+        const days = Math.round((new Date(g.deadline)-today)/86400e3);
+        const key = `gdl-${g.id}-${days}`;
+        if ((days===7||days===1||days===0) && !localStorage.getItem(key)) {
+          localStorage.setItem(key,"1");
+          showNotif(`🏅 ${g.title}`, days===0?"¡Vence hoy!":days===1?"Vence mañana":"Vence en 7 días", {tag:key});
+        }
+      });
+    }
+
+    // Daily briefing (feature #10)
+    let briefingTimer = null;
+    if (ns.dailyBriefing) {
+      const today = new Date(); const todayStr = today.toISOString().slice(0,10);
+      const bKey = `briefing-${todayStr}`;
+      const fireBriefing = () => {
+        localStorage.setItem(bKey,"1");
+        const allM = Object.values(data.weeks||{}).flatMap(w=>w.missions||[]);
+        const ev = allM.filter(m=>m.date===todayStr&&m.type==="event").length;
+        const tk = allM.filter(m=>m.date===todayStr&&m.type!=="event"&&m.status!=="DONE").length;
+        const body = ev||tk ? [ev&&`${ev} evento${ev>1?"s":""}`, tk&&`${tk} tarea${tk>1?"s":""}`].filter(Boolean).join(" · ") : "Hoy no hay nada planeado 🌿";
+        showNotif("☀️ Buenos días", body, {tag:"daily-briefing"});
+      };
+      if (!localStorage.getItem(bKey)) {
+        const [bh,bm] = (ns.briefingTime||"08:00").split(":").map(Number);
+        const fireAt = new Date(today); fireAt.setHours(bh,bm,0,0);
+        if (today >= fireAt) {
+          fireBriefing();
+        } else {
+          // Schedule within this session
+          briefingTimer = setTimeout(fireBriefing, fireAt - today);
+        }
+      }
+    }
+    return () => { if (briefingTimer) clearTimeout(briefingTimer); };
+  }, [data?.weeks, data?.goals, notifGranted]); // eslint-disable-line
+
   // Realtime: reload when partner saves
   useEffect(() => {
     if (!coupleId) return;
     const channel = subscribeToUpdates(coupleId, remoteData => {
       if (remoteData) {
-        setData(prev => {
-          // Only update if remote is newer (avoid overwriting own unsaved changes)
-          if (!prev) return remoteData;
-          return remoteData;
-        });
+        if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
+          showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
+        }
+        setData(() => remoteData);
       }
     });
     return () => { supabase.removeChannel(channel); };
   }, [coupleId]);
+
+  // Online/offline detection
+  useEffect(() => {
+    const up = () => setIsOnline(true);
+    const dn = () => setIsOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", dn);
+    return () => { window.removeEventListener("online", up); window.removeEventListener("offline", dn); };
+  }, []);
+
+  // Retry pending save when reconnecting
+  useEffect(() => {
+    if (isOnline && pendingSave && data && coupleId) {
+      saveData(data, coupleId)
+        .then(() => { setPendingSave(false); setSyncError(null); showSyncMsg("✓ Cambios sincronizados"); })
+        .catch(() => {}); // still offline — keep pendingSave true
+    }
+  }, [isOnline]); // eslint-disable-line
 
   const update = useCallback(fn => {
     setData(prev => {
@@ -925,8 +1068,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         saveData(next, coupleId)
-          .then(() => setSyncError(null))
-          .catch(e => setSyncError(e.message));
+          .then(() => { setSyncError(null); setPendingSave(false); })
+          .catch(e => { setSyncError(e.message); setPendingSave(true); });
       }, 700);
       return next;
     });
@@ -979,8 +1122,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     const hasEnd = !!newM.endDate;
     const startTime = newM.time || (hasEnd ? "00:00" : null);
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
 
@@ -998,10 +1141,21 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const delMission = id => patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
   const patchM = (id, patch) => patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
   const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>isoWeeksInYear(yr)){wn=1;yr++;} if(wn<1){yr--;wn=isoWeeksInYear(yr);} return {...s,currentWeekNumber:wn,currentYear:yr}; });
+  const swipeWeek = useSwipe(() => changeWeek(1), () => changeWeek(-1));
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => update(d => applyCarryOver(d));
+  const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
+    update(d => {
+      const newWeeks = { ...d.weeks };
+      for (const [wkey, w] of Object.entries(newWeeks)) {
+        if (wkey < fromWkey) continue;
+        newWeeks[wkey] = { ...w, missions: (w.missions||[]).map(m => m.seriesId === seriesId ? { ...m, ...patch } : m) };
+      }
+      return { ...d, weeks: newWeeks };
+    });
+  };
   const cycleStatusGlobal = (wn, yr, id) => {
     const key = isoWeekKey(wn, yr);
     update(d => {
@@ -1236,6 +1390,16 @@ ${ms.map(m=>{
 
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
+      {/* Offline banner */}
+      {!isOnline && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", padding:"8px 16px", zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
+        <span style={{ fontSize:16 }}>📡</span>
+        <span style={{ flex:1 }}>Sin conexión · Los cambios se guardan localmente y se sincronizarán al reconectar</span>
+        {pendingSave && <span style={{ fontSize:10, color:"#fb923c" }}>⏳ pendiente</span>}
+      </div>}
+      {isOnline && pendingSave && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", padding:"6px 16px", zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
+        <span>🔄</span><span>Sincronizando cambios pendientes…</span>
+      </div>}
+
       {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
@@ -1518,7 +1682,7 @@ ${ms.map(m=>{
         })()}
 
         {/* Current Week */}
-        {activeTab==="current" && <div>
+        {activeTab==="current" && <div {...swipeWeek}>
           {/* Week navigation */}
           <div style={{ textAlign:"center", marginBottom:16 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:week.epicObjective?4:8 }}>
@@ -1599,7 +1763,7 @@ ${ms.map(m=>{
 
         {activeTab==="calendar" && <CalendarView
           allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} settings={data.settings} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
-          onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal}
+          onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal} onPatchAllFutureSeries={patchAllFutureSeries}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
             update(s => ({...s, currentWeekNumber:wn, currentYear:yr}));
@@ -1694,7 +1858,7 @@ ${ms.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="pending" && (()=>{
           // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
@@ -1890,6 +2054,17 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
             {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
           </div>
         }
+        {newM.time&&<div style={{ marginBottom:8 }}>
+          <label style={S.label}>🔔 Recordatorio</label>
+          <select value={newM.reminder||"none"} onChange={e=>setNewM(p=>({...p,reminder:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12 }}>
+            <option value="none">Sin recordatorio</option>
+            <option value="ontime">En el momento</option>
+            <option value="15min">15 min antes</option>
+            <option value="30min">30 min antes</option>
+            <option value="1h">1 hora antes</option>
+            <option value="1day">1 día antes</option>
+          </select>
+        </div>}
       </>}
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
@@ -1901,11 +2076,15 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
       {!isEvent&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🔁 Tarea recurrente</label>
         <div style={{ display:"flex", gap:4 }}>
-          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"monthly",label:"Mensual"}].map(o=>(
-            <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesId:o.id?p.seriesId||uid():undefined}))}
+          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
+            <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
               style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
           ))}
         </div>
+        {newM.seriesPattern && <div style={{ marginTop:8 }}>
+          <label style={S.label}>📅 Repetir hasta (opcional)</label>
+          <input type="date" value={newM.seriesEndDate||""} onChange={e=>setNewM(p=>({...p,seriesEndDate:e.target.value}))} style={{...S.inputSm,colorScheme:"dark"}} />
+        </div>}
       </div>}
       <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -1970,7 +2149,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
-            {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":"Mensual"}</span>}
+            {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
@@ -2044,6 +2223,14 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
   const [themeOpen,    setThemeOpen]    = useState(false);
   const [coupleEmoji,  setCoupleEmoji]  = useState(settings.coupleEmoji||"💞");
   const [photos,       setPhotos]       = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
+  const defNotif = settings.notifications || {};
+  const [notifChat,        setNotifChat]        = useState(defNotif.chat !== false);
+  const [notifPartner,     setNotifPartner]     = useState(defNotif.partnerChanges !== false);
+  const [notifEvents,      setNotifEvents]      = useState(defNotif.eventReminders !== false);
+  const [notifGoals,       setNotifGoals]       = useState(defNotif.goalDeadlines !== false);
+  const [notifBriefing,    setNotifBriefing]    = useState(defNotif.dailyBriefing === true);
+  const [notifBriefTime,   setNotifBriefTime]   = useState(defNotif.briefingTime || "08:00");
+  const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
@@ -2074,8 +2261,15 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
     e.target.value = "";
   };
 
+  const requestNotifPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+  };
+
   const save = () => {
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos}}));
+    const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos, notifications}}));
     onClose();
   };
 
@@ -2168,6 +2362,56 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
               style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
           </div>
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
+
+          {/* Notificaciones */}
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones</div>
+          <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
+            {notifPermission !== "granted" ? (
+              <div style={{ textAlign:"center", padding:"8px 0 12px" }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>🔔</div>
+                <div style={{ fontSize:13, color:"#c4b8ff", marginBottom:6, fontWeight:500 }}>Activa las notificaciones</div>
+                <div style={{ fontSize:11, color:"#6b5f88", marginBottom:14, lineHeight:1.6 }}>
+                  {notifPermission === "denied"
+                    ? "Tu navegador ha bloqueado las notificaciones. Cámbialas desde la configuración del navegador."
+                    : "Recibe alertas de mensajes, cambios de tu pareja y recordatorios de eventos."}
+                </div>
+                {notifPermission !== "denied" && (
+                  <button onClick={requestNotifPermission} style={{ ...S.btnPrimary, fontSize:12, padding:"8px 20px" }}>🔔 Permitir notificaciones</button>
+                )}
+              </div>
+            ) : (
+              <>
+                {[
+                  [notifChat,    setNotifChat,    "💬", "Mensajes del chat"],
+                  [notifPartner, setNotifPartner, "🔄", "Cambios de tu pareja"],
+                  [notifEvents,  setNotifEvents,  "📅", "Recordatorios de eventos"],
+                  [notifGoals,   setNotifGoals,   "🎯", "Vencimiento de metas"],
+                ].map(([val, set, icon, label]) => (
+                  <div key={label} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:12, marginBottom:12, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ fontSize:13, color:"#c4b8ff" }}>{icon} {label}</div>
+                    <button onClick={()=>set(v=>!v)}
+                      style={{ width:40, height:22, borderRadius:99, background:val?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                      <span style={{ position:"absolute", top:3, left:val?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:notifBriefing?10:0 }}>
+                  <div style={{ fontSize:13, color:"#c4b8ff" }}>🌅 Resumen diario</div>
+                  <button onClick={()=>setNotifBriefing(v=>!v)}
+                    style={{ width:40, height:22, borderRadius:99, background:notifBriefing?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                    <span style={{ position:"absolute", top:3, left:notifBriefing?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+                  </button>
+                </div>
+                {notifBriefing && (
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ fontSize:12, color:"#8b7fa8" }}>Hora del resumen</span>
+                    <input type="time" value={notifBriefTime} onChange={e=>setNotifBriefTime(e.target.value)}
+                      style={{ ...S.inputSm, colorScheme:"dark", flex:1, maxWidth:110 }} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Tema */}
           <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
@@ -2667,7 +2911,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   );
 }
 
-function ChatView({ coupleId, personName, p1, p2 }) {
+function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2676,7 +2920,12 @@ function ChatView({ coupleId, personName, p1, p2 }) {
   useEffect(() => {
     if (!coupleId) return;
     loadMessages(coupleId).then(setMessages);
-    const ch = subscribeToMessages(coupleId, msg => setMessages(prev => [...prev, msg]));
+    const ch = subscribeToMessages(coupleId, msg => {
+      setMessages(prev => [...prev, msg]);
+      if (chatNotifEnabled && msg.sender_name !== personName && document.visibilityState !== "visible") {
+        showNotif(`💬 ${msg.sender_name}`, msg.content, { tag: `chat-${msg.id}` });
+      }
+    });
     return () => supabase.removeChannel(ch);
   }, [coupleId]);
 
@@ -2798,7 +3047,7 @@ function WeekDetailList({ allW, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[], settings }) {
+function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter="all", catFilter=[], goals=[], settings }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -2987,6 +3236,17 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
             <div><label style={S.label}>🏁 Fecha fin</label><input type="date" value={editingMission.mission.endDate||""} onChange={e=>{const ed=e.target.value||null;const s=editingMission.mission,d=s.date,t=s.time,et=s.endTime;const dur=d&&t&&ed&&et?Math.round((new Date(ed+"T"+et)-new Date(d+"T"+t))/60000):s.duration;patchEditing({endDate:ed,...(dur>0?{duration:dur}:{})});}} style={{...S.inputSm,colorScheme:"dark"}} /></div>
             <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={editingMission.mission.endTime||""} onChange={e=>{const et=e.target.value||null;const s=editingMission.mission,d=s.date,t=s.time,ed=s.endDate;const dur=d&&t&&ed&&et?Math.round((new Date(ed+"T"+et)-new Date(d+"T"+t))/60000):s.duration;patchEditing({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{...S.inputSm,colorScheme:"dark"}} /></div>
           </div>}
+          {editingMission.mission.type==="event"&&editingMission.mission.time&&<div style={{marginBottom:8}}>
+            <label style={S.label}>🔔 Recordatorio</label>
+            <select value={editingMission.mission.reminder||"none"} onChange={e=>patchEditing({reminder:e.target.value})} style={{...S.inputSm,colorScheme:"dark",fontSize:12}}>
+              <option value="none">Sin recordatorio</option>
+              <option value="ontime">En el momento</option>
+              <option value="15min">15 min antes</option>
+              <option value="30min">30 min antes</option>
+              <option value="1h">1 hora antes</option>
+              <option value="1day">1 día antes</option>
+            </select>
+          </div>}
           <div style={{marginBottom:10}}>
             <label style={S.label}>Estado</label>
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
@@ -3000,6 +3260,20 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
               {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
           </div>}
+          {editingMission.mission.seriesId && onPatchAllFutureSeries && (
+            <div style={{ background:"rgba(52,211,153,0.07)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
+              <div style={{ fontSize:11, color:"#34d399", fontWeight:600, marginBottom:6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern==="weekly"?"Semanal":editingMission.mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</div>
+              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
+              <button onClick={()=>{
+                const fromWkey = isoWeekKey(editingMission.wn, editingMission.yr);
+                const { seriesId, title, emoji, who, categories, category, duration, type, reminder, seriesEndDate } = editingMission.mission;
+                if (window.confirm(`¿Aplicar estos cambios a TODAS las instancias futuras de "${title}"?`)) {
+                  onPatchAllFutureSeries(seriesId, fromWkey, { title, emoji, who, categories, category, duration, type, reminder, seriesEndDate });
+                  closeEdit();
+                }
+              }} style={{...S.btnSecondary, fontSize:11, padding:"5px 12px"}}>📋 Aplicar a todas las futuras</button>
+            </div>
+          )}
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:14}}>
             <button onClick={()=>{if(window.confirm("¿Eliminar esta actividad?"))onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();}} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
             <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
