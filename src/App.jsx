@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.3";
-const LAST_UPDATE = "2026-04-21";
+const APP_VERSION = "2.2.4";
+const LAST_UPDATE = "2026-04-22";
 const CHANGELOG = [
+  { v:"2.2.4", date:"2026-04-22", notes:["Notificaciones push: recibe alertas de mensajes del chat, cambios de tu pareja y recordatorios de eventos aunque la app esté en segundo plano","Recordatorios de eventos: elige con cuánta antelación quieres que te avisemos (en el momento, 15 min, 30 min, 1 h o 1 día antes)","Resumen diario: notificación matutina con tus misiones del día y metas próximas a vencer","Gestión de notificaciones en ⚙️ Mi perfil — actívalas y personaliza cada tipo por separado","Versión 2.2.4"] },
   { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
   { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
   { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
@@ -90,8 +91,32 @@ const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
-const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" } };
+const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
 const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
+
+// ─── Notification helpers ─────────────────────────────────────────────────────
+const showNotif = (title, body, opts={}) => {
+  if (typeof Notification==="undefined" || Notification.permission!=="granted") return;
+  try { new Notification(title, { icon:"/icon-192.png", badge:"/icon-192.png", body, ...opts }); }
+  catch { /* unsupported env */ }
+};
+let _rTimers = [];
+const clearRTimers = () => { _rTimers.forEach(clearTimeout); _rTimers = []; };
+const scheduleReminders = (data, p1, p2) => {
+  clearRTimers();
+  if (!data?.settings?.notifications?.eventReminders) return;
+  const OFFSETS = { ontime:0, "15min":15*60e3, "30min":30*60e3, "1h":60*60e3, "1day":24*3600e3 };
+  const now = Date.now();
+  Object.values(data.weeks||{}).flatMap(w=>w.missions||[]).forEach(m => {
+    if (m.type!=="event"||!m.date||!m.time||!m.reminder||m.reminder==="none") return;
+    const offset = OFFSETS[m.reminder]; if (offset===undefined) return;
+    const fireAt = new Date(`${m.date}T${m.time}:00`).getTime() - offset;
+    if (fireAt <= now) return;
+    const who = m.who==="person1"?p1:m.who==="person2"?p2:"Juntos";
+    const label = {ontime:"¡Ahora!","15min":"En 15 min","30min":"En 30 min","1h":"En 1 hora","1day":"Mañana"}[m.reminder]||"";
+    _rTimers.push(setTimeout(()=>showNotif(`${m.emoji} ${m.title}`,`${label} · ${who}`,{tag:`rem-${m.id}`}), fireAt-now));
+  });
+};
 
 const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" }; // dark theme defaults
 const THEMES = [
@@ -789,7 +814,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", reminder:"none" });
   const [editObj, setEditObj] = useState(false);
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
@@ -802,6 +827,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [syncError, setSyncError]   = useState(null);   // string | null
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
+  const [notifGranted, setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
+  const notifSettingsRef = useRef(null);
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -903,16 +930,61 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const tutorialFinish = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); setActiveTab("home"); };
   const tutorialSkip   = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); };
 
+  // Keep notifSettingsRef current for use inside async callbacks
+  useEffect(() => { notifSettingsRef.current = data?.settings?.notifications; }, [data?.settings?.notifications]);
+
+  // Schedule event reminders whenever data changes
+  useEffect(() => {
+    if (!data || !notifGranted) return;
+    scheduleReminders(data, data.settings?.person1||"Persona 1", data.settings?.person2||"Persona 2");
+    return clearRTimers;
+  }, [data, notifGranted]);
+
+  // On data load: goal deadline reminders + daily briefing (#10)
+  useEffect(() => {
+    if (!data || !notifGranted) return;
+    const ns = data.settings?.notifications || {};
+
+    // Goal deadlines: notify 7 days, 1 day, and day-of
+    if (ns.goalDeadlines) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      (data.goals||[]).filter(g=>g.active!==false&&g.deadline).forEach(g=>{
+        const days = Math.round((new Date(g.deadline)-today)/86400e3);
+        const key = `gdl-${g.id}-${days}`;
+        if ((days===7||days===1||days===0) && !localStorage.getItem(key)) {
+          localStorage.setItem(key,"1");
+          showNotif(`🏅 ${g.title}`, days===0?"¡Vence hoy!":days===1?"Vence mañana":"Vence en 7 días", {tag:key});
+        }
+      });
+    }
+
+    // Daily briefing (feature #10)
+    if (ns.dailyBriefing) {
+      const today = new Date(); const todayStr = today.toISOString().slice(0,10);
+      const bKey = `briefing-${todayStr}`;
+      if (!localStorage.getItem(bKey)) {
+        const [bh,bm] = (ns.briefingTime||"08:00").split(":").map(Number);
+        if (today.getHours()>bh||(today.getHours()===bh&&today.getMinutes()>=bm)) {
+          localStorage.setItem(bKey,"1");
+          const allM = Object.values(data.weeks||{}).flatMap(w=>w.missions||[]);
+          const ev = allM.filter(m=>m.date===todayStr&&m.type==="event").length;
+          const tk = allM.filter(m=>m.date===todayStr&&m.type!=="event"&&m.status!=="DONE").length;
+          const body = ev||tk ? [ev&&`${ev} evento${ev>1?"s":""}`, tk&&`${tk} tarea${tk>1?"s":""}`].filter(Boolean).join(" · ") : "Hoy no hay nada planeado 🌿";
+          showNotif("☀️ Buenos días", body, {tag:"daily-briefing"});
+        }
+      }
+    }
+  }, [data?.weeks, data?.goals, notifGranted]); // eslint-disable-line
+
   // Realtime: reload when partner saves
   useEffect(() => {
     if (!coupleId) return;
     const channel = subscribeToUpdates(coupleId, remoteData => {
       if (remoteData) {
-        setData(prev => {
-          // Only update if remote is newer (avoid overwriting own unsaved changes)
-          if (!prev) return remoteData;
-          return remoteData;
-        });
+        if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
+          showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
+        }
+        setData(() => remoteData);
       }
     });
     return () => { supabase.removeChannel(channel); };
@@ -1694,7 +1766,7 @@ ${ms.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="pending" && (()=>{
           // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
@@ -1889,6 +1961,17 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
             </div>
             {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
           </div>
+          {newM.time&&<div style={{ marginBottom:8 }}>
+            <label style={S.label}>🔔 Recordatorio</label>
+            <select value={newM.reminder||"none"} onChange={e=>setNewM(p=>({...p,reminder:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12 }}>
+              <option value="none">Sin recordatorio</option>
+              <option value="ontime">En el momento</option>
+              <option value="15min">15 min antes</option>
+              <option value="30min">30 min antes</option>
+              <option value="1h">1 hora antes</option>
+              <option value="1day">1 día antes</option>
+            </select>
+          </div>}
         }
       </>}
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
@@ -2044,6 +2127,14 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
   const [themeOpen,    setThemeOpen]    = useState(false);
   const [coupleEmoji,  setCoupleEmoji]  = useState(settings.coupleEmoji||"💞");
   const [photos,       setPhotos]       = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
+  const defNotif = settings.notifications || {};
+  const [notifChat,        setNotifChat]        = useState(defNotif.chat !== false);
+  const [notifPartner,     setNotifPartner]     = useState(defNotif.partnerChanges !== false);
+  const [notifEvents,      setNotifEvents]      = useState(defNotif.eventReminders !== false);
+  const [notifGoals,       setNotifGoals]       = useState(defNotif.goalDeadlines !== false);
+  const [notifBriefing,    setNotifBriefing]    = useState(defNotif.dailyBriefing === true);
+  const [notifBriefTime,   setNotifBriefTime]   = useState(defNotif.briefingTime || "08:00");
+  const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
@@ -2074,8 +2165,15 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
     e.target.value = "";
   };
 
+  const requestNotifPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+  };
+
   const save = () => {
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos}}));
+    const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos, notifications}}));
     onClose();
   };
 
@@ -2168,6 +2266,56 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
               style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
           </div>
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
+
+          {/* Notificaciones */}
+          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones</div>
+          <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
+            {notifPermission !== "granted" ? (
+              <div style={{ textAlign:"center", padding:"8px 0 12px" }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>🔔</div>
+                <div style={{ fontSize:13, color:"#c4b8ff", marginBottom:6, fontWeight:500 }}>Activa las notificaciones</div>
+                <div style={{ fontSize:11, color:"#6b5f88", marginBottom:14, lineHeight:1.6 }}>
+                  {notifPermission === "denied"
+                    ? "Tu navegador ha bloqueado las notificaciones. Cámbialas desde la configuración del navegador."
+                    : "Recibe alertas de mensajes, cambios de tu pareja y recordatorios de eventos."}
+                </div>
+                {notifPermission !== "denied" && (
+                  <button onClick={requestNotifPermission} style={{ ...S.btnPrimary, fontSize:12, padding:"8px 20px" }}>🔔 Permitir notificaciones</button>
+                )}
+              </div>
+            ) : (
+              <>
+                {[
+                  [notifChat,    setNotifChat,    "💬", "Mensajes del chat"],
+                  [notifPartner, setNotifPartner, "🔄", "Cambios de tu pareja"],
+                  [notifEvents,  setNotifEvents,  "📅", "Recordatorios de eventos"],
+                  [notifGoals,   setNotifGoals,   "🎯", "Vencimiento de metas"],
+                ].map(([val, set, icon, label]) => (
+                  <div key={label} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:12, marginBottom:12, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ fontSize:13, color:"#c4b8ff" }}>{icon} {label}</div>
+                    <button onClick={()=>set(v=>!v)}
+                      style={{ width:40, height:22, borderRadius:99, background:val?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                      <span style={{ position:"absolute", top:3, left:val?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+                    </button>
+                  </div>
+                ))}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:notifBriefing?10:0 }}>
+                  <div style={{ fontSize:13, color:"#c4b8ff" }}>🌅 Resumen diario</div>
+                  <button onClick={()=>setNotifBriefing(v=>!v)}
+                    style={{ width:40, height:22, borderRadius:99, background:notifBriefing?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                    <span style={{ position:"absolute", top:3, left:notifBriefing?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+                  </button>
+                </div>
+                {notifBriefing && (
+                  <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ fontSize:12, color:"#8b7fa8" }}>Hora del resumen</span>
+                    <input type="time" value={notifBriefTime} onChange={e=>setNotifBriefTime(e.target.value)}
+                      style={{ ...S.inputSm, colorScheme:"dark", flex:1, maxWidth:110 }} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Tema */}
           <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
@@ -2667,7 +2815,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   );
 }
 
-function ChatView({ coupleId, personName, p1, p2 }) {
+function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2676,7 +2824,12 @@ function ChatView({ coupleId, personName, p1, p2 }) {
   useEffect(() => {
     if (!coupleId) return;
     loadMessages(coupleId).then(setMessages);
-    const ch = subscribeToMessages(coupleId, msg => setMessages(prev => [...prev, msg]));
+    const ch = subscribeToMessages(coupleId, msg => {
+      setMessages(prev => [...prev, msg]);
+      if (chatNotifEnabled && msg.sender_name !== personName && document.visibilityState !== "visible") {
+        showNotif(`💬 ${msg.sender_name}`, msg.content, { tag: `chat-${msg.id}` });
+      }
+    });
     return () => supabase.removeChannel(ch);
   }, [coupleId]);
 
@@ -2986,6 +3139,17 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
           {editingMission.mission.type==="event"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
             <div><label style={S.label}>🏁 Fecha fin</label><input type="date" value={editingMission.mission.endDate||""} onChange={e=>{const ed=e.target.value||null;const s=editingMission.mission,d=s.date,t=s.time,et=s.endTime;const dur=d&&t&&ed&&et?Math.round((new Date(ed+"T"+et)-new Date(d+"T"+t))/60000):s.duration;patchEditing({endDate:ed,...(dur>0?{duration:dur}:{})});}} style={{...S.inputSm,colorScheme:"dark"}} /></div>
             <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={editingMission.mission.endTime||""} onChange={e=>{const et=e.target.value||null;const s=editingMission.mission,d=s.date,t=s.time,ed=s.endDate;const dur=d&&t&&ed&&et?Math.round((new Date(ed+"T"+et)-new Date(d+"T"+t))/60000):s.duration;patchEditing({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+          </div>}
+          {editingMission.mission.type==="event"&&editingMission.mission.time&&<div style={{marginBottom:8}}>
+            <label style={S.label}>🔔 Recordatorio</label>
+            <select value={editingMission.mission.reminder||"none"} onChange={e=>patchEditing({reminder:e.target.value})} style={{...S.inputSm,colorScheme:"dark",fontSize:12}}>
+              <option value="none">Sin recordatorio</option>
+              <option value="ontime">En el momento</option>
+              <option value="15min">15 min antes</option>
+              <option value="30min">30 min antes</option>
+              <option value="1h">1 hora antes</option>
+              <option value="1day">1 día antes</option>
+            </select>
           </div>}
           <div style={{marginBottom:10}}>
             <label style={S.label}>Estado</label>
