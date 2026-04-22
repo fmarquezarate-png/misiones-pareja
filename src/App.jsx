@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.2.4";
+const APP_VERSION = "2.3.0";
 const LAST_UPDATE = "2026-04-22";
 const CHANGELOG = [
+  { v:"2.3.0", date:"2026-04-22", notes:["Gestos de deslizamiento: desliza ← → en la semana actual para cambiar de semana sin tocar botones","Recurrencia potente: nueva opción Bisemanal (cada 2 semanas) + fecha de fin de serie opcional + botón 'Aplicar a todas las futuras' en el editor de calendario","Modo offline: banner de aviso cuando no hay conexión, los cambios se guardan localmente y se sincronizan solos al reconectar","Resumen diario mejorado: ahora también se programa durante la sesión si abres la app antes de la hora configurada","Versión 2.3.0"] },
   { v:"2.2.4", date:"2026-04-22", notes:["Notificaciones push: recibe alertas de mensajes del chat, cambios de tu pareja y recordatorios de eventos aunque la app esté en segundo plano","Recordatorios de eventos: elige con cuánta antelación quieres que te avisemos (en el momento, 15 min, 30 min, 1 h o 1 día antes)","Resumen diario: notificación matutina con tus misiones del día y metas próximas a vencer","Gestión de notificaciones en ⚙️ Mi perfil — actívalas y personaliza cada tipo por separado","Versión 2.2.4"] },
   { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
   { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
@@ -89,6 +90,24 @@ const getWeekAndYear = (date = new Date()) => {
 const isTodayMonday = () => new Date().getDay() === 1;
 const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const TABS = ["home","current","calendar","pending","goals","stats","chat"];
+
+// ─── Swipe hook (used for week navigation and tab switching on touch) ─────────
+function useSwipe(onLeft, onRight, minDist = 55) {
+  const x0 = useRef(null);
+  return {
+    onTouchStart: e => { x0.current = e.touches[0].clientX; },
+    onTouchEnd:   e => {
+      if (x0.current === null) return;
+      const dx = e.changedTouches[0].clientX - x0.current;
+      x0.current = null;
+      if (Math.abs(dx) < minDist) return;
+      if (dx < 0) onLeft?.(); else onRight?.();
+    },
+  };
+}
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
@@ -446,16 +465,39 @@ function applyCarryOver(data) {
   const currW = data.weeks[currKey] || { weekNumber:cwn, year:cyr, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const existingCarriedIds = new Set((currW.missions||[]).filter(m=>m.carriedFrom).map(m=>m.carriedFrom));
   const existingTitles = new Set((currW.missions||[]).map(m=>m.title));
-  const toCarry = (prevW.missions||[]).filter(m => m.status!=="DONE" && !existingCarriedIds.has(m.id) && !existingTitles.has(m.title));
-  // Recurring series: generate fresh instance for current week if not already there
-  const allPrevSeries = (prevW.missions||[]).filter(m => m.seriesPattern && m.seriesId);
   const existingSeriesIds = new Set((currW.missions||[]).filter(m=>m.seriesId).map(m=>m.seriesId));
+  const toCarry = (prevW.missions||[]).filter(m => m.status!=="DONE" && !existingCarriedIds.has(m.id) && !existingTitles.has(m.title));
+
+  // Recurring: look at prevW and also 2 weeks back for biweekly series
+  const { wn:p2wn, yr:p2yr } = prevWeekFn(pwn, pyr);
+  const prev2W = data.weeks[isoWeekKey(p2wn, p2yr)];
+  const prevSeries = (prevW.missions||[]).filter(m => m.seriesPattern && m.seriesId);
+  const prevSeriesIds = new Set(prevSeries.map(m => m.seriesId));
+  const biweeklyFromPrev2 = (prev2W?.missions||[]).filter(m =>
+    m.seriesPattern === "biweekly" && m.seriesId &&
+    !existingSeriesIds.has(m.seriesId) && !prevSeriesIds.has(m.seriesId)
+  );
+  const allSeriesSources = [...prevSeries, ...biweeklyFromPrev2];
+
   const today = new Date();
   const isFirstWeekOfMonth = cwn === getWeekAndYear(new Date(today.getFullYear(), today.getMonth(), 1)).week;
-  const newSeriesMissions = allPrevSeries.filter(m => {
+  const seriesEndOk = m => {
+    if (!m.seriesEndDate) return true;
+    const { week:eWn, year:eYr } = getWeekAndYear(new Date(m.seriesEndDate));
+    return !(cyr > eYr || (cyr === eYr && cwn > eWn));
+  };
+
+  const newSeriesMissions = allSeriesSources.filter(m => {
     if (existingSeriesIds.has(m.seriesId)) return false;
+    if (!seriesEndOk(m)) return false;
     if (m.seriesPattern === "weekly") return true;
     if (m.seriesPattern === "monthly") return isFirstWeekOfMonth;
+    if (m.seriesPattern === "biweekly") {
+      const sWn = m.seriesStartWeek || pwn;
+      const sYr = m.seriesStartYear || pyr;
+      const weeksDiff = (cyr - sYr) * 52 + (cwn - sWn);
+      return weeksDiff % 2 === 0;
+    }
     return false;
   }).map(m => ({ ...m, id:uid(), carriedFrom:null, carriedFromWeek:null, date:null, createdAt:Date.now(), completedAt:null, status:"TBC" }));
 
@@ -814,7 +856,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", reminder:"none" });
+  const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
   const [editObj, setEditObj] = useState(false);
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
@@ -829,6 +871,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
   const [notifGranted, setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
   const notifSettingsRef = useRef(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [pendingSave, setPendingSave] = useState(false);
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -959,21 +1003,30 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     }
 
     // Daily briefing (feature #10)
+    let briefingTimer = null;
     if (ns.dailyBriefing) {
       const today = new Date(); const todayStr = today.toISOString().slice(0,10);
       const bKey = `briefing-${todayStr}`;
+      const fireBriefing = () => {
+        localStorage.setItem(bKey,"1");
+        const allM = Object.values(data.weeks||{}).flatMap(w=>w.missions||[]);
+        const ev = allM.filter(m=>m.date===todayStr&&m.type==="event").length;
+        const tk = allM.filter(m=>m.date===todayStr&&m.type!=="event"&&m.status!=="DONE").length;
+        const body = ev||tk ? [ev&&`${ev} evento${ev>1?"s":""}`, tk&&`${tk} tarea${tk>1?"s":""}`].filter(Boolean).join(" · ") : "Hoy no hay nada planeado 🌿";
+        showNotif("☀️ Buenos días", body, {tag:"daily-briefing"});
+      };
       if (!localStorage.getItem(bKey)) {
         const [bh,bm] = (ns.briefingTime||"08:00").split(":").map(Number);
-        if (today.getHours()>bh||(today.getHours()===bh&&today.getMinutes()>=bm)) {
-          localStorage.setItem(bKey,"1");
-          const allM = Object.values(data.weeks||{}).flatMap(w=>w.missions||[]);
-          const ev = allM.filter(m=>m.date===todayStr&&m.type==="event").length;
-          const tk = allM.filter(m=>m.date===todayStr&&m.type!=="event"&&m.status!=="DONE").length;
-          const body = ev||tk ? [ev&&`${ev} evento${ev>1?"s":""}`, tk&&`${tk} tarea${tk>1?"s":""}`].filter(Boolean).join(" · ") : "Hoy no hay nada planeado 🌿";
-          showNotif("☀️ Buenos días", body, {tag:"daily-briefing"});
+        const fireAt = new Date(today); fireAt.setHours(bh,bm,0,0);
+        if (today >= fireAt) {
+          fireBriefing();
+        } else {
+          // Schedule within this session
+          briefingTimer = setTimeout(fireBriefing, fireAt - today);
         }
       }
     }
+    return () => { if (briefingTimer) clearTimeout(briefingTimer); };
   }, [data?.weeks, data?.goals, notifGranted]); // eslint-disable-line
 
   // Realtime: reload when partner saves
@@ -990,6 +1043,24 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     return () => { supabase.removeChannel(channel); };
   }, [coupleId]);
 
+  // Online/offline detection
+  useEffect(() => {
+    const up = () => setIsOnline(true);
+    const dn = () => setIsOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", dn);
+    return () => { window.removeEventListener("online", up); window.removeEventListener("offline", dn); };
+  }, []);
+
+  // Retry pending save when reconnecting
+  useEffect(() => {
+    if (isOnline && pendingSave && data && coupleId) {
+      saveData(data, coupleId)
+        .then(() => { setPendingSave(false); setSyncError(null); showSyncMsg("✓ Cambios sincronizados"); })
+        .catch(() => {}); // still offline — keep pendingSave true
+    }
+  }, [isOnline]); // eslint-disable-line
+
   const update = useCallback(fn => {
     setData(prev => {
       const next = fn(prev);
@@ -997,8 +1068,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         saveData(next, coupleId)
-          .then(() => setSyncError(null))
-          .catch(e => setSyncError(e.message));
+          .then(() => { setSyncError(null); setPendingSave(false); })
+          .catch(e => { setSyncError(e.message); setPendingSave(true); });
       }, 700);
       return next;
     });
@@ -1051,8 +1122,8 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     const hasEnd = !!newM.endDate;
     const startTime = newM.time || (hasEnd ? "00:00" : null);
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid }] }));
-    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"" });
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null }] }));
+    setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
 
@@ -1070,10 +1141,21 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const delMission = id => patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
   const patchM = (id, patch) => patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
   const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>isoWeeksInYear(yr)){wn=1;yr++;} if(wn<1){yr--;wn=isoWeeksInYear(yr);} return {...s,currentWeekNumber:wn,currentYear:yr}; });
+  const swipeWeek = useSwipe(() => changeWeek(1), () => changeWeek(-1));
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => update(d => applyCarryOver(d));
+  const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
+    update(d => {
+      const newWeeks = { ...d.weeks };
+      for (const [wkey, w] of Object.entries(newWeeks)) {
+        if (wkey < fromWkey) continue;
+        newWeeks[wkey] = { ...w, missions: (w.missions||[]).map(m => m.seriesId === seriesId ? { ...m, ...patch } : m) };
+      }
+      return { ...d, weeks: newWeeks };
+    });
+  };
   const cycleStatusGlobal = (wn, yr, id) => {
     const key = isoWeekKey(wn, yr);
     update(d => {
@@ -1308,6 +1390,16 @@ ${ms.map(m=>{
 
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
+      {/* Offline banner */}
+      {!isOnline && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", padding:"8px 16px", zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
+        <span style={{ fontSize:16 }}>📡</span>
+        <span style={{ flex:1 }}>Sin conexión · Los cambios se guardan localmente y se sincronizarán al reconectar</span>
+        {pendingSave && <span style={{ fontSize:10, color:"#fb923c" }}>⏳ pendiente</span>}
+      </div>}
+      {isOnline && pendingSave && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", padding:"6px 16px", zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
+        <span>🔄</span><span>Sincronizando cambios pendientes…</span>
+      </div>}
+
       {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
@@ -1590,7 +1682,7 @@ ${ms.map(m=>{
         })()}
 
         {/* Current Week */}
-        {activeTab==="current" && <div>
+        {activeTab==="current" && <div {...swipeWeek}>
           {/* Week navigation */}
           <div style={{ textAlign:"center", marginBottom:16 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:week.epicObjective?4:8 }}>
@@ -1671,7 +1763,7 @@ ${ms.map(m=>{
 
         {activeTab==="calendar" && <CalendarView
           allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} settings={data.settings} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
-          onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal}
+          onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal} onPatchAllFutureSeries={patchAllFutureSeries}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
             update(s => ({...s, currentWeekNumber:wn, currentYear:yr}));
@@ -1984,11 +2076,15 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
       {!isEvent&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🔁 Tarea recurrente</label>
         <div style={{ display:"flex", gap:4 }}>
-          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"monthly",label:"Mensual"}].map(o=>(
-            <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesId:o.id?p.seriesId||uid():undefined}))}
+          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
+            <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
               style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
           ))}
         </div>
+        {newM.seriesPattern && <div style={{ marginTop:8 }}>
+          <label style={S.label}>📅 Repetir hasta (opcional)</label>
+          <input type="date" value={newM.seriesEndDate||""} onChange={e=>setNewM(p=>({...p,seriesEndDate:e.target.value}))} style={{...S.inputSm,colorScheme:"dark"}} />
+        </div>}
       </div>}
       <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -2053,7 +2149,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
             {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
-            {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":"Mensual"}</span>}
+            {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
@@ -2951,7 +3047,7 @@ function WeekDetailList({ allW, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, personFilter="all", catFilter=[], goals=[], settings }) {
+function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter="all", catFilter=[], goals=[], settings }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -3164,6 +3260,20 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
               {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
           </div>}
+          {editingMission.mission.seriesId && onPatchAllFutureSeries && (
+            <div style={{ background:"rgba(52,211,153,0.07)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
+              <div style={{ fontSize:11, color:"#34d399", fontWeight:600, marginBottom:6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern==="weekly"?"Semanal":editingMission.mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</div>
+              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
+              <button onClick={()=>{
+                const fromWkey = isoWeekKey(editingMission.wn, editingMission.yr);
+                const { seriesId, title, emoji, who, categories, category, duration, type, reminder, seriesEndDate } = editingMission.mission;
+                if (window.confirm(`¿Aplicar estos cambios a TODAS las instancias futuras de "${title}"?`)) {
+                  onPatchAllFutureSeries(seriesId, fromWkey, { title, emoji, who, categories, category, duration, type, reminder, seriesEndDate });
+                  closeEdit();
+                }
+              }} style={{...S.btnSecondary, fontSize:11, padding:"5px 12px"}}>📋 Aplicar a todas las futuras</button>
+            </div>
+          )}
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:14}}>
             <button onClick={()=>{if(window.confirm("¿Eliminar esta actividad?"))onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();}} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
             <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
