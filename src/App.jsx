@@ -2053,18 +2053,18 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
             </div>
             {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
           </div>
-          {newM.time&&<div style={{ marginBottom:8 }}>
-            <label style={S.label}>🔔 Recordatorio</label>
-            <select value={newM.reminder||"none"} onChange={e=>setNewM(p=>({...p,reminder:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12 }}>
-              <option value="none">Sin recordatorio</option>
-              <option value="ontime">En el momento</option>
-              <option value="15min">15 min antes</option>
-              <option value="30min">30 min antes</option>
-              <option value="1h">1 hora antes</option>
-              <option value="1day">1 día antes</option>
-            </select>
-          </div>}
         }
+        {newM.time&&<div style={{ marginBottom:8 }}>
+          <label style={S.label}>🔔 Recordatorio</label>
+          <select value={newM.reminder||"none"} onChange={e=>setNewM(p=>({...p,reminder:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12 }}>
+            <option value="none">Sin recordatorio</option>
+            <option value="ontime">En el momento</option>
+            <option value="15min">15 min antes</option>
+            <option value="30min">30 min antes</option>
+            <option value="1h">1 hora antes</option>
+            <option value="1day">1 día antes</option>
+          </select>
+        </div>}
       </>}
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
