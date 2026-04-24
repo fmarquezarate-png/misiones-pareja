@@ -95,15 +95,18 @@ const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr -
 const TABS = ["home","current","calendar","pending","goals","stats","chat"];
 
 // ─── Swipe hook (used for week navigation and tab switching on touch) ─────────
-function useSwipe(onLeft, onRight, minDist = 55) {
+function useSwipe(onLeft, onRight, minDist = 110) {
   const x0 = useRef(null);
+  const y0 = useRef(null);
   return {
-    onTouchStart: e => { x0.current = e.touches[0].clientX; },
+    onTouchStart: e => { x0.current = e.touches[0].clientX; y0.current = e.touches[0].clientY; },
     onTouchEnd:   e => {
       if (x0.current === null) return;
       const dx = e.changedTouches[0].clientX - x0.current;
-      x0.current = null;
+      const dy = e.changedTouches[0].clientY - y0.current;
+      x0.current = null; y0.current = null;
       if (Math.abs(dx) < minDist) return;
+      if (Math.abs(dx) <= Math.abs(dy) * 1.5) return; // mostly vertical — let scroll handle it
       if (dx < 0) onLeft?.(); else onRight?.();
     },
   };
@@ -1394,12 +1397,12 @@ ${ms.map(m=>{
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
       {/* Offline banner */}
-      {!isOnline && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", padding:"8px 16px", zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
+      {!isOnline && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", paddingTop:"calc(8px + env(safe-area-inset-top))", paddingBottom:8, paddingLeft:16, paddingRight:16, zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
         <span style={{ fontSize:16 }}>📡</span>
         <span style={{ flex:1 }}>Sin conexión · Los cambios se guardan localmente y se sincronizarán al reconectar</span>
         {pendingSave && <span style={{ fontSize:10, color:"#fb923c" }}>⏳ pendiente</span>}
       </div>}
-      {isOnline && pendingSave && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", padding:"6px 16px", zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
+      {isOnline && pendingSave && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", paddingTop:"calc(6px + env(safe-area-inset-top))", paddingBottom:6, paddingLeft:16, paddingRight:16, zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
         <span>🔄</span><span>Sincronizando cambios pendientes…</span>
       </div>}
 
@@ -1438,7 +1441,7 @@ ${ms.map(m=>{
       {/* Slide-out menu */}
       <div style={{ position:"fixed", top:0, left:0, bottom:0, width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
         {/* Menu header */}
-        <div style={{ padding:"18px 20px 14px", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
+        <div style={{ paddingTop:"calc(18px + env(safe-area-inset-top))", paddingLeft:20, paddingRight:20, paddingBottom:14, borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
           {data.settings?.photos?.couple
             ? <img src={data.settings.photos.couple} style={{ width:44, height:44, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0 }} alt="pareja" />
             : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{data.settings?.coupleEmoji||"💞"}</div>
@@ -1481,7 +1484,8 @@ ${ms.map(m=>{
       </div>
 
       {/* ── Sticky top bar ── */}
-      <div style={{ position:"sticky", top:0, zIndex:80, background:"var(--t-topbar-bg,rgba(10,7,20,0.9))", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.08))", padding:"0 12px", height:52, display:"flex", alignItems:"center", gap:8 }}>
+      <div style={{ position:"sticky", top:0, zIndex:80, background:"var(--t-topbar-bg,rgba(10,7,20,0.9))", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.08))", paddingTop:"env(safe-area-inset-top)" }}>
+      <div style={{ height:52, display:"flex", alignItems:"center", gap:8, paddingLeft:12, paddingRight:12 }}>
         {/* Hamburger */}
         <button onClick={()=>setMenuOpen(v=>!v)} aria-label="Menú"
           style={{ background:"none", border:"none", cursor:"pointer", color:"#8b7fa8", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
@@ -1536,9 +1540,9 @@ ${ms.map(m=>{
             </div>
           </>}
         </div>
-      </div>
+      </div></div>{/* end inner 52px row + safe-area wrapper */}
 
-      <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px 120px" }}>
+      <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
 
         {/* Global filters — show only for tabs that need them */}
         {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:6 }}>
