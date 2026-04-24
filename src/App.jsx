@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.3.0";
-const LAST_UPDATE = "2026-04-22";
+const APP_VERSION = "2.3.1";
+const LAST_UPDATE = "2026-04-24";
 const CHANGELOG = [
+  { v:"2.3.1", date:"2026-04-24", notes:["Inicio siempre muestra la semana real de hoy (no la semana que estés viendo en otras pestañas)","Colores del tema ahora se aplican en todos los rincones: histórico, modal de edición de calendario, menú de metas","Selector de fuente independiente del tema: elige entre 5 tipografías desde ⚙️ Mi Perfil","Sensibilidad del gesto deslizar corregida: ya no cambia de semana al hacer scroll vertical","Botones del top bar claros de la barra de estado iOS (safe area)","Versión 2.3.1"] },
   { v:"2.3.0", date:"2026-04-22", notes:["Gestos de deslizamiento: desliza ← → en la semana actual para cambiar de semana sin tocar botones","Recurrencia potente: nueva opción Bisemanal (cada 2 semanas) + fecha de fin de serie opcional + botón 'Aplicar a todas las futuras' en el editor de calendario","Modo offline: banner de aviso cuando no hay conexión, los cambios se guardan localmente y se sincronizan solos al reconectar","Resumen diario mejorado: ahora también se programa durante la sesión si abres la app antes de la hora configurada","Versión 2.3.0"] },
   { v:"2.2.4", date:"2026-04-22", notes:["Notificaciones push: recibe alertas de mensajes del chat, cambios de tu pareja y recordatorios de eventos aunque la app esté en segundo plano","Recordatorios de eventos: elige con cuánta antelación quieres que te avisemos (en el momento, 15 min, 30 min, 1 h o 1 día antes)","Resumen diario: notificación matutina con tus misiones del día y metas próximas a vencer","Gestión de notificaciones en ⚙️ Mi perfil — actívalas y personaliza cada tipo por separado","Versión 2.2.4"] },
   { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
@@ -325,6 +326,14 @@ const THEMES = [
   },
 ];
 
+const FONTS = [
+  { id:"auto",     name:"Automático (del tema)", family:null, googleFonts:null },
+  { id:"inter",    name:"Inter",            family:"'Inter',system-ui,sans-serif",                 googleFonts:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" },
+  { id:"poppins",  name:"Poppins",          family:"'Poppins',system-ui,sans-serif",               googleFonts:"https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" },
+  { id:"playfair", name:"Playfair Display", family:"'Playfair Display',Georgia,serif",             googleFonts:"https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" },
+  { id:"space",    name:"Space Grotesk",    family:"'Space Grotesk',system-ui,sans-serif",         googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" },
+];
+
 const googleCalendarUrl = (mission, name1, name2) => {
   if (!mission.date) return null;
   const ds = mission.date.replace(/-/g, "");
@@ -567,8 +576,8 @@ const getMissionDates=(m)=>{
   return dates.length ? dates : [m.date];
 };
 
-// Injects CSS custom properties + loads Google Font for the active theme
-function ThemeInjector({ themeId }) {
+// Injects CSS custom properties + loads Google Font for the active theme/font
+function ThemeInjector({ themeId, fontId }) {
   // One-time: inject global cursor + user-select rules
   useEffect(() => {
     if (document.getElementById("global-cursor")) return;
@@ -580,14 +589,18 @@ function ThemeInjector({ themeId }) {
 
   useEffect(() => {
     const t = THEMES.find(x=>x.id===themeId) || THEMES[0];
-    // Load theme font dynamically
+    const f = FONTS.find(x=>x.id===fontId);
+    const useCustomFont = f && f.id !== "auto";
+
+    // Load font dynamically (user font overrides theme font)
     const LINK_ID = "theme-font";
     let link = document.getElementById(LINK_ID);
-    if (t.googleFonts) {
+    const fontUrl = useCustomFont ? f.googleFonts : t.googleFonts;
+    if (fontUrl) {
       if (!link) { link = document.createElement("link"); link.id = LINK_ID; link.rel = "stylesheet"; document.head.appendChild(link); }
-      link.href = t.googleFonts;
+      link.href = fontUrl;
     } else if (link) {
-      link.href = ""; // remove external font for built-in themes
+      link.href = "";
     }
     // Apply CSS custom properties
     const r = document.documentElement.style;
@@ -600,11 +613,11 @@ function ThemeInjector({ themeId }) {
     r.setProperty("--t-btn-grad",    t.btnGrad);
     r.setProperty("--t-accent",      t.accent);
     r.setProperty("--t-accent-soft", t.accentSoft);
-    r.setProperty("--t-font-body",   t.fontBody);
+    r.setProperty("--t-font-body",   useCustomFont ? f.family : t.fontBody);
     r.setProperty("--t-text",        t.text      || "#f8f4ff");
     r.setProperty("--t-text-muted",  t.textMuted || "#8b7fa8");
     r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
-  }, [themeId]);
+  }, [themeId, fontId]);
   return null;
 }
 const badgeStyle = s => ({ background:STATUS[s].bg, color:STATUS[s].color, border:`1px solid ${STATUS[s].border}`, padding:"3px 8px", borderRadius:99, fontSize:11, fontWeight:600, fontFamily:"inherit", letterSpacing:0.3, cursor:"pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 });
@@ -1106,6 +1119,7 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const p2 = data.settings?.person2 || "Persona 2";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const themeId = data.settings?.themeId || "violet";
+  const fontId  = data.settings?.fontId  || "auto";
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1391,7 +1405,7 @@ ${ms.map(m=>{
 
   return (
     <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
-      <ThemeInjector themeId={themeId} />
+      <ThemeInjector themeId={themeId} fontId={fontId} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
       {/* Hidden file input for import */}
@@ -1567,9 +1581,13 @@ ${ms.map(m=>{
           const tomStr = tom.toISOString().slice(0,10);
           const todayAll = allDated.filter(m=>m.date===todayStr);
           const tomAll   = allDated.filter(m=>m.date===tomStr);
-          const pending  = (week.missions||[]).filter(m=>m.status!=="DONE");
-          const wDone    = (week.missions||[]).filter(m=>m.status==="DONE").length;
-          const wTotal   = (week.missions||[]).length;
+          // Always show the real current week, regardless of what's selected in other tabs
+          const { week:todayWn, year:todayYr } = getWeekAndYear(now);
+          const todayWkey = isoWeekKey(todayWn, todayYr);
+          const todayWeekData = data.weeks[todayWkey] || { missions:[], epicObjective:"" };
+          const pending  = (todayWeekData.missions||[]).filter(m=>m.status!=="DONE");
+          const wDone    = (todayWeekData.missions||[]).filter(m=>m.status==="DONE").length;
+          const wTotal   = (todayWeekData.missions||[]).length;
           const wPct     = wTotal>0?Math.round((wDone/wTotal)*100):0;
           const hour     = now.getHours();
           const greeting = hour<13?"Buenos días":hour<20?"Buenas tardes":"Buenas noches";
@@ -1584,8 +1602,8 @@ ${ms.map(m=>{
                 }
                 <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:300, color:"var(--t-text,#f8f4ff)", marginBottom:3, letterSpacing:-0.5 }}>{greeting}</div>
                 <div style={{ fontSize:12, color:"var(--t-text-muted,#6b5f88)", letterSpacing:1 }}>{p1} & {p2}</div>
-                {week.epicObjective && (
-                  <div style={{ marginTop:10, fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{week.epicObjective}"</div>
+                {todayWeekData.epicObjective && (
+                  <div style={{ marginTop:10, fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{todayWeekData.epicObjective}"</div>
                 )}
               </div>
 
@@ -1596,7 +1614,7 @@ ${ms.map(m=>{
                   {/* LEFT — Tareas pendientes */}
                   {wTotal>0 && (
                     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                      <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>🎯 Semana {data.currentWeekNumber}</div>
+                      <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>🎯 Semana {todayWn}</div>
                       <div style={{ ...S.card, cursor:"pointer", borderColor:wPct===100?"rgba(52,211,153,0.25)":"rgba(167,139,250,0.18)" }} onClick={()=>setActiveTab("current")}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                           <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wDone}/{wTotal} completadas</span>
@@ -1797,7 +1815,7 @@ ${ms.map(m=>{
                   <div style={S.label}>Semanas</div>
                   <div style={{ display:"flex", gap:3 }}>
                     {[["all","Todas"],["1","Esta sem."],["4","4 últ."],["8","8 últ."]].map(([v,l])=>(
-                      <button key={v} onClick={()=>setHistWeekRange(v)} style={{ background:histWeekRange===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${histWeekRange===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:histWeekRange===v?"#a78bfa":"#6b5f88", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
+                      <button key={v} onClick={()=>setHistWeekRange(v)} style={{ background:histWeekRange===v?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.06)", border:`1px solid ${histWeekRange===v?"var(--t-accent,rgba(167,139,250,0.4))":"var(--t-card-border,rgba(255,255,255,0.08))"}`, borderRadius:7, color:histWeekRange===v?"var(--t-accent,#a78bfa)":"var(--t-text-dim,#6b5f88)", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
                     ))}
                   </div>
                 </div>
@@ -1813,29 +1831,29 @@ ${ms.map(m=>{
               const filtMs = filterHM(w.missions||[]);
               const d=filtMs.filter(m=>m.status==="DONE").length, t=filtMs.length, p=t>0?Math.round((d/t)*100):0, cur=key===wkey;
               return (
-                <div key={key} style={{ ...S.card, borderColor:cur?"rgba(167,139,250,0.45)":"rgba(167,139,250,0.1)", background:cur?"#231e3d":"#1d1733", padding:"12px 14px" }}>
+                <div key={key} style={{ ...S.card, borderColor:cur?"var(--t-accent,rgba(167,139,250,0.45))":"var(--t-card-border,rgba(167,139,250,0.1))", background:cur?"var(--t-accent-soft,rgba(167,139,250,0.12))":"var(--t-card,#1d1733)", padding:"12px 14px" }}>
                   <div onClick={()=>{const yr=parseInt(key.split("-W")[0])||w.year;update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:yr}));setActiveTab("current");}} style={{ cursor:"pointer", marginBottom:w.epicObjective?5:8 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:18, display:"flex", alignItems:"center", gap:7 }}>
                         Semana {w.weekNumber}
-                        {cur&&<span style={{ fontSize:10, color:"#a78bfa", background:"rgba(167,139,250,0.15)", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}
+                        {cur&&<span style={{ fontSize:10, color:"var(--t-accent,#a78bfa)", background:"var(--t-accent-soft,rgba(167,139,250,0.15))", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}
                       </div>
-                      <div style={{ fontSize:13, color:p===100?"#34d399":"#8b7fa8", fontWeight:600 }}>{p===100?"🏆":""} {d}/{t}</div>
+                      <div style={{ fontSize:13, color:p===100?"#34d399":"var(--t-text-muted,#8b7fa8)", fontWeight:600 }}>{p===100?"🏆":""} {d}/{t}</div>
                     </div>
-                    {w.epicObjective&&<div style={{ fontSize:12, color:"#6b5f88", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
+                    {w.epicObjective&&<div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
                   </div>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }} onClick={e=>e.stopPropagation()}>
                     <div style={{ flex:1 }}>
                       <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
                         <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
                       </div>
-                      <div style={{ fontSize:10, color:"#4a4166", marginTop:3 }}>{p}%{globalPersonFilter!=="all"?` (${globalPersonFilter==="person1"?p1:globalPersonFilter==="person2"?p2:"Juntos"})`:""}</div>
+                      <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter!=="all"?` (${globalPersonFilter==="person1"?p1:globalPersonFilter==="person2"?p2:"Juntos"})`:""}</div>
                     </div>
                     {w.photo
                       ? <div style={{ position:"relative", flexShrink:0 }}>
                           <img src={w.photo} onClick={()=>setLightboxSrc(w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
                           <button onClick={()=>update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null}}}))}
-                            style={{ position:"absolute", top:-5, right:-5, background:"#1d1733", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#8b7fa8", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
+                            style={{ position:"absolute", top:-5, right:-5, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                         </div>
                       : <label style={{ flexShrink:0, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:16 }} title="Añadir foto de recuerdo">
                           📸
@@ -2075,7 +2093,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
       </>}
       {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
         <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
+        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
           <option value="">— Sin meta —</option>
           {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
         </select>
@@ -2209,7 +2227,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
           {!isEvent&&<div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (min)</label><input type="number" min="0" step="15" value={mission.duration||""} onChange={e=>onPatch({duration:parseInt(e.target.value)||null})} placeholder="90" style={S.inputSm} /></div>}
           {(goals||[]).filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:8 }}>
             <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"rgba(16,10,32,0.95)", color:"var(--t-text,#f8f4ff)" }}>
+            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
               <option value="">— Sin meta —</option>
               {(goals||[]).filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
@@ -2228,6 +2246,8 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const [themeId,      setThemeId]      = useState(settings.themeId||"violet");
   const [themeOpen,    setThemeOpen]    = useState(false);
+  const [fontId,       setFontId]       = useState(settings.fontId||"auto");
+  const [fontOpen,     setFontOpen]     = useState(false);
   const [coupleEmoji,  setCoupleEmoji]  = useState(settings.coupleEmoji||"💞");
   const [photos,       setPhotos]       = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
   const defNotif = settings.notifications || {};
@@ -2276,7 +2296,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
 
   const save = () => {
     const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, coupleEmoji, photos, notifications}}));
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, fontId, coupleEmoji, photos, notifications}}));
     onClose();
   };
 
@@ -2451,8 +2471,32 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </div>{/* end theme dropdown wrapper */}
+
+          {/* Fuente */}
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10, marginTop:16 }}>Tipografía</div>
+          <div style={{ marginBottom:8 }}>
+            <button onClick={()=>setFontOpen(v=>!v)}
+              style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:fontOpen?"10px 10px 0 0":10, cursor:"pointer", fontFamily:"inherit", borderBottom:fontOpen?"none":"1px solid var(--t-card-border,rgba(167,139,250,0.2))" }}>
+              <span style={{ fontSize:15 }}>Aa</span>
+              <span style={{ flex:1, textAlign:"left", fontSize:13, color:"var(--t-text,#f8f4ff)", fontWeight:500 }}>
+                {(FONTS.find(f=>f.id===fontId)||FONTS[0]).name}
+              </span>
+              <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{fontOpen?"▲":"▼"}</span>
+            </button>
+            {fontOpen && (
+              <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
+                {FONTS.map(f=>(
+                  <button key={f.id} onClick={()=>{ setFontId(f.id); setFontOpen(false); }}
+                    style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:fontId===f.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:f.family||"inherit" }}>
+                    <span style={{ flex:1, fontSize:13, color:fontId===f.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:fontId===f.id?600:400 }}>{f.name}</span>
+                    {fontId===f.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>{/* end font dropdown wrapper */}
+        </div>{/* end scrollable body */}
         {/* Footer */}
         <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
           {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
@@ -3214,10 +3258,10 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
 
       {/* Inline edit modal */}
       {editingMission&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.65)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={closeEdit}>
-        <div style={{background:"#1d1733",border:"1px solid rgba(167,139,250,0.35)",borderRadius:16,padding:20,width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{background:"var(--t-card,#1d1733)",border:"1px solid var(--t-card-border,rgba(167,139,250,0.35))",borderRadius:16,padding:20,width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <span style={{fontSize:13,fontWeight:600,color:"#c4b8ff"}}>✏️ Editar actividad</span>
-            <button onClick={closeEdit} style={{background:"none",border:"none",color:"#6b5f88",fontSize:20,cursor:"pointer"}}>×</button>
+            <span style={{fontSize:13,fontWeight:600,color:"var(--t-text,#c4b8ff)"}}>✏️ Editar actividad</span>
+            <button onClick={closeEdit} style={{background:"none",border:"none",color:"var(--t-text-dim,#6b5f88)",fontSize:20,cursor:"pointer"}}>×</button>
           </div>
           <div style={{marginBottom:10}}><label style={S.label}>Título</label><input value={editingMission.mission.title} onChange={e=>patchEditing({title:e.target.value})} style={S.input} /></div>
           <div style={{marginBottom:10}}>
@@ -3225,7 +3269,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {[{id:"person1",label:p1},{id:"person2",label:p2},{id:"together",label:"👫 Juntos"}].map(w=>(
                 <button key={w.id} onClick={()=>patchEditing({who:w.id})}
-                  style={{background:editingMission.mission.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)",border:`1px solid ${editingMission.mission.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`,borderRadius:8,color:editingMission.mission.who===w.id?"#c4b8ff":"#6b5f88",padding:"5px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{w.label}</button>
+                  style={{background:editingMission.mission.who===w.id?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.06)",border:`1px solid ${editingMission.mission.who===w.id?"var(--t-accent,rgba(167,139,250,0.5))":"var(--t-card-border,rgba(255,255,255,0.08))"}`,borderRadius:8,color:editingMission.mission.who===w.id?"var(--t-accent,#c4b8ff)":"var(--t-text-dim,#6b5f88)",padding:"5px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{w.label}</button>
               ))}
             </div>
           </div>
@@ -3262,7 +3306,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
           </div>
           {goals.filter(g=>g.active!==false).length>0&&<div style={{marginBottom:10}}>
             <label style={S.label}>🏅 Meta</label>
-            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{...S.input,fontSize:13,colorScheme:"dark",background:"rgba(16,10,32,0.95)",color:"var(--t-text,#f8f4ff)"}}>
+            <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{...S.input,fontSize:13,colorScheme:"dark",background:"var(--t-card,rgba(16,10,32,0.95))",color:"var(--t-text,#f8f4ff)"}}>
               <option value="">— Sin meta —</option>
               {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
