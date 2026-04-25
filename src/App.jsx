@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.3.1";
-const LAST_UPDATE = "2026-04-24";
+const APP_VERSION = "2.4.0";
+const LAST_UPDATE = "2026-04-25";
 const CHANGELOG = [
+  { v:"2.4.0", date:"2026-04-25", notes:["Nueva pestaña 💸 Gastos Compartidos: registra gastos, divide a medias o gasto propio, 8 categorías, balance mensual automático (quién le debe a quién)","Histórico: foto ahora tiene dos botones — 📷 Tomar foto (cámara, Android+iOS) y 🖼️ Elegir de galería — Android ya puede sacar foto directamente","Perfil: botón 🔄 Actualizar app para forzar la carga de la última versión del PWA desde cualquier dispositivo","Versión 2.4.0"] },
   { v:"2.3.1", date:"2026-04-24", notes:["Inicio siempre muestra la semana real de hoy (no la semana que estés viendo en otras pestañas)","Colores del tema ahora se aplican en todos los rincones: histórico, modal de edición de calendario, menú de metas","Selector de fuente independiente del tema: elige entre 5 tipografías desde ⚙️ Mi Perfil","Sensibilidad del gesto deslizar corregida: ya no cambia de semana al hacer scroll vertical","Botones del top bar claros de la barra de estado iOS (safe area)","Versión 2.3.1"] },
   { v:"2.3.0", date:"2026-04-22", notes:["Gestos de deslizamiento: desliza ← → en la semana actual para cambiar de semana sin tocar botones","Recurrencia potente: nueva opción Bisemanal (cada 2 semanas) + fecha de fin de serie opcional + botón 'Aplicar a todas las futuras' en el editor de calendario","Modo offline: banner de aviso cuando no hay conexión, los cambios se guardan localmente y se sincronizan solos al reconectar","Resumen diario mejorado: ahora también se programa durante la sesión si abres la app antes de la hora configurada","Versión 2.3.0"] },
   { v:"2.2.4", date:"2026-04-22", notes:["Notificaciones push: recibe alertas de mensajes del chat, cambios de tu pareja y recordatorios de eventos aunque la app esté en segundo plano","Recordatorios de eventos: elige con cuánta antelación quieres que te avisemos (en el momento, 15 min, 30 min, 1 h o 1 día antes)","Resumen diario: notificación matutina con tus misiones del día y metas próximas a vencer","Gestión de notificaciones en ⚙️ Mi perfil — actívalas y personaliza cada tipo por separado","Versión 2.2.4"] },
@@ -63,6 +64,16 @@ const CATEGORIES = [
   { id:"social",  label:"Social",  icon:"🥂", color:"#e879f9" },
   { id:"viaje",   label:"Viaje",   icon:"✈️", color:"#38bdf8" },
 ];
+const GASTO_CATS = [
+  { id:"comida",     label:"Comida",      icon:"🍽️",  color:"#f97316" },
+  { id:"casa",       label:"Casa",        icon:"🏠",  color:"#a78bfa" },
+  { id:"ocio",       label:"Ocio",        icon:"🎉",  color:"#e879f9" },
+  { id:"transporte", label:"Transporte",  icon:"🚗",  color:"#60a5fa" },
+  { id:"salud",      label:"Salud",       icon:"💊",  color:"#34d399" },
+  { id:"viaje",      label:"Viaje",       icon:"✈️",  color:"#38bdf8" },
+  { id:"ropa",       label:"Ropa",        icon:"👕",  color:"#fbbf24" },
+  { id:"otro",       label:"Otro",        icon:"📦",  color:"#8b7fa8" },
+];
 const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
@@ -93,7 +104,7 @@ const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TABS = ["home","current","calendar","pending","goals","stats","chat"];
+const TABS = ["home","current","calendar","pending","goals","stats","gastos","chat"];
 
 // ─── Swipe hook (used for week navigation and tab switching on touch) ─────────
 function useSwipe(onLeft, onRight, minDist = 110) {
@@ -1567,6 +1578,7 @@ ${ms.map(m=>{
             { id:"history",  label:"Histórico",    icon:"🗂️" },
             { id:"goals",    label:"Metas",        icon:"🏅" },
             { id:"stats",    label:"Stats",        icon:"📊" },
+            { id:"gastos",   label:"Gastos",       icon:"💸" },
             { id:"chat",     label:"Chat",         icon:"💬" },
           ].map(n => (
             <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
@@ -1612,6 +1624,7 @@ ${ms.map(m=>{
             :activeTab==="history"  ? "🗂️ Histórico"
             :activeTab==="goals"    ? "🏅 Metas"
             :activeTab==="stats"    ? "📊 Stats"
+            :activeTab==="gastos"   ? "💸 Gastos Compartidos"
             :activeTab==="chat"     ? "💬 Chat"
             : ""}
           </span>
@@ -1948,11 +1961,18 @@ ${ms.map(m=>{
                           <button onClick={()=>update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null}}}))}
                             style={{ position:"absolute", top:-5, right:-5, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                         </div>
-                      : <label style={{ flexShrink:0, width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:16 }} title="Añadir foto de recuerdo">
-                          📸
-                          <input type="file" accept="image/*" style={{ display:"none" }}
-                            onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
-                        </label>
+                      : <div style={{ flexShrink:0, display:"flex", gap:4 }}>
+                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Tomar foto">
+                            📷
+                            <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
+                              onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
+                          </label>
+                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Elegir de galería">
+                            🖼️
+                            <input type="file" accept="image/*" style={{ display:"none" }}
+                              onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
+                          </label>
+                        </div>
                     }
                   </div>
                   {/* ICS por semana */}
@@ -1977,6 +1997,8 @@ ${ms.map(m=>{
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
         {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
+
+        {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} />}
 
         {activeTab==="pending" && (()=>{
           // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
@@ -2595,6 +2617,16 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId })
         {/* Footer */}
         <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
           {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
+          <button onClick={async()=>{
+            if('serviceWorker' in navigator){
+              const reg=await navigator.serviceWorker.getRegistration();
+              if(reg){
+                await reg.update();
+                if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
+              }
+            }
+            window.location.reload(true);
+          }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
             <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
@@ -3679,6 +3711,210 @@ function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAdd, onUpdate, on
           </div>
         ))}
       </div>}
+    </div>
+  );
+}
+
+function GastosView({ gastos, p1, p2, colors, onUpdate }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0,7));
+  const [filterCat, setFilterCat] = useState("all");
+  const [filterWho, setFilterWho] = useState("all");
+  const blank = { desc:"", amount:"", cat:"comida", who:"person1", paidBy:"person1", date:new Date().toISOString().slice(0,10), split:"half" };
+  const [form, setForm] = useState(blank);
+
+  const months = [...new Set(gastos.map(g=>g.date?.slice(0,7)).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  const allMonths = months.includes(filterMonth) ? months : [filterMonth, ...months];
+
+  const filtered = gastos.filter(g => {
+    if (filterMonth && !g.date?.startsWith(filterMonth)) return false;
+    if (filterCat !== "all" && g.cat !== filterCat) return false;
+    if (filterWho !== "all" && g.who !== filterWho) return false;
+    return true;
+  }).sort((a,b) => b.date?.localeCompare(a.date||"")||0);
+
+  const totalMonth = gastos.filter(g=>g.date?.startsWith(filterMonth));
+  const totalAmt = totalMonth.reduce((s,g)=>s+(parseFloat(g.amount)||0),0);
+  const p1Paid = totalMonth.filter(g=>g.paidBy==="person1").reduce((s,g)=>s+(parseFloat(g.amount)||0),0);
+  const p2Paid = totalMonth.filter(g=>g.paidBy==="person2").reduce((s,g)=>s+(parseFloat(g.amount)||0),0);
+  const p1Owes = totalMonth.reduce((s,g)=>{
+    const amt=parseFloat(g.amount)||0;
+    const share=g.split==="full"?(g.who==="person1"?amt:0):amt/2;
+    return s+(g.paidBy==="person2"?share:0)-(g.paidBy==="person1"?amt-share:0);
+  },0);
+
+  const catTotals = GASTO_CATS.map(c=>({
+    ...c, total: totalMonth.filter(g=>g.cat===c.id).reduce((s,g)=>s+(parseFloat(g.amount)||0),0)
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+
+  const openAdd = () => { setForm(blank); setEditId(null); setShowForm(true); };
+  const openEdit = g => { setForm({...g, amount:String(g.amount)}); setEditId(g.id); setShowForm(true); };
+
+  const save = () => {
+    const amt = parseFloat(form.amount);
+    if (!form.desc.trim() || !amt || isNaN(amt) || amt<=0) return;
+    const entry = { ...form, amount:amt, id: editId||uid() };
+    if (editId) onUpdate(gastos.map(g=>g.id===editId?entry:g));
+    else onUpdate([...gastos, entry]);
+    setShowForm(false);
+    setEditId(null);
+  };
+
+  const del = id => onUpdate(gastos.filter(g=>g.id!==id));
+
+  const fmtAmt = n => `$${(+n).toLocaleString("es-CL")}`;
+  const monthLabel = m => { if(!m)return""; const [y,mo]=m.split("-"); return `${_SM[parseInt(mo,10)-1]} ${y}`; };
+
+  return (
+    <div style={{ padding:"16px 16px 40px", maxWidth:600, margin:"0 auto" }}>
+      {/* Balance summary card */}
+      <div style={{ ...S.card, marginBottom:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>💸 Balance {monthLabel(filterMonth)}</span>
+          <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}
+            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#c4b8ff", fontSize:11, padding:"3px 8px", fontFamily:"inherit", cursor:"pointer" }}>
+            {allMonths.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+        </div>
+        <div style={{ fontSize:28, fontWeight:700, color:"var(--t-accent,#c4b8ff)", fontFamily:"'Fraunces',serif", letterSpacing:-1, marginBottom:8 }}>{fmtAmt(totalAmt)}</div>
+        <div style={{ display:"flex", gap:12, marginBottom:10 }}>
+          <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
+            <div style={{ fontSize:10, color:"#6b5f88", marginBottom:4 }}>{p1} pagó</div>
+            <div style={{ fontSize:18, fontWeight:600, color:colors.person1||"#f472b6" }}>{fmtAmt(p1Paid)}</div>
+          </div>
+          <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
+            <div style={{ fontSize:10, color:"#6b5f88", marginBottom:4 }}>{p2} pagó</div>
+            <div style={{ fontSize:18, fontWeight:600, color:colors.person2||"#60a5fa" }}>{fmtAmt(p2Paid)}</div>
+          </div>
+        </div>
+        {Math.abs(p1Owes)>0.5 && (
+          <div style={{ background:p1Owes>0?"rgba(248,113,113,0.1)":"rgba(52,211,153,0.1)", border:`1px solid ${p1Owes>0?"rgba(248,113,113,0.3)":"rgba(52,211,153,0.3)"}`, borderRadius:10, padding:"10px 14px", fontSize:13, color:p1Owes>0?"#f87171":"#34d399", fontWeight:600, textAlign:"center" }}>
+            {p1Owes>0 ? `${p1} le debe ${fmtAmt(Math.abs(p1Owes))} a ${p2}` : `${p2} le debe ${fmtAmt(Math.abs(p1Owes))} a ${p1}`}
+          </div>
+        )}
+        {Math.abs(p1Owes)<=0.5 && totalAmt>0 && (
+          <div style={{ background:"rgba(52,211,153,0.1)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:10, padding:"10px 14px", fontSize:13, color:"#34d399", fontWeight:600, textAlign:"center" }}>✓ Están al día</div>
+        )}
+      </div>
+
+      {/* Category breakdown */}
+      {catTotals.length>0 && (
+        <div style={{ ...S.card, marginBottom:16 }}>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:12 }}>🏷️ Por categoría</div>
+          {catTotals.map(c=>(
+            <div key={c.id} style={{ marginBottom:8 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
+                <span style={{ fontSize:12, color:"#8b7fa8" }}>{fmtAmt(c.total)} ({totalAmt>0?Math.round(c.total/totalAmt*100):0}%)</span>
+              </div>
+              <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${totalAmt>0?(c.total/totalAmt*100):0}%`, background:c.color, borderRadius:99 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Filters + Add */}
+      <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap", alignItems:"center" }}>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)}
+          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#8b7fa8", fontSize:11, padding:"4px 8px", fontFamily:"inherit", cursor:"pointer", flex:1, minWidth:100 }}>
+          <option value="all">Todas las categorías</option>
+          {GASTO_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+        </select>
+        <select value={filterWho} onChange={e=>setFilterWho(e.target.value)}
+          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#8b7fa8", fontSize:11, padding:"4px 8px", fontFamily:"inherit", cursor:"pointer", flex:1, minWidth:100 }}>
+          <option value="all">Todos</option>
+          <option value="person1">{p1}</option>
+          <option value="person2">{p2}</option>
+          <option value="together">Juntos</option>
+        </select>
+        <button onClick={openAdd} style={{ ...S.btnPrimary, padding:"6px 14px", fontSize:12, flexShrink:0 }}>+ Añadir gasto</button>
+      </div>
+
+      {/* Expense list */}
+      {filtered.length===0 && (
+        <div style={{ textAlign:"center", padding:48, color:"#3d3360" }}>
+          <div style={{ fontSize:44, marginBottom:12 }}>💸</div>
+          <div style={{ fontStyle:"italic", fontSize:14 }}>Sin gastos registrados.<br/>¡Añade el primero!</div>
+        </div>
+      )}
+      {filtered.map(g=>{
+        const cat = GASTO_CATS.find(c=>c.id===g.cat)||GASTO_CATS[GASTO_CATS.length-1];
+        const whoLabel = g.who==="person1"?p1:g.who==="person2"?p2:"Juntos";
+        const paidLabel = g.paidBy==="person1"?p1:p2;
+        const splitLabel = g.split==="full"?"gasto propio":"dividido ÷2";
+        return (
+          <div key={g.id} style={{ ...S.card, marginBottom:8, display:"flex", alignItems:"center", gap:10, padding:"10px 14px" }}>
+            <span style={{ fontSize:22, flexShrink:0 }}>{cat.icon}</span>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#e2dff5)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{g.desc}</span>
+                <span style={{ fontSize:10, color:cat.color, background:`${cat.color}22`, borderRadius:5, padding:"1px 5px", flexShrink:0 }}>{cat.label}</span>
+              </div>
+              <div style={{ fontSize:11, color:"#6b5f88" }}>{g.date} · {paidLabel} pagó · {splitLabel} · {whoLabel}</div>
+            </div>
+            <div style={{ fontSize:16, fontWeight:700, color:"var(--t-accent,#c4b8ff)", flexShrink:0 }}>{fmtAmt(g.amount)}</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:3, flexShrink:0 }}>
+              <button onClick={()=>openEdit(g)} style={{ background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:13, lineHeight:1, padding:"2px 4px" }}
+                onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
+              <button onClick={()=>del(g.id)} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:16, lineHeight:1, padding:"2px 4px" }}
+                onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Add/edit modal */}
+      {showForm && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center" }}
+          onClick={e=>{if(e.target===e.currentTarget){setShowForm(false);setEditId(null);}}}>
+          <div style={{ background:"var(--t-card,#1d1733)", borderRadius:"18px 18px 0 0", width:"100%", maxWidth:560, padding:"20px 20px 40px", display:"flex", flexDirection:"column", gap:14 }}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <span style={{ fontSize:15, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{editId?"Editar gasto":"Nuevo gasto"}</span>
+              <button onClick={()=>{setShowForm(false);setEditId(null);}} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:22, cursor:"pointer", lineHeight:1 }}>×</button>
+            </div>
+            <input placeholder="Descripción" value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))}
+              style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:14, padding:"10px 12px", fontFamily:"inherit", outline:"none" }} />
+            <div style={{ display:"flex", gap:8 }}>
+              <input placeholder="Monto" type="number" min="0" step="any" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))}
+                style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:14, padding:"10px 12px", fontFamily:"inherit", outline:"none" }} />
+              <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}
+                style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:14, padding:"10px 12px", fontFamily:"inherit", outline:"none" }} />
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <select value={form.cat} onChange={e=>setForm(f=>({...f,cat:e.target.value}))}
+                style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:13, padding:"10px 12px", fontFamily:"inherit", cursor:"pointer" }}>
+                {GASTO_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+              </select>
+              <select value={form.paidBy} onChange={e=>setForm(f=>({...f,paidBy:e.target.value}))}
+                style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:13, padding:"10px 12px", fontFamily:"inherit", cursor:"pointer" }}>
+                <option value="person1">{p1} pagó</option>
+                <option value="person2">{p2} pagó</option>
+              </select>
+            </div>
+            <div style={{ display:"flex", gap:8 }}>
+              <select value={form.who} onChange={e=>setForm(f=>({...f,who:e.target.value}))}
+                style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:13, padding:"10px 12px", fontFamily:"inherit", cursor:"pointer" }}>
+                <option value="person1">Para {p1}</option>
+                <option value="person2">Para {p2}</option>
+                <option value="together">Para los dos</option>
+              </select>
+              <select value={form.split} onChange={e=>setForm(f=>({...f,split:e.target.value}))}
+                style={{ flex:1, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:13, padding:"10px 12px", fontFamily:"inherit", cursor:"pointer" }}>
+                <option value="half">Dividir ÷2</option>
+                <option value="full">Gasto propio</option>
+              </select>
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:4 }}>
+              <button onClick={()=>{setShowForm(false);setEditId(null);}} style={S.btnSecondary}>Cancelar</button>
+              <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
