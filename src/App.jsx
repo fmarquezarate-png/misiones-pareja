@@ -334,6 +334,27 @@ const FONTS = [
   { id:"space",    name:"Space Grotesk",    family:"'Space Grotesk',system-ui,sans-serif",         googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" },
 ];
 
+// Per-user localStorage preferences (theme & font are personal, not shared with partner)
+const getUserPrefs = id => { try { return JSON.parse(localStorage.getItem(`user-prefs-${id}`)||"{}"); } catch { return {}; } };
+const saveUserPrefs = (id, patch) => { try { localStorage.setItem(`user-prefs-${id}`, JSON.stringify({...getUserPrefs(id),...patch})); } catch {} };
+
+// ISO week date helpers
+const _SD = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const _SM = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const weekStartDate = (wn, yr) => {
+  const jan4 = new Date(yr, 0, 4);
+  const dow = (jan4.getDay() + 6) % 7; // 0=Mon … 6=Sun
+  return new Date(yr, 0, 4 - dow + (wn-1)*7);
+};
+const fmtShortDate = d => `${_SD[d.getDay()]} ${d.getDate()} ${_SM[d.getMonth()]}`;
+const fmtWeekRange = (wn, yr) => {
+  const mon = weekStartDate(wn, yr);
+  const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+6);
+  const from = `${mon.getDate()} ${_SM[mon.getMonth()]}`;
+  const to   = `${sun.getDate()} ${_SM[sun.getMonth()]}`;
+  return mon.getMonth()===sun.getMonth() ? `${mon.getDate()}–${sun.getDate()} ${_SM[mon.getMonth()]}` : `${from} – ${to}`;
+};
+
 const googleCalendarUrl = (mission, name1, name2) => {
   if (!mission.date) return null;
   const ds = mission.date.replace(/-/g, "");
@@ -671,7 +692,7 @@ export default function AppWithAuth() {
   if (authStep === "login") return <LoginScreen />;
   if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cd)); setCoupleData(cd); setAuthStep("app"); }} />;
   // key={coupleData?.couple_id} forces full remount if couple changes (data isolation)
-  return <CoupleMissions key={coupleData?.couple_id} coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={handleSignOut} />;
+  return <CoupleMissions key={coupleData?.couple_id} coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={handleSignOut} sessionUserId={session?.user?.id} />;
 }
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
@@ -861,7 +882,7 @@ function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
   );
 }
 
-function CoupleMissions({ coupleId, personName, onSignOut }) {
+function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const saveTimerRef = useRef(null);
@@ -889,6 +910,9 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const notifSettingsRef = useRef(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
+  const [icsModal, setIcsModal] = useState(false);
+  const [icsFrom,  setIcsFrom]  = useState("");
+  const [icsTo,    setIcsTo]    = useState("");
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -1118,8 +1142,9 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
   const p1 = data.settings?.person1 || "Persona 1";
   const p2 = data.settings?.person2 || "Persona 2";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
-  const themeId = data.settings?.themeId || "violet";
-  const fontId  = data.settings?.fontId  || "auto";
+  const _uprefs = getUserPrefs(sessionUserId);
+  const themeId = _uprefs.themeId || data.settings?.themeId || "violet";
+  const fontId  = _uprefs.fontId  || data.settings?.fontId  || "auto";
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1269,6 +1294,38 @@ function CoupleMissions({ coupleId, personName, onSignOut }) {
     lines.push("END:VCALENDAR");
     const blob = new Blob([lines.join("\r\n")], { type:"text/calendar;charset=utf-8" });
     dlBlob(blob,`misiones-${weekKey}.ics`);
+  };
+
+  const downloadRangeICS = () => {
+    if (!icsFrom || !icsTo || icsFrom > icsTo) return;
+    const missions = Object.values(data.weeks)
+      .flatMap(w => (w.missions||[]).filter(m => m.date && m.date >= icsFrom && m.date <= icsTo))
+      .sort((a,b) => a.date.localeCompare(b.date));
+    if (missions.length === 0) { alert("No hay actividades con fecha en ese rango."); return; }
+    const stamp = new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
+    const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Shared Calendar//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
+    for (const m of missions) {
+      const who = m.who==="person1"?p1:m.who==="person2"?p2:`${p1} & ${p2}`;
+      const ds = m.date.replace(/-/g,"");
+      lines.push("BEGIN:VEVENT",`UID:${m.id}-${stamp}@sc`,`DTSTAMP:${stamp}`);
+      if (m.time) {
+        const ts = m.time.replace(":","")+"00";
+        lines.push(`DTSTART:${ds}T${ts}`);
+        const [hh,mm2] = m.time.split(":").map(Number);
+        const tot = hh*60+mm2+(m.duration||60);
+        lines.push(`DTEND:${ds}T${String(Math.floor(tot/60)%24).padStart(2,"0")}${String(tot%60).padStart(2,"0")}00`);
+      } else {
+        lines.push(`DTSTART;VALUE=DATE:${ds}`);
+        const nd = new Date(m.date+"T00:00:00"); nd.setDate(nd.getDate()+1);
+        lines.push(`DTEND;VALUE=DATE:${nd.toISOString().slice(0,10).replace(/-/g,"")}`);
+      }
+      lines.push(`SUMMARY:${m.emoji} ${m.title}`);
+      lines.push(`DESCRIPTION:Estado: ${STATUS[m.status]?.label||m.status}\\nQuién: ${who}${m.duration?`\\nDuración: ${Math.round(m.duration/60*10)/10}h`:""}`);
+      lines.push("END:VEVENT");
+    }
+    lines.push("END:VCALENDAR");
+    dlBlob(new Blob([lines.join("\r\n")], {type:"text/calendar;charset=utf-8"}), `calendar-${icsFrom}-${icsTo}.ics`);
+    setIcsModal(false);
   };
 
   const downloadWeekPDF = (weekData, weekKey, name1, name2) => {
@@ -1424,7 +1481,42 @@ ${ms.map(m=>{
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} />}
+
+      {/* ICS export date-range modal */}
+      {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
+        <div style={{background:"var(--t-card,#1d1733)",border:"1px solid var(--t-card-border,rgba(167,139,250,0.35))",borderRadius:16,padding:22,width:"100%",maxWidth:380}} onClick={e=>e.stopPropagation()}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <span style={{fontFamily:"'Fraunces',serif",fontSize:18,color:"var(--t-text,#f8f4ff)"}}>📅 Exportar a Google Calendar</span>
+            <button onClick={()=>setIcsModal(false)} style={{background:"none",border:"none",color:"var(--t-text-dim,#6b5f88)",fontSize:20,cursor:"pointer"}}>×</button>
+          </div>
+          {/* Quick select */}
+          <div style={S.label}>Selección rápida</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+            {[
+              ["Esta semana", ()=>{ const {week:tw,year:ty}=getWeekAndYear(); const mon=weekStartDate(tw,ty); const sun=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+6); setIcsFrom(mon.toISOString().slice(0,10)); setIcsTo(sun.toISOString().slice(0,10)); }],
+              ["Este mes",    ()=>{ const n=new Date(); setIcsFrom(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-01`); setIcsTo(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${new Date(n.getFullYear(),n.getMonth()+1,0).getDate()}`); }],
+              ["Próx. 4 sem.",()=>{ const n=new Date(),t=new Date(n); t.setDate(n.getDate()+28); setIcsFrom(n.toISOString().slice(0,10)); setIcsTo(t.toISOString().slice(0,10)); }],
+              ["Próx. 3 meses",()=>{ const n=new Date(),t=new Date(n); t.setMonth(n.getMonth()+3); setIcsFrom(n.toISOString().slice(0,10)); setIcsTo(t.toISOString().slice(0,10)); }],
+            ].map(([l,fn])=>(
+              <button key={l} onClick={fn} style={{background:"var(--t-accent-soft,rgba(167,139,250,0.1))",border:"1px solid var(--t-card-border)",borderRadius:7,color:"var(--t-text-muted,#8b7fa8)",padding:"5px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{l}</button>
+            ))}
+          </div>
+          {/* Date pickers */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+            <div><label style={S.label}>Desde</label><input type="date" value={icsFrom} onChange={e=>setIcsFrom(e.target.value)} style={{...S.inputSm,colorScheme:"dark"}} /></div>
+            <div><label style={S.label}>Hasta</label><input type="date" value={icsTo}   onChange={e=>setIcsTo(e.target.value)}   style={{...S.inputSm,colorScheme:"dark"}} /></div>
+          </div>
+          {/* Preview count */}
+          {icsFrom&&icsTo&&icsFrom<=icsTo&&<div style={{fontSize:12,color:"var(--t-text-dim,#6b5f88)",textAlign:"center",marginBottom:12}}>
+            {Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.date&&m.date>=icsFrom&&m.date<=icsTo)).length} actividades en ese rango
+          </div>}
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setIcsModal(false)} style={S.btnSecondary}>Cancelar</button>
+            <button onClick={downloadRangeICS} disabled={!icsFrom||!icsTo||icsFrom>icsTo} style={{...S.btnPrimary,flex:1,opacity:(!icsFrom||!icsTo||icsFrom>icsTo)?0.4:1}}>⬇ Descargar .ics</button>
+          </div>
+        </div>
+      </div>}
 
       {/* Changelog modal */}
       {showChangelog && (
@@ -1712,9 +1804,10 @@ ${ms.map(m=>{
           <div style={{ textAlign:"center", marginBottom:16 }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:week.epicObjective?4:8 }}>
               <button onClick={()=>changeWeek(-1)} style={S.btnNav}>‹</button>
-              <div>
+              <div style={{ textAlign:"center" }}>
                 <div style={{ fontFamily:"'Fraunces',serif", fontSize:36, fontWeight:700, lineHeight:1, letterSpacing:-1 }}>Semana {data.currentWeekNumber}</div>
-                <div style={{ fontSize:11, color:"#4a4166", marginTop:3 }}>{(()=>{const d=new Date();const dias=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];const meses=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;})()}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:4 }}>{fmtWeekRange(data.currentWeekNumber, data.currentYear)}</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginTop:2 }}>Hoy: {fmtShortDate(new Date())}</div>
               </div>
               <button onClick={()=>changeWeek(1)} style={S.btnNav}>›</button>
             </div>
@@ -1823,7 +1916,7 @@ ${ms.map(m=>{
             </div>
             {/* Export buttons */}
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => downloadWeekICS(week, wkey, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 .ics semana actual</button>
+              <button onClick={() => setIcsModal(true)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Exportar a Calendar…</button>
               <button onClick={() => downloadFilteredPDF(histFiltered, globalPersonFilter, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF filtrado ({histFiltered.length} sem.)</button>
             </div>
             {/* Week cards */}
@@ -2239,14 +2332,15 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, onClose, onStartTutorial }) {
+function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
-  const [themeId,      setThemeId]      = useState(settings.themeId||"violet");
+  const _pm_uprefs = getUserPrefs(sessionUserId);
+  const [themeId,      setThemeId]      = useState(_pm_uprefs.themeId || settings.themeId || "violet");
   const [themeOpen,    setThemeOpen]    = useState(false);
-  const [fontId,       setFontId]       = useState(settings.fontId||"auto");
+  const [fontId,       setFontId]       = useState(_pm_uprefs.fontId  || settings.fontId  || "auto");
   const [fontOpen,     setFontOpen]     = useState(false);
   const [coupleEmoji,  setCoupleEmoji]  = useState(settings.coupleEmoji||"💞");
   const [photos,       setPhotos]       = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
@@ -2296,7 +2390,8 @@ function ProfileModal({ data, update, onClose, onStartTutorial }) {
 
   const save = () => {
     const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, themeId, fontId, coupleEmoji, photos, notifications}}));
+    if (sessionUserId) saveUserPrefs(sessionUserId, { themeId, fontId });
+    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, coupleEmoji, photos, notifications}}));
     onClose();
   };
 
@@ -2618,40 +2713,42 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
   const filterLabel = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
 
-  // ── AI Insights ─────────────────────────────────────────────────────────────
+  // ── AI Insights — always based on completed weeks only (exclude current week) ──
+  const analysisSeries = series.filter(s => isoWeekKey(s.weekNumber, s.year) < todayKey);
   const insights = [];
-  // 1. Trend: compare last 3 vs prev 3
-  if (series.length>=3) {
-    const last3=series.slice(-3),prev3=series.slice(-6,-3);
+  // 1. Trend: compare last 3 completed weeks vs prev 3
+  if (analysisSeries.length>=3) {
+    const last3=analysisSeries.slice(-3),prev3=analysisSeries.slice(-6,-3);
     const avgL=last3.reduce((s,w)=>s+w.pct,0)/last3.length;
     const avgP=prev3.length>0?prev3.reduce((s,w)=>s+w.pct,0)/prev3.length:avgL;
     const lastW=last3[last3.length-1];
-    if (avgL>avgP+12) insights.push({icon:"🚀",title:`Momento imparable: +${Math.round(avgL-avgP)}pts en 3 semanas`,desc:`De ${Math.round(avgP)}% a ${Math.round(avgL)}% de media. ¡Seguid así!`,weekNumber:lastW?.weekNumber,year:lastW?.year});
-    else if (avgL<avgP-12) insights.push({icon:"📉",title:"Bajada de ritmo detectada",desc:`De ${Math.round(avgP)}% bajasteis a ${Math.round(avgL)}%. Esta semana es la oportunidad de remontar.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
-    else insights.push({icon:"➡️",title:`Consistencia sólida al ${Math.round(avgL)}%`,desc:`Lleváis 3 semanas sin grandes altibajos. Consistencia = progreso real 💪`});
+    const wRange=`S${last3[0].weekNumber}–S${lastW.weekNumber}`;
+    if (avgL>avgP+12) insights.push({icon:"🚀",title:`Tendencia al alza (${wRange}): +${Math.round(avgL-avgP)} puntos`,desc:`Habéis subido de ${Math.round(avgP)}% (3 sem. anteriores) a ${Math.round(avgL)}% (últimas 3 sem.). Ritmo excelente, mantened el plan.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
+    else if (avgL<avgP-12) insights.push({icon:"📉",title:`Bajada de ritmo (${wRange}): −${Math.round(avgP-avgL)} puntos`,desc:`Bajasteis de ${Math.round(avgP)}% a ${Math.round(avgL)}%. Revisad si las misiones son demasiado ambiciosas o si algo externo os está afectando.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
+    else insights.push({icon:"➡️",title:`Ritmo estable al ${Math.round(avgL)}% (${wRange})`,desc:`Lleváis 3 semanas con una variación menor de 12 puntos. La consistencia es más valiosa que los picos. Seguid igual.`});
   }
   // 2. Best and worst week — mínimo 5 misiones para ser representativa
   const weekScores=allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0;return{p:t>0?d/t:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t,d};}).filter(w=>w.p!==null&&w.t>=5);
   if (weekScores.length>=2){
     const bW=weekScores.reduce((a,b)=>b.p>a.p?b:a);
     const wW=weekScores.reduce((a,b)=>b.p<a.p?b:a);
-    if (Math.round(bW.p*100)>=60) insights.push({icon:"🏆",title:`Mejor semana: S${bW.wn}${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d}/${bW.t} completadas (${Math.round(bW.p*100)}%). ¡Vuestra semana récord!`,weekNumber:bW.wn,year:bW.yr});
-    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana floja: S${wW.wn} (${Math.round(wW.p*100)}%)`,desc:`Solo ${wW.d}/${wW.t} completadas. Explorad qué pasó para no repetirlo.`,weekNumber:wW.wn,year:wW.yr});
+    if (Math.round(bW.p*100)>=60) insights.push({icon:"🏆",title:`Semana récord: S${bW.wn} con ${Math.round(bW.p*100)}%${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d} de ${bW.t} misiones completadas. ¿Qué hicisteis diferente esa semana? Intentad replicarlo.`,weekNumber:bW.wn,year:bW.yr});
+    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana más difícil: S${wW.wn} (${Math.round(wW.p*100)}%, ${wW.d}/${wW.t})`,desc:`Fue la semana con menor completitud del periodo. Analizar qué la hizo difícil puede ayudar a prevenir caídas similares.`,weekNumber:wW.wn,year:wW.yr});
   }
   // 3. Category star + weak spot
   if (catStats.length>1){
     const sorted=[...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1));
     const best=sorted[0],weak=sorted[sorted.length-1];
-    if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: vuestra categoría estrella`,desc:`${Math.round((best.done/best.count)*100)}% de completitud en ${best.count} misiones. Punto fuerte del equipo.`});
-    if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría con margen de mejora`,desc:`Solo ${Math.round((weak.done/weak.count)*100)}% completadas. Puede valer la pena revisar si las misiones son demasiado ambiciosas.`});
+    if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: categoría estrella (${Math.round((best.done/best.count)*100)}% en ${best.count} misiones)`,desc:`${best.done} de ${best.count} completadas. Es donde sois más eficaces como equipo. Considerad ampliar misiones en esta área.`});
+    if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría pendiente (${Math.round((weak.done/weak.count)*100)}% en ${weak.count} misiones)`,desc:`Solo ${weak.done} de ${weak.count} completadas. Puede indicar que las misiones son poco concretas o que necesitan más tiempo del planificado.`});
   }
   // 4. Balance P1 vs P2 — mínimo 6 misiones individuales para ser significativo
   const p1c=ph("person1").count,p2c=ph("person2").count;
   if (p1c+p2c>=6){
     const diff=Math.abs(p1c-p2c);
     const diffPct=Math.round((diff/(p1c+p2c))*100);
-    if (diffPct>=25) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} lleva ${diff} misiones más`,desc:`${p1}: ${p1c} propias · ${p2}: ${p2c} propias. ¿Está el peso bien repartido?`});
-    else insights.push({icon:"🤝",title:"Reparto equilibrado del trabajo",desc:`${p1}: ${p1c} · ${p2}: ${p2c}. Diferencia del ${diffPct}% — gran trabajo en equipo.`});
+    if (diffPct>=25) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} concentra el ${Math.round(p1c>p2c?p1c/(p1c+p2c)*100:p2c/(p1c+p2c)*100)}% de las misiones individuales`,desc:`${p1}: ${p1c} misiones · ${p2}: ${p2c} misiones. Una diferencia del ${diffPct}% puede indicar desequilibrio. Valorad redistribuir.`});
+    else insights.push({icon:"🤝",title:`Reparto equilibrado: ${p1} ${p1c} − ${p2} ${p2c} (diferencia ${diffPct}%)`,desc:`Menos del 25% de diferencia en misiones individuales. El trabajo se distribuye de forma saludable entre los dos.`});
   }
   // 5. Work-life balance: ratio trabajo vs resto
   if (catStats.length>0){
@@ -2664,9 +2761,9 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     }
   }
   // 6. Streak
-  if (currStreakNow>=2) insights.push({icon:"🔥",title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} perfectas`,desc:`Lleváis ${currStreakNow} semanas al 100%. ¡No rompáis la cadena!`});
+  if (currStreakNow>=2) insights.push({icon:"🔥",title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`,desc:`Lleváis ${currStreakNow} semanas completando todas las misiones. Cada semana que mantenéis la racha refuerza el hábito. ¡A por la siguiente!`});
   // 7. Completion velocity (missions per week)
-  if (wc>=4){const avgMpW=(total/wc).toFixed(1);insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana`,desc:`Con ${total} misiones en ${wc} semanas. ${avgMpW<3?"Podéis añadir más retos":avgMpW>8?"Ritmo muy alto — aseguraos de que es sostenible":"Ritmo saludable"}.`});}
+  if (wc>=4){const avgMpW=(total/wc).toFixed(1);const advice=avgMpW<3?"Poco volumen — podéis añadir más misiones para aprovechar el ritmo":avgMpW>8?"Ritmo intenso — revisad si todas las misiones son realmente necesarias o si podéis simplificar":"Volumen saludable y sostenible";insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana en ${wc} semanas`,desc:`${total} misiones planificadas en total. ${advice}.`});}
 
   if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
 
@@ -2941,21 +3038,55 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* E4: Detalle por semana */}
       <WeekDetailList allW={allW} onGoToWeek={onGoToWeek} />
 
-      {/* Share stats */}
+      {/* Export stats as PNG */}
       <button onClick={()=>{
-        const lines=[
-          `📊 Shared Calendar Stats`,
-          `${p1} & ${p2}`,
-          ``,
-          `Total: ${total} actividades · ${pct}% completadas`,
-          `${p1}: ${ph1.count} actividades, ${ph1.done} hechas (${ph1.count>0?Math.round(ph1.done/ph1.count*100):0}%)`,
-          `${p2}: ${ph2.count} actividades, ${ph2.done} hechas (${ph2.count>0?Math.round(ph2.done/ph2.count*100):0}%)`,
-          ...catStats.slice(0,5).map(c=>`${c.icon} ${c.label}: ${c.count} (${c.count>0?Math.round(c.done/c.count*100):0}%✓)`),
-        ].join("\n");
-        if(navigator.share){navigator.share({title:"Shared Calendar Stats",text:lines}).catch(()=>{});}
-        else if(navigator.clipboard){navigator.clipboard.writeText(lines).then(()=>alert("Stats copiadas al portapapeles"));}
+        const W=600,H=420,DPR=2;
+        const cv=document.createElement("canvas"); cv.width=W*DPR; cv.height=H*DPR;
+        const cx=cv.getContext("2d"); cx.scale(DPR,DPR);
+        // Background
+        cx.fillStyle="#0a0714"; cx.fillRect(0,0,W,H);
+        const g1=cx.createRadialGradient(W,0,0,W,0,W*0.65); g1.addColorStop(0,"rgba(244,114,182,0.22)"); g1.addColorStop(1,"transparent"); cx.fillStyle=g1; cx.fillRect(0,0,W,H);
+        const g2=cx.createRadialGradient(0,H,0,0,H,W*0.6); g2.addColorStop(0,"rgba(167,139,250,0.28)"); g2.addColorStop(1,"transparent"); cx.fillStyle=g2; cx.fillRect(0,0,W,H);
+        // Header strip
+        cx.fillStyle="rgba(167,139,250,0.12)"; cx.fillRect(0,0,W,52);
+        cx.font="600 12px 'Plus Jakarta Sans',system-ui"; cx.fillStyle="#c4b8ff"; cx.fillText("📅 SHARED CALENDAR · STATS",20,33);
+        cx.font="12px system-ui"; cx.fillStyle="#6b5f88"; const fl=filterLabel; cx.fillText(fl,W-cx.measureText(fl).width-20,33);
+        // Big % + label
+        const pctClr=pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
+        cx.font="bold 80px 'Fraunces',Georgia,serif"; cx.fillStyle=pctClr; cx.fillText(`${pct}%`,20,148);
+        cx.font="600 16px system-ui"; cx.fillStyle="#f8f4ff"; cx.fillText(`${done} de ${total} actividades completadas`,20,174);
+        // Divider
+        cx.strokeStyle="rgba(167,139,250,0.2)"; cx.lineWidth=1; cx.beginPath(); cx.moveTo(20,190); cx.lineTo(W-20,190); cx.stroke();
+        // Person breakdown
+        [[p1,ph1,clr.person1],[p2,ph2,clr.person2]].forEach(([name,ph,color],i)=>{
+          const x=20+i*(W/2-20), pct2=ph.count>0?Math.round(ph.done/ph.count*100):0;
+          const bw=(W/2-50); const bh=6;
+          cx.font="600 13px system-ui"; cx.fillStyle=color; cx.fillText(name,x,214);
+          cx.fillStyle="rgba(255,255,255,0.08)"; cx.fillRect(x,222,bw,bh);
+          cx.fillStyle=color; cx.fillRect(x,222,bw*(pct2/100),bh);
+          cx.font="12px system-ui"; cx.fillStyle="#8b7fa8"; cx.fillText(`${ph.done}/${ph.count} · ${pct2}%`,x,242);
+        });
+        // Together
+        cx.font="12px system-ui"; cx.fillStyle=clr.together||"#34d399";
+        cx.fillText(`Juntos: ${phT.done}/${phT.count} · ${phT.count>0?Math.round(phT.done/phT.count*100):0}%`,20,264);
+        // Category grid
+        cx.strokeStyle="rgba(167,139,250,0.15)"; cx.beginPath(); cx.moveTo(20,278); cx.lineTo(W-20,278); cx.stroke();
+        cx.font="11px system-ui"; cx.fillStyle="#6b5f88"; cx.fillText("Por categoría:",20,298);
+        const cols=3, colW=(W-40)/cols;
+        catStats.slice(0,6).forEach((c,i)=>{
+          const x=20+(i%cols)*colW, y=318+Math.floor(i/cols)*26;
+          const cp=c.count>0?Math.round(c.done/c.count*100):0;
+          cx.font="12px system-ui"; cx.fillStyle=c.color; cx.fillText(`${c.icon} ${c.label}: ${cp}%`,x,y);
+        });
+        // Footer
+        cx.fillStyle="rgba(167,139,250,0.08)"; cx.fillRect(0,H-32,W,32);
+        cx.font="11px system-ui"; cx.fillStyle="#4a4166";
+        cx.fillText(`${p1} & ${p2} · Shared Calendar`,20,H-12);
+        const ds=new Date().toLocaleDateString("es-ES"); cx.fillText(ds,W-cx.measureText(ds).width-20,H-12);
+        // Save
+        cv.toBlob(b=>dlBlob(b,`stats-${p1}-${p2}-${new Date().toISOString().slice(0,10)}.png`),"image/png");
       }} style={{...S.btnSecondary,width:"100%",textAlign:"center",padding:"11px",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4}}>
-        📤 Compartir stats
+        🖼 Exportar stats como imagen PNG
       </button>
 
     </div>
