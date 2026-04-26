@@ -3,9 +3,10 @@ import { loadData, saveData, loadLocalBackup, exportData, importData, signInWith
 import supabase from "./supabase.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.4.1";
+const APP_VERSION = "2.5.0";
 const LAST_UPDATE = "2026-04-26";
 const CHANGELOG = [
+  { v:"2.5.0", date:"2026-04-26", notes:["Gastos: montos en tiempo real al dividir — muestra cuánto paga cada persona al mover el slider","Gastos: proyectos saldables — botón 'Marcar saldado' cierra el proyecto (🔒) sin borrar datos ni stats","Gastos: home de Gastos muestra solo proyectos separados en Activos / 🔒 Saldados","Gastos: 15 categorías (añadidas Supermercado, Tecnología, Cultura, Deporte, Mascotas, Regalos, Suscripciones)","Tutorial: paso nuevo para Gastos Compartidos","Fix: emoji 🧗 ya no se multiplica en el selector (clave de React corregida + duplicado eliminado)","Versión 2.5.0"] },
   { v:"2.4.1", date:"2026-04-26", notes:["Gastos: proyectos (ej. 'Viaje a Chile') — agrupa gastos por proyecto con balance propio y saldo acumulado","Gastos: división flexible — slider 0-100% con atajos rápidos (50/50, Solo tú, Solo yo, 70/30)","Gastos: fecha en campo propio con label (ya no queda cortada en móvil)","Gastos: pestaña Stats con gráfico de últimos 6 meses, desglose por categoría, totales y promedio mensual","Versión 2.4.1"] },
   { v:"2.4.0", date:"2026-04-25", notes:["Nueva pestaña 💸 Gastos Compartidos: registra gastos, divide a medias o gasto propio, 8 categorías, balance mensual automático (quién le debe a quién)","Histórico: foto ahora tiene dos botones — 📷 Tomar foto (cámara, Android+iOS) y 🖼️ Elegir de galería — Android ya puede sacar foto directamente","Perfil: botón 🔄 Actualizar app para forzar la carga de la última versión del PWA desde cualquier dispositivo","Versión 2.4.0"] },
   { v:"2.3.2", date:"2026-04-24", notes:["Tema por perfil: cada persona tiene su propio tema de color y fuente — cambiar el tuyo no afecta a tu pareja","Fechas de semana: debajo del número de semana aparece el rango de días (ej. 21–27 abr) y la fecha de hoy","Exportar a Google Calendar: selector de rango de fechas — ya no es solo por semana, elige desde/hasta y descarga todas las actividades del rango","Stats: compartir como imagen PNG de diseño visual (no como texto) — con barras por persona, categorías y balance","Análisis IA: todos los cálculos excluyen la semana actual (incompleta) para dar resultados más precisos y honestos","Versión 2.3.2"] },
@@ -46,6 +47,7 @@ const TUTORIAL_STEPS = [
   { emoji:"📅", tab:"calendar", tabIcon:"📅", tabLabel:"Calendario",  title:"Calendario mensual", desc:"Vista de cuadrícula del mes completo. Los eventos multi-día se extienden por todos sus días. Toca un día para ver el detalle." },
   { emoji:"🏅", tab:"goals",    tabIcon:"🏅", tabLabel:"Metas",       title:"Metas y objetivos",  desc:"Define lo que más importa: fecha límite, tipo (mínimo/máximo) y vincula actividades semanales. El progreso se calcula solo." },
   { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",       title:"Estadísticas",       desc:"Gráficos semanales, análisis inteligente, sincronía de pareja, equidad en casa, hábito ancla y mucho más. Datos que motivan." },
+  { emoji:"💸", tab:"gastos",   tabIcon:"💸", tabLabel:"Gastos",      title:"Gastos compartidos",  desc:"Registra gastos, divide el costo con un slider (0-100%), organiza por proyectos (viaje, finde…) y lleva el balance: quién debe cuánto a quién." },
   { emoji:"💬", tab:"chat",     tabIcon:"💬", tabLabel:"Chat",        title:"Chat en tiempo real", desc:"Mensajitos con tu pareja directamente en la app. Perfectos para coordinarse al vuelo sin salir del calendario." },
   { emoji:"✨", tab:null,                                               title:"¡Todo listo!",       desc:"Ya conoces Shared Calendar. Empieza añadiendo algo a esta semana. Puedes repasar el tutorial desde ⚙️ → Mi perfil.", isFinal:true },
 ];
@@ -67,20 +69,27 @@ const CATEGORIES = [
   { id:"viaje",   label:"Viaje",   icon:"✈️", color:"#38bdf8" },
 ];
 const GASTO_CATS = [
-  { id:"comida",     label:"Comida",      icon:"🍽️",  color:"#f97316" },
-  { id:"casa",       label:"Casa",        icon:"🏠",  color:"#a78bfa" },
-  { id:"ocio",       label:"Ocio",        icon:"🎉",  color:"#e879f9" },
-  { id:"transporte", label:"Transporte",  icon:"🚗",  color:"#60a5fa" },
-  { id:"salud",      label:"Salud",       icon:"💊",  color:"#34d399" },
-  { id:"viaje",      label:"Viaje",       icon:"✈️",  color:"#38bdf8" },
-  { id:"ropa",       label:"Ropa",        icon:"👕",  color:"#fbbf24" },
-  { id:"otro",       label:"Otro",        icon:"📦",  color:"#8b7fa8" },
+  { id:"comida",      label:"Comida",       icon:"🍽️",  color:"#f97316" },
+  { id:"super",       label:"Supermercado", icon:"🛒",  color:"#fb923c" },
+  { id:"casa",        label:"Casa",         icon:"🏠",  color:"#a78bfa" },
+  { id:"ocio",        label:"Ocio",         icon:"🎉",  color:"#e879f9" },
+  { id:"transporte",  label:"Transporte",   icon:"🚗",  color:"#60a5fa" },
+  { id:"salud",       label:"Salud",        icon:"💊",  color:"#34d399" },
+  { id:"viaje",       label:"Viaje",        icon:"✈️",  color:"#38bdf8" },
+  { id:"ropa",        label:"Ropa",         icon:"👕",  color:"#fbbf24" },
+  { id:"tech",        label:"Tecnología",   icon:"💻",  color:"#818cf8" },
+  { id:"cultura",     label:"Cultura",      icon:"🎭",  color:"#c084fc" },
+  { id:"deporte",     label:"Deporte",      icon:"🏅",  color:"#4ade80" },
+  { id:"mascotas",    label:"Mascotas",     icon:"🐾",  color:"#f472b6" },
+  { id:"regalo",      label:"Regalos",      icon:"🎁",  color:"#f43f5e" },
+  { id:"suscripcion", label:"Suscripciones",icon:"📺",  color:"#94a3b8" },
+  { id:"otro",        label:"Otro",         icon:"📦",  color:"#8b7fa8" },
 ];
 const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 const EMOJI_GROUPS = [
-  { label:"🏅 Deporte", emojis:["🎾","🏓","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂","⛳","🎱","🏒","🤺","🏹","🤾","🏃","🧗","🫀"] },
+  { label:"🏅 Deporte", emojis:["🎾","🏓","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂","⛳","🎱","🏒","🤺","🏹","🤾","🏃","🫀"] },
   { label:"🏠 Casa",    emojis:["🛒","🖼️","🔧","💡","🛁","🪴","🧹","🛋️","🪟","🏠","🔑","📦","🧺","🪣","🫧","🔩","🪑","🛏️","🚿","🧼","🧽","🪠","🔋","💻","🖨️"] },
   { label:"💆 Bienestar",emojis:["🧖","💆","🧴","💅","😴","🌿","🧠","❤️","💊","🩺","🛁","🫁","🦷","👁️","🩻","🧘","🫶","🌞","🌙","🍃","🌺","💐","🫧","🩹","🏃"] },
   { label:"✈️ Viajes",  emojis:["🚢","✈️","🏖️","🗺️","🧳","🌊","🏔️","🌍","🏛️","📸","🚂","🛵","🚗","⛺","🏕️","🗼","🗽","🎡","🏝️","🌄","🌅","🧭","🎫","🪪","🚀"] },
@@ -3511,7 +3520,7 @@ function EmojiSelect({ value, onChange }) {
             {EMOJI_GROUPS.map((g,i)=><button key={i} onClick={()=>setAg(i)} style={{ background:ag===i?"rgba(167,139,250,0.25)":"none", border:"none", borderRadius:8, padding:"4px 6px", cursor:"pointer", fontSize:14, flexShrink:0 }}>{g.label.split(" ")[0]}</button>)}
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:3, padding:"8px 10px 10px", maxHeight:180, overflowY:"auto", overscrollBehavior:"contain" }}>
-            {EMOJI_GROUPS[ag].emojis.map(e=><button key={e} onClick={()=>{onChange(e);setOpen(false);}} style={{ fontSize:20, background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:8 }}
+            {EMOJI_GROUPS[ag].emojis.map((e,ei)=><button key={ei} onClick={()=>{onChange(e);setOpen(false);}} style={{ fontSize:20, background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:8 }}
               onMouseEnter={ev=>ev.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={ev=>ev.currentTarget.style.background="none"}>{e}</button>)}
           </div>
         </div>
@@ -3797,6 +3806,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
     onUpdateAll({ gastosProyectos:(proyectos||[]).filter(p=>p.id!==id), gastos:gastos.map(g=>g.projectId===id?{...g,projectId:null}:g) });
     setProjectId(null);
   };
+  const settleProject = (id, settled) => onUpdateProyectos((proyectos||[]).map(p=>p.id===id?{...p,settled}:p));
 
   const INP = { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:16, padding:"12px 12px", fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" };
   const SEL = { ...INP, fontSize:14, padding:"11px 10px", cursor:"pointer", WebkitAppearance:"none", appearance:"none" };
@@ -3829,34 +3839,57 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
               {Math.abs(pb.p1Net)>0.5 && <div style={{ fontSize:11, fontWeight:600, color:pb.p1Net>0?"#f87171":"#34d399", marginTop:2 }}>{pb.p1Net>0?`${p1} debe ${fmtAmt(Math.abs(pb.p1Net))} a ${p2}`:`${p2} debe ${fmtAmt(Math.abs(pb.p1Net))} a ${p1}`}</div>}
               {Math.abs(pb.p1Net)<=0.5&&pb.total>0&&<div style={{ fontSize:11, fontWeight:600, color:"#34d399", marginTop:2 }}>✓ Al día</div>}
             </div>
-            <button onClick={()=>openEditProject(p)} style={{ background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:14, padding:"4px 6px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
-            <button onClick={()=>{if(window.confirm(`¿Eliminar proyecto "${p.name}"?`)) delProject(projectId);}} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:18, padding:"4px 6px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+            <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end" }}>
+              <button onClick={()=>settleProject(projectId,!p.settled)}
+                style={{ fontSize:10, padding:"4px 8px", borderRadius:8, border:`1px solid ${p.settled?"rgba(52,211,153,0.4)":"rgba(167,139,250,0.3)"}`, background:p.settled?"rgba(52,211,153,0.1)":"rgba(255,255,255,0.04)", color:p.settled?"#34d399":"#6b5f88", cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+                {p.settled?"🔒 Saldado":"Marcar saldado"}
+              </button>
+              <div style={{ display:"flex", gap:4 }}>
+                <button onClick={()=>openEditProject(p)} style={{ background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:13, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
+                <button onClick={()=>{if(window.confirm(`¿Eliminar proyecto "${p.name}"?`)) delProject(projectId);}} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:17, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+              </div>
+            </div>
           </div>
         );
       })()}
 
-      {/* ── Projects list (General + no projects selected) ── */}
-      {!projectId && view==="list" && proyectosWithBal.length>0 && (
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:8 }}>📁 Proyectos</div>
-          {proyectosWithBal.map(p=>(
-            <button key={p.id} onClick={()=>{setProjectId(p.id);setView("list");}}
-              style={{ ...S.card, display:"flex", alignItems:"center", gap:12, padding:"12px 14px", border:"none", cursor:"pointer", textAlign:"left", width:"100%", marginBottom:6 }}>
-              <span style={{ fontSize:22 }}>{p.emoji}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:14, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{p.name}</div>
-                <div style={{ fontSize:11, color:"#6b5f88" }}>{p.count} gastos</div>
-              </div>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:14, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(p.total)}</div>
-                {Math.abs(p.p1Net)>0.5 && <div style={{ fontSize:10, color:p.p1Net>0?"#f87171":"#34d399", fontWeight:600 }}>{p.p1Net>0?`${p1} debe ${fmtAmt(Math.abs(p.p1Net))}`:`${p2} debe ${fmtAmt(Math.abs(p.p1Net))}`}</div>}
-                {Math.abs(p.p1Net)<=0.5&&p.total>0&&<div style={{ fontSize:10, color:"#34d399" }}>✓ Al día</div>}
-              </div>
-              <span style={{ color:"#4a4166" }}>›</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* ── Projects list (General home) ── */}
+      {!projectId && view==="list" && (()=>{
+        const open   = proyectosWithBal.filter(p=>!p.settled);
+        const closed = proyectosWithBal.filter(p=>p.settled);
+        const renderCard = p => (
+          <button key={p.id} onClick={()=>{setProjectId(p.id);setView("list");}}
+            style={{ ...S.card, display:"flex", alignItems:"center", gap:12, padding:"12px 14px", border:"none", cursor:"pointer", textAlign:"left", width:"100%", marginBottom:6, opacity:p.settled?0.6:1 }}>
+            <span style={{ fontSize:22 }}>{p.settled?"🔒":p.emoji}</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{p.name}</div>
+              <div style={{ fontSize:11, color:"#6b5f88" }}>{p.count} gastos · {fmtAmt(p.total)}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              {p.settled
+                ? <div style={{ fontSize:11, color:"#34d399", fontWeight:600 }}>✓ Saldado</div>
+                : Math.abs(p.p1Net)>0.5
+                  ? <div style={{ fontSize:12, color:p.p1Net>0?"#f87171":"#34d399", fontWeight:700 }}>{p.p1Net>0?`${p1}: −${fmtAmt(Math.abs(p.p1Net))}`:`${p2}: −${fmtAmt(Math.abs(p.p1Net))}`}</div>
+                  : p.total>0 ? <div style={{ fontSize:11, color:"#34d399" }}>✓ Al día</div> : null
+              }
+            </div>
+            <span style={{ color:"#4a4166" }}>›</span>
+          </button>
+        );
+        if (!open.length && !closed.length) return null;
+        return (
+          <div style={{ marginBottom:14 }}>
+            {open.length>0 && <>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:8 }}>📁 Proyectos activos</div>
+              {open.map(renderCard)}
+            </>}
+            {closed.length>0 && <>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:8, marginTop:open.length?14:0 }}>🔒 Saldados</div>
+              {closed.map(renderCard)}
+            </>}
+          </div>
+        );
+      })()}
 
       {/* ── Stats view ── */}
       {view==="stats" && (()=>{
@@ -4068,7 +4101,22 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             </div>
             {/* División con slider */}
             <div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8 }}>División · <span style={{ color:"var(--t-accent,#c4b8ff)" }}>{p1} {form.splitP1}% · {p2} {100-form.splitP1}%</span></div>
+              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:6 }}>División del gasto</div>
+              {/* Montos en tiempo real */}
+              {form.amount && parseFloat(form.amount)>0 && (
+                <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                  <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                    <div style={{ fontSize:10, color:"#6b5f88" }}>{p1} paga</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(parseFloat(form.amount)*form.splitP1/100)}</div>
+                    <div style={{ fontSize:10, color:"#4a4166" }}>{form.splitP1}%</div>
+                  </div>
+                  <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                    <div style={{ fontSize:10, color:"#6b5f88" }}>{p2} paga</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(parseFloat(form.amount)*(100-form.splitP1)/100)}</div>
+                    <div style={{ fontSize:10, color:"#4a4166" }}>{100-form.splitP1}%</div>
+                  </div>
+                </div>
+              )}
               <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
                 {[{l:"50/50",v:50},{l:`Solo ${p1}`,v:100},{l:`Solo ${p2}`,v:0},{l:`${p1} 70%`,v:70},{l:`${p2} 70%`,v:30}].map(({l,v})=>(
                   <button key={l} onClick={()=>setForm(f=>({...f,splitP1:v}))}
