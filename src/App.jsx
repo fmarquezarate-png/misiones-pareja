@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
+import Brand from "./components/Brand.jsx";
+import Toast, { useToast } from "./components/Toast.jsx";
+import HomeDashboard from "./components/HomeDashboard.jsx";
+import WeekTimeline from "./components/WeekTimeline.jsx";
+import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
+import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const APP_VERSION = "2.5.0";
@@ -935,8 +941,29 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [icsModal, setIcsModal] = useState(false);
   const [icsFrom,  setIcsFrom]  = useState("");
   const [icsTo,    setIcsTo]    = useState("");
+  const [popOpen,       setPopOpen]       = useState(false);
+  const [filtersOpen,   setFiltersOpen]   = useState(false);
+  const [weekViewMode,  setWeekViewMode]  = useState("list"); // "list" | "timeline"
+  const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
+
+  const checkUpdate = async () => {
+    pushToast({ kind: "loading", text: "Actualizando…" });
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      }
+      pushToast({ kind: "success", text: "¡App actualizada!" });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      pushToast({ kind: "error", text: "No se pudo actualizar", onRetry: checkUpdate });
+    }
+  };
 
   // Pull remote data; if Supabase has nothing, push local data up.
   const forceSync = async () => {
@@ -1503,7 +1530,7 @@ ${ms.map(m=>{
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -1627,18 +1654,30 @@ ${ms.map(m=>{
           style={{ background:"none", border:"none", cursor:"pointer", color:activeTab==="home"?"#c4b8ff":"#4a4166", fontSize:18, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0, transition:"color 0.15s" }}>🏠</button>
         {/* Page title */}
         <div style={{ flex:1, textAlign:"center" }}>
-          <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
-            {activeTab==="home"     ? `${data.settings?.coupleEmoji||"💞"} ${p1} & ${p2}`
-            :activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
-            :activeTab==="pending"  ? "📋 Pendientes"
-            :activeTab==="calendar" ? "📅 Calendario"
-            :activeTab==="history"  ? "🗂️ Histórico"
-            :activeTab==="goals"    ? "🏅 Metas"
-            :activeTab==="stats"    ? "📊 Stats"
-            :activeTab==="gastos"   ? "💸 Gastos Compartidos"
-            :activeTab==="chat"     ? "💬 Chat"
-            : ""}
-          </span>
+          {activeTab==="home"
+            ? <Brand size={22} wordmark colors={colors} />
+            : <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
+                {activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
+                :activeTab==="pending"  ? "📋 Pendientes"
+                :activeTab==="calendar" ? "📅 Calendario"
+                :activeTab==="history"  ? "🗂️ Histórico"
+                :activeTab==="goals"    ? "🏅 Metas"
+                :activeTab==="stats"    ? "📊 Stats"
+                :activeTab==="gastos"   ? "💸 Gastos Compartidos"
+                :activeTab==="chat"     ? "💬 Chat"
+                : ""}
+              </span>
+          }
+        </div>
+        {/* Overflow menu ⋯ */}
+        <div style={{ position:"relative", flexShrink:0 }}>
+          <OverflowButton onClick={() => setPopOpen(o => !o)} />
+          <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
+            { icon:"↻", label:"Actualizar versión", onClick: checkUpdate },
+            { divider: true },
+            { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => downloadWeekICS(week, wkey, p1, p2) },
+            { icon:"🖨", label:"Imprimir / PDF", onClick: () => downloadWeekPDF(week, wkey, p1, p2) },
+          ]} />
         </div>
         {/* Settings dropdown trigger */}
         <div style={{ position:"relative", flexShrink:0 }}>
@@ -1675,150 +1714,48 @@ ${ms.map(m=>{
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
 
         {/* Global filters — show only for tabs that need them */}
-        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:6 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600, flexShrink:0 }}>👥</span>
-            {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
-              <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
-            ))}
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
-            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600, flexShrink:0 }}>🏷️</span>
-            <button onClick={()=>setGlobalCatFilter([])} style={{ background:!globalCatFilter.length?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${!globalCatFilter.length?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:!globalCatFilter.length?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:!globalCatFilter.length?600:400 }}>Todas</button>
-            {CATEGORIES.map(c=>{const on=globalCatFilter.includes(c.id);return<button key={c.id} onClick={()=>setGlobalCatFilter(p=>on?p.filter(x=>x!==c.id):[...p,c.id])} style={{ background:on?`${c.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${on?c.color+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:on?c.color:"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:on?600:400 }}>{c.icon} {c.label}</button>;})}
-          </div>
-        </div>}
+        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && (() => {
+          const filterCount = (globalPersonFilter !== "all" ? 1 : 0) + globalCatFilter.length;
+          return (
+            <div style={{ marginBottom:12 }}>
+              <FilterButton count={filterCount} onClick={() => setFiltersOpen(true)} />
+            </div>
+          );
+        })()}
+        <FilterDrawer
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          filters={{ who: globalPersonFilter === "all" ? [] : [globalPersonFilter], cat: globalCatFilter }}
+          setFilters={f => {
+            setGlobalPersonFilter(f.who[0] || "all");
+            setGlobalCatFilter(f.cat);
+          }}
+          persons={[
+            { id:"person1",  name:p1,      emoji:"🙋", color:colors.person1 },
+            { id:"person2",  name:p2,      emoji:"🙋", color:colors.person2 },
+            { id:"together", name:"Juntos", emoji:"👫", color:colors.together },
+          ]}
+          categories={CATEGORIES.map(c => ({ id:c.id, label:c.label, emoji:c.icon, color:c.color }))}
+        />
 
         {/* ── HOME ── */}
         {activeTab==="home" && (() => {
-          const now = new Date();
-          const todayStr = now.toISOString().slice(0,10);
-          const tom = new Date(now); tom.setDate(tom.getDate()+1);
-          const tomStr = tom.toISOString().slice(0,10);
-          const todayAll = allDated.filter(m=>m.date===todayStr);
-          const tomAll   = allDated.filter(m=>m.date===tomStr);
-          // Always show the real current week, regardless of what's selected in other tabs
-          const { week:todayWn, year:todayYr } = getWeekAndYear(now);
+          const { week:todayWn, year:todayYr } = getWeekAndYear(new Date());
           const todayWkey = isoWeekKey(todayWn, todayYr);
           const todayWeekData = data.weeks[todayWkey] || { missions:[], epicObjective:"" };
-          const pending  = (todayWeekData.missions||[]).filter(m=>m.status!=="DONE");
-          const wDone    = (todayWeekData.missions||[]).filter(m=>m.status==="DONE").length;
-          const wTotal   = (todayWeekData.missions||[]).length;
-          const wPct     = wTotal>0?Math.round((wDone/wTotal)*100):0;
-          const hour     = now.getHours();
-          const greeting = hour<13?"Buenos días":hour<20?"Buenas tardes":"Buenas noches";
-          const hasContent = wTotal>0 || todayAll.length>0 || tomAll.length>0;
           return (
-            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-              {/* Hero — full width */}
-              <div style={{ textAlign:"center", padding:"24px 0 8px" }}>
-                {data.settings?.photos?.couple
-                  ? <img src={data.settings.photos.couple} style={{ width:80, height:80, borderRadius:99, objectFit:"cover", border:"3px solid var(--t-accent,#a78bfa)", boxShadow:"0 0 28px color-mix(in srgb,var(--t-accent,#a78bfa) 40%,transparent)", marginBottom:12 }} alt="pareja" />
-                  : <div style={{ fontSize:48, marginBottom:10, filter:"drop-shadow(0 0 12px rgba(167,139,250,0.4))" }}>{data.settings?.coupleEmoji||"💞"}</div>
-                }
-                <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:300, color:"var(--t-text,#f8f4ff)", marginBottom:3, letterSpacing:-0.5 }}>{greeting}</div>
-                <div style={{ fontSize:12, color:"var(--t-text-muted,#6b5f88)", letterSpacing:1 }}>{p1} & {p2}</div>
-                {todayWeekData.epicObjective && (
-                  <div style={{ marginTop:10, fontSize:14, fontFamily:"'Fraunces',serif", fontWeight:300, fontStyle:"italic", color:"var(--t-accent,#f472b6)" }}>"{todayWeekData.epicObjective}"</div>
-                )}
-              </div>
-
-              {/* 2-column grid — auto-fit collapses to 1 col on mobile */}
-              {hasContent && (
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:12, alignItems:"start" }}>
-
-                  {/* LEFT — Tareas pendientes */}
-                  {wTotal>0 && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                      <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>🎯 Semana {todayWn}</div>
-                      <div style={{ ...S.card, cursor:"pointer", borderColor:wPct===100?"rgba(52,211,153,0.25)":"rgba(167,139,250,0.18)" }} onClick={()=>setActiveTab("current")}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-                          <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wDone}/{wTotal} completadas</span>
-                          <span style={{ fontSize:12, color:wPct===100?"#34d399":wPct>=60?"#fbbf24":"#f472b6", fontWeight:700 }}>{wPct}%</span>
-                        </div>
-                        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", marginBottom:12 }}>
-                          <div style={{ height:"100%", width:`${wPct}%`, background:wPct===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
-                        </div>
-                        {pending.length===0
-                          ? <div style={{ fontSize:13, color:"#34d399", textAlign:"center", padding:"8px 0" }}>🎉 ¡Semana completada!</div>
-                          : pending.map(m=>{
-                            const whoClr=m.who==="person1"?colors.person1:m.who==="person2"?colors.person2:colors.together;
-                            const whoLbl=m.who==="person1"?"👤":m.who==="person2"?"👤":"👫";
-                            return (
-                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:7, fontSize:12, color:"#8b7fa8", marginBottom:7 }}>
-                              <span style={{ fontSize:14 }}>{m.emoji}</span>
-                              <span style={{ flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
-                              <span style={{ fontSize:10, color:whoClr, flexShrink:0 }}>{m.who==="together"?"👫":"👤"}</span>
-                              <span style={{ fontSize:10, flexShrink:0 }}>{m.type==="event"?"📅":"✅"}</span>
-                              <span style={{ fontSize:10, color:STATUS[m.status]?.color, background:STATUS[m.status]?.bg, border:`1px solid ${STATUS[m.status]?.border}`, borderRadius:99, padding:"1px 6px", flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
-                            </div>
-                          );})
-                        }
-                        <div style={{ fontSize:11, color:"#4a4166", textAlign:"right", marginTop:4 }}>Ver semana →</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* RIGHT — Eventos de hoy y mañana */}
-                  {(todayAll.length>0 || tomAll.length>0) && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                      <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600 }}>📅 Esta semana</div>
-                      {todayAll.length>0 && (
-                        <div style={{ ...S.card, borderColor:"rgba(96,165,250,0.2)" }}>
-                          <div style={{ fontSize:10, color:"#60a5fa", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Hoy</div>
-                          {todayAll.map(m=>(
-                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
-                              <span style={{ fontSize:19 }}>{m.emoji}</span>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ color:m.status==="DONE"?"#4a4166":"var(--t-text,#f0e8ff)", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-                                {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
-                              </div>
-                              <span style={{ fontSize:12, color:STATUS[m.status]?.color, flexShrink:0 }}>{STATUS[m.status]?.icon}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {tomAll.length>0 && (
-                        <div style={{ ...S.card, opacity:0.82 }}>
-                          <div style={{ fontSize:10, color:"#8b7fa8", fontWeight:600, textTransform:"uppercase", letterSpacing:1.5, marginBottom:10 }}>📆 Mañana</div>
-                          {tomAll.map(m=>(
-                            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, marginBottom:8 }}>
-                              <span style={{ fontSize:19 }}>{m.emoji}</span>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ color:"#8b7fa8", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-                                {m.time && <div style={{ fontSize:11, color:"#4a4166" }}>🕐 {m.time}</div>}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {todayAll.length===0 && tomAll.length===0 && (
-                        <div style={{ ...S.card, textAlign:"center", padding:"20px 0", color:"#3d3360", fontSize:13 }}>Sin eventos próximos</div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* If only one side has content, fill a placeholder on the other */}
-                  {wTotal===0 && (todayAll.length>0||tomAll.length>0) && (
-                    <div style={{ ...S.card, textAlign:"center", padding:"24px 0", cursor:"pointer" }} onClick={()=>setActiveTab("current")}>
-                      <div style={{ fontSize:28, marginBottom:8 }}>🎯</div>
-                      <div style={{ fontSize:13, color:"#4a4166", marginBottom:10 }}>Sin misiones esta semana</div>
-                      <button style={S.btnPrimary}>+ Añadir misión</button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Empty state */}
-              {!hasContent && (
-                <div style={{ textAlign:"center", padding:"56px 0" }}>
-                  <div style={{ fontSize:52, marginBottom:14 }}>{data.settings?.coupleEmoji||"💞"}</div>
-                  <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:300, color:"#4a4166", marginBottom:6 }}>Todo despejado</div>
-                  <div style={{ fontSize:13, color:"#2d2450", marginBottom:24 }}>Sin misiones ni eventos para hoy</div>
-                  <button onClick={()=>setActiveTab("current")} style={S.btnPrimary}>✅ Añadir misión</button>
-                </div>
-              )}
-            </div>
+            <HomeDashboard
+              week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
+              missions={todayWeekData.missions || []}
+              goals={data.goals || []}
+              colors={colors}
+              p1={p1} p2={p2}
+              photo={data.settings?.photos?.couple}
+              onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
+              onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
+              onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
+              weeksData={data.weeks}
+            />
           );
         })()}
 
@@ -1879,14 +1816,26 @@ ${ms.map(m=>{
             </>}
           </div>
           {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />}
-          {/* Sort bar */}
-          <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8, flexWrap:"wrap" }}>
-            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
-            {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
-            ))}
+          {/* View mode + Sort bar */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4 }}>
+              {[["list","☰ Lista"],["timeline","⏱ Timeline"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setWeekViewMode(v)} style={{ background:weekViewMode===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekViewMode===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekViewMode===v?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekViewMode===v?600:400 }}>{l}</button>
+              ))}
+            </div>
+            {weekViewMode==="list" && <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
+              <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
+              {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
+              ))}
+            </div>}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {weekViewMode==="timeline" ? (() => {
+            const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
+            const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
+            const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />} />;
+          })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
               const sorted=[...filtered].sort((a,b)=>{
@@ -1900,7 +1849,7 @@ ${ms.map(m=>{
                 <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
               ));
             })()}
-          </div>
+          </div>}
         </div>}
 
         {activeTab==="calendar" && <CalendarView
@@ -2252,6 +2201,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
 
 function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
   const [expanded, setExpanded] = useState(false);
+  const [popping, setPopping] = useState(false);
   const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
   const mCats = getMCats(mission).map(id=>CAT_MAP[id]).filter(Boolean);
   const clr = colors || DEFAULT_COLORS;
@@ -2261,6 +2211,9 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   const isEvent = mission.type==="event";
   const firstCat = mCats[0];
   const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":firstCat?`${firstCat.color}30`:`${whoColor}22`;
+  // v3: color rail + pop
+  const railStyle = { borderLeft:`3px solid ${whoColor}`, paddingLeft:13 };
+  const handleCycle = () => { setPopping(true); setTimeout(()=>setPopping(false),240); onCycleStatus(); };
   const carriedWeeks = (() => {
     if (!isCarried || isDone || !weeksData) return 0;
     let count = 0, originId = mission.carriedFrom, originWeek = mission.carriedFromWeek;
@@ -2276,7 +2229,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
     return count;
   })();
   return (
-    <div style={{ ...S.card, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
+    <div style={{ ...S.card, ...railStyle, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
       {isCarried&&!isDone&&(
         <div style={{ fontSize:10, color:carriedWeeks>=3?"#f87171":"#fb923c", letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
           {carriedWeeks>=3?"⚠️":"🔁"} {carriedWeeks>=3?`Arrastrada ${carriedWeeks} semanas`:"Arrastrada"}
@@ -2304,7 +2257,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
-        <button onClick={onCycleStatus} style={badgeStyle(mission.status)}>{STATUS[mission.status].icon}</button>
+        <button onClick={handleCycle} style={{ ...badgeStyle(mission.status), animation:popping?"mc-pop 0.22s ease-out":"none" }}>{STATUS[mission.status].icon}</button>
         <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"#3d3360", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
       </div>
@@ -2365,7 +2318,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId }) {
+function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -2628,16 +2581,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId })
         {/* Footer */}
         <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
           {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
-          <button onClick={async()=>{
-            if('serviceWorker' in navigator){
-              const reg=await navigator.serviceWorker.getRegistration();
-              if(reg){
-                await reg.update();
-                if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
-              }
-            }
-            window.location.reload(true);
-          }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
+          <button onClick={()=>{ onClose(); onCheckUpdate && onCheckUpdate(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
             <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
@@ -3338,12 +3282,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
 
   return (
     <div>
-      {/* Action buttons */}
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-        <button onClick={onDownloadICS} style={{...S.btnSecondary,flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"9px 10px",borderColor:"rgba(52,211,153,0.3)",color:"#34d399",fontSize:12}}>📅 Google Calendar (.ics)</button>
-        <button onClick={onDownloadPDF} style={{...S.btnSecondary,flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:5,padding:"9px 10px",borderColor:"rgba(167,139,250,0.3)",color:"#a78bfa",fontSize:12}}>🖨️ PDF semana</button>
-      </div>
-
+      {/* v3: ICS/PDF moved to OverflowMenu in topbar */}
       {/* Calendar */}
       <div ref={calRef}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:16}}>
@@ -3364,8 +3303,8 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
               return<div key={day} onClick={()=>setSelectedDay(isSel?null:day)}
                 onDragEnter={e=>{e.preventDefault();setDragOver(ds);}} onDragOver={e=>e.preventDefault()} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragOver(null);}} onDrop={e=>onDropDay(e,ds)}
                 style={{borderRadius:6,minHeight:cellH,overflow:"hidden",cursor:"pointer",
-                  background:isDO?"rgba(167,139,250,0.3)":isSel?"rgba(167,139,250,0.22)":isTd?"rgba(244,114,182,0.1)":ms.length>0?"rgba(167,139,250,0.06)":"rgba(255,255,255,0.02)",
-                  border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":isTd?"1px solid rgba(244,114,182,0.4)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s"}}>
+                  background:isDO?"rgba(167,139,250,0.3)":isSel?"rgba(167,139,250,0.22)":ms.length>0?"rgba(167,139,250,0.06)":"rgba(255,255,255,0.02)",
+                  border:isDO?"1px solid rgba(167,139,250,0.7)":isSel?"1px solid rgba(167,139,250,0.55)":"1px solid rgba(255,255,255,0.04)",transition:"all 0.12s"}}>
                 {/* Multi-day event bars */}
                 {multiMs.map(m=>{
                   const mDates=spanOf(m);
@@ -3383,12 +3322,14 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
                 })}
                 {/* Day number + single-day missions */}
                 <div style={{padding:"2px 3px"}}>
-                  <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166"}}>{day}</div>
+                  <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166",width:18,height:18,borderRadius:99,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 2px",border:isTd?"1.5px solid #f472b6":"1.5px solid transparent",lineHeight:1}}>{day}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center"}}>
                     {singleMs.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={`${m.id}-${ds}`} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
                     {singleMs.length>maxPerCell&&<span style={{fontSize:8,color:"#4a4166"}}>+{singleMs.length-maxPerCell}</span>}
                   </div>
                 </div>
+                {/* v3: density bar per person */}
+                {ms.length>0&&(()=>{const p1c=ms.filter(m=>m.who==="person1").length,p2c=ms.filter(m=>m.who==="person2").length,tg=ms.filter(m=>m.who==="together").length;return<div style={{height:2,display:"flex",gap:0,overflow:"hidden"}}>{p1c>0&&<i style={{background:clrC.person1,flex:p1c,height:"100%"}}/>}{p2c>0&&<i style={{background:clrC.person2,flex:p2c,height:"100%"}}/>}{tg>0&&<i style={{background:clrC.together,flex:tg,height:"100%"}}/>}</div>;})()}
               </div>;
             })}
           </div>
@@ -4177,6 +4118,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
           </div>
         </div>
       )}
+      <Toast toast={appToast} onDismiss={dismissToast} />
     </div>
   );
 }
