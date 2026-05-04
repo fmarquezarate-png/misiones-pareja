@@ -58,7 +58,7 @@ export default function HomeDashboard({
             fontWeight: 500,
             lineHeight: 1.18,
             marginBottom: 8,
-            color: T.fg1,
+            color: "var(--t-text,#f8f4ff)",
           }}>{week?.epicGoal || "Define el objetivo de la semana"}</div>
           <div style={{
             height:5, background:"rgba(255,255,255,0.08)",
@@ -71,7 +71,7 @@ export default function HomeDashboard({
               borderRadius: 99, transition: "width .6s ease",
             }}/>
           </div>
-          <div style={{display:"flex", justifyContent:"space-between", fontSize:10.5, color:T.muted, fontWeight:600}}>
+          <div style={{display:"flex", justifyContent:"space-between", fontSize:10.5, color:"var(--t-text-muted,#8b7fa8)", fontWeight:600}}>
             <span>{done} / {total} hechas</span>
             <span style={{color:T.green}}>{pct}%</span>
           </div>
@@ -101,7 +101,7 @@ export default function HomeDashboard({
           <div style={{...eyebrow, fontSize:9, marginBottom:6}}>⏰ Próximo</div>
           {upcoming ? (
             <>
-              <div style={{fontFamily:T.fontDisplay, fontSize:17, fontWeight:600, lineHeight:1.1, marginBottom:3, color:T.fg1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+              <div style={{fontFamily:T.fontDisplay, fontSize:17, fontWeight:600, lineHeight:1.1, marginBottom:3, color:"var(--t-text,#f8f4ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                 {upcoming.emoji || "📅"} {upcoming.title}
               </div>
               <div style={{fontSize:10, color:T.blue, fontWeight:500}}>
@@ -109,10 +109,10 @@ export default function HomeDashboard({
               </div>
             </>
           ) : (
-            <div style={{fontSize:11.5, color:T.muted, fontStyle:"italic"}}>Nada agendado próximamente 🌿</div>
+            <div style={{fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Nada agendado próximamente 🌿</div>
           )}
         </div>
-        <div style={widget}>
+        <div style={{...widget, gridColumn: activeGoal ? undefined : "span 2"}}>
           <div style={{...eyebrow, fontSize:9, marginBottom:6}}>📊 Pulso semanal</div>
           <div style={{display:"flex", alignItems:"center", gap:10}}>
             <svg width={42} height={42} viewBox="0 0 36 36" style={{flexShrink:0}}>
@@ -130,14 +130,14 @@ export default function HomeDashboard({
               <div style={{fontFamily:T.fontDisplay, fontSize:22, fontWeight:600, lineHeight:1}}>
                 {pct}<small style={{fontSize:11}}>%</small>
               </div>
-              <div style={{fontSize:10, color:T.muted}}>de la semana</div>
+              <div style={{fontSize:10, color:"var(--t-text-muted,#8b7fa8)"}}>de la semana</div>
             </div>
           </div>
         </div>
         {activeGoal && (
           <div style={widget}>
             <div style={{...eyebrow, fontSize:9, marginBottom:6}}>🏅 Meta cerca</div>
-            <div style={{fontSize:12.5, fontWeight:600, color:T.fg2, marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+            <div style={{fontSize:12.5, fontWeight:600, color:"var(--t-text,#f0e8ff)", marginBottom:5, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
               {activeGoal.emoji} {activeGoal.title}
             </div>
             <div style={{height:4, background:"rgba(255,255,255,0.08)", borderRadius:99, overflow:"hidden", marginBottom:4}}>
@@ -147,7 +147,7 @@ export default function HomeDashboard({
                 background: T.green, borderRadius: 99,
               }}/>
             </div>
-            <div style={{fontSize:10, color:T.muted}}>
+            <div style={{fontSize:10, color:"var(--t-text-muted,#8b7fa8)"}}>
               {activeGoal.progress || 0} de {activeGoal.target || "?"}
             </div>
           </div>
@@ -156,7 +156,7 @@ export default function HomeDashboard({
         <div style={{...widget, gridColumn:"span 2"}}>
           <div style={{...eyebrow, fontSize:9, marginBottom:8}}>📋 Hoy</div>
           {todayMs.length === 0 ? (
-            <div style={{fontSize:12, color:T.muted, fontStyle:"italic"}}>Día libre 🌿</div>
+            <div style={{fontSize:12, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Día libre 🌿</div>
           ) : (
             <div style={{display:"flex", flexDirection:"column", gap:8, marginTop:4}}>
               {todayMs.map(m => (
