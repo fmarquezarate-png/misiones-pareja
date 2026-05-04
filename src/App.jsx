@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
+import Brand from "./components/Brand.jsx";
+import Toast, { useToast } from "./components/Toast.jsx";
+import HomeDashboard from "./components/HomeDashboard.jsx";
+import WeekTimeline from "./components/WeekTimeline.jsx";
+import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
+import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const APP_VERSION = "2.5.0";
@@ -935,8 +941,29 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [icsModal, setIcsModal] = useState(false);
   const [icsFrom,  setIcsFrom]  = useState("");
   const [icsTo,    setIcsTo]    = useState("");
+  const [popOpen,       setPopOpen]       = useState(false);
+  const [filtersOpen,   setFiltersOpen]   = useState(false);
+  const [weekViewMode,  setWeekViewMode]  = useState("list"); // "list" | "timeline"
+  const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
+
+  const checkUpdate = async () => {
+    pushToast({ kind: "loading", text: "Actualizando…" });
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      }
+      pushToast({ kind: "success", text: "¡App actualizada!" });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      pushToast({ kind: "error", text: "No se pudo actualizar", onRetry: checkUpdate });
+    }
+  };
 
   // Pull remote data; if Supabase has nothing, push local data up.
   const forceSync = async () => {
@@ -1503,7 +1530,7 @@ ${ms.map(m=>{
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -1627,18 +1654,30 @@ ${ms.map(m=>{
           style={{ background:"none", border:"none", cursor:"pointer", color:activeTab==="home"?"#c4b8ff":"#4a4166", fontSize:18, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0, transition:"color 0.15s" }}>🏠</button>
         {/* Page title */}
         <div style={{ flex:1, textAlign:"center" }}>
-          <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
-            {activeTab==="home"     ? `${data.settings?.coupleEmoji||"💞"} ${p1} & ${p2}`
-            :activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
-            :activeTab==="pending"  ? "📋 Pendientes"
-            :activeTab==="calendar" ? "📅 Calendario"
-            :activeTab==="history"  ? "🗂️ Histórico"
-            :activeTab==="goals"    ? "🏅 Metas"
-            :activeTab==="stats"    ? "📊 Stats"
-            :activeTab==="gastos"   ? "💸 Gastos Compartidos"
-            :activeTab==="chat"     ? "💬 Chat"
-            : ""}
-          </span>
+          {activeTab==="home"
+            ? <Brand size={22} wordmark colors={colors} />
+            : <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
+                {activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
+                :activeTab==="pending"  ? "📋 Pendientes"
+                :activeTab==="calendar" ? "📅 Calendario"
+                :activeTab==="history"  ? "🗂️ Histórico"
+                :activeTab==="goals"    ? "🏅 Metas"
+                :activeTab==="stats"    ? "📊 Stats"
+                :activeTab==="gastos"   ? "💸 Gastos Compartidos"
+                :activeTab==="chat"     ? "💬 Chat"
+                : ""}
+              </span>
+          }
+        </div>
+        {/* Overflow menu ⋯ */}
+        <div style={{ position:"relative", flexShrink:0 }}>
+          <OverflowButton onClick={() => setPopOpen(o => !o)} />
+          <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
+            { icon:"↻", label:"Actualizar versión", onClick: checkUpdate },
+            { divider: true },
+            { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => downloadWeekICS(week, wkey, p1, p2) },
+            { icon:"🖨", label:"Imprimir / PDF", onClick: () => downloadWeekPDF(week, wkey, p1, p2) },
+          ]} />
         </div>
         {/* Settings dropdown trigger */}
         <div style={{ position:"relative", flexShrink:0 }}>
@@ -1675,40 +1714,51 @@ ${ms.map(m=>{
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
 
         {/* Global filters — show only for tabs that need them */}
-        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && <div style={{ marginBottom:12, display:"flex", flexDirection:"column", gap:6 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600, flexShrink:0 }}>👥</span>
-            {[["all","Todos","#6b5f88"],["person1",p1,colors.person1],["person2",p2,colors.person2],["together","Juntos",colors.together]].map(([v,l,c])=>(
-              <button key={v} onClick={()=>setGlobalPersonFilter(v)} style={{ background:globalPersonFilter===v?`${c}22`:"rgba(255,255,255,0.03)", border:`1px solid ${globalPersonFilter===v?c+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:globalPersonFilter===v?c:"#4a4166", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:globalPersonFilter===v?600:400, transition:"all 0.15s" }}>{l}</button>
-            ))}
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
-            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600, flexShrink:0 }}>🏷️</span>
-            <button onClick={()=>setGlobalCatFilter([])} style={{ background:!globalCatFilter.length?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${!globalCatFilter.length?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:!globalCatFilter.length?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:!globalCatFilter.length?600:400 }}>Todas</button>
-            {CATEGORIES.map(c=>{const on=globalCatFilter.includes(c.id);return<button key={c.id} onClick={()=>setGlobalCatFilter(p=>on?p.filter(x=>x!==c.id):[...p,c.id])} style={{ background:on?`${c.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${on?c.color+"55":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:on?c.color:"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:on?600:400 }}>{c.icon} {c.label}</button>;})}
-          </div>
-        </div>}
+        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && (() => {
+          const filterCount = (globalPersonFilter !== "all" ? 1 : 0) + globalCatFilter.length;
+          return (
+            <div style={{ marginBottom:12 }}>
+              <FilterButton count={filterCount} onClick={() => setFiltersOpen(true)} />
+            </div>
+          );
+        })()}
+        <FilterDrawer
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          filters={{ who: globalPersonFilter === "all" ? [] : [globalPersonFilter], cat: globalCatFilter }}
+          setFilters={f => {
+            setGlobalPersonFilter(f.who[0] || "all");
+            setGlobalCatFilter(f.cat);
+          }}
+          persons={[
+            { id:"person1",  name:p1,      emoji:"🙋", color:colors.person1 },
+            { id:"person2",  name:p2,      emoji:"🙋", color:colors.person2 },
+            { id:"together", name:"Juntos", emoji:"👫", color:colors.together },
+          ]}
+          categories={CATEGORIES.map(c => ({ id:c.id, label:c.label, emoji:c.icon, color:c.color }))}
+        />
 
         {/* ── HOME ── */}
         {activeTab==="home" && (() => {
-          const now = new Date();
-          const todayStr = now.toISOString().slice(0,10);
-          const tom = new Date(now); tom.setDate(tom.getDate()+1);
-          const tomStr = tom.toISOString().slice(0,10);
-          const todayAll = allDated.filter(m=>m.date===todayStr);
-          const tomAll   = allDated.filter(m=>m.date===tomStr);
-          // Always show the real current week, regardless of what's selected in other tabs
-          const { week:todayWn, year:todayYr } = getWeekAndYear(now);
+          const { week:todayWn, year:todayYr } = getWeekAndYear(new Date());
           const todayWkey = isoWeekKey(todayWn, todayYr);
           const todayWeekData = data.weeks[todayWkey] || { missions:[], epicObjective:"" };
-          const pending  = (todayWeekData.missions||[]).filter(m=>m.status!=="DONE");
-          const wDone    = (todayWeekData.missions||[]).filter(m=>m.status==="DONE").length;
-          const wTotal   = (todayWeekData.missions||[]).length;
-          const wPct     = wTotal>0?Math.round((wDone/wTotal)*100):0;
-          const hour     = now.getHours();
-          const greeting = hour<13?"Buenos días":hour<20?"Buenas tardes":"Buenas noches";
-          const hasContent = wTotal>0 || todayAll.length>0 || tomAll.length>0;
           return (
+            <HomeDashboard
+              week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
+              missions={todayWeekData.missions || []}
+              goals={data.goals || []}
+              colors={colors}
+              p1={p1} p2={p2}
+              photo={data.settings?.photos?.couple}
+              onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
+              onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
+              onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
+              weeksData={data.weeks}
+            />
+          );
+          // LEGACY_HOME (kept for reference):
+          const _LEGACY = false; if (_LEGACY) return (
             <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
               {/* Hero — full width */}
               <div style={{ textAlign:"center", padding:"24px 0 8px" }}>
@@ -2365,7 +2415,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId }) {
+function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -2628,16 +2678,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId })
         {/* Footer */}
         <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
           {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
-          <button onClick={async()=>{
-            if('serviceWorker' in navigator){
-              const reg=await navigator.serviceWorker.getRegistration();
-              if(reg){
-                await reg.update();
-                if(reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
-              }
-            }
-            window.location.reload(true);
-          }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
+          <button onClick={()=>{ onClose(); onCheckUpdate && onCheckUpdate(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
             <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>

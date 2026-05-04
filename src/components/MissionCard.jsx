@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { CATEGORIES, STATUS, STATUS_ORDER, DEFAULT_COLORS } from "../constants.js";
-import { getMCats, CAT_MAP } from "../constants.js";
+import { CATEGORIES, STATUS, STATUS_ORDER, DEFAULT_COLORS, getMCats, CAT_MAP } from "../constants.js";
 import { googleCalendarUrl } from "../utils.js";
 import { S, badgeStyle, catBadgeStyle } from "../styles.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 
 export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
   const [expanded, setExpanded] = useState(false);
+  const [popping, setPopping] = useState(false);
   const isDone = mission.status === "DONE";
   const isCarried = !!mission.carriedFrom;
   const mCats = getMCats(mission).map(id => CAT_MAP[id]).filter(Boolean);
@@ -18,7 +18,12 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
   const firstCat = mCats[0];
   const cardBorder = isDone ? "rgba(52,211,153,0.15)" : isCarried ? "rgba(251,146,60,0.2)" : isEvent ? "rgba(96,165,250,0.3)" : firstCat ? `${firstCat.color}30` : `${whoColor}22`;
 
-  // Count how many weeks this task has been carried over
+  // v3: color rail by person
+  const railStyle = {
+    borderLeft: `3px solid ${whoColor}`,
+    paddingLeft: 13,
+  };
+
   const carriedWeeks = (() => {
     if (!isCarried || isDone || !weeksData) return 0;
     let count = 0, originId = mission.carriedFrom, originWeek = mission.carriedFromWeek;
@@ -34,8 +39,14 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
     return count;
   })();
 
+  const handleCycle = () => {
+    setPopping(true);
+    setTimeout(() => setPopping(false), 240);
+    onCycleStatus();
+  };
+
   return (
-    <div style={{ ...S.card, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
+    <div style={{ ...S.card, ...railStyle, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
       {isCarried && !isDone && (
         <div style={{ fontSize:10, color: carriedWeeks >= 3 ? "#f87171" : "#fb923c", letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
           {carriedWeeks >= 3 ? "⚠️" : "🔁"}
@@ -60,7 +71,9 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
             {mission.goalId && (() => { const g = (goals||[]).find(x=>x.id===mission.goalId); return g ? <span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span> : null; })()}
           </div>
         </div>
-        <button onClick={onCycleStatus} style={badgeStyle(mission.status)}>{STATUS[mission.status].icon}</button>
+        <button onClick={handleCycle} style={{ ...badgeStyle(mission.status), animation: popping ? "mc-pop 0.22s ease-out" : "none" }}>
+          {STATUS[mission.status].icon}
+        </button>
         <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"#3d3360", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
       </div>
@@ -68,7 +81,6 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
       {expanded && (
         <div style={{ marginTop:12, borderTop:"1px solid rgba(167,139,250,0.12)", paddingTop:12 }}>
           <div style={{ marginBottom:10 }}><label style={S.label}>Título</label><input value={mission.title} onChange={e=>onPatch({ title:e.target.value })} style={S.input} /></div>
-
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>Tipo</label>
             <div style={{ display:"flex", gap:4 }}>
@@ -80,7 +92,6 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
               })}
             </div>
           </div>
-
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>Categoría (multi)</label>
             <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
@@ -91,7 +102,6 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
               })}
             </div>
           </div>
-
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>¿Quién?</label>
             <div style={{ display:"flex", gap:5 }}>
@@ -102,13 +112,11 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
               })}
             </div>
           </div>
-
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
             <div><label style={S.label}>📆 Fecha</label><input type="date" value={mission.date||""} onChange={e=>onPatch({ date:e.target.value||null })} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
             <div><label style={S.label}>🕐 Hora</label><input type="time" value={mission.time||""} onChange={e=>onPatch({ time:e.target.value||null })} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
           </div>
           <div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (h)</label><input type="number" min="0" step="0.5" value={mission.duration||""} onChange={e=>onPatch({ duration:parseFloat(e.target.value)||null })} placeholder="1" style={S.inputSm} /></div>
-
           {(goals||[]).filter(g=>g.active!==false).length > 0 && (
             <div style={{ marginBottom:8 }}>
               <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>

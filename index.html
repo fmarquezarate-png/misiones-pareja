@@ -15,6 +15,21 @@
       #root { min-height: 100vh; }
       /* Prevent zoom on input focus (iOS Safari + Chrome) — 16px minimum */
       input, select, textarea { font-size: max(16px, 1em) !important; touch-action: manipulation; }
+
+      @keyframes mc-pop {
+        0%   { transform: scale(1); }
+        50%  { transform: scale(1.28); }
+        100% { transform: scale(1); }
+      }
+
+      @keyframes home-breathe {
+        0%, 100% { background-position: 0% 50%, 100% 50%; }
+        50%      { background-position: 10% 60%, 90% 40%; }
+      }
+
+      .home-breathe-bg {
+        animation: home-breathe 8s ease-in-out infinite;
+      }
     </style>
   </head>
   <body>
