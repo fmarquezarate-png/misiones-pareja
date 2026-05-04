@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 const DOW_SHORT = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
-const fmt = d => d.toISOString().slice(0,10);
+const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
 export default function WeekTimeline({ missions, today = new Date(), weekDays, renderCard, showSinFecha = true }) {
   const todayKey = fmt(today);
