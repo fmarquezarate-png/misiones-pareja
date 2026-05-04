@@ -27,7 +27,7 @@ export default function HomeDashboard({
   const activeGoal = goals.filter(g => g.active !== false)[0];
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:12, width:"100%", minWidth:0, overflowX:"hidden" }}>
       {hasWrappedAvailable && (
         <button onClick={onOpenWrapped} style={{
           background:"linear-gradient(135deg,rgba(244,114,182,0.16),rgba(167,139,250,0.16))",

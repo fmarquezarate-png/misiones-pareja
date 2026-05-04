@@ -926,7 +926,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [editObj, setEditObj] = useState(false);
   const [error, setError] = useState(null);
   const [histWeekRange, setHistWeekRange] = useState("all");
-  const [globalPersonFilter, setGlobalPersonFilter] = useState("all");
+  const [globalPersonFilter, setGlobalPersonFilter] = useState([]); // [] = todos
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
   const [showChangelog, setShowChangelog] = useState(false);
@@ -1440,9 +1440,9 @@ ${sorted.map(m=>{
   };
 
   const downloadFilteredPDF = (weekEntries, personFilter, name1, name2) => {
-    const personLabel = personFilter==="all"?`${name1} & ${name2}`:personFilter==="person1"?name1:personFilter==="person2"?name2:"Juntos";
+    const personLabel = !personFilter.length ? `${name1} & ${name2}` : personFilter.map(f=>f==="person1"?name1:f==="person2"?name2:"Juntos").join(" + ");
     const allMissions = weekEntries.flatMap(([,w]) => {
-      const ms = personFilter==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===personFilter);
+      const ms = !personFilter.length ? (w.missions||[]) : (w.missions||[]).filter(m=>personFilter.includes(m.who));
       return ms.map(m=>({...m, weekNumber:w.weekNumber, _year:w.year, _obj:w.epicObjective}));
     });
     if (!allMissions.length) { alert("No hay misiones para los filtros seleccionados."); return; }
@@ -1511,7 +1511,7 @@ ${ms.map(m=>{
   const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date&&m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear(),_key:key})));
 
   return (
-    <div style={{ minHeight:"100vh", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
+    <div style={{ minHeight:"100vh", overflowX:"hidden", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
       <ThemeInjector themeId={themeId} fontId={fontId} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
 
@@ -1716,7 +1716,7 @@ ${ms.map(m=>{
 
         {/* Global filters — show only for tabs that need them */}
         {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && (() => {
-          const filterCount = (globalPersonFilter !== "all" ? 1 : 0) + globalCatFilter.length;
+          const filterCount = globalPersonFilter.length + globalCatFilter.length;
           return (
             <div style={{ marginBottom:12 }}>
               <FilterButton count={filterCount} onClick={() => setFiltersOpen(true)} />
@@ -1726,9 +1726,9 @@ ${ms.map(m=>{
         <FilterDrawer
           open={filtersOpen}
           onClose={() => setFiltersOpen(false)}
-          filters={{ who: globalPersonFilter === "all" ? [] : [globalPersonFilter], cat: globalCatFilter }}
+          filters={{ who: globalPersonFilter, cat: globalCatFilter }}
           setFilters={f => {
-            setGlobalPersonFilter(f.who[0] || "all");
+            setGlobalPersonFilter(f.who);
             setGlobalCatFilter(f.cat);
           }}
           persons={[
@@ -1834,11 +1834,11 @@ ${ms.map(m=>{
           {weekViewMode==="timeline" ? (() => {
             const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
             const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
-            const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
+            const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
             return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />} />;
           })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
-              const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
+              const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
               const sorted=[...filtered].sort((a,b)=>{
                 if(weekSort==="chrono"){const da=a.date?a.date+"T"+(a.time||"00:00"):"9999";const db=b.date?b.date+"T"+(b.time||"00:00"):"9999";return da.localeCompare(db);}
                 if(weekSort==="type"){const ta=a.type==="event"?0:1;const tb=b.type==="event"?0:1;return ta-tb;}
@@ -1872,7 +1872,7 @@ ${ms.map(m=>{
           const _htodayKey = isoWeekKey(_htw, _hty);
           const allHistSorted = Object.entries(data.weeks).filter(([key])=>key<=_htodayKey).sort((a,b)=>b[0].localeCompare(a[0]));
           const histFiltered = histWeekRange==="all" ? allHistSorted : allHistSorted.slice(0, parseInt(histWeekRange));
-          const filterHM = ms => ms.filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
+          const filterHM = ms => ms.filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
           return (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {/* Filter bar */}
@@ -1914,7 +1914,7 @@ ${ms.map(m=>{
                       <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
                         <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
                       </div>
-                      <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter!=="all"?` (${globalPersonFilter==="person1"?p1:globalPersonFilter==="person2"?p2:"Juntos"})`:""}</div>
+                      <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
                     </div>
                     {w.photo
                       ? <div style={{ position:"relative", flexShrink:0 }}>
@@ -1973,7 +1973,7 @@ ${ms.map(m=>{
           const latestBySeries={};
           for(const m of pendingRaw){if(m.seriesId&&(!latestBySeries[m.seriesId]||m._wkey>latestBySeries[m.seriesId]._wkey))latestBySeries[m.seriesId]=m;}
           const pendingAll=pendingRaw.filter(m=>!m.seriesId||latestBySeries[m.seriesId]===m);
-          const pendingFiltered=globalPersonFilter==="all"?pendingAll:pendingAll.filter(m=>m.who===globalPersonFilter);
+          const pendingFiltered=!globalPersonFilter.length?pendingAll:pendingAll.filter(m=>globalPersonFilter.includes(m.who));
           return <div>
             {pendingFiltered.length===0
               ?<div style={{...S.card,textAlign:"center",color:"#3d3360",fontStyle:"italic",padding:40}}>
@@ -3218,7 +3218,7 @@ function WeekDetailList({ allW, onGoToWeek }) {
   );
 }
 
-function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter="all", catFilter=[], goals=[], settings }) {
+function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter=[], catFilter=[], goals=[], settings }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
@@ -3250,7 +3250,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
   const maxPerCell=cellPx<40?2:3;
   const cellH=Math.max(48,cellPx);
 
-  const applyFilters=ms=>ms.filter(m=>(personFilter==="all"||m.who===personFilter)&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
+  const applyFilters=ms=>ms.filter(m=>(!personFilter.length||personFilter.includes(m.who))&&(!catFilter.length||getMCats(m).some(c=>catFilter.includes(c))));
   // Precompute each mission's spanning dates once – avoids N×getMissionDates per cell
   const byDate={};
   const datesFor=new Map(); // missionId → dates[]
@@ -3287,11 +3287,16 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
       {/* v3: ICS/PDF moved to OverflowMenu in topbar */}
       {/* Calendar */}
       <div ref={calRef}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:8}}>
             <button onClick={prevM} style={S.btnNav}>‹</button>
             <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:600,minWidth:160,textAlign:"center"}}>{MONTHS[calMonth]} {calYear}</div>
             <button onClick={nextM} style={S.btnNav}>›</button>
           </div>
+          {(calYear!==today.getFullYear()||calMonth!==today.getMonth())&&(
+            <div style={{textAlign:"center",marginBottom:10}}>
+              <button onClick={()=>{setCalYear(today.getFullYear());setCalMonth(today.getMonth());setSelectedDay(null);}} style={{background:"rgba(167,139,250,0.10)",border:"1px solid rgba(167,139,250,0.3)",borderRadius:99,color:"#a78bfa",fontSize:11,fontWeight:600,padding:"4px 14px",cursor:"pointer",fontFamily:"inherit"}}>⟲ Volver a hoy</button>
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:3}}>
             {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:numSz,color:"#4a4166",fontWeight:600,padding:"3px 0"}}>{d}</div>)}
           </div>
