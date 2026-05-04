@@ -60,16 +60,16 @@ export const catBadgeStyle = catId => {
 // ─── v3 additions ──────────────────────────────────────────────────────────
 
 export const cardV3 = (whoColor) => ({
-  background:"#1d1733",
-  border:"1px solid rgba(167,139,250,0.12)",
-  borderLeft: whoColor ? `3px solid ${whoColor}` : "1px solid rgba(167,139,250,0.12)",
+  background:"var(--t-card,#1d1733)",
+  border:"1px solid var(--t-card-border,rgba(167,139,250,0.12))",
+  borderLeft: whoColor ? `3px solid ${whoColor}` : "1px solid var(--t-card-border,rgba(167,139,250,0.12))",
   borderRadius: 14,
   padding: "12px 14px",
 });
 
 export const weekHero = {
   background: "linear-gradient(135deg, rgba(167,139,250,0.10), rgba(244,114,182,0.06))",
-  border: "1px solid rgba(167,139,250,0.30)",
+  border: "1px solid var(--t-card-border,rgba(167,139,250,0.30))",
   borderRadius: 16,
   padding: 14,
   display: "flex",
@@ -88,8 +88,8 @@ export const homeHero = {
 };
 
 export const widget = {
-  background: "#1d1733",
-  border: "1px solid rgba(167,139,250,0.18)",
+  background: "var(--t-card,#1d1733)",
+  border: "1px solid var(--t-card-border,rgba(167,139,250,0.18))",
   borderRadius: 12,
   padding: 11,
   cursor: "pointer",

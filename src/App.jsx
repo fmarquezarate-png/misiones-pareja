@@ -9,9 +9,10 @@ import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "2.5.0";
+const APP_VERSION = "3.0.0";
 const LAST_UPDATE = "2026-04-26";
 const CHANGELOG = [
+  { v:"3.0.0", date:"2026-05-04", notes:["Rediseño UI mayor: dashboard editorial en Inicio con widgets compactos (ASAP urgentes, Próximo evento, Pulso semanal, Meta cercana, Misiones de hoy)","Logo MP-mark en topbar (dos círculos solapados con colores de pareja) reemplaza el emoji 💞","Vista Timeline en pestaña Semana: alterna entre lista clásica y riel cronológico por día (toggle ☰/⏱)","Tira de días L–D siempre visible en Home con Hoy resaltado en rosa","Filtros de persona y categoría unificados en drawer inferior con badge contador","Menú ⋯ en topbar: exportar .ics, imprimir PDF y actualizar app desde un único acceso","Toast visual para 'Actualizar versión': loading → éxito/error con botón Reintentar","Riel de color por persona (3px borde izq.) en cada tarjeta de misión","Animación pop del badge de estado al ciclarlo","Calendario: Hoy marcado con anillo rosa (antes era fondo relleno), barra de densidad por persona en footer de cada celda","Fix: el diálogo de impresión PDF ahora se cierra automáticamente al terminar o cancelar","Versión 3.0.0"] },
   { v:"2.5.0", date:"2026-04-26", notes:["Gastos: montos en tiempo real al dividir — muestra cuánto paga cada persona al mover el slider","Gastos: proyectos saldables — botón 'Marcar saldado' cierra el proyecto (🔒) sin borrar datos ni stats","Gastos: home de Gastos muestra solo proyectos separados en Activos / 🔒 Saldados","Gastos: 15 categorías (añadidas Supermercado, Tecnología, Cultura, Deporte, Mascotas, Regalos, Suscripciones)","Tutorial: paso nuevo para Gastos Compartidos","Fix: emoji 🧗 ya no se multiplica en el selector (clave de React corregida + duplicado eliminado)","Versión 2.5.0"] },
   { v:"2.4.1", date:"2026-04-26", notes:["Gastos: proyectos (ej. 'Viaje a Chile') — agrupa gastos por proyecto con balance propio y saldo acumulado","Gastos: división flexible — slider 0-100% con atajos rápidos (50/50, Solo tú, Solo yo, 70/30)","Gastos: fecha en campo propio con label (ya no queda cortada en móvil)","Gastos: pestaña Stats con gráfico de últimos 6 meses, desglose por categoría, totales y promedio mensual","Versión 2.4.1"] },
   { v:"2.4.0", date:"2026-04-25", notes:["Nueva pestaña 💸 Gastos Compartidos: registra gastos, divide a medias o gasto propio, 8 categorías, balance mensual automático (quién le debe a quién)","Histórico: foto ahora tiene dos botones — 📷 Tomar foto (cámara, Android+iOS) y 🖼️ Elegir de galería — Android ya puede sacar foto directamente","Perfil: botón 🔄 Actualizar app para forzar la carga de la última versión del PWA desde cualquier dispositivo","Versión 2.4.0"] },
@@ -1435,7 +1436,7 @@ ${sorted.map(m=>{
     const win = window.open("","_blank");
     win.document.write(html);
     win.document.close();
-    setTimeout(()=>win.print(),600);
+    setTimeout(()=>{ win.print(); win.onafterprint = () => win.close(); }, 600);
   };
 
   const downloadFilteredPDF = (weekEntries, personFilter, name1, name2) => {
@@ -1496,7 +1497,7 @@ ${ms.map(m=>{
     const win = window.open("","_blank");
     win.document.write(html);
     win.document.close();
-    setTimeout(()=>win.print(),600);
+    setTimeout(()=>{ win.print(); win.onafterprint = () => win.close(); }, 600);
   };
 
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
@@ -2026,6 +2027,7 @@ ${ms.map(m=>{
           </div>
         </div>
       )}
+      <Toast toast={appToast} onDismiss={dismissToast} />
     </div>
   );
 }
@@ -4118,7 +4120,6 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
           </div>
         </div>
       )}
-      <Toast toast={appToast} onDismiss={dismissToast} />
     </div>
   );
 }
