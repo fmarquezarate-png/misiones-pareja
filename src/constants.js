@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "2.0.0";
-export const LAST_UPDATE = "2026-04-08";
+export const APP_VERSION = "3.0.0";
+export const LAST_UPDATE = "2026-05-04";
 export const CHANGELOG = [
   { v:"2.0.0", date:"2026-04-08", notes:["Login con Google OAuth","Espacio privado por pareja con código compartido","Sincronización en tiempo real con Supabase Realtime","Backup automático en localStorage"] },
   { v:"1.9.3", date:"2026-04-06", notes:["P2: columna 'Sin fecha' eliminada, calendario vuelve a pantalla completa","Se mantiene edición inline de actividades desde el panel del día"] },
