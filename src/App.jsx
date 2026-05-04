@@ -1816,14 +1816,26 @@ ${ms.map(m=>{
             </>}
           </div>
           {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />}
-          {/* Sort bar */}
-          <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8, flexWrap:"wrap" }}>
-            <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
-            {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
-            ))}
+          {/* View mode + Sort bar */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", gap:4 }}>
+              {[["list","☰ Lista"],["timeline","⏱ Timeline"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setWeekViewMode(v)} style={{ background:weekViewMode===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekViewMode===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekViewMode===v?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekViewMode===v?600:400 }}>{l}</button>
+              ))}
+            </div>
+            {weekViewMode==="list" && <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
+              <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
+              {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
+              ))}
+            </div>}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {weekViewMode==="timeline" ? (() => {
+            const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
+            const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
+            const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />} />;
+          })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(globalPersonFilter==="all"||m.who===globalPersonFilter)&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
               const sorted=[...filtered].sort((a,b)=>{
@@ -1837,7 +1849,7 @@ ${ms.map(m=>{
                 <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchM(m.id,p)} />
               ));
             })()}
-          </div>
+          </div>}
         </div>}
 
         {activeTab==="calendar" && <CalendarView
@@ -4106,6 +4118,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
           </div>
         </div>
       )}
+      <Toast toast={appToast} onDismiss={dismissToast} />
     </div>
   );
 }
