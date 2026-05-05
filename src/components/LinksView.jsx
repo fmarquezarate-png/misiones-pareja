@@ -159,7 +159,7 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
               </button>
             </div>
           )}
-          <button onClick={onDelete} style={{ alignSelf:"flex-start", background:"none", border:"none", fontSize:11, color:"#f87171", cursor:"pointer", padding:"2px 0", fontFamily:"inherit", marginTop:2 }}>
+          <button onClick={onDelete} style={{ alignSelf:"flex-start", background:"none", border:"none", fontSize:11, color:"var(--t-error,#f87171)", cursor:"pointer", padding:"2px 0", fontFamily:"inherit", marginTop:2 }}>
             🗑 Eliminar
           </button>
         </div>

@@ -10,9 +10,10 @@ import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.1.1";
 const LAST_UPDATE = "2026-05-05";
 const CHANGELOG = [
+  { v:"3.1.1", date:"2026-05-05", notes:["Fix crítico: pantalla negra al cargar — dos useState (localThemeId/localFontId) estaban declarados después de un return condicional, violando Rules of Hooks; movidos al bloque inicial","Fix Service Worker: cleanupOutdatedCaches activo para evitar pantalla negra post-deploy","Versión 3.1.1"] },
   { v:"3.1.0", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links (se abren en móvil sin errores PWA) y cuentas con usuario/contraseña copiable","Inicio: próximos 3 eventos + 3 tareas atrasadas (incluye arrastradas), tira de días con clic para ver detalle","Stats: exportar imagen con selección de secciones y colores del tema activo; horas de trabajo muestran promedio/semana","Corrección de contrastes en temas claros (fondos neutros, texto siempre visible)","Cambio de tema instantáneo sin necesidad de reabrir el modal","6 nuevas tipografías: Raleway, Montserrat, Merriweather, Quicksand, Josefin Sans, DM Serif Display","Favicon actualizado a 📅, logo MP visible en temas claros, fix flash de color al arrancar","Histórico: eliminados botones duplicados de Calendar/PDF","Versión 3.1.0"] },
   { v:"3.0.3", date:"2026-05-05", notes:["[incluido en 3.1.0]"] },
   { v:"3.0.2", date:"2026-05-04", notes:["Inicio rediseñado: widgets en columnas apiladas para móvil, sección Hoy compacta (toca para cambiar estado)","Semana: Timeline como vista por defecto, toggle renombrado a 'Lista detallada'","Versión 3.0.2"] },
@@ -73,7 +74,7 @@ const STATUS = {
 const CATEGORIES = [
   { id:"pareja",  label:"Pareja",  icon:"💞", color:"#f472b6" },
   { id:"deporte", label:"Deporte", icon:"🏅", color:"#60a5fa" },
-  { id:"casa",    label:"Casa",    icon:"🏠", color:"#a78bfa" },
+  { id:"casa",    label:"Casa",    icon:"🏠", color:"var(--t-accent,#a78bfa)" },
   { id:"salud",   label:"Salud",   icon:"💊", color:"#34d399" },
   { id:"trabajo", label:"Trabajo", icon:"💼", color:"#fbbf24" },
   { id:"ocio",    label:"Ocio",    icon:"🎉", color:"#f97316" },
@@ -83,7 +84,7 @@ const CATEGORIES = [
 const GASTO_CATS = [
   { id:"comida",      label:"Comida",       icon:"🍽️",  color:"#f97316" },
   { id:"super",       label:"Supermercado", icon:"🛒",  color:"#fb923c" },
-  { id:"casa",        label:"Casa",         icon:"🏠",  color:"#a78bfa" },
+  { id:"casa",        label:"Casa",         icon:"🏠",  color:"var(--t-accent,#a78bfa)" },
   { id:"ocio",        label:"Ocio",         icon:"🎉",  color:"#e879f9" },
   { id:"transporte",  label:"Transporte",   icon:"🚗",  color:"#60a5fa" },
   { id:"salud",       label:"Salud",        icon:"💊",  color:"#34d399" },
@@ -95,7 +96,7 @@ const GASTO_CATS = [
   { id:"mascotas",    label:"Mascotas",     icon:"🐾",  color:"#f472b6" },
   { id:"regalo",      label:"Regalos",      icon:"🎁",  color:"#f43f5e" },
   { id:"suscripcion", label:"Suscripciones",icon:"📺",  color:"#94a3b8" },
-  { id:"otro",        label:"Otro",         icon:"📦",  color:"#8b7fa8" },
+  { id:"otro",        label:"Otro",         icon:"📦",  color:"var(--t-text-muted,#8b7fa8)" },
 ];
 const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
@@ -284,7 +285,7 @@ const THEMES = [
     accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
     fontBody:"'Nunito',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    text:"#1e0d3c", textMuted:"#6b5f88", textDim:"#9b8faa",
+    text:"#1e0d3c", textMuted:"#5a4a7a", textDim:"#6e5c8a", error:"#c0392b",
   },
   // ── Temas claros ──────────────────────────────────────────────────────────
   {
@@ -297,7 +298,7 @@ const THEMES = [
     accent:"#e91e8c", accentSoft:"rgba(233,30,140,0.1)",
     fontBody:"'Nunito',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    text:"#3d0028", textMuted:"#a0507a", textDim:"#c9a0b9",
+    text:"#3d0028", textMuted:"#7a2d58", textDim:"#8c4472", error:"#b52042",
   },
   {
     id:"sky", name:"Cielo Azul", preview:["#0ea5e9","#38bdf8","#7dd3fc"],
@@ -309,7 +310,7 @@ const THEMES = [
     accent:"#0ea5e9", accentSoft:"rgba(14,165,233,0.1)",
     fontBody:"'DM Sans',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
-    text:"#0c2a48", textMuted:"#3a6fa8", textDim:"#7aaad0",
+    text:"#0c2a48", textMuted:"#1e5c96", textDim:"#2c6898", error:"#b52d20",
   },
   {
     id:"mint", name:"Menta Fresca", preview:["#059669","#10b981","#34d399"],
@@ -320,7 +321,7 @@ const THEMES = [
     btnGrad:"linear-gradient(135deg,#059669,#10b981)",
     accent:"#059669", accentSoft:"rgba(5,150,105,0.1)",
     fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", googleFonts:null,
-    text:"#0a2e1e", textMuted:"#2d7a52", textDim:"#6daa8b",
+    text:"#0a2e1e", textMuted:"#1a6040", textDim:"#1d7045", error:"#a52d14",
   },
   {
     id:"peach", name:"Melocotón", preview:["#ea7026","#f97316","#fb923c"],
@@ -332,7 +333,7 @@ const THEMES = [
     accent:"#ea7026", accentSoft:"rgba(234,112,38,0.1)",
     fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-    text:"#3d1500", textMuted:"#8a4a1e", textDim:"#c08060",
+    text:"#3d1500", textMuted:"#6e3010", textDim:"#7a3e12", error:"#a02010",
   },
   {
     id:"lavender", name:"Lavanda Suave", preview:["#7c3aed","#8b5cf6","#a78bfa"],
@@ -678,6 +679,7 @@ function ThemeInjector({ themeId, fontId }) {
     r.setProperty("--t-text",        t.text      || "#f8f4ff");
     r.setProperty("--t-text-muted",  t.textMuted || "#8b7fa8");
     r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
+    r.setProperty("--t-error",       t.error     || "#f87171");
     document.documentElement.style.background = t.bg;
     try { localStorage.setItem("mp-quick-bg", t.bg); } catch {}
   }, [themeId, fontId]);
@@ -726,7 +728,7 @@ export default function AppWithAuth() {
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:48, marginBottom:12 }}>💞</div>
-        <div style={{ color:"#8b7fa8", fontSize:14 }}>Comprobando sesión...</div>
+        <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:14 }}>Comprobando sesión...</div>
       </div>
     </div>
   );
@@ -745,7 +747,7 @@ function LoginScreen() {
       <div style={{ textAlign:"center", maxWidth:340, width:"100%" }}>
         <div style={{ fontSize:64, marginBottom:16 }}>📅</div>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, marginBottom:8, letterSpacing:-1 }}>Shared Calendar</div>
-        <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:40, lineHeight:1.6 }}>Tu espacio compartido para planificar<br/>la semana en equipo</div>
+        <div style={{ fontSize:14, color:"var(--t-text-muted,#8b7fa8)", marginBottom:40, lineHeight:1.6 }}>Tu espacio compartido para planificar<br/>la semana en equipo</div>
         <button onClick={signInWithGoogle}
           style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, width:"100%", padding:"14px 20px", background:"#fff", border:"none", borderRadius:12, cursor:"pointer", fontSize:15, fontWeight:600, color:"#1a1a2e", fontFamily:"inherit", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", transition:"transform 0.15s" }}
           onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
@@ -758,7 +760,7 @@ function LoginScreen() {
           </svg>
           Entrar con Google
         </button>
-        <div style={{ fontSize:11, color:"#4a4166", marginTop:20, lineHeight:1.6 }}>
+        <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginTop:20, lineHeight:1.6 }}>
           Tus datos son privados y solo accesibles<br/>con tu código de pareja
         </div>
       </div>
@@ -792,7 +794,7 @@ function OnboardingScreen({ session, onDone }) {
 
   const inputStyle = { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:10, padding:"12px 14px", color:"#f8f4ff", fontSize:15, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box", letterSpacing:0.3 };
   const btnStyle = { background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:10, color:"#fff", padding:"13px", cursor:"pointer", fontSize:15, fontWeight:600, fontFamily:"inherit", width:"100%", opacity:loading?0.6:1 };
-  const backBtn = { background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:13, fontFamily:"inherit", marginBottom:20, padding:0 };
+  const backBtn = { background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", cursor:"pointer", fontSize:13, fontFamily:"inherit", marginBottom:20, padding:0 };
 
   return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", color:"#f8f4ff", padding:20 }}>
@@ -801,14 +803,14 @@ function OnboardingScreen({ session, onDone }) {
         <div style={{ textAlign:"center", marginBottom:32 }}>
           <div style={{ fontSize:48, marginBottom:10 }}>💞</div>
           <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700 }}>¡Bienvenido/a!</div>
-          <div style={{ fontSize:13, color:"#8b7fa8", marginTop:8 }}>
-            {session?.user?.email && <span>Conectado como <strong style={{ color:"#a78bfa" }}>{session.user.email}</strong></span>}
+          <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", marginTop:8 }}>
+            {session?.user?.email && <span>Conectado como <strong style={{ color:"var(--t-accent,#a78bfa)" }}>{session.user.email}</strong></span>}
           </div>
         </div>
 
         {step === "choice" && (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            <div style={{ fontSize:13, color:"#8b7fa8", textAlign:"center", marginBottom:8 }}>¿Qué quieres hacer?</div>
+            <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", textAlign:"center", marginBottom:8 }}>¿Qué quieres hacer?</div>
             <button onClick={() => setStep("create")}
               style={{ ...btnStyle, background:"linear-gradient(135deg,#f472b6,#a78bfa)" }}>
               ✨ Crear una pareja nueva
@@ -826,17 +828,17 @@ function OnboardingScreen({ session, onDone }) {
         {step === "create" && (
           <div>
             <button onClick={() => { setStep("choice"); setError(null); }} style={backBtn}>← Volver</button>
-            <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:20 }}>
+            <div style={{ fontSize:14, color:"var(--t-text-muted,#8b7fa8)", marginBottom:20 }}>
               Crea un espacio privado para vuestra pareja con un código único que compartiréis.
             </div>
             <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana, Carlos…" style={inputStyle} />
             </div>
             <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
               <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="Ej: FRAN-ANA" maxLength={20} style={{ ...inputStyle, letterSpacing:2, textTransform:"uppercase" }} />
-              <div style={{ fontSize:11, color:"#4a4166", marginTop:5 }}>Este código lo usará tu pareja para unirse. Elige algo memorable.</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginTop:5 }}>Este código lo usará tu pareja para unirse. Elige algo memorable.</div>
             </div>
             {error && <div style={{ fontSize:13, color:"#fb923c", marginBottom:12, background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:8, padding:"8px 12px" }}>{error}</div>}
             <button onClick={handleCreate} disabled={loading || !name.trim() || !code.trim()} style={btnStyle}>
@@ -848,15 +850,15 @@ function OnboardingScreen({ session, onDone }) {
         {step === "join" && (
           <div>
             <button onClick={() => { setStep("choice"); setError(null); }} style={backBtn}>← Volver</button>
-            <div style={{ fontSize:14, color:"#8b7fa8", marginBottom:20 }}>
+            <div style={{ fontSize:14, color:"var(--t-text-muted,#8b7fa8)", marginBottom:20 }}>
               Tu pareja ya creó el espacio. Introduce el código que te compartió.
             </div>
             <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6 }}>Tu nombre</div>
               <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Ana, Carlos…" style={inputStyle} />
             </div>
             <div style={{ marginBottom:20 }}>
-              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6 }}>Código de pareja</div>
               <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="Ej: FRAN-ANA" maxLength={20} style={{ ...inputStyle, letterSpacing:2, textTransform:"uppercase" }} />
             </div>
             {error && <div style={{ fontSize:13, color:"#fb923c", marginBottom:12, background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:8, padding:"8px 12px" }}>{error}</div>}
@@ -887,10 +889,10 @@ function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
       <div style={{ background:"linear-gradient(160deg,#1e1a35 0%,#14102a 100%)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:26, padding:"34px 28px 26px", width:"100%", maxWidth:390, boxShadow:"0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(167,139,250,0.06) inset", position:"relative", animation:"tut-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both" }}>
 
         {/* Skip */}
-        {!isLast && <button onClick={onSkip} style={{ position:"absolute", top:16, right:18, background:"none", border:"none", cursor:"pointer", color:"#3d3360", fontSize:12, fontFamily:"inherit", padding:"4px 8px", letterSpacing:0.2 }}>Saltar</button>}
+        {!isLast && <button onClick={onSkip} style={{ position:"absolute", top:16, right:18, background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:12, fontFamily:"inherit", padding:"4px 8px", letterSpacing:0.2 }}>Saltar</button>}
 
         {/* Tab badge */}
-        {s.tab && <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:99, padding:"3px 12px", marginBottom:18, fontSize:11, color:"#a78bfa", fontWeight:600, letterSpacing:0.3 }}>{s.tabIcon} Pestaña: {s.tabLabel}</div>}
+        {s.tab && <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:99, padding:"3px 12px", marginBottom:18, fontSize:11, color:"var(--t-accent,#a78bfa)", fontWeight:600, letterSpacing:0.3 }}>{s.tabIcon} Pestaña: {s.tabLabel}</div>}
 
         {/* Emoji */}
         <div style={{ fontSize:54, lineHeight:1, textAlign:"center", marginBottom:16, display:"block", animation:"tut-emoji 2s ease-in-out infinite" }}>{s.emoji}</div>
@@ -899,7 +901,7 @@ function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", textAlign:"center", marginBottom:10, lineHeight:1.25 }}>{s.title}</div>
 
         {/* Description */}
-        <div style={{ fontSize:14, color:"#8b7fa8", lineHeight:1.7, textAlign:"center", marginBottom:26 }}>{s.desc}</div>
+        <div style={{ fontSize:14, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.7, textAlign:"center", marginBottom:26 }}>{s.desc}</div>
 
         {/* Progress dots */}
         <div style={{ display:"flex", justifyContent:"center", gap:5, marginBottom:22 }}>
@@ -918,7 +920,7 @@ function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
         </button>
 
         {/* Step counter */}
-        <div style={{ textAlign:"center", fontSize:11, color:"#3d3360", marginTop:10 }}>{step+1} de {total}</div>
+        <div style={{ textAlign:"center", fontSize:11, color:"var(--t-text-dim,#3d3360)", marginTop:10 }}>{step+1} de {total}</div>
       </div>
     </div>
   );
@@ -1189,7 +1191,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:48, marginBottom:12 }}>💞</div>
-        <div style={{ color:"#8b7fa8", fontSize:14 }}>Cargando misiones...</div>
+        <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:14 }}>Cargando misiones...</div>
       </div>
     </div>
   );
@@ -1650,8 +1652,8 @@ ${ms.map(m=>{
           <button onClick={()=>{ setShowChangelog(true); setMenuOpen(false); }}
             style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
             <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
-            <span style={{ fontSize:10, color:"#3d3360" }}>{LAST_UPDATE}</span>
-            <span style={{ fontSize:10, color:"#3d3360", marginLeft:"auto" }}>Ver cambios →</span>
+            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)" }}>{LAST_UPDATE}</span>
+            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)", marginLeft:"auto" }}>Ver cambios →</span>
           </button>
         </div>
       </div>
@@ -1661,7 +1663,7 @@ ${ms.map(m=>{
       <div style={{ height:52, display:"flex", alignItems:"center", gap:8, paddingLeft:12, paddingRight:12 }}>
         {/* Hamburger */}
         <button onClick={()=>setMenuOpen(v=>!v)} aria-label="Menú"
-          style={{ background:"none", border:"none", cursor:"pointer", color:"#8b7fa8", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
+          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
           <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
           <span style={{ display:"block", width:13, height:1.5, background:"currentColor", borderRadius:99 }} />
           <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
@@ -1673,7 +1675,7 @@ ${ms.map(m=>{
         <div style={{ flex:1, textAlign:"center" }}>
           {activeTab==="home"
             ? <Brand size={22} wordmark colors={colors} />
-            : <span style={{ fontSize:13, fontWeight:500, color:"#8b7fa8" }}>
+            : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#8b7fa8)" }}>
                 {activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
                 :activeTab==="pending"  ? "📋 Pendientes"
                 :activeTab==="calendar" ? "📅 Calendario"
@@ -1700,7 +1702,7 @@ ${ms.map(m=>{
         {/* Settings dropdown trigger */}
         <div style={{ position:"relative", flexShrink:0 }}>
           <button onClick={()=>setSettingsMenuOpen(v=>!v)} aria-label="Ajustes"
-            style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"#6b5f88", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
+            style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
           {settingsMenuOpen && <>
             <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
             <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
@@ -1805,7 +1807,7 @@ ${ms.map(m=>{
               <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", margin:"8px 24px 0" }}>
                 <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
               </div>
-              <div style={{ fontSize:11, color:"#8b7fa8", marginTop:5 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
+              <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:5 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
             </>}
           </div>
           {carriedCount>0 && <div style={{ background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:12, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10, fontSize:13 }}>
@@ -1814,15 +1816,15 @@ ${ms.map(m=>{
           </div>}
           <WorkHoursCard week={week} patchWeek={patchWeek} p1={p1} p2={p2} />
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginBottom:4 }}>
-            <button onClick={runCarryOver} style={{ background:"none", border:"none", color:"#4a4166", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
+            <button onClick={runCarryOver} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
               onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>🔁 Recuperar tareas pendientes</button>
-            <button onClick={runRepair} style={{ background:"none", border:"none", color:"#4a4166", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
+            <button onClick={runRepair} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
               onMouseEnter={e=>e.currentTarget.style.color="#60a5fa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>📅 Distribuir eventos</button>
           </div>
           <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginBottom:6 }}>
             {!showAddForm && <>
               <button onClick={()=>{ setNewM(p=>({...p,type:"task",emoji:"🎯"})); setShowAddForm(true); }}
-                style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:99, color:"#a78bfa", cursor:"pointer", fontSize:12, fontFamily:"inherit", padding:"5px 13px", display:"flex", alignItems:"center", gap:5 }}
+                style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:99, color:"var(--t-accent,#a78bfa)", cursor:"pointer", fontSize:12, fontFamily:"inherit", padding:"5px 13px", display:"flex", alignItems:"center", gap:5 }}
                 onMouseEnter={e=>e.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={e=>e.currentTarget.style.background="rgba(167,139,250,0.1)"}>
                 ✅ + Tarea
               </button>
@@ -1842,7 +1844,7 @@ ${ms.map(m=>{
               ))}
             </div>
             {weekViewMode==="list" && <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
-              <span style={{ fontSize:9, color:"#3d3360", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
+              <span style={{ fontSize:9, color:"var(--t-text-dim,#3d3360)", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
               {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
               ))}
@@ -1987,10 +1989,13 @@ ${ms.map(m=>{
           const latestBySeries={};
           for(const m of pendingRaw){if(m.seriesId&&(!latestBySeries[m.seriesId]||m._wkey>latestBySeries[m.seriesId]._wkey))latestBySeries[m.seriesId]=m;}
           const pendingAll=pendingRaw.filter(m=>!m.seriesId||latestBySeries[m.seriesId]===m);
-          const pendingFiltered=!globalPersonFilter.length?pendingAll:pendingAll.filter(m=>globalPersonFilter.includes(m.who));
+          const pendingFiltered=pendingAll.filter(m=>
+            (!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&
+            (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
+          );
           return <div>
             {pendingFiltered.length===0
-              ?<div style={{...S.card,textAlign:"center",color:"#3d3360",fontStyle:"italic",padding:40}}>
+              ?<div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
                 <div style={{fontSize:36,marginBottom:12}}>🎉</div>
                 <div>¡Sin pendientes! Todo al día.</div>
               </div>
@@ -2009,8 +2014,8 @@ ${ms.map(m=>{
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,color:"#e2d9ff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
                         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
-                          <span style={{fontSize:10,color:"#4a4166"}}>S{m.weekNumber} {m._yr}</span>
-                          {m.date&&<span style={{fontSize:10,color:"#a78bfa"}}>📆 {m.date}</span>}
+                          <span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>S{m.weekNumber} {m._yr}</span>
+                          {m.date&&<span style={{fontSize:10,color:"var(--t-accent,#a78bfa)"}}>📆 {m.date}</span>}
                           {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon} {c.label}</span>:null;})}
                           <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                         </div>
@@ -2056,12 +2061,12 @@ function WorkHoursCard({ week, patchWeek, p1, p2 }) {
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
           {(wh.person1||wh.person2)>0
             ? <div style={{ display:"flex", gap:8 }}>
-                {wh.person1>0&&<span style={{ fontSize:12, color:"#8b7fa8" }}>{p1}: <strong style={{ color:"#f8f4ff" }}>{wh.person1}h</strong></span>}
-                {wh.person2>0&&<span style={{ fontSize:12, color:"#8b7fa8" }}>{p2}: <strong style={{ color:"#f8f4ff" }}>{wh.person2}h</strong></span>}
+                {wh.person1>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p1}: <strong style={{ color:"#f8f4ff" }}>{wh.person1}h</strong></span>}
+                {wh.person2>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p2}: <strong style={{ color:"#f8f4ff" }}>{wh.person2}h</strong></span>}
               </div>
-            : <span style={{ fontSize:12, color:"#3d3360", fontStyle:"italic" }}>sin registrar</span>
+            : <span style={{ fontSize:12, color:"var(--t-text-dim,#3d3360)", fontStyle:"italic" }}>sin registrar</span>
           }
-          <span style={{ color:"#4a4166", fontSize:14 }}>{open?"▲":"▼"}</span>
+          <span style={{ color:"var(--t-text-dim,#4a4166)", fontSize:14 }}>{open?"▲":"▼"}</span>
         </div>
       </div>
       {open && (
@@ -2071,7 +2076,7 @@ function WorkHoursCard({ week, patchWeek, p1, p2 }) {
               <label style={S.label}>{label}</label>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 <input type="number" min="0" max="80" step="0.5" value={wh[key]||""} onChange={e=>patchWeek(w=>({...w, workHours:{...w.workHours,[key]:parseFloat(e.target.value)||0}}))} placeholder="0" style={{ ...S.inputSm, width:"70px" }} />
-                <span style={{ fontSize:12, color:"#6b5f88" }}>horas</span>
+                <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>horas</span>
               </div>
             </div>
           ))}
@@ -2156,7 +2161,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
           ?<div style={{ marginBottom:10 }}>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
               <input type="number" min="0" step="15" value={newM.duration||""} onChange={e=>{const dur=parseInt(e.target.value)||0;const {endDate,endTime}=computeEnd(newM.date,newM.time,dur);setNewM(p=>({...p,duration:dur,endDate,endTime}));}} placeholder="90" style={{ ...S.inputSm, flex:1 }} />
-              <span style={{ fontSize:12, color:"#6b5f88", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
+              <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
             </div>
             {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
           </div>
@@ -2267,14 +2272,14 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
             {mission.duration&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
             {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
-            {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"#6b5f88", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
+            {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"var(--t-text-dim,#6b5f88)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
-            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"#a78bfa", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
+            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
         <button onClick={handleCycle} style={{ ...badgeStyle(mission.status), animation:popping?"mc-pop 0.22s ease-out":"none" }}>{STATUS[mission.status].icon}</button>
-        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"#3d3360", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
+        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
       </div>
       {expanded && (
@@ -2430,13 +2435,13 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
         {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 20px 0" }}>
           <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, color:"#f8f4ff" }}>👤 Mi Perfil</span>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:22, cursor:"pointer", lineHeight:1 }}>×</button>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", fontSize:22, cursor:"pointer", lineHeight:1 }}>×</button>
         </div>
         {/* Scrollable body */}
         <div style={{ overflowY:"auto", padding:"16px 20px 20px", flex:1 }}>
 
           {/* Foto de pareja */}
-          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>Foto de pareja</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>Foto de pareja</div>
           <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24, padding:"14px 16px", background:"var(--t-accent-soft,rgba(167,139,250,0.06))", borderRadius:14, border:"1px solid var(--t-card-border)" }}>
             <label style={{ cursor:"pointer", flexShrink:0 }}>
               <div style={{ width:72, height:72, borderRadius:99, background:"var(--t-accent-soft)", border:`2px solid var(--t-accent,#a78bfa)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
@@ -2448,7 +2453,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
             </label>
             <div>
               <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500, marginBottom:4 }}>Vuestra foto juntos</div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8, lineHeight:1.5 }}>Aparece en la pantalla de inicio y en el menú lateral</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8, lineHeight:1.5 }}>Aparece en la pantalla de inicio y en el menú lateral</div>
               <div style={{ display:"flex", gap:8 }}>
                 <label style={{ ...S.btnSecondary, fontSize:11, cursor:"pointer", padding:"5px 12px", display:"inline-block" }}>
                   📷 Cambiar
@@ -2457,7 +2462,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
                 {photos.couple && <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px" }}>✕ Quitar</button>}
               </div>
               <div style={{ marginTop:10 }}>
-                <div style={{ fontSize:11, color:"#8b7fa8", marginBottom:6 }}>Emoji cuando no hay foto</div>
+                <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginBottom:6 }}>Emoji cuando no hay foto</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
                   {COUPLE_EMOJIS.map(e=>(
                     <button key={e} onClick={()=>setCoupleEmoji(e)}
@@ -2471,7 +2476,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
           </div>
 
           {/* Personas */}
-          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Personas</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Personas</div>
           {personRow("person1","Persona 1",p1,setP1)}
           {personRow("person2","Persona 2",p2,setP2)}
           <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20 }}>
@@ -2480,7 +2485,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Juntos</label>
-              <div style={{ fontSize:12, color:"#6b5f88", fontStyle:"italic" }}>Color para actividades en pareja</div>
+              <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", fontStyle:"italic" }}>Color para actividades en pareja</div>
             </div>
             <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
               style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
@@ -2488,13 +2493,13 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
 
           {/* Notificaciones */}
-          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones</div>
           <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
             {notifPermission !== "granted" ? (
               <div style={{ textAlign:"center", padding:"8px 0 12px" }}>
                 <div style={{ fontSize:28, marginBottom:8 }}>🔔</div>
                 <div style={{ fontSize:13, color:"#c4b8ff", marginBottom:6, fontWeight:500 }}>Activa las notificaciones</div>
-                <div style={{ fontSize:11, color:"#6b5f88", marginBottom:14, lineHeight:1.6 }}>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:14, lineHeight:1.6 }}>
                   {notifPermission === "denied"
                     ? "Tu navegador ha bloqueado las notificaciones. Cámbialas desde la configuración del navegador."
                     : "Recibe alertas de mensajes, cambios de tu pareja y recordatorios de eventos."}
@@ -2528,7 +2533,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
                 </div>
                 {notifBriefing && (
                   <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-                    <span style={{ fontSize:12, color:"#8b7fa8" }}>Hora del resumen</span>
+                    <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>Hora del resumen</span>
                     <input type="time" value={notifBriefTime} onChange={e=>setNotifBriefTime(e.target.value)}
                       style={{ ...S.inputSm, colorScheme:"dark", flex:1, maxWidth:110 }} />
                   </div>
@@ -2538,7 +2543,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
           </div>
 
           {/* Tema */}
-          <div style={{ fontSize:10, color:"#6b5f88", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
           <div style={{ marginBottom:8 }}>
             {/* Trigger */}
             <button onClick={()=>setThemeOpen(v=>!v)}
@@ -2618,7 +2623,7 @@ function CatStatsCard({ catStats }) {
   return (
     <div style={S.card}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>🏷️ Por categoría</span>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>🏷️ Por categoría</span>
         <div style={{ display:"flex", gap:3 }}>
           {[["act","Actividades"],["h","Horas"]].map(([v,l])=>(
             <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
@@ -2637,7 +2642,7 @@ function CatStatsCard({ catStats }) {
         </div>
       );}):(<>
         {lifeStats.filter(c=>c.dur>0).length>0&&<>
-          <div style={{ fontSize:10, color:"#4a4166", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
           {lifeStats.filter(c=>c.dur>0).map(c=>(
             <div key={c.id} style={{ marginBottom:10 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -2652,7 +2657,7 @@ function CatStatsCard({ catStats }) {
         </>}
         {workStat&&workStat.dur>0&&<>
           <div style={{ borderTop:"1px dashed rgba(251,191,36,0.2)", marginTop:10, paddingTop:10, marginBottom:8 }}>
-            <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"#4a4166", fontWeight:400 }}>(escala propia)</span></div>
+            <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"var(--t-text-dim,#4a4166)", fontWeight:400 }}>(escala propia)</span></div>
           </div>
           <div style={{ marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -2664,7 +2669,7 @@ function CatStatsCard({ catStats }) {
             </div>
           </div>
         </>}
-        {!catStats.some(c=>c.dur>0)&&<div style={{ textAlign:"center", color:"#4a4166", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
+        {!catStats.some(c=>c.dur>0)&&<div style={{ textAlign:"center", color:"var(--t-text-dim,#4a4166)", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
       </>)}
     </div>
   );
@@ -2770,7 +2775,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   // 7. Completion velocity (missions per week)
   if (wc>=4){const avgMpW=(total/wc).toFixed(1);const advice=avgMpW<3?"Poco volumen — podéis añadir más misiones para aprovechar el ritmo":avgMpW>8?"Ritmo intenso — revisad si todas las misiones son realmente necesarias o si podéis simplificar":"Volumen saludable y sostenible";insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana en ${wc} semanas`,desc:`${total} misiones planificadas en total. ${advice}.`});}
 
-  if(total===0) return <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
+  if(total===0) return <div style={{ textAlign:"center", color:"var(--t-text-dim,#3d3360)", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
 
   // Donut chart for status
   const donutTotal = bySt.reduce((s,x)=>s+x.count,0);
@@ -2779,7 +2784,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const C=15.9155, R=5; // SVG circumference helper
 
   const whoOpts = [
-    { id:"all", label:"Todos", color:"#8b7fa8" },
+    { id:"all", label:"Todos", color:"var(--t-text-muted,#8b7fa8)" },
     { id:"person1", label:p1, color:clr.person1 },
     { id:"person2", label:p2, color:clr.person2 },
     { id:"together", label:"Juntos", color:clr.together },
@@ -2799,12 +2804,12 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       <div style={{ ...S.card, padding:"10px 12px", display:"flex", flexDirection:"column", gap:9 }}>
         {/* Who */}
         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Quién</span>
+          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Quién</span>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
             {whoOpts.map(o=>{
               const active = stWho===o.id;
               return <button key={o.id} onClick={()=>setStWho(o.id)}
-                style={{ background:active?`${o.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${active?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?o.color:"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                style={{ background:active?`${o.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${active?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?o.color:"var(--t-text-dim,#4a4166)", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
                 {o.label}
               </button>;
             })}
@@ -2812,7 +2817,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
         {/* Range */}
         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Rango</span>
+          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Rango</span>
           <div style={{ display:"flex", gap:4 }}>
             {rangeOpts.map(o=>{
               const active = stRange===o.id;
@@ -2836,11 +2841,11 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
                 <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
                   <span style={{ fontSize:13, color:"#e2d9ff", fontWeight:600 }}>{ins.title}</span>
                   {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())}
-                    style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+                    style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"var(--t-accent,#a78bfa)", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
                     → S{ins.weekNumber}
                   </button>}
                 </div>
-                <div style={{ fontSize:12, color:"#8b7fa8", lineHeight:1.5 }}>{ins.desc}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.5 }}>{ins.desc}</div>
               </div>
             </div>
           ))}
@@ -2897,7 +2902,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           Sc!==null&&{icon:"🔗",label:"Sincronía de pareja",value:pct2col(Sc,40,20),bar:bar(Sc),note:Sc>=40?"Gran tiempo compartido":Sc>=20?"Tiempo moderado juntos":"Pocas actividades conjuntas"},
           Ie!==null&&{icon:"⚖️",label:"Equidad en casa",value:pct2col(Ie,80,50),bar:bar(Ie),note:Ie>=80?"Reparto muy equilibrado":Ie>=50?"Hay algo de desequilibrio":`${cP1>cP2?p1:p2} carga más las tareas de casa`},
           {icon:"🎯",label:"Densidad de metas",value:pct2col(Gd,40,15),bar:bar(Gd),note:Gd>=40?"Alta orientación a metas":Gd>=15?"Moderado":"Pocas actividades vinculadas a metas"},
-          anchor&&{icon:anchor.emoji,label:"Hábito ancla",value:<span style={{color:"#a78bfa",fontWeight:700,fontSize:13}}>{anchor.title}</span>,bar:bar(Math.round(anchor.done/anchor.total*100)),note:`${Math.round(anchor.done/anchor.total*100)}% completitud en ${anchor.total} ocurrencias`},
+          anchor&&{icon:anchor.emoji,label:"Hábito ancla",value:<span style={{color:"var(--t-accent,#a78bfa)",fontWeight:700,fontSize:13}}>{anchor.title}</span>,bar:bar(Math.round(anchor.done/anchor.total*100)),note:`${Math.round(anchor.done/anchor.total*100)}% completitud en ${anchor.total} ocurrencias`},
           optLoad&&{icon:"🔋",label:"Carga óptima/semana",value:<span style={{color:"#34d399",fontWeight:700,fontSize:18}}>{optLoad}</span>,bar:null,note:`Semanas con ≥70% de éxito promedian ${optLoad} misiones`},
           bestWin&&{icon:"⏰",label:"Ventana óptima",value:<span style={{color:"#60a5fa",fontWeight:700,fontSize:13}}>{bestWin[1].l}</span>,bar:bar(Math.round(bestWin[1].d/bestWin[1].t*100),"#60a5fa"),note:`${Math.round(bestWin[1].d/bestWin[1].t*100)}% completitud en ese horario`},
         ].filter(Boolean);
@@ -2907,21 +2912,21 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
             {cards.map((c,i)=>(
               <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"10px 12px"}}>
-                <div style={{fontSize:10,color:"#4a4166",marginBottom:4}}>{c.icon} {c.label}</div>
+                <div style={{fontSize:10,color:"var(--t-text-dim,#4a4166)",marginBottom:4}}>{c.icon} {c.label}</div>
                 <div>{c.value}</div>
                 {c.bar}
-                <div style={{fontSize:10,color:"#6b5f88",marginTop:5,lineHeight:1.4}}>{c.note}</div>
+                <div style={{fontSize:10,color:"var(--t-text-dim,#6b5f88)",marginTop:5,lineHeight:1.4}}>{c.note}</div>
               </div>
             ))}
           </div>
-          <div style={{fontSize:9,color:"#3d3360",marginTop:10,textAlign:"right"}}>Basado en {dsM.length} actividades totales · Filtros de quién/rango no aplican</div>
+          <div style={{fontSize:9,color:"var(--t-text-dim,#3d3360)",marginTop:10,textAlign:"right"}}>Basado en {dsM.length} actividades totales · Filtros de quién/rango no aplican</div>
         </div>;
       })()}
 
       {/* KPIs */}
       <div>
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:7 }}>
-          <span style={{ fontSize:10, color:"#4a4166", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
+          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
           {[
@@ -2933,7 +2938,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px", borderColor:s.color?`${s.color}55`:undefined }}>
               <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
               <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"#f8f4ff", lineHeight:1 }}>{s.value}</div>
-              <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
+              <div style={{ fontSize:9, color:"var(--t-text-dim,#6b5f88)", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -2941,7 +2946,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
       {/* Status donut + bars side by side */}
       <div style={{ ...S.card }}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>📊 Distribución de estados</div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", marginBottom:14, fontWeight:600 }}>📊 Distribución de estados</div>
         <div style={{ display:"flex", gap:16, alignItems:"center" }}>
           {/* Donut SVG */}
           <div style={{ flexShrink:0 }}>
@@ -2964,7 +2969,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
                 <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${(count/maxSt)*100}%`, background:STATUS[s].color, borderRadius:99, opacity:0.85, transition:"width 0.5s" }} />
                 </div>
-                <div style={{ fontSize:12, color:"#8b7fa8", width:24, textAlign:"right", flexShrink:0 }}>{count}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", width:24, textAlign:"right", flexShrink:0 }}>{count}</div>
               </div>
             ))}
           </div>
@@ -2977,7 +2982,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         const BAR_MAX=72; // px
         const displaySeries=series.slice(-12);
         return <div style={S.card}>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>✅ Progreso semana a semana</div>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", marginBottom:12, fontWeight:600 }}>✅ Progreso semana a semana</div>
           <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_MAX+28 }}>
             {displaySeries.map((w,i)=>{
               const isLast=i===displaySeries.length-1;
@@ -2996,13 +3001,13 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* Per person with mini visual bars — siempre desde rawAllM (sin filtro persona) */}
       <div style={S.card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:showPartInfo?8:14 }}>
-          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>👥 Participación por persona</span>
+          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>👥 Participación por persona</span>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            {stWho!=="all"&&<span style={{ fontSize:10, color:"#4a4166", fontStyle:"italic" }}>distribución real del rango</span>}
+            {stWho!=="all"&&<span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>distribución real del rango</span>}
             <button onClick={()=>setShowPartInfo(v=>!v)} title="¿Qué mide esto?" style={{ background:showPartInfo?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.05)", border:`1px solid ${showPartInfo?"rgba(167,139,250,0.45)":"rgba(255,255,255,0.1)"}`, borderRadius:99, color:showPartInfo?"#c4b8ff":"#6b5f88", fontSize:11, padding:"1px 7px", cursor:"pointer", fontFamily:"inherit", lineHeight:1.6 }}>ℹ</button>
           </div>
         </div>
-        {showPartInfo&&<div style={{ marginBottom:12, padding:"8px 10px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:12, color:"#8b7fa8", lineHeight:1.6 }}>Muestra cuántas actividades tiene asignadas cada persona en el período seleccionado y qué porcentaje completó. No mide quién hizo más trabajo, sino cómo están distribuidas las responsabilidades.</div>}
+        {showPartInfo&&<div style={{ marginBottom:12, padding:"8px 10px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.6 }}>Muestra cuántas actividades tiene asignadas cada persona en el período seleccionado y qué porcentaje completó. No mide quién hizo más trabajo, sino cómo están distribuidas las responsabilidades.</div>}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {[{name:p1,h:ph1,color:clr.person1},{name:p2,h:ph2,color:clr.person2},{name:"Juntos",h:phT,color:clr.together}].map(({name,h,color})=>{
             const tot=ph1.count+ph2.count+phT.count||1;
@@ -3011,7 +3016,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
               <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
                 <div style={{ height:"100%", width:`${(h.count/tot)*100}%`, background:color, borderRadius:99, opacity:0.8 }} />
               </div>
-              <div style={{ fontSize:12, color:"#8b7fa8", flexShrink:0, width:60, textAlign:"right" }}>
+              <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", flexShrink:0, width:60, textAlign:"right" }}>
                 {h.count} <span style={{ color:color, fontWeight:600 }}>{h.count>0?`(${Math.round((h.done/h.count)*100)}%✓)`:""}</span>
               </div>
             </div>;
@@ -3194,7 +3199,7 @@ function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
     <div style={{ display:"flex", flexDirection:"column", height:"calc(100vh - 120px)", maxHeight:680 }}>
       <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:8, padding:"4px 0 12px" }}>
         {messages.length === 0 && (
-          <div style={{ textAlign:"center", color:"#3d3360", padding:40 }}>
+          <div style={{ textAlign:"center", color:"var(--t-text-dim,#3d3360)", padding:40 }}>
             <div style={{ fontSize:40, marginBottom:12 }}>💬</div>
             <div style={{ fontSize:14, fontStyle:"italic", lineHeight:1.6 }}>Todavía no hay mensajes.<br/>¡Empieza la conversación!</div>
           </div>
@@ -3255,8 +3260,8 @@ function WeekDetailList({ allW, onGoToWeek }) {
     <div style={S.card}>
       <button onClick={()=>setOpen(o=>!o)}
         style={{ width:"100%", background:"none", border:"none", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", padding:0, fontFamily:"inherit" }}>
-        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>📋 Detalle por semana</span>
-        <span style={{ fontSize:12, color:"#4a4166", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>📋 Detalle por semana</span>
+        <span style={{ fontSize:12, color:"var(--t-text-dim,#4a4166)", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
       </button>
 
       {open&&<div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:0 }}>
@@ -3267,11 +3272,11 @@ function WeekDetailList({ allW, onGoToWeek }) {
             <div style={{ minWidth:34, height:34, borderRadius:9, background:`${color}18`, border:`1px solid ${color}40`,
               display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               <span style={{ fontSize:9, color, fontWeight:700, lineHeight:1 }}>S{w.weekNumber}</span>
-              <span style={{ fontSize:8, color:"#4a4166", lineHeight:1.2 }}>{w._yr}</span>
+              <span style={{ fontSize:8, color:"var(--t-text-dim,#4a4166)", lineHeight:1.2 }}>{w._yr}</span>
             </div>
             {/* Objective + mini bar */}
             <div style={{ flex:1, minWidth:0 }}>
-              {w.epicObjective&&<div style={{ fontSize:11, color:"#8b7fa8", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>
+              {w.epicObjective&&<div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>
                 {w.epicObjective}
               </div>}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
@@ -3284,7 +3289,7 @@ function WeekDetailList({ allW, onGoToWeek }) {
             {/* Navigate */}
             {onGoToWeek&&<button onClick={()=>onGoToWeek(w.weekNumber,w._yr)}
               style={{ background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8,
-                color:"#a78bfa", fontSize:11, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
+                color:"var(--t-accent,#a78bfa)", fontSize:11, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
               → Ir
             </button>}
           </div>
@@ -3370,11 +3375,11 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
           </div>
           {(calYear!==today.getFullYear()||calMonth!==today.getMonth())&&(
             <div style={{textAlign:"center",marginBottom:10}}>
-              <button onClick={()=>{setCalYear(today.getFullYear());setCalMonth(today.getMonth());setSelectedDay(null);}} style={{background:"rgba(167,139,250,0.10)",border:"1px solid rgba(167,139,250,0.3)",borderRadius:99,color:"#a78bfa",fontSize:11,fontWeight:600,padding:"4px 14px",cursor:"pointer",fontFamily:"inherit"}}>⟲ Volver a hoy</button>
+              <button onClick={()=>{setCalYear(today.getFullYear());setCalMonth(today.getMonth());setSelectedDay(null);}} style={{background:"rgba(167,139,250,0.10)",border:"1px solid rgba(167,139,250,0.3)",borderRadius:99,color:"var(--t-accent,#a78bfa)",fontSize:11,fontWeight:600,padding:"4px 14px",cursor:"pointer",fontFamily:"inherit"}}>⟲ Volver a hoy</button>
             </div>
           )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:3}}>
-            {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:numSz,color:"#4a4166",fontWeight:600,padding:"3px 0"}}>{d}</div>)}
+            {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:numSz,color:"var(--t-text-dim,#4a4166)",fontWeight:600,padding:"3px 0"}}>{d}</div>)}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
             {cells.map((day,i)=>{
@@ -3408,7 +3413,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
                   <div style={{fontSize:numSz,fontWeight:600,marginBottom:2,textAlign:"center",color:isTd?"#f472b6":isSel?"#c4b8ff":"#4a4166",width:18,height:18,borderRadius:99,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 2px",border:isTd?"1.5px solid #f472b6":"1.5px solid transparent",lineHeight:1}}>{day}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:2,justifyContent:"center"}}>
                     {singleMs.slice(0,maxPerCell).map(m=>{const bg=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;return<span key={`${m.id}-${ds}`} draggable onDragStart={e=>{e.stopPropagation();onDragStart(e,m);}} onDragEnd={()=>setDragOver(null)} title={m.title} style={{fontSize:emojiSz,lineHeight:1,background:`${bg}30`,border:`1px solid ${bg}55`,borderRadius:3,padding:"1px 2px",opacity:m.status==="DONE"?0.4:1,cursor:"grab"}}>{m.emoji}</span>;})}
-                    {singleMs.length>maxPerCell&&<span style={{fontSize:8,color:"#4a4166"}}>+{singleMs.length-maxPerCell}</span>}
+                    {singleMs.length>maxPerCell&&<span style={{fontSize:8,color:"var(--t-text-dim,#4a4166)"}}>+{singleMs.length-maxPerCell}</span>}
                   </div>
                 </div>
                 {/* v3: density bar per person */}
@@ -3421,12 +3426,12 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
       {/* Day detail panel */}
       {selectedDay&&<div style={{...S.card,marginTop:12,borderColor:"rgba(167,139,250,0.3)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#a78bfa",fontWeight:600}}>{selectedDay} de {MONTHS[calMonth]}</div>
+          <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"var(--t-accent,#a78bfa)",fontWeight:600}}>{selectedDay} de {MONTHS[calMonth]}</div>
           <div style={{display:"flex",gap:6}}>
             {onAddForDay&&<button onClick={()=>onAddForDay(selStr)} style={{...S.btnPrimary,fontSize:11,padding:"5px 10px"}}>+ Añadir</button>}
           </div>
         </div>
-        {selMs.length===0?<div style={{color:"#3d3360",fontStyle:"italic",fontSize:13}}>Sin misiones para este día</div>:
+        {selMs.length===0?<div style={{color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",fontSize:13}}>Sin misiones para este día</div>:
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {selMs.map(m=>{
               const whoColor=m.who==="person1"?clrC.person1:m.who==="person2"?clrC.person2:clrC.together;
@@ -3435,10 +3440,10 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
                 <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,color:m.status==="DONE"?"#4d4566":"#e2d9ff",textDecoration:m.status==="DONE"?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    {m.title}{isMultiDay&&<span style={{fontSize:10,marginLeft:4,color:"#a78bfa"}}>↔</span>}
+                    {m.title}{isMultiDay&&<span style={{fontSize:10,marginLeft:4,color:"var(--t-accent,#a78bfa)"}}>↔</span>}
                   </div>
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>
-                    {m.time&&<span style={{fontSize:10,color:"#a78bfa"}}>🕐 {m.time}</span>}
+                    {m.time&&<span style={{fontSize:10,color:"var(--t-accent,#a78bfa)"}}>🕐 {m.time}</span>}
                     {m.duration>0&&<span style={{fontSize:10,color:"#7c6fa0"}}>{m.duration>=60?`${Math.floor(m.duration/60)}h${m.duration%60?m.duration%60+"m":""}`:m.duration+"m"}</span>}
                     {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
                     <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
@@ -3446,7 +3451,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
                 </div>
                 <div style={{display:"flex",gap:4,flexShrink:0}}>
                   <button onClick={()=>onCycleStatus&&onCycleStatus(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
-                  <button onClick={()=>openEdit(m)} style={{background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:7,color:"#a78bfa",fontSize:11,padding:"4px 8px",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
+                  <button onClick={()=>openEdit(m)} style={{background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:7,color:"var(--t-accent,#a78bfa)",fontSize:11,padding:"4px 8px",cursor:"pointer",fontFamily:"inherit"}}>✏️</button>
                 </div>
               </div>;
             })}
@@ -3512,7 +3517,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
           {editingMission.mission.seriesId && onPatchAllFutureSeries && (
             <div style={{ background:"rgba(52,211,153,0.07)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
               <div style={{ fontSize:11, color:"#34d399", fontWeight:600, marginBottom:6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern==="weekly"?"Semanal":editingMission.mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
               <button onClick={()=>{
                 const fromWkey = isoWeekKey(editingMission.wn, editingMission.yr);
                 const { seriesId, title, emoji, who, categories, category, duration, type, reminder, seriesEndDate } = editingMission.mission;
@@ -3635,21 +3640,21 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
             <div style={{ fontSize:14, fontWeight:600, color:"#f0e8ff" }}>{goal.title}</div>
             <div style={{ display:"flex", gap:5, marginTop:3, flexWrap:"wrap" }}>
               <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
-              <span style={{ fontSize:11, color:"#6b5f88" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · {isMax?"máx.":"mín."} {goal.target}×</span>
+              <span style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · {isMax?"máx.":"mín."} {goal.target}×</span>
             </div>
           </div>
         </div>
         <div style={{ display:"flex", gap:2 }}>
-          <button onClick={onEdit} style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4166", fontSize:15, padding:"3px 5px" }}
+          <button onClick={onEdit} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:15, padding:"3px 5px" }}
             onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>✏️</button>
-          <button onClick={onArchive} title="Archivar" style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4166", fontSize:13, padding:"3px 5px" }}
+          <button onClick={onArchive} title="Archivar" style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:13, padding:"3px 5px" }}
             onMouseEnter={e=>e.currentTarget.style.color="#fb923c"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>📦</button>
         </div>
       </div>
       {/* Progreso período actual */}
       <div style={{ marginBottom:10 }}>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:5 }}>
-          <span style={{ color:"#8b7fa8" }}>{goal.period==="weekly"?"Esta semana":goal.period==="monthly"?"Este mes":"Este año"}</span>
+          <span style={{ color:"var(--t-text-muted,#8b7fa8)" }}>{goal.period==="weekly"?"Esta semana":goal.period==="monthly"?"Este mes":"Este año"}</span>
           <span style={{ color:met?"#34d399":isMax&&progress.current>progress.target?"#f472b6":"#f8f4ff", fontWeight:600 }}>{met?"✅ ":isMax&&progress.current>progress.target?"❌ ":""}{progress.current}/{progress.target}{isMax?" (máx.)":""}</span>
         </div>
         <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
@@ -3671,12 +3676,12 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
         const urgent=!expired&&msLeft<7*86400000;
         return <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:6, background:expired?"rgba(244,114,182,0.1)":under24h?"rgba(244,114,182,0.08)":urgent?"rgba(251,146,60,0.08)":"rgba(167,139,250,0.06)", border:`1px solid ${expired||under24h?"rgba(244,114,182,0.3)":urgent?"rgba(251,146,60,0.25)":"rgba(167,139,250,0.15)"}`, borderRadius:8, padding:"6px 10px" }}>
           <span style={{ fontSize:12, color:expired||under24h?"#f472b6":urgent?"#fb923c":"#8b7fa8", fontWeight:600, fontFamily:under24h?"monospace":"inherit", letterSpacing:under24h?1:0 }}>{label}</span>
-          <span style={{ fontSize:11, color:"#4a4166", marginLeft:"auto" }}>{goal.deadline}</span>
+          <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginLeft:"auto" }}>{goal.deadline}</span>
         </div>;
       })()}
       {/* Historial */}
       {history.length>0&&<div>
-        <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
+        <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#4a4166)", marginBottom:5 }}>Historial</div>
         <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
           {history.map((h,i)=>{
             const failed=!h.met&&(h.count>0||h.isPast)&&!h.noData;
@@ -3716,7 +3721,7 @@ function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAdd, onUpdate, on
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#a78bfa", fontWeight:600 }}>🏅 Metas activas</div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-accent,#a78bfa)", fontWeight:600 }}>🏅 Metas activas</div>
         {!showForm&&<button onClick={openNew} style={S.btnPrimary}>+ Nueva meta</button>}
       </div>
 
@@ -3729,19 +3734,19 @@ function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAdd, onUpdate, on
           onEdit={()=>openEdit(g)} onArchive={()=>onUpdate(g.id,{active:false})} />;
       })}
 
-      {!active.length&&!showForm&&<div style={{ textAlign:"center", padding:48, color:"#3d3360" }}>
+      {!active.length&&!showForm&&<div style={{ textAlign:"center", padding:48, color:"var(--t-text-dim,#3d3360)" }}>
         <div style={{ fontSize:44, marginBottom:12 }}>🏅</div>
         <div style={{ fontStyle:"italic", fontSize:14 }}>Sin metas activas aún.<br/>¡Crea la primera!</div>
       </div>}
 
       {archived.length>0&&<div>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:8, marginTop:4 }}>Archivadas</div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#4a4166)", fontWeight:600, marginBottom:8, marginTop:4 }}>Archivadas</div>
         {archived.map(g=>(
           <div key={g.id} style={{ ...S.card, opacity:0.5, marginBottom:6, display:"flex", alignItems:"center", gap:10, padding:"10px 14px" }}>
             <span style={{ fontSize:20 }}>{g.emoji}</span>
-            <div style={{ flex:1, fontSize:13, color:"#6b5f88" }}>{g.title}</div>
+            <div style={{ flex:1, fontSize:13, color:"var(--t-text-dim,#6b5f88)" }}>{g.title}</div>
             <button onClick={()=>onUpdate(g.id,{active:true})} style={{ ...S.btnSecondary, fontSize:11, padding:"3px 10px" }}>↺ Reactivar</button>
-            <button onClick={()=>onDelete(g.id)} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:18, lineHeight:1, padding:"0 2px" }}
+            <button onClick={()=>onDelete(g.id)} style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:18, lineHeight:1, padding:"0 2px" }}
               onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
           </div>
         ))}
@@ -3846,7 +3851,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
         {(proyectos||[]).map(p=>(
           <button key={p.id} onClick={()=>{setProjectId(p.id);setView("list");}} style={TAB_BTN(projectId===p.id&&view==="list")}>{p.emoji} {p.name}</button>
         ))}
-        <button onClick={openAddProject} style={{ flexShrink:0, padding:"6px 12px", borderRadius:20, border:"1px dashed rgba(167,139,250,0.3)", cursor:"pointer", fontFamily:"inherit", fontSize:12, background:"transparent", color:"#6b5f88" }}>+ Proyecto</button>
+        <button onClick={openAddProject} style={{ flexShrink:0, padding:"6px 12px", borderRadius:20, border:"1px dashed rgba(167,139,250,0.3)", cursor:"pointer", fontFamily:"inherit", fontSize:12, background:"transparent", color:"var(--t-text-dim,#6b5f88)" }}>+ Proyecto</button>
         <button onClick={()=>setView("stats")} style={TAB_BTN(view==="stats")}>📊 Stats</button>
       </div>
 
@@ -3859,7 +3864,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             <span style={{ fontSize:30 }}>{p.emoji}</span>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:15, fontWeight:700, color:"var(--t-text,#e2dff5)" }}>{p.name}</div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginTop:1 }}>{gastos.filter(g=>g.projectId===projectId).length} gastos · {fmtAmt(pb.total)}</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:1 }}>{gastos.filter(g=>g.projectId===projectId).length} gastos · {fmtAmt(pb.total)}</div>
               {Math.abs(pb.p1Net)>0.5 && <div style={{ fontSize:11, fontWeight:600, color:pb.p1Net>0?"#f87171":"#34d399", marginTop:2 }}>{pb.p1Net>0?`${p1} debe ${fmtAmt(Math.abs(pb.p1Net))} a ${p2}`:`${p2} debe ${fmtAmt(Math.abs(pb.p1Net))} a ${p1}`}</div>}
               {Math.abs(pb.p1Net)<=0.5&&pb.total>0&&<div style={{ fontSize:11, fontWeight:600, color:"#34d399", marginTop:2 }}>✓ Al día</div>}
             </div>
@@ -3869,8 +3874,8 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                 {p.settled?"🔒 Saldado":"Marcar saldado"}
               </button>
               <div style={{ display:"flex", gap:4 }}>
-                <button onClick={()=>openEditProject(p)} style={{ background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:13, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
-                <button onClick={()=>{if(window.confirm(`¿Eliminar proyecto "${p.name}"?`)) delProject(projectId);}} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:17, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+                <button onClick={()=>openEditProject(p)} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", cursor:"pointer", fontSize:13, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
+                <button onClick={()=>{if(window.confirm(`¿Eliminar proyecto "${p.name}"?`)) delProject(projectId);}} style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:17, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
               </div>
             </div>
           </div>
@@ -3887,7 +3892,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             <span style={{ fontSize:22 }}>{p.settled?"🔒":p.emoji}</span>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{p.name}</div>
-              <div style={{ fontSize:11, color:"#6b5f88" }}>{p.count} gastos · {fmtAmt(p.total)}</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)" }}>{p.count} gastos · {fmtAmt(p.total)}</div>
             </div>
             <div style={{ textAlign:"right" }}>
               {p.settled
@@ -3897,18 +3902,18 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                   : p.total>0 ? <div style={{ fontSize:11, color:"#34d399" }}>✓ Al día</div> : null
               }
             </div>
-            <span style={{ color:"#4a4166" }}>›</span>
+            <span style={{ color:"var(--t-text-dim,#4a4166)" }}>›</span>
           </button>
         );
         if (!open.length && !closed.length) return null;
         return (
           <div style={{ marginBottom:14 }}>
             {open.length>0 && <>
-              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:8 }}>📁 Proyectos activos</div>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:8 }}>📁 Proyectos activos</div>
               {open.map(renderCard)}
             </>}
             {closed.length>0 && <>
-              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:8, marginTop:open.length?14:0 }}>🔒 Saldados</div>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:8, marginTop:open.length?14:0 }}>🔒 Saldados</div>
               {closed.map(renderCard)}
             </>}
           </div>
@@ -3923,27 +3928,27 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
         return (
           <>
             <div style={{ ...S.card, marginBottom:14 }}>
-              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:14 }}>📅 Últimos 6 meses</div>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:14 }}>📅 Últimos 6 meses</div>
               <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:90 }}>
                 {monthlyTotals.map(({m,total})=>(
                   <div key={m} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
-                    <div style={{ fontSize:9, color:"#6b5f88", height:14, textAlign:"center" }}>{total>0?fmtAmt(total):""}</div>
+                    <div style={{ fontSize:9, color:"var(--t-text-dim,#6b5f88)", height:14, textAlign:"center" }}>{total>0?fmtAmt(total):""}</div>
                     <div style={{ width:"100%", background:"rgba(255,255,255,0.06)", borderRadius:"5px 5px 0 0", height:60, display:"flex", alignItems:"flex-end" }}>
                       <div style={{ width:"100%", background:"var(--t-accent,#a78bfa)", borderRadius:"5px 5px 0 0", height:`${Math.round(total/maxMonthlyTotal*100)}%`, minHeight:total>0?2:0 }} />
                     </div>
-                    <div style={{ fontSize:9, color:"#4a4166" }}>{monthLabel(m).slice(0,3)}</div>
+                    <div style={{ fontSize:9, color:"var(--t-text-dim,#4a4166)" }}>{monthLabel(m).slice(0,3)}</div>
                   </div>
                 ))}
               </div>
             </div>
             {allCats.length>0&&(
               <div style={{ ...S.card, marginBottom:14 }}>
-                <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:12 }}>🏷️ Por categoría (total)</div>
+                <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:12 }}>🏷️ Por categoría (total)</div>
                 {allCats.map(c=>(
                   <div key={c.id} style={{ marginBottom:9 }}>
                     <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
                       <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
-                      <span style={{ fontSize:12, color:"#8b7fa8" }}>{fmtAmt(c.total)} · {allBal.total>0?Math.round(c.total/allBal.total*100):0}%</span>
+                      <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{fmtAmt(c.total)} · {allBal.total>0?Math.round(c.total/allBal.total*100):0}%</span>
                     </div>
                     <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
                       <div style={{ height:"100%", width:`${allBal.total>0?c.total/allBal.total*100:0}%`, background:c.color, borderRadius:99 }} />
@@ -3953,26 +3958,26 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
               </div>
             )}
             <div style={{ ...S.card, marginBottom:14 }}>
-              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:12 }}>👥 Resumen</div>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:12 }}>👥 Resumen</div>
               <div style={{ display:"flex", gap:10, marginBottom:10 }}>
                 <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
-                  <div style={{ fontSize:10, color:"#6b5f88" }}>{p1} pagó</div>
+                  <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p1} pagó</div>
                   <div style={{ fontSize:17, fontWeight:700, color:colors.person1||"#f472b6" }}>{fmtAmt(allBal.p1Paid)}</div>
-                  <div style={{ fontSize:10, color:"#4a4166" }}>{allBal.total>0?Math.round(allBal.p1Paid/allBal.total*100):0}% del total</div>
+                  <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{allBal.total>0?Math.round(allBal.p1Paid/allBal.total*100):0}% del total</div>
                 </div>
                 <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
-                  <div style={{ fontSize:10, color:"#6b5f88" }}>{p2} pagó</div>
+                  <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p2} pagó</div>
                   <div style={{ fontSize:17, fontWeight:700, color:colors.person2||"#60a5fa" }}>{fmtAmt(allBal.p2Paid)}</div>
-                  <div style={{ fontSize:10, color:"#4a4166" }}>{allBal.total>0?Math.round(allBal.p2Paid/allBal.total*100):0}% del total</div>
+                  <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{allBal.total>0?Math.round(allBal.p2Paid/allBal.total*100):0}% del total</div>
                 </div>
               </div>
               <div style={{ display:"flex", gap:10, marginBottom:Math.abs(allBal.p1Net)>0.5?10:0 }}>
                 <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
-                  <div style={{ fontSize:10, color:"#6b5f88" }}>Total acumulado</div>
+                  <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>Total acumulado</div>
                   <div style={{ fontSize:17, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(allBal.total)}</div>
                 </div>
                 <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
-                  <div style={{ fontSize:10, color:"#6b5f88" }}>Promedio/mes</div>
+                  <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>Promedio/mes</div>
                   <div style={{ fontSize:17, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(allBal.total/activeMonths)}</div>
                 </div>
               </div>
@@ -3980,13 +3985,13 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             </div>
             {proyectosWithBal.filter(p=>p.total>0).length>0&&(
               <div style={{ ...S.card }}>
-                <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:12 }}>📁 Por proyecto</div>
+                <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:12 }}>📁 Por proyecto</div>
                 {proyectosWithBal.filter(p=>p.total>0).map(p=>(
                   <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
                     <span style={{ fontSize:18 }}>{p.emoji}</span>
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{p.name}</div>
-                      <div style={{ fontSize:11, color:"#6b5f88" }}>{p.count} gastos</div>
+                      <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)" }}>{p.count} gastos</div>
                     </div>
                     <div style={{ textAlign:"right" }}>
                       <div style={{ fontSize:14, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(p.total)}</div>
@@ -4006,7 +4011,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
           {/* Month balance card */}
           <div style={{ ...S.card, marginBottom:12 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-              <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>💸 {monthLabel(filterMonth)}</span>
+              <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>💸 {monthLabel(filterMonth)}</span>
               <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}
                 style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#c4b8ff", fontSize:11, padding:"3px 8px", fontFamily:"inherit", cursor:"pointer" }}>
                 {allMonths.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}
@@ -4015,11 +4020,11 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             <div style={{ fontSize:26, fontWeight:700, color:"var(--t-accent,#c4b8ff)", fontFamily:"'Fraunces',serif", letterSpacing:-1, marginBottom:8 }}>{fmtAmt(monthBalance.total)}</div>
             <div style={{ display:"flex", gap:10, marginBottom:10 }}>
               <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px" }}>
-                <div style={{ fontSize:10, color:"#6b5f88" }}>{p1} pagó</div>
+                <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p1} pagó</div>
                 <div style={{ fontSize:15, fontWeight:600, color:colors.person1||"#f472b6" }}>{fmtAmt(monthBalance.p1Paid)}</div>
               </div>
               <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px" }}>
-                <div style={{ fontSize:10, color:"#6b5f88" }}>{p2} pagó</div>
+                <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p2} pagó</div>
                 <div style={{ fontSize:15, fontWeight:600, color:colors.person2||"#60a5fa" }}>{fmtAmt(monthBalance.p2Paid)}</div>
               </div>
             </div>
@@ -4030,12 +4035,12 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
           {/* Category breakdown */}
           {catTotals.length>0&&(
             <div style={{ ...S.card, marginBottom:12 }}>
-              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600, marginBottom:10 }}>🏷️ Por categoría</div>
+              <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:10 }}>🏷️ Por categoría</div>
               {catTotals.map(c=>(
                 <div key={c.id} style={{ marginBottom:7 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
                     <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
-                    <span style={{ fontSize:12, color:"#8b7fa8" }}>{fmtAmt(c.total)} · {monthBalance.total>0?Math.round(c.total/monthBalance.total*100):0}%</span>
+                    <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{fmtAmt(c.total)} · {monthBalance.total>0?Math.round(c.total/monthBalance.total*100):0}%</span>
                   </div>
                   <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:4, overflow:"hidden" }}>
                     <div style={{ height:"100%", width:`${monthBalance.total>0?c.total/monthBalance.total*100:0}%`, background:c.color, borderRadius:99 }} />
@@ -4052,7 +4057,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
 
           {/* Expense list */}
           {filteredList.length===0&&(
-            <div style={{ textAlign:"center", padding:40, color:"#3d3360" }}>
+            <div style={{ textAlign:"center", padding:40, color:"var(--t-text-dim,#3d3360)" }}>
               <div style={{ fontSize:40, marginBottom:10 }}>💸</div>
               <div style={{ fontStyle:"italic", fontSize:13 }}>Sin gastos en {monthLabel(filterMonth)}.<br/>¡Añade el primero!</div>
             </div>
@@ -4070,14 +4075,14 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                   <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2, flexWrap:"wrap" }}>
                     <span style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#e2dff5)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:140 }}>{g.desc}</span>
                     <span style={{ fontSize:9, color:cat.color, background:`${cat.color}22`, borderRadius:4, padding:"1px 4px", flexShrink:0 }}>{cat.label}</span>
-                    {projName&&<span style={{ fontSize:9, color:"#8b7fa8", background:"rgba(255,255,255,0.06)", borderRadius:4, padding:"1px 4px", flexShrink:0 }}>📁 {projName}</span>}
+                    {projName&&<span style={{ fontSize:9, color:"var(--t-text-muted,#8b7fa8)", background:"rgba(255,255,255,0.06)", borderRadius:4, padding:"1px 4px", flexShrink:0 }}>📁 {projName}</span>}
                   </div>
-                  <div style={{ fontSize:11, color:"#6b5f88" }}>{g.date} · {paidLabel} pagó · {splitLabel}</div>
+                  <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)" }}>{g.date} · {paidLabel} pagó · {splitLabel}</div>
                 </div>
                 <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)", flexShrink:0 }}>{fmtAmt(g.amount)}</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:2, flexShrink:0 }}>
-                  <button onClick={()=>openEditExpense(g)} style={{ background:"none", border:"none", color:"#6b5f88", cursor:"pointer", fontSize:12, padding:"2px 4px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
-                  <button onClick={()=>delExpense(g.id)} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:15, padding:"2px 4px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+                  <button onClick={()=>openEditExpense(g)} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", cursor:"pointer", fontSize:12, padding:"2px 4px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
+                  <button onClick={()=>delExpense(g.id)} style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:15, padding:"2px 4px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
                 </div>
               </div>
             );
@@ -4093,30 +4098,30 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             onClick={e=>e.stopPropagation()}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <span style={{ fontSize:15, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{editId?"Editar gasto":"Nuevo gasto"}</span>
-              <button onClick={()=>{setShowForm(false);setEditId(null);}} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:22, cursor:"pointer" }}>×</button>
+              <button onClick={()=>{setShowForm(false);setEditId(null);}} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", fontSize:22, cursor:"pointer" }}>×</button>
             </div>
             {/* Descripción */}
             <input placeholder="Descripción (ej. Cena, Supermercado…)" value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} style={INP} />
             {/* Monto */}
             <div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:5 }}>Monto</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:5 }}>Monto</div>
               <input placeholder="0" type="number" inputMode="decimal" min="0" step="any" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} style={INP} />
             </div>
             {/* Fecha — full width con label, colorScheme:dark para que se vea en iOS */}
             <div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:5 }}>Fecha</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:5 }}>Fecha</div>
               <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{ ...INP, colorScheme:"dark" }} />
             </div>
             {/* Categoría + Quién pagó */}
             <div style={{ display:"flex", gap:8 }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:"#6b5f88", marginBottom:5 }}>Categoría</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:5 }}>Categoría</div>
                 <select value={form.cat} onChange={e=>setForm(f=>({...f,cat:e.target.value}))} style={SEL}>
                   {GASTO_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
                 </select>
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:"#6b5f88", marginBottom:5 }}>¿Quién pagó?</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:5 }}>¿Quién pagó?</div>
                 <select value={form.paidBy} onChange={e=>setForm(f=>({...f,paidBy:e.target.value}))} style={SEL}>
                   <option value="person1">{p1}</option>
                   <option value="person2">{p2}</option>
@@ -4125,19 +4130,19 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             </div>
             {/* División con slider */}
             <div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:6 }}>División del gasto</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:6 }}>División del gasto</div>
               {/* Montos en tiempo real */}
               {form.amount && parseFloat(form.amount)>0 && (
                 <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                   <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
-                    <div style={{ fontSize:10, color:"#6b5f88" }}>{p1} paga</div>
+                    <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p1} paga</div>
                     <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(parseFloat(form.amount)*form.splitP1/100)}</div>
-                    <div style={{ fontSize:10, color:"#4a4166" }}>{form.splitP1}%</div>
+                    <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{form.splitP1}%</div>
                   </div>
                   <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
-                    <div style={{ fontSize:10, color:"#6b5f88" }}>{p2} paga</div>
+                    <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p2} paga</div>
                     <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(parseFloat(form.amount)*(100-form.splitP1)/100)}</div>
-                    <div style={{ fontSize:10, color:"#4a4166" }}>{100-form.splitP1}%</div>
+                    <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{100-form.splitP1}%</div>
                   </div>
                 </div>
               )}
@@ -4148,15 +4153,15 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                 ))}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:10, color:"#4a4166", flexShrink:0 }}>0%</span>
+                <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", flexShrink:0 }}>0%</span>
                 <input type="range" min="0" max="100" step="5" value={form.splitP1} onChange={e=>setForm(f=>({...f,splitP1:Number(e.target.value)}))} style={{ flex:1, accentColor:"var(--t-accent,#a78bfa)", cursor:"pointer" }} />
-                <span style={{ fontSize:10, color:"#4a4166", flexShrink:0 }}>100%</span>
+                <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", flexShrink:0 }}>100%</span>
               </div>
             </div>
             {/* Proyecto (opcional) */}
             {(proyectos||[]).length>0&&(
               <div>
-                <div style={{ fontSize:11, color:"#6b5f88", marginBottom:5 }}>Proyecto (opcional)</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:5 }}>Proyecto (opcional)</div>
                 <select value={form.projectId||""} onChange={e=>setForm(f=>({...f,projectId:e.target.value||null}))} style={SEL}>
                   <option value="">Sin proyecto</option>
                   {(proyectos||[]).map(p=><option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
@@ -4179,14 +4184,14 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             onClick={e=>e.stopPropagation()}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <span style={{ fontSize:15, fontWeight:600, color:"var(--t-text,#e2dff5)" }}>{editProjectId?"Editar proyecto":"Nuevo proyecto"}</span>
-              <button onClick={()=>{setShowProjectForm(false);setEditProjectId(null);}} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:22, cursor:"pointer" }}>×</button>
+              <button onClick={()=>{setShowProjectForm(false);setEditProjectId(null);}} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", fontSize:22, cursor:"pointer" }}>×</button>
             </div>
             <div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:5 }}>Nombre</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:5 }}>Nombre</div>
               <input placeholder="ej. Viaje a Chile, Finde playa…" value={projectForm.name} onChange={e=>setProjectForm(f=>({...f,name:e.target.value}))} style={INP} />
             </div>
             <div>
-              <div style={{ fontSize:11, color:"#6b5f88", marginBottom:8 }}>Emoji</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8 }}>Emoji</div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                 {PROJECT_EMOJIS.map(em=>(
                   <button key={em} onClick={()=>setProjectForm(f=>({...f,emoji:em}))}
