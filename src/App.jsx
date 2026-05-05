@@ -10,10 +10,11 @@ import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "3.0.3";
+const APP_VERSION = "3.1.0";
 const LAST_UPDATE = "2026-05-05";
 const CHANGELOG = [
-  { v:"3.0.3", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links de uso diario y cuentas (usuario/contraseña oculta con botón copiar)","Inicio: widgets Próximos 3 eventos + 3 tareas atrasadas, tira de días con clic para ver detalle del día","Stats: exportar imagen con selección de secciones, colores adaptados al tema activo","Favicon actualizado a calendario 📅 (ya no aparece el globo)","Logo MP visible en temas claros (arreglado blend mode)","Fix flash de color al arrancar la app (color de fondo persiste entre sesiones)","Changelog y filtros usan colores del tema activo","Histórico: eliminados botones duplicados de Calendar/PDF (ya están en el menú ⋯)","Versión 3.0.3"] },
+  { v:"3.1.0", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links (se abren en móvil sin errores PWA) y cuentas con usuario/contraseña copiable","Inicio: próximos 3 eventos + 3 tareas atrasadas (incluye arrastradas), tira de días con clic para ver detalle","Stats: exportar imagen con selección de secciones y colores del tema activo; horas de trabajo muestran promedio/semana","Corrección de contrastes en temas claros (fondos neutros, texto siempre visible)","Cambio de tema instantáneo sin necesidad de reabrir el modal","6 nuevas tipografías: Raleway, Montserrat, Merriweather, Quicksand, Josefin Sans, DM Serif Display","Favicon actualizado a 📅, logo MP visible en temas claros, fix flash de color al arrancar","Histórico: eliminados botones duplicados de Calendar/PDF","Versión 3.1.0"] },
+  { v:"3.0.3", date:"2026-05-05", notes:["[incluido en 3.1.0]"] },
   { v:"3.0.2", date:"2026-05-04", notes:["Inicio rediseñado: widgets en columnas apiladas para móvil, sección Hoy compacta (toca para cambiar estado)","Semana: Timeline como vista por defecto, toggle renombrado a 'Lista detallada'","Versión 3.0.2"] },
   { v:"3.0.1", date:"2026-05-04", notes:["Fix: Timeline — eventos corridos un día y sin lunes (toISOString → formato local, elimina desfase UTC)","Fix: Filtros de persona/categoría ahora se aplican correctamente al pulsar 'Aplicar filtros'","Filtros multi-selección: combina p.ej. 'Persona 1 + Juntos' para ver todas las actividades en las que participas","Fix: cajas de widgets en Home ya no se desbordan fuera del ancho de la pantalla","Calendario: botón 'Volver a hoy' aparece al navegar a otro mes","Fix: pestaña Gastos ya no aparece en negro al abrirla","Versión 3.0.1"] },
   { v:"3.0.0", date:"2026-05-04", notes:["Rediseño UI mayor: dashboard editorial en Inicio con widgets compactos (ASAP urgentes, Próximo evento, Pulso semanal, Meta cercana, Misiones de hoy)","Logo MP-mark en topbar (dos círculos solapados con colores de pareja) reemplaza el emoji 💞","Vista Timeline en pestaña Semana: alterna entre lista clásica y riel cronológico por día (toggle ☰/⏱)","Tira de días L–D siempre visible en Home con Hoy resaltado en rosa","Filtros de persona y categoría unificados en drawer inferior con badge contador","Menú ⋯ en topbar: exportar .ics, imprimir PDF y actualizar app desde un único acceso","Toast visual para 'Actualizar versión': loading → éxito/error con botón Reintentar","Riel de color por persona (3px borde izq.) en cada tarjeta de misión","Animación pop del badge de estado al ciclarlo","Calendario: Hoy marcado con anillo rosa (antes era fondo relleno), barra de densidad por persona en footer de cada celda","Fix: el diálogo de impresión PDF ahora se cierra automáticamente al terminar o cancelar","Versión 3.0.0"] },
@@ -360,11 +361,17 @@ const THEMES = [
 ];
 
 const FONTS = [
-  { id:"auto",     name:"Automático (del tema)", family:null, googleFonts:null },
-  { id:"inter",    name:"Inter",            family:"'Inter',system-ui,sans-serif",                 googleFonts:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" },
-  { id:"poppins",  name:"Poppins",          family:"'Poppins',system-ui,sans-serif",               googleFonts:"https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" },
-  { id:"playfair", name:"Playfair Display", family:"'Playfair Display',Georgia,serif",             googleFonts:"https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" },
-  { id:"space",    name:"Space Grotesk",    family:"'Space Grotesk',system-ui,sans-serif",         googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" },
+  { id:"auto",        name:"Automático (del tema)",  family:null, googleFonts:null },
+  { id:"inter",       name:"Inter",                  family:"'Inter',system-ui,sans-serif",                googleFonts:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" },
+  { id:"poppins",     name:"Poppins",                family:"'Poppins',system-ui,sans-serif",              googleFonts:"https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" },
+  { id:"playfair",    name:"Playfair Display",       family:"'Playfair Display',Georgia,serif",            googleFonts:"https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" },
+  { id:"space",       name:"Space Grotesk",          family:"'Space Grotesk',system-ui,sans-serif",        googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" },
+  { id:"raleway",     name:"Raleway",                family:"'Raleway',system-ui,sans-serif",              googleFonts:"https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" },
+  { id:"montserrat",  name:"Montserrat",             family:"'Montserrat',system-ui,sans-serif",           googleFonts:"https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" },
+  { id:"merriweather",name:"Merriweather",           family:"'Merriweather',Georgia,serif",                googleFonts:"https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" },
+  { id:"quicksand",   name:"Quicksand",              family:"'Quicksand',system-ui,sans-serif",            googleFonts:"https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" },
+  { id:"josefin",     name:"Josefin Sans",           family:"'Josefin Sans',system-ui,sans-serif",         googleFonts:"https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" },
+  { id:"dmserif",     name:"DM Serif Display",       family:"'DM Serif Display',Georgia,serif",            googleFonts:"https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" },
 ];
 
 // Per-user localStorage preferences (theme & font are personal, not shared with partner)
@@ -1199,8 +1206,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const p2 = data.settings?.person2 || "Persona 2";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const _uprefs = getUserPrefs(sessionUserId);
-  const themeId = _uprefs.themeId || data.settings?.themeId || "violet";
-  const fontId  = _uprefs.fontId  || data.settings?.fontId  || "auto";
+  // Local state ensures theme/font update instantly in same session without
+  // relying on a re-render from data changes (which may not happen if only
+  // theme changed and no other shared settings were modified)
+  const [localThemeId, setLocalThemeId] = useState(null);
+  const [localFontId,  setLocalFontId]  = useState(null);
+  const themeId = localThemeId || _uprefs.themeId || data.settings?.themeId || "violet";
+  const fontId  = localFontId  || _uprefs.fontId  || data.settings?.fontId  || "auto";
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1537,7 +1549,7 @@ ${ms.map(m=>{
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -2325,7 +2337,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate }) {
+function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -2548,7 +2560,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
             {themeOpen && (
               <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
                 {THEMES.map(t=>(
-                  <button key={t.id} onClick={()=>{ setThemeId(t.id); setThemeOpen(false); }}
+                  <button key={t.id} onClick={()=>{ setThemeId(t.id); setThemeOpen(false); onThemeChange&&onThemeChange(t.id, fontId); }}
                     style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:themeId===t.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:"inherit" }}>
                     <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                       {t.preview.map((c,i)=><div key={i} style={{ width:10, height:10, borderRadius:99, background:c }} />)}
@@ -2575,7 +2587,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
             {fontOpen && (
               <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
                 {FONTS.map(f=>(
-                  <button key={f.id} onClick={()=>{ setFontId(f.id); setFontOpen(false); }}
+                  <button key={f.id} onClick={()=>{ setFontId(f.id); setFontOpen(false); onThemeChange&&onThemeChange(themeId, f.id); }}
                     style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:fontId===f.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:f.family||"inherit" }}>
                     <span style={{ flex:1, fontSize:13, color:fontId===f.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:fontId===f.id?600:400 }}>{f.name}</span>
                     {fontId===f.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
@@ -3015,19 +3027,24 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
       {/* Work hours */}
       {(totalWork1>0||totalWork2>0)&&<div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#fbbf24", marginBottom:14, fontWeight:600 }}>💼 Horas laborales totales</div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-accent,#fbbf24)", marginBottom:14, fontWeight:600 }}>💼 Horas de trabajo registradas</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-          {[[p1,totalWork1],[p2,totalWork2]].map(([name,h])=>(
-            <div key={name} style={{ background:"rgba(251,191,36,0.07)", border:"1px solid rgba(251,191,36,0.15)", borderRadius:10, padding:"12px", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:700, color:"#fbbf24" }}>{h}h</div>
-              <div style={{ fontSize:12, color:"#8b7fa8", marginTop:2 }}>{name}</div>
-            </div>
-          ))}
+          {[[p1,totalWork1],[p2,totalWork2]].filter(([,h])=>h>0).map(([name,h])=>{
+            const weeksWithHours = allW.filter(w=>w.workHours?.[name===p1?"person1":"person2"]>0).length;
+            const avg = weeksWithHours>0 ? (h/weeksWithHours).toFixed(1) : h;
+            return (
+              <div key={name} style={{ background:"rgba(251,191,36,0.07)", border:"1px solid rgba(251,191,36,0.18)", borderRadius:10, padding:"12px", textAlign:"center" }}>
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color:"#fbbf24" }}>{avg}h</div>
+                <div style={{ fontSize:10, color:"var(--t-text-muted,#8b7fa8)", marginTop:1 }}>prom/semana</div>
+                <div style={{ fontSize:11, color:"var(--t-text,#f8f4ff)", marginTop:3, fontWeight:600 }}>{name}</div>
+              </div>
+            );
+          })}
         </div>
-        {totalWork1>0&&totalWork2>0&&<div style={{ marginTop:10, fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
+        {totalWork1>0&&totalWork2>0&&<div style={{ marginTop:10, fontSize:12, color:"var(--t-text-muted,#8b7fa8)", textAlign:"center" }}>
           {Math.abs(totalWork1-totalWork2)<5?"⚖️ Carga laboral muy equilibrada"
-            :totalWork1>totalWork2?`⚡ ${p1} trabajó ${totalWork1-totalWork2}h más esta temporada`
-            :`⚡ ${p2} trabajó ${totalWork2-totalWork1}h más esta temporada`}
+            :totalWork1>totalWork2?`⚡ ${p1} trabajó ${(totalWork1-totalWork2).toFixed(1)}h más en total`
+            :`⚡ ${p2} trabajó ${(totalWork2-totalWork1).toFixed(1)}h más en total`}
         </div>}
       </div>}
 
