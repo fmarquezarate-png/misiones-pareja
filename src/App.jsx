@@ -7,11 +7,14 @@ import HomeDashboard from "./components/HomeDashboard.jsx";
 import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
+import LinksView from "./components/LinksView.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "3.0.1";
-const LAST_UPDATE = "2026-05-04";
+const APP_VERSION = "3.0.3";
+const LAST_UPDATE = "2026-05-05";
 const CHANGELOG = [
+  { v:"3.0.3", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links de uso diario y cuentas (usuario/contraseña oculta con botón copiar)","Inicio: widgets Próximos 3 eventos + 3 tareas atrasadas, tira de días con clic para ver detalle del día","Stats: exportar imagen con selección de secciones, colores adaptados al tema activo","Favicon actualizado a calendario 📅 (ya no aparece el globo)","Logo MP visible en temas claros (arreglado blend mode)","Fix flash de color al arrancar la app (color de fondo persiste entre sesiones)","Changelog y filtros usan colores del tema activo","Histórico: eliminados botones duplicados de Calendar/PDF (ya están en el menú ⋯)","Versión 3.0.3"] },
+  { v:"3.0.2", date:"2026-05-04", notes:["Inicio rediseñado: widgets en columnas apiladas para móvil, sección Hoy compacta (toca para cambiar estado)","Semana: Timeline como vista por defecto, toggle renombrado a 'Lista detallada'","Versión 3.0.2"] },
   { v:"3.0.1", date:"2026-05-04", notes:["Fix: Timeline — eventos corridos un día y sin lunes (toISOString → formato local, elimina desfase UTC)","Fix: Filtros de persona/categoría ahora se aplican correctamente al pulsar 'Aplicar filtros'","Filtros multi-selección: combina p.ej. 'Persona 1 + Juntos' para ver todas las actividades en las que participas","Fix: cajas de widgets en Home ya no se desbordan fuera del ancho de la pantalla","Calendario: botón 'Volver a hoy' aparece al navegar a otro mes","Fix: pestaña Gastos ya no aparece en negro al abrirla","Versión 3.0.1"] },
   { v:"3.0.0", date:"2026-05-04", notes:["Rediseño UI mayor: dashboard editorial en Inicio con widgets compactos (ASAP urgentes, Próximo evento, Pulso semanal, Meta cercana, Misiones de hoy)","Logo MP-mark en topbar (dos círculos solapados con colores de pareja) reemplaza el emoji 💞","Vista Timeline en pestaña Semana: alterna entre lista clásica y riel cronológico por día (toggle ☰/⏱)","Tira de días L–D siempre visible en Home con Hoy resaltado en rosa","Filtros de persona y categoría unificados en drawer inferior con badge contador","Menú ⋯ en topbar: exportar .ics, imprimir PDF y actualizar app desde un único acceso","Toast visual para 'Actualizar versión': loading → éxito/error con botón Reintentar","Riel de color por persona (3px borde izq.) en cada tarjeta de misión","Animación pop del badge de estado al ciclarlo","Calendario: Hoy marcado con anillo rosa (antes era fondo relleno), barra de densidad por persona en footer de cada celda","Fix: el diálogo de impresión PDF ahora se cierra automáticamente al terminar o cancelar","Versión 3.0.0"] },
   { v:"2.5.0", date:"2026-04-26", notes:["Gastos: montos en tiempo real al dividir — muestra cuánto paga cada persona al mover el slider","Gastos: proyectos saldables — botón 'Marcar saldado' cierra el proyecto (🔒) sin borrar datos ni stats","Gastos: home de Gastos muestra solo proyectos separados en Activos / 🔒 Saldados","Gastos: 15 categorías (añadidas Supermercado, Tecnología, Cultura, Deporte, Mascotas, Regalos, Suscripciones)","Tutorial: paso nuevo para Gastos Compartidos","Fix: emoji 🧗 ya no se multiplica en el selector (clave de React corregida + duplicado eliminado)","Versión 2.5.0"] },
@@ -668,6 +671,8 @@ function ThemeInjector({ themeId, fontId }) {
     r.setProperty("--t-text",        t.text      || "#f8f4ff");
     r.setProperty("--t-text-muted",  t.textMuted || "#8b7fa8");
     r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
+    document.documentElement.style.background = t.bg;
+    try { localStorage.setItem("mp-quick-bg", t.bg); } catch {}
   }, [themeId, fontId]);
   return null;
 }
@@ -945,7 +950,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [icsTo,    setIcsTo]    = useState("");
   const [popOpen,       setPopOpen]       = useState(false);
   const [filtersOpen,   setFiltersOpen]   = useState(false);
-  const [weekViewMode,  setWeekViewMode]  = useState("list"); // "list" | "timeline"
+  const [weekViewMode,  setWeekViewMode]  = useState("timeline"); // "list" | "timeline"
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
@@ -1572,19 +1577,19 @@ ${ms.map(m=>{
       {/* Changelog modal */}
       {showChangelog && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
-          <div style={{ background:"#1d1733", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
+          <div style={{ background:"var(--t-card,#1d1733)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"#fbbf24" }}>📋 Changelog</span>
-              <button onClick={()=>setShowChangelog(false)} style={{ background:"none", border:"none", color:"#6b5f88", fontSize:20, cursor:"pointer" }}>×</button>
+              <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"var(--t-accent,#fbbf24)" }}>📋 Changelog</span>
+              <button onClick={()=>setShowChangelog(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#6b5f88)", fontSize:20, cursor:"pointer" }}>×</button>
             </div>
             {CHANGELOG.map(c=>(
               <div key={c.v} style={{ marginBottom:16 }}>
                 <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:"#fbbf24" }}>v{c.v}</span>
-                  <span style={{ fontSize:11, color:"#4a4166" }}>{c.date}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:"var(--t-accent,#fbbf24)" }}>v{c.v}</span>
+                  <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{c.date}</span>
                 </div>
                 <ul style={{ margin:0, padding:"0 0 0 16px" }}>
-                  {c.notes.map((n,i)=><li key={i} style={{ fontSize:12, color:"#8b7fa8", marginBottom:3 }}>{n}</li>)}
+                  {c.notes.map((n,i)=><li key={i} style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginBottom:3 }}>{n}</li>)}
                 </ul>
               </div>
             ))}
@@ -1620,6 +1625,7 @@ ${ms.map(m=>{
             { id:"stats",    label:"Stats",        icon:"📊" },
             { id:"gastos",   label:"Gastos",       icon:"💸" },
             { id:"chat",     label:"Chat",         icon:"💬" },
+            { id:"links",    label:"Base de control", icon:"🔗" },
           ].map(n => (
             <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
               style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent", color:activeTab===n.id?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
@@ -1667,6 +1673,7 @@ ${ms.map(m=>{
                 :activeTab==="stats"    ? "📊 Stats"
                 :activeTab==="gastos"   ? "💸 Gastos Compartidos"
                 :activeTab==="chat"     ? "💬 Chat"
+                :activeTab==="links"    ? "🔗 Base de control"
                 : ""}
               </span>
           }
@@ -1821,7 +1828,7 @@ ${ms.map(m=>{
           {/* View mode + Sort bar */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, flexWrap:"wrap" }}>
             <div style={{ display:"flex", gap:4 }}>
-              {[["list","☰ Lista"],["timeline","⏱ Timeline"]].map(([v,l])=>(
+              {[["timeline","⏱ Timeline"],["list","☰ Lista detallada"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setWeekViewMode(v)} style={{ background:weekViewMode===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekViewMode===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekViewMode===v?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekViewMode===v?600:400 }}>{l}</button>
               ))}
             </div>
@@ -1888,11 +1895,6 @@ ${ms.map(m=>{
                   </div>
                 </div>
               </div>
-            </div>
-            {/* Export buttons */}
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => setIcsModal(true)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(52,211,153,0.3)", color:"#34d399", fontSize:12 }}>📅 Exportar a Calendar…</button>
-              <button onClick={() => downloadFilteredPDF(histFiltered, globalPersonFilter, p1, p2)} style={{ ...S.btnSecondary, flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5, padding:"9px 10px", borderColor:"rgba(167,139,250,0.3)", color:"#a78bfa", fontSize:12 }}>🖨️ PDF filtrado ({histFiltered.length} sem.)</button>
             </div>
             {/* Week cards */}
             {histFiltered.map(([key,w]) => {
@@ -1961,6 +1963,8 @@ ${ms.map(m=>{
         {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
+
+        {activeTab==="links" && <LinksView links={data.links||[]} onSave={links=>update(d=>({...d,links}))} />}
 
         {activeTab==="pending" && (()=>{
           // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
@@ -2662,6 +2666,8 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const [stWho,        setStWho]        = useState("all");
   const [stRange,      setStRange]      = useState("all");
   const [showPartInfo, setShowPartInfo] = useState(false);
+  const [exportModal,  setExportModal]  = useState(false);
+  const [exportSecs,   setExportSecs]   = useState({ progress:true, personas:true, categorias:true, insights:false });
 
   // ── Datos filtrados ──────────────────────────────────────────────────────
   const { week: _tw, year: _ty } = getWeekAndYear();
@@ -3028,56 +3034,111 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* E4: Detalle por semana */}
       <WeekDetailList allW={allW} onGoToWeek={onGoToWeek} />
 
-      {/* Export stats as PNG */}
-      <button onClick={()=>{
-        const W=600,H=420,DPR=2;
-        const cv=document.createElement("canvas"); cv.width=W*DPR; cv.height=H*DPR;
-        const cx=cv.getContext("2d"); cx.scale(DPR,DPR);
-        // Background
-        cx.fillStyle="#0a0714"; cx.fillRect(0,0,W,H);
-        const g1=cx.createRadialGradient(W,0,0,W,0,W*0.65); g1.addColorStop(0,"rgba(244,114,182,0.22)"); g1.addColorStop(1,"transparent"); cx.fillStyle=g1; cx.fillRect(0,0,W,H);
-        const g2=cx.createRadialGradient(0,H,0,0,H,W*0.6); g2.addColorStop(0,"rgba(167,139,250,0.28)"); g2.addColorStop(1,"transparent"); cx.fillStyle=g2; cx.fillRect(0,0,W,H);
-        // Header strip
-        cx.fillStyle="rgba(167,139,250,0.12)"; cx.fillRect(0,0,W,52);
-        cx.font="600 12px 'Plus Jakarta Sans',system-ui"; cx.fillStyle="#c4b8ff"; cx.fillText("📅 SHARED CALENDAR · STATS",20,33);
-        cx.font="12px system-ui"; cx.fillStyle="#6b5f88"; const fl=filterLabel; cx.fillText(fl,W-cx.measureText(fl).width-20,33);
-        // Big % + label
-        const pctClr=pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
-        cx.font="bold 80px 'Fraunces',Georgia,serif"; cx.fillStyle=pctClr; cx.fillText(`${pct}%`,20,148);
-        cx.font="600 16px system-ui"; cx.fillStyle="#f8f4ff"; cx.fillText(`${done} de ${total} actividades completadas`,20,174);
-        // Divider
-        cx.strokeStyle="rgba(167,139,250,0.2)"; cx.lineWidth=1; cx.beginPath(); cx.moveTo(20,190); cx.lineTo(W-20,190); cx.stroke();
-        // Person breakdown
-        [[p1,ph1,clr.person1],[p2,ph2,clr.person2]].forEach(([name,ph,color],i)=>{
-          const x=20+i*(W/2-20), pct2=ph.count>0?Math.round(ph.done/ph.count*100):0;
-          const bw=(W/2-50); const bh=6;
-          cx.font="600 13px system-ui"; cx.fillStyle=color; cx.fillText(name,x,214);
-          cx.fillStyle="rgba(255,255,255,0.08)"; cx.fillRect(x,222,bw,bh);
-          cx.fillStyle=color; cx.fillRect(x,222,bw*(pct2/100),bh);
-          cx.font="12px system-ui"; cx.fillStyle="#8b7fa8"; cx.fillText(`${ph.done}/${ph.count} · ${pct2}%`,x,242);
-        });
-        // Together
-        cx.font="12px system-ui"; cx.fillStyle=clr.together||"#34d399";
-        cx.fillText(`Juntos: ${phT.done}/${phT.count} · ${phT.count>0?Math.round(phT.done/phT.count*100):0}%`,20,264);
-        // Category grid
-        cx.strokeStyle="rgba(167,139,250,0.15)"; cx.beginPath(); cx.moveTo(20,278); cx.lineTo(W-20,278); cx.stroke();
-        cx.font="11px system-ui"; cx.fillStyle="#6b5f88"; cx.fillText("Por categoría:",20,298);
-        const cols=3, colW=(W-40)/cols;
-        catStats.slice(0,6).forEach((c,i)=>{
-          const x=20+(i%cols)*colW, y=318+Math.floor(i/cols)*26;
-          const cp=c.count>0?Math.round(c.done/c.count*100):0;
-          cx.font="12px system-ui"; cx.fillStyle=c.color; cx.fillText(`${c.icon} ${c.label}: ${cp}%`,x,y);
-        });
-        // Footer
-        cx.fillStyle="rgba(167,139,250,0.08)"; cx.fillRect(0,H-32,W,32);
-        cx.font="11px system-ui"; cx.fillStyle="#4a4166";
-        cx.fillText(`${p1} & ${p2} · Shared Calendar`,20,H-12);
-        const ds=new Date().toLocaleDateString("es-ES"); cx.fillText(ds,W-cx.measureText(ds).width-20,H-12);
-        // Save
-        cv.toBlob(b=>dlBlob(b,`stats-${p1}-${p2}-${new Date().toISOString().slice(0,10)}.png`),"image/png");
-      }} style={{...S.btnSecondary,width:"100%",textAlign:"center",padding:"11px",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4}}>
-        🖼 Exportar stats como imagen PNG
+      {/* Export stats as PNG — button */}
+      <button onClick={()=>setExportModal(true)} style={{...S.btnSecondary,width:"100%",textAlign:"center",padding:"11px",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:4}}>
+        🖼 Exportar stats como imagen…
       </button>
+
+      {/* Export modal */}
+      {exportModal && (
+        <>
+          <div onClick={()=>setExportModal(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:190}}/>
+          <div style={{position:"fixed",left:0,right:0,bottom:0,zIndex:200,background:"var(--t-card,#1d1733)",border:"1px solid var(--t-card-border,rgba(167,139,250,0.25))",borderRadius:"18px 18px 0 0",padding:"20px 20px calc(28px + env(safe-area-inset-bottom))"}}>
+            <div style={{width:32,height:3,background:"var(--t-card-border,#4a4166)",borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{fontSize:15,fontWeight:600,color:"var(--t-text,#f8f4ff)",marginBottom:4}}>🖼 Exportar imagen de stats</div>
+            <div style={{fontSize:12,color:"var(--t-text-muted,#8b7fa8)",marginBottom:14}}>Elige qué secciones incluir:</div>
+            {[["progress","📊 Progreso global (% completado)"],["personas","👥 Desglose por persona"],["categorias","🏷️ Top categorías"],["insights","💡 Análisis automático"]].map(([k,label])=>(
+              <label key={k} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid var(--t-card-border,rgba(255,255,255,0.05))",cursor:"pointer"}}>
+                <input type="checkbox" checked={!!exportSecs[k]} onChange={e=>setExportSecs(s=>({...s,[k]:e.target.checked}))}
+                  style={{width:16,height:16,accentColor:"var(--t-accent,#a78bfa)",cursor:"pointer"}}/>
+                <span style={{fontSize:13,color:"var(--t-text,#f0e8ff)"}}>{label}</span>
+              </label>
+            ))}
+            <div style={{display:"flex",gap:8,marginTop:16}}>
+              <button onClick={()=>setExportModal(false)} style={{...S.btnSecondary,flex:1,padding:"10px"}}>Cancelar</button>
+              <button onClick={()=>{
+                setExportModal(false);
+                const secs=exportSecs;
+                const cs=getComputedStyle(document.documentElement);
+                const bg=cs.getPropertyValue("--t-bg").trim()||"#0a0714";
+                const acc=cs.getPropertyValue("--t-accent").trim()||"#a78bfa";
+                const txtColor=cs.getPropertyValue("--t-text").trim()||"#f8f4ff";
+                const mutedColor=cs.getPropertyValue("--t-text-muted").trim()||"#8b7fa8";
+                const dimColor=cs.getPropertyValue("--t-text-dim").trim()||"#4a4166";
+                // Compute height dynamically
+                let H=80; // header
+                if(secs.progress) H+=130;
+                if(secs.personas) H+=90;
+                if(secs.categorias) H+=70+Math.ceil(catStats.slice(0,6).length/3)*28;
+                if(secs.insights) H+=20+insights.slice(0,3).length*52;
+                H+=48; // footer
+                const W=600, DPR=2;
+                const cv=document.createElement("canvas"); cv.width=W*DPR; cv.height=H*DPR;
+                const cx=cv.getContext("2d"); cx.scale(DPR,DPR);
+                // BG
+                cx.fillStyle=bg; cx.fillRect(0,0,W,H);
+                const g1=cx.createRadialGradient(W,0,0,W,0,W*0.65); g1.addColorStop(0,`${acc}33`); g1.addColorStop(1,"transparent"); cx.fillStyle=g1; cx.fillRect(0,0,W,H);
+                // Header
+                cx.fillStyle=`${acc}18`; cx.fillRect(0,0,W,56);
+                cx.font="600 12px system-ui"; cx.fillStyle=acc; cx.fillText("📅 SHARED CALENDAR · STATS",20,35);
+                cx.font="11px system-ui"; cx.fillStyle=dimColor; const fl=filterLabel; cx.fillText(fl,W-cx.measureText(fl).width-20,35);
+                let y=72;
+                const pctClr=pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
+                if(secs.progress){
+                  cx.font="bold 72px 'Fraunces',Georgia,serif"; cx.fillStyle=pctClr; cx.fillText(`${pct}%`,20,y+72);
+                  cx.font="600 15px system-ui"; cx.fillStyle=txtColor; cx.fillText(`${done} de ${total} actividades completadas`,20,y+100);
+                  // Mini bar
+                  cx.fillStyle="rgba(255,255,255,0.08)"; cx.fillRect(20,y+112,W-40,7);
+                  cx.fillStyle=pctClr; cx.fillRect(20,y+112,(W-40)*(pct/100),7);
+                  y+=130;
+                }
+                if(secs.personas){
+                  cx.strokeStyle=`${acc}30`; cx.lineWidth=1; cx.beginPath(); cx.moveTo(20,y); cx.lineTo(W-20,y); cx.stroke(); y+=16;
+                  cx.font="10px system-ui"; cx.fillStyle=mutedColor; cx.fillText("PERSONAS",20,y); y+=16;
+                  [[p1,ph1,clr.person1],[p2,ph2,clr.person2],["Juntos",phT,clr.together||"#34d399"]].forEach(([name,ph,color])=>{
+                    const p2=ph.count>0?Math.round(ph.done/ph.count*100):0; const bw=W-180;
+                    cx.font="600 12px system-ui"; cx.fillStyle=color; cx.fillText(name,20,y+12);
+                    cx.fillStyle="rgba(255,255,255,0.07)"; cx.fillRect(130,y+4,bw,6);
+                    cx.fillStyle=color; cx.fillRect(130,y+4,bw*(p2/100),6);
+                    cx.font="11px system-ui"; cx.fillStyle=mutedColor; cx.fillText(`${ph.done}/${ph.count} · ${p2}%`,W-95,y+12); y+=24;
+                  }); y+=10;
+                }
+                if(secs.categorias && catStats.length){
+                  cx.strokeStyle=`${acc}30`; cx.lineWidth=1; cx.beginPath(); cx.moveTo(20,y); cx.lineTo(W-20,y); cx.stroke(); y+=16;
+                  cx.font="10px system-ui"; cx.fillStyle=mutedColor; cx.fillText("CATEGORÍAS",20,y); y+=16;
+                  const cols=3, colW=(W-40)/cols;
+                  catStats.slice(0,6).forEach((c,i)=>{
+                    const x=20+(i%cols)*colW, cy=y+Math.floor(i/cols)*28;
+                    const cp=c.count>0?Math.round(c.done/c.count*100):0;
+                    cx.font="12px system-ui"; cx.fillStyle=c.color; cx.fillText(`${c.icon} ${c.label}: ${cp}%`,x,cy+12);
+                  });
+                  y+=Math.ceil(catStats.slice(0,6).length/3)*28+10;
+                }
+                if(secs.insights && insights.length){
+                  cx.strokeStyle=`${acc}30`; cx.lineWidth=1; cx.beginPath(); cx.moveTo(20,y); cx.lineTo(W-20,y); cx.stroke(); y+=16;
+                  cx.font="10px system-ui"; cx.fillStyle=mutedColor; cx.fillText("ANÁLISIS",20,y); y+=16;
+                  insights.slice(0,3).forEach(ins=>{
+                    cx.font="600 12px system-ui"; cx.fillStyle=txtColor; cx.fillText(`${ins.icon} ${ins.title}`,20,y+12);
+                    cx.font="11px system-ui"; cx.fillStyle=mutedColor;
+                    // word-wrap rough
+                    const words=ins.desc.split(" "); let line=""; let ly=y+28;
+                    words.forEach(w=>{
+                      const test=line+w+" "; if(cx.measureText(test).width>W-40&&line){cx.fillText(line,20,ly);line=w+" ";ly+=16;}else{line=test;}
+                    }); if(line) cx.fillText(line,20,ly);
+                    y+=52;
+                  });
+                }
+                // Footer
+                cx.fillStyle=`${acc}10`; cx.fillRect(0,H-36,W,36);
+                cx.font="11px system-ui"; cx.fillStyle=dimColor;
+                cx.fillText(`${p1} & ${p2} · Shared Calendar`,20,H-14);
+                const ds=new Date().toLocaleDateString("es-ES"); cx.fillText(ds,W-cx.measureText(ds).width-20,H-14);
+                cv.toBlob(b=>dlBlob(b,`stats-${p1}-${p2}-${new Date().toISOString().slice(0,10)}.png`),"image/png");
+              }} style={{...S.btnPrimary,flex:1,padding:"10px",textAlign:"center"}}>Exportar PNG</button>
+            </div>
+          </div>
+        </>
+      )}
 
     </div>
   );
