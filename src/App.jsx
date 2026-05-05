@@ -10,9 +10,10 @@ import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.1.1";
 const LAST_UPDATE = "2026-05-05";
 const CHANGELOG = [
+  { v:"3.1.1", date:"2026-05-05", notes:["PWA: nombre de la app corregido a 'Misiones Pareja' / 'Misiones' en pantalla de inicio, prompt de instalación y pestaña del navegador","Favicon actualizado a 💞","Versión 3.1.1"] },
   { v:"3.1.0", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links (se abren en móvil sin errores PWA) y cuentas con usuario/contraseña copiable","Inicio: próximos 3 eventos + 3 tareas atrasadas (incluye arrastradas), tira de días con clic para ver detalle","Stats: exportar imagen con selección de secciones y colores del tema activo; horas de trabajo muestran promedio/semana","Corrección de contrastes en temas claros (fondos neutros, texto siempre visible)","Cambio de tema instantáneo sin necesidad de reabrir el modal","6 nuevas tipografías: Raleway, Montserrat, Merriweather, Quicksand, Josefin Sans, DM Serif Display","Favicon actualizado a 📅, logo MP visible en temas claros, fix flash de color al arrancar","Histórico: eliminados botones duplicados de Calendar/PDF","Versión 3.1.0"] },
   { v:"3.0.3", date:"2026-05-05", notes:["[incluido en 3.1.0]"] },
   { v:"3.0.2", date:"2026-05-04", notes:["Inicio rediseñado: widgets en columnas apiladas para móvil, sección Hoy compacta (toca para cambiar estado)","Semana: Timeline como vista por defecto, toggle renombrado a 'Lista detallada'","Versión 3.0.2"] },
