@@ -2,8 +2,9 @@ import { DEFAULT_COLORS } from "../constants.js";
 
 export default function Brand({ size = 24, wordmark = false, colors }) {
   const c = colors || DEFAULT_COLORS;
-  const dotSize = size * 0.58;
+  const dotSize = Math.round(size * 0.6);
   const dotTop  = (size - dotSize) / 2;
+  const overlap = Math.round(dotSize * 0.32);
 
   return (
     <span style={{
@@ -14,11 +15,11 @@ export default function Brand({ size = 24, wordmark = false, colors }) {
       fontSize: size * 0.65,
       fontWeight: 600,
       letterSpacing: "-0.01em",
-      color: "#f8f4ff",
+      color: "var(--t-text,#f8f4ff)",
     }}>
       <span style={{
         position: "relative",
-        width: size,
+        width: dotSize * 2 - overlap,
         height: size,
         flexShrink: 0,
         display: "inline-block",
@@ -28,14 +29,16 @@ export default function Brand({ size = 24, wordmark = false, colors }) {
           width: dotSize, height: dotSize, borderRadius: 99,
           left: 0, top: dotTop,
           background: c.person1,
-          mixBlendMode: "screen",
+          opacity: 0.92,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
         }}/>
         <span style={{
           position: "absolute",
           width: dotSize, height: dotSize, borderRadius: 99,
-          right: 0, top: dotTop,
+          left: dotSize - overlap, top: dotTop,
           background: c.person2,
-          mixBlendMode: "screen",
+          opacity: 0.85,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
         }}/>
       </span>
       {wordmark && <span>Misiones</span>}
