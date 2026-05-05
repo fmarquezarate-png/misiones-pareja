@@ -941,6 +941,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [histWeekRange, setHistWeekRange] = useState("all");
   const [globalPersonFilter, setGlobalPersonFilter] = useState([]); // [] = todos
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
+  const [localThemeId, setLocalThemeId] = useState(null);
+  const [localFontId,  setLocalFontId]  = useState(null);
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
   const [showChangelog, setShowChangelog] = useState(false);
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
@@ -1206,11 +1208,6 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const p2 = data.settings?.person2 || "Persona 2";
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const _uprefs = getUserPrefs(sessionUserId);
-  // Local state ensures theme/font update instantly in same session without
-  // relying on a re-render from data changes (which may not happen if only
-  // theme changed and no other shared settings were modified)
-  const [localThemeId, setLocalThemeId] = useState(null);
-  const [localFontId,  setLocalFontId]  = useState(null);
   const themeId = localThemeId || _uprefs.themeId || data.settings?.themeId || "violet";
   const fontId  = localFontId  || _uprefs.fontId  || data.settings?.fontId  || "auto";
   const handleImport = async (e) => {
