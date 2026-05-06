@@ -65,8 +65,38 @@ function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleSta
   );
 }
 
+function PersonRing({ name, photo, pct, clrAccent }) {
+  const r = 26, circ = 2 * Math.PI * r;
+  const ringColor = pct >= 80 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#f87171";
+  const initial   = (name || "?").charAt(0).toUpperCase();
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+      <div style={{ position:"relative", width:68, height:68 }}>
+        <svg width={68} height={68} viewBox="0 0 68 68" style={{ position:"absolute", inset:0 }}>
+          <circle cx="34" cy="34" r={r} fill="none" stroke="rgba(128,128,128,0.12)" strokeWidth="5"/>
+          <circle cx="34" cy="34" r={r} fill="none" stroke={ringColor} strokeWidth="5"
+            strokeDasharray={`${pct * circ / 100} ${circ}`} strokeLinecap="round"
+            transform="rotate(-90 34 34)" style={{ transition:"stroke-dasharray .6s ease" }}/>
+        </svg>
+        <div style={{
+          position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+          width:48, height:48, borderRadius:99, overflow:"hidden",
+          background: photo ? "transparent" : `linear-gradient(135deg,${clrAccent}cc,${clrAccent}66)`,
+          border:"2px solid rgba(128,128,128,0.18)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:22, color:"#fff", fontWeight:700, userSelect:"none",
+        }}>
+          {photo ? <img src={photo} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt={name} /> : initial}
+        </div>
+      </div>
+      <div style={{ fontSize:12, fontWeight:600, color:"var(--t-text,#f8f4ff)" }}>{name}</div>
+      <div style={{ fontSize:10, fontWeight:700, color:ringColor }}>{pct}%</div>
+    </div>
+  );
+}
+
 export default function HomeDashboard({
-  week, missions, goals = [], colors, p1, p2, photo,
+  week, missions, goals = [], colors, p1, p2, photo, p1Photo, p2Photo,
   onMissionPatch, onCycleStatus, onDeleteMission,
   onOpenWrapped, hasWrappedAvailable,
   weeksData,
@@ -79,6 +109,12 @@ export default function HomeDashboard({
   const total = missions.length;
   const done  = missions.filter(m => m.status === "DONE").length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
+
+  // Per-person progress (together missions count for both)
+  const p1Ms  = missions.filter(m => m.who === "person1" || m.who === "together");
+  const p2Ms  = missions.filter(m => m.who === "person2" || m.who === "together");
+  const p1Pct = p1Ms.length  ? Math.round(p1Ms.filter(m => m.status === "DONE").length  / p1Ms.length  * 100) : 0;
+  const p2Pct = p2Ms.length  ? Math.round(p2Ms.filter(m => m.status === "DONE").length  / p2Ms.length  * 100) : 0;
 
   const todayMs = missions.filter(m => m.date === todayStr);
   const asapMs  = missions.filter(m => m.status === "ASAP");
@@ -240,6 +276,12 @@ export default function HomeDashboard({
             {asapMs[0]?.title || "Sin urgentes"}
           </div>
         </div>
+      </div>
+
+      {/* Person progress rings */}
+      <div style={{ display:"flex", justifyContent:"center", gap:32, padding:"4px 0 2px" }}>
+        <PersonRing name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1} />
+        <PersonRing name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2} />
       </div>
 
       {/* Hoy — compact tap-to-cycle list */}
