@@ -7,6 +7,7 @@ import { CAT_MAP } from "./constants.js";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const T = {
+  // Colors
   pink:    "#f472b6",
   purple:  "#a78bfa",
   green:   "#34d399",
@@ -24,7 +25,25 @@ export const T = {
   faint:   "#4a4166",
   ghost:   "#3d3360",
   hairline:"rgba(167,139,250,0.18)",
+  // Typography scale
   fontDisplay: "'Fraunces', Georgia, serif",
+  fontXs:  "9px",
+  fontSm:  "11px",
+  fontMd:  "13px",
+  fontLg:  "15px",
+  fontXl:  "18px",
+  font2xl: "22px",
+  font3xl: "28px",
+  // Font weights
+  regular:  400,
+  medium:   500,
+  semibold: 600,
+  bold:     700,
+  // Border radii
+  radiusSm: 8,
+  radiusMd: 12,
+  radiusLg: 18,
+  radiusFull: 99,
 };
 
 export const whoHex = (who, colors) => {

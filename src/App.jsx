@@ -8,6 +8,8 @@ import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
+import { useConfirm } from "./components/ConfirmModal.jsx";
+import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 
@@ -19,6 +21,7 @@ const TUTORIAL_STEPS = [
   { emoji:"🎯", tab:"current",  tabIcon:"🎯", tabLabel:"Semana",          title:"Semana actual",         desc:"Añade tareas y eventos, cambia estados tocándolos, arrástralos a la próxima semana o márcalos ✓ DONE. Es el corazón de la app." },
   { emoji:"📋", tab:"pending",  tabIcon:"📋", tabLabel:"Pendientes",      title:"Todo pendiente",        desc:"Lista unificada de todo lo no completado en cualquier semana. Las tareas arrastradas muestran cuántas semanas llevan pendientes." },
   { emoji:"📅", tab:"calendar", tabIcon:"📅", tabLabel:"Calendario",      title:"Calendario mensual",    desc:"Vista de cuadrícula del mes. Los eventos multi-día se extienden por todos sus días. Toca un día para ver el detalle y editar inline." },
+  { emoji:"🗂️", tab:"history",  tabIcon:"🗂️", tabLabel:"Histórico",       title:"Histórico de semanas",  desc:"Navega por cualquier semana pasada: mira sus misiones, el objetivo épico y las fotos guardadas. Útil para recordar qué hicisteis y cuánto avanzasteis." },
   { emoji:"🏅", tab:"goals",    tabIcon:"🏅", tabLabel:"Metas",           title:"Metas y objetivos",     desc:"Define metas con período (semanal/mensual/anual), tipo mínimo o máximo y fecha límite. Vincula actividades y el progreso se calcula solo." },
   { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",           title:"Estadísticas",          desc:"Gráficos semanales, análisis de sincronía, equidad en tareas de casa, hábito ancla y mucho más. Exporta la vista como imagen PNG." },
   { emoji:"💸", tab:"gastos",   tabIcon:"💸", tabLabel:"Gastos",          title:"Gastos compartidos",    desc:"Registra gastos, divide el costo con un slider (0-100%), organiza por proyectos (viaje, finde…) y lleva el balance: quién debe cuánto a quién." },
@@ -716,6 +719,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [filtersOpen,   setFiltersOpen]   = useState(false);
   const [weekViewMode,  setWeekViewMode]  = useState("timeline"); // "list" | "timeline"
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -941,11 +945,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const swipeWeek = useSwipe(() => changeWeek(1), () => changeWeek(-1));
 
   if (loading) return (
-    <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:48, marginBottom:12 }}>💞</div>
-        <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:14 }}>Cargando misiones...</div>
+    <div style={{ background:"var(--t-bg,#0a0714)", minHeight:"100vh", fontFamily:"system-ui", padding:"16px 16px calc(24px + env(safe-area-inset-bottom))", maxWidth:640, margin:"0 auto" }}>
+      <style>{`@keyframes sk-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+      <div style={{ height:52, marginBottom:12, display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ width:32, height:32, borderRadius:99, background:"linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 50%,rgba(255,255,255,0.04) 75%)", backgroundSize:"200% 100%", animation:"sk-pulse 1.6s ease-in-out infinite" }} />
+        <div style={{ flex:1, height:14, borderRadius:8, background:"linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 50%,rgba(255,255,255,0.04) 75%)", backgroundSize:"200% 100%", animation:"sk-pulse 1.6s ease-in-out infinite" }} />
       </div>
+      <SkeletonDashboard />
     </div>
   );
 
@@ -1284,6 +1290,13 @@ ${ms.map(m=>{
     <div style={{ minHeight:"100vh", overflowX:"hidden", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
       <ThemeInjector themeId={themeId} fontId={fontId} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+      <style>{`
+        *:focus { outline: none; }
+        *:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; border-radius: 4px; }
+        .sc-nav-btn:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: -2px; border-radius: 10px; }
+        button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; }
+        @keyframes mc-pop { 0%{transform:scale(1)} 50%{transform:scale(1.28)} 100%{transform:scale(1)} }
+      `}</style>
 
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
@@ -1378,24 +1391,26 @@ ${ms.map(m=>{
           </div>
         </div>
         {/* Nav items */}
-        <nav style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
+        <nav aria-label="Navegación principal" style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
           {[
-            { id:"home",     label:"Inicio",      icon:"🏠" },
-            { id:"current",  label:"Semana",       icon:"🎯" },
-            { id:"pending",  label:"Pendientes",   icon:"📋" },
-            { id:"calendar", label:"Calendario",   icon:"📅" },
-            { id:"history",  label:"Histórico",    icon:"🗂️" },
-            { id:"goals",    label:"Metas",        icon:"🏅" },
-            { id:"stats",    label:"Stats",        icon:"📊" },
-            { id:"gastos",   label:"Gastos",       icon:"💸" },
-            { id:"chat",     label:"Chat",         icon:"💬" },
+            { id:"home",     label:"Inicio",         icon:"🏠" },
+            { id:"current",  label:"Semana",          icon:"🎯" },
+            { id:"pending",  label:"Pendientes",      icon:"📋" },
+            { id:"calendar", label:"Calendario",      icon:"📅" },
+            { id:"history",  label:"Histórico",       icon:"🗂️" },
+            { id:"goals",    label:"Metas",           icon:"🏅" },
+            { id:"stats",    label:"Stats",           icon:"📊" },
+            { id:"gastos",   label:"Gastos",          icon:"💸" },
+            { id:"chat",     label:"Chat",            icon:"💬" },
             { id:"links",    label:"Base de control", icon:"🔗" },
           ].map(n => (
             <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
+              aria-label={n.label} aria-current={activeTab===n.id ? "page" : undefined}
+              className="sc-nav-btn"
               style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent", color:activeTab===n.id?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
-              <span style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
+              <span aria-hidden="true" style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
               <span style={{ flex:1 }}>{n.label}</span>
-              {activeTab===n.id && <span style={{ width:5, height:5, borderRadius:99, background:"var(--t-accent,#a78bfa)", flexShrink:0 }} />}
+              {activeTab===n.id && <span aria-hidden="true" style={{ width:5, height:5, borderRadius:99, background:"var(--t-accent,#a78bfa)", flexShrink:0 }} />}
             </button>
           ))}
         </nav>
@@ -3274,15 +3289,15 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
               <button onClick={()=>{
                 const fromWkey = isoWeekKey(editingMission.wn, editingMission.yr);
                 const { seriesId, title, emoji, who, categories, category, duration, type, reminder, seriesEndDate } = editingMission.mission;
-                if (window.confirm(`¿Aplicar estos cambios a TODAS las instancias futuras de "${title}"?`)) {
+                confirm(`¿Aplicar estos cambios a TODAS las instancias futuras de "${title}"?`, () => {
                   onPatchAllFutureSeries(seriesId, fromWkey, { title, emoji, who, categories, category, duration, type, reminder, seriesEndDate });
                   closeEdit();
-                }
+                }, { danger: false });
               }} style={{...S.btnSecondary, fontSize:11, padding:"5px 12px"}}>📋 Aplicar a todas las futuras</button>
             </div>
           )}
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:14}}>
-            <button onClick={()=>{if(window.confirm("¿Eliminar esta actividad?"))onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();}} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
+            <button onClick={()=>confirm("¿Eliminar esta actividad?", ()=>{onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();})} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
             <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
           </div>
         </div>
@@ -3628,7 +3643,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
               </button>
               <div style={{ display:"flex", gap:4 }}>
                 <button onClick={()=>openEditProject(p)} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", cursor:"pointer", fontSize:13, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#c4b8ff"} onMouseLeave={e=>e.currentTarget.style.color="#6b5f88"}>✎</button>
-                <button onClick={()=>{if(window.confirm(`¿Eliminar proyecto "${p.name}"?`)) delProject(projectId);}} style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:17, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
+                <button onClick={()=>confirm(`¿Eliminar proyecto "${p.name}"?`, ()=>delProject(projectId))} style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:17, padding:"2px 5px" }} onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
               </div>
             </div>
           </div>
@@ -3959,6 +3974,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

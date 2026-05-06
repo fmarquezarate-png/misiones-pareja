@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { S } from "../styles.js";
+import { useConfirm } from "./ConfirmModal.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -171,6 +172,7 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
 export default function LinksView({ links = [], onSave }) {
   const [form,     setForm]     = useState(null);
   const [credsFor, setCredsFor] = useState(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const save = (link) => {
     const next = links.find(l=>l.id===link.id)
@@ -180,7 +182,7 @@ export default function LinksView({ links = [], onSave }) {
     setForm(null);
   };
   const del = (id) => {
-    if (window.confirm("¿Eliminar este enlace?")) { onSave(links.filter(l=>l.id!==id)); setCredsFor(null); }
+    confirm("¿Eliminar este enlace?", () => { onSave(links.filter(l=>l.id!==id)); setCredsFor(null); });
   };
 
   const grouped = {
@@ -239,7 +241,7 @@ export default function LinksView({ links = [], onSave }) {
           </div>
         </div>
       )}
-
+      <ConfirmDialog />
     </div>
   );
 }
