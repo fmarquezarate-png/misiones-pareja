@@ -202,7 +202,7 @@ export default function HomeDashboard({
             <div style={{fontSize:11, color:T.green, fontStyle:"italic"}}>¡Al día! 🎉</div>
           ) : overdue3.map(m => (
             <div key={m.id} style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-              <div style={{fontSize:11.5, fontWeight:600, color:"#f87171", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+              <div style={{fontSize:11.5, fontWeight:600, color:"var(--t-error,#f87171)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                 {m.emoji||"🎯"} {m.title}
               </div>
               <div style={{fontSize:9.5, color:"var(--t-text-dim,#6b5f88)", marginTop:1}}>{m.date}</div>

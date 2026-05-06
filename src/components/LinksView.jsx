@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { S } from "../styles.js";
+import { useConfirm } from "./ConfirmModal.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -7,15 +8,16 @@ const EYEBROW = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:
 const CARD = { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderRadius:12, overflow:"hidden" };
 const ROW_BG = { background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.14)" };
 
-function LinkForm({ initial = {}, onSave, onCancel }) {
-  const [name,  setName]  = useState(initial.name  || "");
-  const [emoji, setEmoji] = useState(initial.emoji || "🔗");
-  const [url,   setUrl]   = useState(initial.url   || "");
-  const [user,  setUser]  = useState(initial.user  || "");
-  const [pass,  setPass]  = useState(initial.pass  || "");
+function LinkForm({ initial = {}, allFolders = [], onSave, onCancel }) {
+  const [name,   setName]   = useState(initial.name   || "");
+  const [emoji,  setEmoji]  = useState(initial.emoji  || "🔗");
+  const [url,    setUrl]    = useState(initial.url    || "");
+  const [user,   setUser]   = useState(initial.user   || "");
+  const [pass,   setPass]   = useState(initial.pass   || "");
+  const [folder, setFolder] = useState(initial.folder || "");
   const [showPass, setShowPass] = useState(false);
   const [showCreds, setShowCreds] = useState(!!(initial.user || initial.pass));
-  const [tab,   setTab]   = useState(initial.type === "account" ? "account" : "link");
+  const [tab,    setTab]    = useState(initial.type === "account" ? "account" : "link");
 
   const valid = name.trim() && (tab === "link" ? url.trim() : (user.trim() || pass.trim()));
 
@@ -45,6 +47,17 @@ function LinkForm({ initial = {}, onSave, onCancel }) {
         <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://…"
           type="url" style={S.input}/>
       )}
+
+      {/* Folder */}
+      <div style={{ position:"relative" }}>
+        <input value={folder} onChange={e=>setFolder(e.target.value)} placeholder="📁 Carpeta (opcional)"
+          list="lv-folders" autoComplete="off" style={{ ...S.input, paddingLeft:10 }}/>
+        {allFolders.length > 0 && (
+          <datalist id="lv-folders">
+            {allFolders.map(f => <option key={f} value={f} />)}
+          </datalist>
+        )}
+      </div>
 
       {/* Credentials */}
       {tab === "account" ? (
@@ -82,7 +95,7 @@ function LinkForm({ initial = {}, onSave, onCancel }) {
 
       <div style={{ display:"flex", gap:8, marginTop:4 }}>
         <button onClick={onCancel} style={{ ...S.btnSecondary, flex:1, padding:"10px" }}>Cancelar</button>
-        <button onClick={() => valid && onSave({ id:initial.id||uid(), name:name.trim(), emoji, url:url.trim(), user:user.trim(), pass, type:tab })}
+        <button onClick={() => valid && onSave({ id:initial.id||uid(), name:name.trim(), emoji, url:url.trim(), user:user.trim(), pass, type:tab, folder:folder.trim() })}
           disabled={!valid}
           style={{ ...S.btnPrimary, flex:1, padding:"10px", opacity:valid?1:0.45, textAlign:"center" }}>Guardar</button>
       </div>
@@ -119,6 +132,11 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
           )}
           {!link.url && link.type==="account" && (
             <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", marginTop:1 }}>Cuenta guardada</div>
+          )}
+          {link.folder && (
+            <div style={{ fontSize:9, color:"var(--t-accent,#a78bfa)", marginTop:2, display:"inline-flex", alignItems:"center", gap:3 }}>
+              <span>📁</span>{link.folder}
+            </div>
           )}
         </div>
         <div style={{ display:"flex", gap:6, flexShrink:0 }}>
@@ -159,7 +177,7 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
               </button>
             </div>
           )}
-          <button onClick={onDelete} style={{ alignSelf:"flex-start", background:"none", border:"none", fontSize:11, color:"#f87171", cursor:"pointer", padding:"2px 0", fontFamily:"inherit", marginTop:2 }}>
+          <button onClick={onDelete} style={{ alignSelf:"flex-start", background:"none", border:"none", fontSize:11, color:"var(--t-error,#f87171)", cursor:"pointer", padding:"2px 0", fontFamily:"inherit", marginTop:2 }}>
             🗑 Eliminar
           </button>
         </div>
@@ -171,6 +189,7 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
 export default function LinksView({ links = [], onSave }) {
   const [form,     setForm]     = useState(null);
   const [credsFor, setCredsFor] = useState(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const save = (link) => {
     const next = links.find(l=>l.id===link.id)
@@ -180,12 +199,30 @@ export default function LinksView({ links = [], onSave }) {
     setForm(null);
   };
   const del = (id) => {
-    if (window.confirm("¿Eliminar este enlace?")) { onSave(links.filter(l=>l.id!==id)); setCredsFor(null); }
+    confirm("¿Eliminar este enlace?", () => { onSave(links.filter(l=>l.id!==id)); setCredsFor(null); });
   };
 
   const grouped = {
     link: links.filter(l => l.type !== "account"),
     account: links.filter(l => l.type === "account"),
+  };
+
+  // Collect all distinct folder names for datalist suggestions
+  const allFolders = [...new Set(links.map(l => l.folder).filter(Boolean))];
+
+  // Group an array of links by folder; unfoldered items go under key ""
+  const byFolder = (arr) => {
+    const map = {};
+    arr.forEach(l => {
+      const k = l.folder || "";
+      if (!map[k]) map[k] = [];
+      map[k].push(l);
+    });
+    // Sort: folders first (alphabetical), then unfoldered
+    return Object.entries(map).sort(([a],[b]) => {
+      if (!a) return 1; if (!b) return -1;
+      return a.localeCompare(b);
+    });
   };
 
   return (
@@ -204,7 +241,7 @@ export default function LinksView({ links = [], onSave }) {
           <div style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#f8f4ff)", marginBottom:12 }}>
             {form.id ? "Editar enlace" : "Nuevo enlace"}
           </div>
-          <LinkForm initial={form} onSave={save} onCancel={() => setForm(null)} />
+          <LinkForm initial={form} allFolders={allFolders} onSave={save} onCancel={() => setForm(null)} />
         </div>
       )}
 
@@ -219,27 +256,45 @@ export default function LinksView({ links = [], onSave }) {
       {grouped.link.length > 0 && (
         <div>
           <span style={EYEBROW}>🔗 Links</span>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {grouped.link.map(l => (
-              <LinkCard key={l.id} link={l} onEdit={()=>setForm(l)} onDelete={()=>del(l.id)}
-                showCreds={credsFor===l.id} onToggleCreds={()=>setCredsFor(v=>v===l.id?null:l.id)} />
-            ))}
-          </div>
+          {byFolder(grouped.link).map(([folder, items]) => (
+            <div key={folder||"__none"} style={{ marginBottom: folder ? 10 : 0 }}>
+              {folder && (
+                <div style={{ fontSize:10, fontWeight:600, color:"var(--t-accent,#a78bfa)", letterSpacing:1, textTransform:"uppercase", marginBottom:5, display:"flex", alignItems:"center", gap:4 }}>
+                  <span>📁</span>{folder}
+                </div>
+              )}
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {items.map(l => (
+                  <LinkCard key={l.id} link={l} onEdit={()=>setForm(l)} onDelete={()=>del(l.id)}
+                    showCreds={credsFor===l.id} onToggleCreds={()=>setCredsFor(v=>v===l.id?null:l.id)} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {grouped.account.length > 0 && (
         <div>
           <span style={EYEBROW}>👤 Cuentas</span>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {grouped.account.map(l => (
-              <LinkCard key={l.id} link={l} onEdit={()=>setForm(l)} onDelete={()=>del(l.id)}
-                showCreds={credsFor===l.id} onToggleCreds={()=>setCredsFor(v=>v===l.id?null:l.id)} />
-            ))}
-          </div>
+          {byFolder(grouped.account).map(([folder, items]) => (
+            <div key={folder||"__none"} style={{ marginBottom: folder ? 10 : 0 }}>
+              {folder && (
+                <div style={{ fontSize:10, fontWeight:600, color:"var(--t-accent,#a78bfa)", letterSpacing:1, textTransform:"uppercase", marginBottom:5, display:"flex", alignItems:"center", gap:4 }}>
+                  <span>📁</span>{folder}
+                </div>
+              )}
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {items.map(l => (
+                  <LinkCard key={l.id} link={l} onEdit={()=>setForm(l)} onDelete={()=>del(l.id)}
+                    showCreds={credsFor===l.id} onToggleCreds={()=>setCredsFor(v=>v===l.id?null:l.id)} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
-
+      <ConfirmDialog />
     </div>
   );
 }
