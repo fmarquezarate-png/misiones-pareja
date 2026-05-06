@@ -26,7 +26,7 @@ const TUTORIAL_STEPS = [
   { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",           title:"Estadísticas",          desc:"Gráficos semanales, análisis de sincronía, equidad en tareas de casa, hábito ancla y mucho más. Exporta la vista como imagen PNG." },
   { emoji:"💸", tab:"gastos",   tabIcon:"💸", tabLabel:"Gastos",          title:"Gastos compartidos",    desc:"Registra gastos, divide el costo con un slider (0-100%), organiza por proyectos (viaje, finde…) y lleva el balance: quién debe cuánto a quién." },
   { emoji:"💬", tab:"chat",     tabIcon:"💬", tabLabel:"Chat",            title:"Chat en tiempo real",   desc:"Mensajitos con tu pareja directamente en la app. Perfectos para coordinarse al vuelo sin salir del calendario." },
-  { emoji:"🔗", tab:"links",    tabIcon:"🔗", tabLabel:"Base de control", title:"Links y cuentas",       desc:"Guarda enlaces de uso frecuente y cuentas (usuario + contraseña). Los links se abren sin salir de la PWA. Tus datos quedan solo en tu cuenta." },
+  { emoji:"🔗", tab:"links",    tabIcon:"🔗", tabLabel:"Links de Interés", title:"Links de Interés",     desc:"Guarda enlaces de uso frecuente y cuentas (usuario + contraseña). Los links se abren sin salir de la PWA. Tus datos quedan solo en tu cuenta." },
   { emoji:"🔍", tab:null,       title:"Filtros globales", desc:"El botón de filtros en la barra superior permite filtrar por persona y por categoría. Se aplican en Semana, Pendientes y Calendario al mismo tiempo." },
   { emoji:"⋯",  tab:null,       title:"Menú de acciones (⋯)", desc:"El botón ⋯ en la barra superior da acceso a: exportar al calendario (.ics / Google Calendar), imprimir PDF de la semana y actualizar la app a la última versión." },
   { emoji:"⚙️", tab:null,       title:"Mi perfil y personalización", desc:"En ⚙️ → Mi perfil cambias nombres, colores de pareja, foto, tema visual (14 temas) y tipografía. El tema y la fuente son individuales: no afectan a tu pareja." },
@@ -436,7 +436,7 @@ function ThemeInjector({ themeId, fontId }) {
     r.setProperty("--t-text-muted",  t.textMuted || "#8b7fa8");
     r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
     r.setProperty("--t-error",       t.error     || "#f87171");
-    r.setProperty("--t-input-bg",    t.dark === false ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.06)");
+    r.setProperty("--t-input-bg",    t.dark === false ? "rgba(0,0,0,0.05)" : "rgba(128,128,128,0.10)");
     document.documentElement.style.background = t.bg;
     try { localStorage.setItem("mp-quick-bg", t.bg); } catch {}
   }, [themeId, fontId]);
@@ -549,7 +549,7 @@ function OnboardingScreen({ session, onDone }) {
     onDone({ couple_id: res.couple_id, person_name: name.trim() });
   };
 
-  const inputStyle = { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:10, padding:"12px 14px", color:"#f8f4ff", fontSize:15, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box", letterSpacing:0.3 };
+  const inputStyle = { background:"rgba(128,128,128,0.10)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:10, padding:"12px 14px", color:"#f8f4ff", fontSize:15, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box", letterSpacing:0.3 };
   const btnStyle = { background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:10, color:"#fff", padding:"13px", cursor:"pointer", fontSize:15, fontWeight:600, fontFamily:"inherit", width:"100%", opacity:loading?0.6:1 };
   const backBtn = { background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", cursor:"pointer", fontSize:13, fontFamily:"inherit", marginBottom:20, padding:0 };
 
@@ -713,6 +713,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const notifSettingsRef = useRef(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
+  const [pendingTab, setPendingTab] = useState("pending"); // "pending" | "logros"
   const [icsModal, setIcsModal] = useState(false);
   const [icsFrom,  setIcsFrom]  = useState("");
   const [icsTo,    setIcsTo]    = useState("");
@@ -1410,7 +1411,7 @@ ${ms.map(m=>{
             { id:"stats",    label:"Stats",           icon:"📊" },
             { id:"gastos",   label:"Gastos",          icon:"💸" },
             { id:"chat",     label:"Chat",            icon:"💬" },
-            { id:"links",    label:"Base de control", icon:"🔗" },
+            { id:"links",    label:"Links de Interés", icon:"🔗" },
           ].map(n => (
             <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
               aria-label={n.label} aria-current={activeTab===n.id ? "page" : undefined}
@@ -1460,7 +1461,7 @@ ${ms.map(m=>{
                 :activeTab==="stats"    ? "📊 Stats"
                 :activeTab==="gastos"   ? "💸 Gastos Compartidos"
                 :activeTab==="chat"     ? "💬 Chat"
-                :activeTab==="links"    ? "🔗 Base de control"
+                :activeTab==="links"    ? "🔗 Links de Interés"
                 : ""}
               </span>
           }
@@ -1484,7 +1485,7 @@ ${ms.map(m=>{
         {/* Settings dropdown trigger */}
         <div style={{ position:"relative", flexShrink:0 }}>
           <button onClick={()=>setSettingsMenuOpen(v=>!v)} aria-label="Ajustes"
-            style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
+            style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
           {settingsMenuOpen && <>
             <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
             <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
@@ -1588,7 +1589,7 @@ ${ms.map(m=>{
               <button onClick={goToToday} style={{ background:"rgba(244,114,182,0.1)", border:"1px solid rgba(244,114,182,0.25)", borderRadius:99, color:"#f472b6", fontSize:11, fontWeight:600, padding:"4px 14px", cursor:"pointer", fontFamily:"inherit", marginBottom:6 }}>📍 Volver a hoy</button>
             )}
             {total>0 && <>
-              <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden", margin:"8px 24px 0" }}>
+              <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden", margin:"8px 24px 0" }}>
                 <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
               </div>
               <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:5 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
@@ -1624,13 +1625,13 @@ ${ms.map(m=>{
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, flexWrap:"wrap" }}>
             <div style={{ display:"flex", gap:4 }}>
               {[["timeline","⏱ Timeline"],["list","☰ Lista detallada"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setWeekViewMode(v)} style={{ background:weekViewMode===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekViewMode===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekViewMode===v?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekViewMode===v?600:400 }}>{l}</button>
+                <button key={v} onClick={()=>setWeekViewMode(v)} style={{ background:weekViewMode===v?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${weekViewMode===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekViewMode===v?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekViewMode===v?600:400 }}>{l}</button>
               ))}
             </div>
             {weekViewMode==="list" && <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
               <span style={{ fontSize:9, color:"var(--t-text-dim,#3d3360)", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
               {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
+                <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
               ))}
             </div>}
           </div>
@@ -1709,7 +1710,7 @@ ${ms.map(m=>{
                   </div>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }} onClick={e=>e.stopPropagation()}>
                     <div style={{ flex:1 }}>
-                      <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                      <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden" }}>
                         <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
                       </div>
                       <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
@@ -1721,12 +1722,12 @@ ${ms.map(m=>{
                             style={{ position:"absolute", top:-5, right:-5, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                         </div>
                       : <div style={{ flexShrink:0, display:"flex", gap:4 }}>
-                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Tomar foto">
+                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Tomar foto">
                             📷
                             <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
                               onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
                           </label>
-                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.03)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Elegir de galería">
+                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Elegir de galería">
                             🖼️
                             <input type="file" accept="image/*" style={{ display:"none" }}
                               onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
@@ -1762,14 +1763,13 @@ ${ms.map(m=>{
         {activeTab==="links" && <LinksView links={data.links||[]} onSave={links=>update(d=>({...d,links}))} />}
 
         {activeTab==="pending" && (()=>{
-          // Build set of mission IDs that have been carried forward (superseded by a copy in a later week)
+          // ── Pendientes ──────────────────────────────────────────────────────
           const carriedFromIds=new Set(Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.carriedFrom).map(m=>m.carriedFrom)));
           const pendingRaw=Object.entries(data.weeks)
             .sort((a,b)=>a[0].localeCompare(b[0]))
             .flatMap(([key,w])=>(w.missions||[])
               .filter(m=>m.status!=="DONE" && m.type!=="event" && !carriedFromIds.has(m.id))
               .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
-          // Recurring dedup: for missions with seriesId, keep only the latest week's instance
           const latestBySeries={};
           for(const m of pendingRaw){if(m.seriesId&&(!latestBySeries[m.seriesId]||m._wkey>latestBySeries[m.seriesId]._wkey))latestBySeries[m.seriesId]=m;}
           const pendingAll=pendingRaw.filter(m=>!m.seriesId||latestBySeries[m.seriesId]===m);
@@ -1777,42 +1777,98 @@ ${ms.map(m=>{
             (!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&
             (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
           );
-          return <div>
-            {pendingFiltered.length===0
-              ?<div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
-                <div style={{fontSize:36,marginBottom:12}}>🎉</div>
-                <div>¡Sin pendientes! Todo al día.</div>
+          // ── Logros ──────────────────────────────────────────────────────────
+          const logrosAll=Object.entries(data.weeks)
+            .sort((a,b)=>b[0].localeCompare(a[0]))
+            .flatMap(([key,w])=>(w.missions||[])
+              .filter(m=>m.status==="DONE" && m.type!=="event")
+              .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
+          const logrosFiltered=logrosAll.filter(m=>
+            (!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&
+            (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
+          );
+          const subTabStyle=(active)=>({
+            flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit",
+            fontSize:12, fontWeight:600,
+            background: active ? "var(--t-accent-soft,rgba(167,139,250,0.14))" : "rgba(128,128,128,0.06)",
+            color: active ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
+            transition:"all .15s",
+          });
+          return <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {/* Toolbar: sub-tabs + refresh */}
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <div style={{display:"flex",flex:1,gap:4,background:"rgba(128,128,128,0.06)",borderRadius:10,padding:3}}>
+                <button onClick={()=>setPendingTab("pending")} style={subTabStyle(pendingTab==="pending")}>📋 Pendientes <span style={{fontSize:10,opacity:0.7}}>({pendingFiltered.length})</span></button>
+                <button onClick={()=>setPendingTab("logros")}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosFiltered.length})</span></button>
               </div>
-              :<div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {pendingFiltered.map(m=>{
-                  const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
-                  const isCarriedM=!!m.carriedFrom;
-                  // Count how many weeks this has been dragging (walk the carry chain)
-                  const delayWeeks=(()=>{if(!isCarriedM)return 0;let n=0,oid=m.carriedFrom,owk=m.carriedFromWeek;while(oid&&owk&&n<20){n++;const ow=data.weeks[owk];if(!ow)break;const om=(ow.missions||[]).find(x=>x.id===oid);if(!om?.carriedFrom)break;oid=om.carriedFrom;owk=om.carriedFromWeek;}return n;})();
-                  return <div key={m.id+m._wkey} style={{...S.card,padding:"10px 14px"}}>
-                    {isCarriedM&&<div style={{fontSize:10,color:delayWeeks>=3?"#f87171":"#fb923c",letterSpacing:0.5,marginBottom:5,display:"flex",alignItems:"center",gap:4}}>
-                      {delayWeeks>=3?"⚠️":"🔁"} {delayWeeks>=3?`Arrastrada ${delayWeeks} semanas`:"Arrastrada"}
-                    </div>}
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <span style={{fontSize:22,flexShrink:0}}>{m.emoji}</span>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,color:"#e2d9ff",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
-                        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
-                          <span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>S{m.weekNumber} {m._yr}</span>
-                          {m.date&&<span style={{fontSize:10,color:"var(--t-accent,#a78bfa)"}}>📆 {m.date}</span>}
-                          {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon} {c.label}</span>:null;})}
-                          <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+              <button onClick={()=>forceSync()} title="Refrescar datos"
+                style={{...S.btnSecondary, padding:"7px 12px", fontSize:12, display:"flex", alignItems:"center", gap:5, flexShrink:0}}>
+                🔄 Refrescar
+              </button>
+            </div>
+            {/* Pendientes list */}
+            {pendingTab==="pending" && (
+              pendingFiltered.length===0
+                ?<div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
+                  <div style={{fontSize:36,marginBottom:12}}>🎉</div>
+                  <div>¡Sin pendientes! Todo al día.</div>
+                </div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {pendingFiltered.map(m=>{
+                    const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
+                    const isCarriedM=!!m.carriedFrom;
+                    const delayWeeks=(()=>{if(!isCarriedM)return 0;let n=0,oid=m.carriedFrom,owk=m.carriedFromWeek;while(oid&&owk&&n<20){n++;const ow=data.weeks[owk];if(!ow)break;const om=(ow.missions||[]).find(x=>x.id===oid);if(!om?.carriedFrom)break;oid=om.carriedFrom;owk=om.carriedFromWeek;}return n;})();
+                    return <div key={m.id+m._wkey} style={{...S.card,padding:"10px 14px"}}>
+                      {isCarriedM&&<div style={{fontSize:10,color:delayWeeks>=3?"#f87171":"#fb923c",letterSpacing:0.5,marginBottom:5,display:"flex",alignItems:"center",gap:4}}>
+                        {delayWeeks>=3?"⚠️":"🔁"} {delayWeeks>=3?`Arrastrada ${delayWeeks} semanas`:"Arrastrada"}
+                      </div>}
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:22,flexShrink:0}}>{m.emoji}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,color:"var(--t-text,#e2d9ff)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
+                            <span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>S{m.weekNumber} {m._yr}</span>
+                            {m.date&&<span style={{fontSize:10,color:"var(--t-accent,#a78bfa)"}}>📆 {m.date}</span>}
+                            {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon} {c.label}</span>:null;})}
+                            <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:4,flexShrink:0}}>
+                          <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
+                          <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:4,flexShrink:0}}>
-                        <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
-                        <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
+                    </div>;
+                  })}
+                </div>
+            )}
+            {/* Logros list */}
+            {pendingTab==="logros" && (
+              logrosFiltered.length===0
+                ?<div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
+                  <div style={{fontSize:36,marginBottom:12}}>🏆</div>
+                  <div>Todavía no hay logros registrados.</div>
+                </div>
+                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {logrosFiltered.map(m=>{
+                    const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
+                    return <div key={m.id+m._wkey} style={{...S.card,padding:"10px 14px",borderLeft:`3px solid ${whoColor}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:22,flexShrink:0}}>{m.emoji}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,color:"var(--t-text-dim,#6b5f88)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"line-through"}}>{m.title}</div>
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
+                            <span style={{fontSize:10,color:"#34d399",fontWeight:600}}>✅ Hecho</span>
+                            <span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>S{m.weekNumber} {m._yr}</span>
+                            {m.completedAt&&<span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>📆 {new Date(m.completedAt).toLocaleDateString("es-ES",{day:"numeric",month:"short"})}</span>}
+                            <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>;
-                })}
-              </div>
-            }
+                    </div>;
+                  })}
+                </div>
+            )}
           </div>;
         })()}
       </div>
@@ -1896,7 +1952,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
       <div style={{ display:"flex", gap:4, marginBottom:10 }}>
         {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>(
           <button key={t.id} onClick={()=>setNewM(p=>({...p,type:t.id}))}
-            style={{ flex:1, background:newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.18)":"rgba(167,139,250,0.18)"):"rgba(255,255,255,0.03)", border:`1px solid ${newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)"):"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.type===t.id?(t.id==="event"?"#60a5fa":"#c4b8ff"):"#4a4166", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:newM.type===t.id?600:400 }}>
+            style={{ flex:1, background:newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.18)":"rgba(167,139,250,0.18)"):"rgba(128,128,128,0.05)", border:`1px solid ${newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)"):"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.type===t.id?(t.id==="event"?"#60a5fa":"#c4b8ff"):"#4a4166", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:newM.type===t.id?600:400 }}>
             {t.label}
           </button>
         ))}
@@ -1922,7 +1978,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         <div style={{ display:"flex", gap:5 }}>
           {WHO.map(w=>(
             <button key={w.id} onClick={()=>setNewM(p=>({...p,who:w.id}))}
-              style={{ background:newM.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${newM.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
+              style={{ background:newM.who===w.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
               {w.icon} {w.label}
             </button>
           ))}
@@ -1936,7 +1992,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         <div style={{ display:"flex", gap:4, marginBottom:8 }}>
           {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
             <button key={m.id} onClick={()=>setEndMode(m.id)}
-              style={{ flex:1, background:endMode===m.id?"rgba(96,165,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${endMode===m.id?"rgba(96,165,250,0.45)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:endMode===m.id?"#60a5fa":"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:endMode===m.id?600:400 }}>
+              style={{ flex:1, background:endMode===m.id?"rgba(96,165,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${endMode===m.id?"rgba(96,165,250,0.45)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:endMode===m.id?"#60a5fa":"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:endMode===m.id?600:400 }}>
               {m.label}
             </button>
           ))}
@@ -1983,7 +2039,7 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         <div style={{ display:"flex", gap:4 }}>
           {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
             <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
-              style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
+              style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
           ))}
         </div>
         {newM.seriesPattern && <div style={{ marginTop:8 }}>
@@ -2056,7 +2112,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
             {mission.duration&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
             {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
-            {mission.date&&<span style={{ background:"rgba(255,255,255,0.05)", color:"var(--t-text-dim,#6b5f88)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
+            {mission.date&&<span style={{ background:"rgba(128,128,128,0.08)", color:"var(--t-text-dim,#6b5f88)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
@@ -2076,7 +2132,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
                 const sel=(mission.type||"task")===t.id;
                 const ac=t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)";
                 const tc=t.id==="event"?"#60a5fa":"#c4b8ff";
-                return <button key={t.id} onClick={()=>onPatch({type:t.id})} style={{ flex:1, background:sel?(t.id==="event"?"rgba(96,165,250,0.15)":"rgba(167,139,250,0.15)"):"rgba(255,255,255,0.03)", border:`1px solid ${sel?ac:"rgba(255,255,255,0.08)"}`, borderRadius:7, color:sel?tc:"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:sel?600:400 }}>{t.label}</button>;
+                return <button key={t.id} onClick={()=>onPatch({type:t.id})} style={{ flex:1, background:sel?(t.id==="event"?"rgba(96,165,250,0.15)":"rgba(167,139,250,0.15)"):"rgba(128,128,128,0.05)", border:`1px solid ${sel?ac:"rgba(255,255,255,0.08)"}`, borderRadius:7, color:sel?tc:"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:sel?600:400 }}>{t.label}</button>;
               })}
             </div>
           </div>
@@ -2096,7 +2152,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
               {WHO.map(w=>{
                 const wc=w.id==="person1"?clr.person1:w.id==="person2"?clr.person2:clr.together;
                 const sel=mission.who===w.id;
-                return <button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:sel?`${wc}22`:"rgba(255,255,255,0.04)", border:`1px solid ${sel?wc+"60":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?wc:"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>;
+                return <button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:sel?`${wc}22`:"rgba(128,128,128,0.06)", border:`1px solid ${sel?wc+"60":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?wc:"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>;
               })}
             </div>
           </div>
@@ -2250,7 +2306,7 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
                 <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
                   {COUPLE_EMOJIS.map(e=>(
                     <button key={e} onClick={()=>setCoupleEmoji(e)}
-                      style={{ fontSize:19, background:coupleEmoji===e?"rgba(167,139,250,0.22)":"rgba(255,255,255,0.04)", border:`1px solid ${coupleEmoji===e?"rgba(167,139,250,0.55)":"rgba(255,255,255,0.08)"}`, borderRadius:8, padding:"4px 5px", cursor:"pointer", lineHeight:1, outline:"none" }}>
+                      style={{ fontSize:19, background:coupleEmoji===e?"rgba(167,139,250,0.22)":"rgba(128,128,128,0.06)", border:`1px solid ${coupleEmoji===e?"rgba(167,139,250,0.55)":"rgba(255,255,255,0.08)"}`, borderRadius:8, padding:"4px 5px", cursor:"pointer", lineHeight:1, outline:"none" }}>
                       {e}
                     </button>
                   ))}
@@ -2410,7 +2466,7 @@ function CatStatsCard({ catStats }) {
         <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>🏷️ Por categoría</span>
         <div style={{ display:"flex", gap:3 }}>
           {[["act","Actividades"],["h","Horas"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
+            <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
           ))}
         </div>
       </div>
@@ -2420,7 +2476,7 @@ function CatStatsCard({ catStats }) {
             <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
             <span style={{ fontSize:12, color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
           </div>
-          <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
+          <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:6, overflow:"hidden" }}>
             <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
           </div>
         </div>
@@ -2433,7 +2489,7 @@ function CatStatsCard({ catStats }) {
                 <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
                 <span style={{ fontSize:12, color:"#60a5fa" }}>{Math.round(c.dur/60*10)/10}h</span>
               </div>
-              <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
+              <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:6, overflow:"hidden" }}>
                 <div style={{ height:"100%", width:`${(c.dur/maxLifeH)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
               </div>
             </div>
@@ -2593,7 +2649,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             {whoOpts.map(o=>{
               const active = stWho===o.id;
               return <button key={o.id} onClick={()=>setStWho(o.id)}
-                style={{ background:active?`${o.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${active?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?o.color:"var(--t-text-dim,#4a4166)", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                style={{ background:active?`${o.color}22`:"rgba(128,128,128,0.05)", border:`1px solid ${active?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?o.color:"var(--t-text-dim,#4a4166)", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
                 {o.label}
               </button>;
             })}
@@ -2606,7 +2662,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             {rangeOpts.map(o=>{
               const active = stRange===o.id;
               return <button key={o.id} onClick={()=>setStRange(o.id)}
-                style={{ background:active?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${active?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
+                style={{ background:active?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${active?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:99, color:active?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, transition:"all 0.15s" }}>
                 {o.label}
               </button>;
             })}
@@ -2623,7 +2679,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
               <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
               <div style={{ flex:1 }}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
-                  <span style={{ fontSize:13, color:"#e2d9ff", fontWeight:600 }}>{ins.title}</span>
+                  <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600 }}>{ins.title}</span>
                   {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())}
                     style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"var(--t-accent,#a78bfa)", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
                     → S{ins.weekNumber}
@@ -2680,7 +2736,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         const bestWin=Object.entries(bk).filter(([,b])=>b.t>=3).sort((a,b)=>b[1].d/b[1].t-a[1].d/a[1].t)[0]||null;
 
         const pct2col=(v,hi,lo,hiClr="#34d399",loClr="#f472b6")=>v===null?"—":(<><span style={{color:v>=hi?hiClr:v>=lo?"#fbbf24":loClr,fontWeight:700,fontSize:18}}>{v}%</span></>);
-        const bar=(v,hi="#34d399")=><div style={{height:4,borderRadius:2,background:"rgba(255,255,255,0.06)",marginTop:4}}><div style={{height:4,borderRadius:2,width:v===null?"0%":Math.min(100,v)+"%",background:v>=70?hi:v>=40?"#fbbf24":"#f472b6",transition:"width 0.6s"}}/></div>;
+        const bar=(v,hi="#34d399")=><div style={{height:4,borderRadius:2,background:"rgba(128,128,128,0.10)",marginTop:4}}><div style={{height:4,borderRadius:2,width:v===null?"0%":Math.min(100,v)+"%",background:v>=70?hi:v>=40?"#fbbf24":"#f472b6",transition:"width 0.6s"}}/></div>;
 
         const cards=[
           Sc!==null&&{icon:"🔗",label:"Sincronía de pareja",value:pct2col(Sc,40,20),bar:bar(Sc),note:Sc>=40?"Gran tiempo compartido":Sc>=20?"Tiempo moderado juntos":"Pocas actividades conjuntas"},
@@ -2695,7 +2751,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#60a5fa",marginBottom:12,fontWeight:600}}>🧠 Deep Stats v2.0</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
             {cards.map((c,i)=>(
-              <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"10px 12px"}}>
+              <div key={i} style={{background:"rgba(128,128,128,0.05)",border:"1px solid var(--t-card-border,rgba(128,128,128,0.12))",borderRadius:10,padding:"10px 12px"}}>
                 <div style={{fontSize:10,color:"var(--t-text-dim,#4a4166)",marginBottom:4}}>{c.icon} {c.label}</div>
                 <div>{c.value}</div>
                 {c.bar}
@@ -2721,7 +2777,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           ].map(s=>(
             <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px", borderColor:s.color?`${s.color}55`:undefined }}>
               <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"#f8f4ff", lineHeight:1 }}>{s.value}</div>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"var(--t-text,#f8f4ff)", lineHeight:1 }}>{s.value}</div>
               <div style={{ fontSize:9, color:"var(--t-text-dim,#6b5f88)", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
             </div>
           ))}
@@ -2735,7 +2791,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           {/* Donut SVG */}
           <div style={{ flexShrink:0 }}>
             <svg viewBox="0 0 36 36" width={90} height={90} style={{ transform:"rotate(-90deg)" }}>
-              <circle cx="18" cy="18" r="15.9155" strokeWidth="3.8" fill="none" stroke="rgba(255,255,255,0.05)"/>
+              <circle cx="18" cy="18" r="15.9155" strokeWidth="3.8" fill="none" stroke="rgba(128,128,128,0.08)"/>
               {donutSegments.map(({s,pct:p,offset})=>(
                 <circle key={s} cx="18" cy="18" r="15.9155" fill="none" strokeWidth="3.8"
                   stroke={STATUS[s].color}
@@ -2750,7 +2806,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             {bySt.filter(x=>x.count>0).map(({s,count})=>(
               <div key={s} style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:78, fontSize:12, color:STATUS[s].color, fontWeight:600, flexShrink:0 }}>{STATUS[s].icon} {STATUS[s].label}</div>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.10)", borderRadius:99, height:7, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${(count/maxSt)*100}%`, background:STATUS[s].color, borderRadius:99, opacity:0.85, transition:"width 0.5s" }} />
                 </div>
                 <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", width:24, textAlign:"right", flexShrink:0 }}>{count}</div>
@@ -2788,7 +2844,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>👥 Participación por persona</span>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
             {stWho!=="all"&&<span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>distribución real del rango</span>}
-            <button onClick={()=>setShowPartInfo(v=>!v)} title="¿Qué mide esto?" style={{ background:showPartInfo?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.05)", border:`1px solid ${showPartInfo?"rgba(167,139,250,0.45)":"rgba(255,255,255,0.1)"}`, borderRadius:99, color:showPartInfo?"#c4b8ff":"#6b5f88", fontSize:11, padding:"1px 7px", cursor:"pointer", fontFamily:"inherit", lineHeight:1.6 }}>ℹ</button>
+            <button onClick={()=>setShowPartInfo(v=>!v)} title="¿Qué mide esto?" style={{ background:showPartInfo?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.08)", border:`1px solid ${showPartInfo?"rgba(167,139,250,0.45)":"rgba(255,255,255,0.1)"}`, borderRadius:99, color:showPartInfo?"#c4b8ff":"#6b5f88", fontSize:11, padding:"1px 7px", cursor:"pointer", fontFamily:"inherit", lineHeight:1.6 }}>ℹ</button>
           </div>
         </div>
         {showPartInfo&&<div style={{ marginBottom:12, padding:"8px 10px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.6 }}>Muestra cuántas actividades tiene asignadas cada persona en el período seleccionado y qué porcentaje completó. No mide quién hizo más trabajo, sino cómo están distribuidas las responsabilidades.</div>}
@@ -2797,7 +2853,7 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             const tot=ph1.count+ph2.count+phT.count||1;
             return <div key={name} style={{ display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ width:64, fontSize:12, color, fontWeight:600, flexShrink:0 }}>{name}</div>
-              <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+              <div style={{ flex:1, background:"rgba(128,128,128,0.10)", borderRadius:99, height:8, overflow:"hidden" }}>
                 <div style={{ height:"100%", width:`${(h.count/tot)*100}%`, background:color, borderRadius:99, opacity:0.8 }} />
               </div>
               <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", flexShrink:0, width:60, textAlign:"right" }}>
@@ -2994,7 +3050,7 @@ function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
             <div key={m.id} style={{ display:"flex", flexDirection:"column", alignItems:isMe?"flex-end":"flex-start" }}>
               {!isMe && <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginBottom:2, marginLeft:4 }}>{m.sender_name}</div>}
               <div style={{
-                maxWidth:"78%", background:isMe?"var(--t-accent-soft,rgba(167,139,250,0.18))":"rgba(255,255,255,0.06)",
+                maxWidth:"78%", background:isMe?"var(--t-accent-soft,rgba(167,139,250,0.18))":"rgba(128,128,128,0.10)",
                 border:`1px solid ${isMe?"var(--t-card-border,rgba(167,139,250,0.3))":"rgba(255,255,255,0.1)"}`,
                 borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",
                 padding:"8px 12px", fontSize:14, color:"var(--t-text,#f0e8ff)", lineHeight:1.5,
@@ -3064,7 +3120,7 @@ function WeekDetailList({ allW, onGoToWeek }) {
                 {w.epicObjective}
               </div>}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${pct}%`, background:color, borderRadius:99, transition:"width 0.4s" }} />
                 </div>
                 <span style={{ fontSize:11, color, fontWeight:600, flexShrink:0, minWidth:36, textAlign:"right" }}>{d}/{t}</span>
@@ -3223,7 +3279,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
               return<div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(167,139,250,0.08)"}}>
                 <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,color:m.status==="DONE"?"#4d4566":"#e2d9ff",textDecoration:m.status==="DONE"?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  <div style={{fontSize:13,color:m.status==="DONE"?"#4d4566":"var(--t-text,#e2d9ff)",textDecoration:m.status==="DONE"?"line-through":"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                     {m.title}{isMultiDay&&<span style={{fontSize:10,marginLeft:4,color:"var(--t-accent,#a78bfa)"}}>↔</span>}
                   </div>
                   <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>
@@ -3355,14 +3411,14 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
       <div style={{ marginBottom:10 }}>
         <label style={S.label}>¿Para quién?</label>
         <div style={{ display:"flex", gap:5 }}>
-          {WHO.map(w=><button key={w.id} onClick={()=>setForm(f=>({...f,who:w.id}))} style={{ background:form.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${form.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:form.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{w.icon} {w.label}</button>)}
+          {WHO.map(w=><button key={w.id} onClick={()=>setForm(f=>({...f,who:w.id}))} style={{ background:form.who===w.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${form.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:form.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{w.icon} {w.label}</button>)}
         </div>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr auto", gap:10, marginBottom:12, alignItems:"end" }}>
         <div>
           <label style={S.label}>Periodicidad</label>
           <div style={{ display:"flex", gap:4 }}>
-            {PERIODS.map(p=><button key={p.id} onClick={()=>setForm(f=>({...f,period:p.id}))} style={{ flex:1, background:form.period===p.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${form.period===p.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:form.period===p.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{p.label}</button>)}
+            {PERIODS.map(p=><button key={p.id} onClick={()=>setForm(f=>({...f,period:p.id}))} style={{ flex:1, background:form.period===p.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${form.period===p.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:form.period===p.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{p.label}</button>)}
           </div>
         </div>
         <div style={{ textAlign:"center" }}>
@@ -3378,7 +3434,7 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
         <label style={S.label}>Tipo de límite</label>
         <div style={{ display:"flex", gap:4 }}>
           {[{id:"min",label:"✅ Mínimo (hacer al menos X)"},{id:"max",label:"🚫 Máximo (no más de X)"}].map(t=>(
-            <button key={t.id} onClick={()=>setForm(f=>({...f,goalType:t.id}))} style={{ flex:1, background:(form.goalType||"min")===t.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${(form.goalType||"min")===t.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:(form.goalType||"min")===t.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{t.label}</button>
+            <button key={t.id} onClick={()=>setForm(f=>({...f,goalType:t.id}))} style={{ flex:1, background:(form.goalType||"min")===t.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${(form.goalType||"min")===t.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:(form.goalType||"min")===t.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{t.label}</button>
           ))}
         </div>
       </div>
@@ -3441,7 +3497,7 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
           <span style={{ color:"var(--t-text-muted,#8b7fa8)" }}>{goal.period==="weekly"?"Esta semana":goal.period==="monthly"?"Este mes":"Este año"}</span>
           <span style={{ color:met?"#34d399":isMax&&progress.current>progress.target?"#f472b6":"#f8f4ff", fontWeight:600 }}>{met?"✅ ":isMax&&progress.current>progress.target?"❌ ":""}{progress.current}/{progress.target}{isMax?" (máx.)":""}</span>
         </div>
-        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+        <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:8, overflow:"hidden" }}>
           <div style={{ height:"100%", width:`${progress.pct}%`, background:met?"linear-gradient(90deg,#34d399,#60a5fa)":isMax&&progress.current>progress.target?"linear-gradient(90deg,#f472b6,#fb923c)":`linear-gradient(90deg,${whoColor},${whoColor}99)`, borderRadius:99, transition:"width 0.5s" }} />
         </div>
       </div>
@@ -3472,8 +3528,8 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
             const noData=!!h.noData;
             return <div key={i} title={noData?`${h.label}: sin datos`:`${h.label}: ${h.count}/${goal.target}`}
               style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
-                background:noData?"rgba(255,255,255,0.02)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
-                border:`1px solid ${noData?"rgba(255,255,255,0.06)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
+                background:noData?"rgba(255,255,255,0.02)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(128,128,128,0.06)",
+                border:`1px solid ${noData?"rgba(128,128,128,0.10)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
                 color:noData?"#2d2450":failed?"#f472b6":h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
               <span style={{ fontSize:11 }}>{noData?"–":failed?"❌":h.met?"✅":"·"}</span>
               <span style={{ fontSize:8 }}>{h.label}</span>
@@ -3654,7 +3710,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end" }}>
               <button onClick={()=>settleProject(projectId,!p.settled)}
-                style={{ fontSize:10, padding:"4px 8px", borderRadius:8, border:`1px solid ${p.settled?"rgba(52,211,153,0.4)":"rgba(167,139,250,0.3)"}`, background:p.settled?"rgba(52,211,153,0.1)":"rgba(255,255,255,0.04)", color:p.settled?"#34d399":"#6b5f88", cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
+                style={{ fontSize:10, padding:"4px 8px", borderRadius:8, border:`1px solid ${p.settled?"rgba(52,211,153,0.4)":"rgba(167,139,250,0.3)"}`, background:p.settled?"rgba(52,211,153,0.1)":"rgba(128,128,128,0.06)", color:p.settled?"#34d399":"#6b5f88", cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
                 {p.settled?"🔒 Saldado":"Marcar saldado"}
               </button>
               <div style={{ display:"flex", gap:4 }}>
@@ -3717,7 +3773,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                 {monthlyTotals.map(({m,total})=>(
                   <div key={m} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
                     <div style={{ fontSize:9, color:"var(--t-text-dim,#6b5f88)", height:14, textAlign:"center" }}>{total>0?fmtAmt(total):""}</div>
-                    <div style={{ width:"100%", background:"rgba(255,255,255,0.06)", borderRadius:"5px 5px 0 0", height:60, display:"flex", alignItems:"flex-end" }}>
+                    <div style={{ width:"100%", background:"rgba(128,128,128,0.10)", borderRadius:"5px 5px 0 0", height:60, display:"flex", alignItems:"flex-end" }}>
                       <div style={{ width:"100%", background:"var(--t-accent,#a78bfa)", borderRadius:"5px 5px 0 0", height:`${Math.round(total/maxMonthlyTotal*100)}%`, minHeight:total>0?2:0 }} />
                     </div>
                     <div style={{ fontSize:9, color:"var(--t-text-dim,#4a4166)" }}>{monthLabel(m).slice(0,3)}</div>
@@ -3734,7 +3790,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                       <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
                       <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{fmtAmt(c.total)} · {allBal.total>0?Math.round(c.total/allBal.total*100):0}%</span>
                     </div>
-                    <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                    <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden" }}>
                       <div style={{ height:"100%", width:`${allBal.total>0?c.total/allBal.total*100:0}%`, background:c.color, borderRadius:99 }} />
                     </div>
                   </div>
@@ -3744,23 +3800,23 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             <div style={{ ...S.card, marginBottom:14 }}>
               <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:12 }}>👥 Resumen</div>
               <div style={{ display:"flex", gap:10, marginBottom:10 }}>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:10, padding:"10px 12px" }}>
                   <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p1} pagó</div>
                   <div style={{ fontSize:17, fontWeight:700, color:colors.person1||"#f472b6" }}>{fmtAmt(allBal.p1Paid)}</div>
                   <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{allBal.total>0?Math.round(allBal.p1Paid/allBal.total*100):0}% del total</div>
                 </div>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:10, padding:"10px 12px" }}>
                   <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p2} pagó</div>
                   <div style={{ fontSize:17, fontWeight:700, color:colors.person2||"#60a5fa" }}>{fmtAmt(allBal.p2Paid)}</div>
                   <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{allBal.total>0?Math.round(allBal.p2Paid/allBal.total*100):0}% del total</div>
                 </div>
               </div>
               <div style={{ display:"flex", gap:10, marginBottom:Math.abs(allBal.p1Net)>0.5?10:0 }}>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:10, padding:"10px 12px" }}>
                   <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>Total acumulado</div>
                   <div style={{ fontSize:17, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(allBal.total)}</div>
                 </div>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:"10px 12px" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:10, padding:"10px 12px" }}>
                   <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>Promedio/mes</div>
                   <div style={{ fontSize:17, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(allBal.total/activeMonths)}</div>
                 </div>
@@ -3797,17 +3853,17 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
               <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>💸 {monthLabel(filterMonth)}</span>
               <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}
-                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#c4b8ff", fontSize:11, padding:"3px 8px", fontFamily:"inherit", cursor:"pointer" }}>
+                style={{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#c4b8ff", fontSize:11, padding:"3px 8px", fontFamily:"inherit", cursor:"pointer" }}>
                 {allMonths.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}
               </select>
             </div>
             <div style={{ fontSize:26, fontWeight:700, color:"var(--t-accent,#c4b8ff)", fontFamily:"'Fraunces',serif", letterSpacing:-1, marginBottom:8 }}>{fmtAmt(monthBalance.total)}</div>
             <div style={{ display:"flex", gap:10, marginBottom:10 }}>
-              <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px" }}>
+              <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:8, padding:"8px 10px" }}>
                 <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p1} pagó</div>
                 <div style={{ fontSize:15, fontWeight:600, color:colors.person1||"#f472b6" }}>{fmtAmt(monthBalance.p1Paid)}</div>
               </div>
-              <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px" }}>
+              <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:8, padding:"8px 10px" }}>
                 <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p2} pagó</div>
                 <div style={{ fontSize:15, fontWeight:600, color:colors.person2||"#60a5fa" }}>{fmtAmt(monthBalance.p2Paid)}</div>
               </div>
@@ -3826,7 +3882,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                     <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
                     <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{fmtAmt(c.total)} · {monthBalance.total>0?Math.round(c.total/monthBalance.total*100):0}%</span>
                   </div>
-                  <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:4, overflow:"hidden" }}>
+                  <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:4, overflow:"hidden" }}>
                     <div style={{ height:"100%", width:`${monthBalance.total>0?c.total/monthBalance.total*100:0}%`, background:c.color, borderRadius:99 }} />
                   </div>
                 </div>
@@ -3859,7 +3915,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
                   <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:2, flexWrap:"wrap" }}>
                     <span style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#e2dff5)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:140 }}>{g.desc}</span>
                     <span style={{ fontSize:9, color:cat.color, background:`${cat.color}22`, borderRadius:4, padding:"1px 4px", flexShrink:0 }}>{cat.label}</span>
-                    {projName&&<span style={{ fontSize:9, color:"var(--t-text-muted,#8b7fa8)", background:"rgba(255,255,255,0.06)", borderRadius:4, padding:"1px 4px", flexShrink:0 }}>📁 {projName}</span>}
+                    {projName&&<span style={{ fontSize:9, color:"var(--t-text-muted,#8b7fa8)", background:"rgba(128,128,128,0.10)", borderRadius:4, padding:"1px 4px", flexShrink:0 }}>📁 {projName}</span>}
                   </div>
                   <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)" }}>{g.date} · {paidLabel} pagó · {splitLabel}</div>
                 </div>
@@ -3918,12 +3974,12 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
               {/* Montos en tiempo real */}
               {form.amount && parseFloat(form.amount)>0 && (
                 <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                  <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                  <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
                     <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p1} paga</div>
                     <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(parseFloat(form.amount)*form.splitP1/100)}</div>
                     <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{form.splitP1}%</div>
                   </div>
-                  <div style={{ flex:1, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                  <div style={{ flex:1, background:"rgba(128,128,128,0.06)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
                     <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)" }}>{p2} paga</div>
                     <div style={{ fontSize:15, fontWeight:700, color:"var(--t-accent,#c4b8ff)" }}>{fmtAmt(parseFloat(form.amount)*(100-form.splitP1)/100)}</div>
                     <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>{100-form.splitP1}%</div>
@@ -3933,7 +3989,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
               <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
                 {[{l:"50/50",v:50},{l:`Solo ${p1}`,v:100},{l:`Solo ${p2}`,v:0},{l:`${p1} 70%`,v:70},{l:`${p2} 70%`,v:30}].map(({l,v})=>(
                   <button key={l} onClick={()=>setForm(f=>({...f,splitP1:v}))}
-                    style={{ padding:"5px 10px", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:form.splitP1===v?700:400, background:form.splitP1===v?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(255,255,255,0.05)", color:form.splitP1===v?"var(--t-accent,#c4b8ff)":"#6b5f88" }}>{l}</button>
+                    style={{ padding:"5px 10px", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:form.splitP1===v?700:400, background:form.splitP1===v?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.08)", color:form.splitP1===v?"var(--t-accent,#c4b8ff)":"#6b5f88" }}>{l}</button>
                 ))}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -3979,7 +4035,7 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
               <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                 {PROJECT_EMOJIS.map(em=>(
                   <button key={em} onClick={()=>setProjectForm(f=>({...f,emoji:em}))}
-                    style={{ width:38, height:38, borderRadius:8, border:`2px solid ${projectForm.emoji===em?"var(--t-accent,#a78bfa)":"transparent"}`, background:projectForm.emoji===em?"var(--t-accent-soft,rgba(167,139,250,0.15))":"rgba(255,255,255,0.04)", cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>{em}</button>
+                    style={{ width:38, height:38, borderRadius:8, border:`2px solid ${projectForm.emoji===em?"var(--t-accent,#a78bfa)":"transparent"}`, background:projectForm.emoji===em?"var(--t-accent-soft,rgba(167,139,250,0.15))":"rgba(128,128,128,0.06)", cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>{em}</button>
                 ))}
               </div>
             </div>

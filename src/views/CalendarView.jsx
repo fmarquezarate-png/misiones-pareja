@@ -88,11 +88,13 @@ export default function CalendarView({
             // v3: today marked with ring on number, not bg fill
             const cellBg = isDO ? "rgba(167,139,250,0.3)"
                           : isSel ? "rgba(167,139,250,0.22)"
+                          : isTd ? "rgba(244,114,182,0.07)"
                           : ms.length>0 ? "rgba(167,139,250,0.06)"
-                          : "rgba(255,255,255,0.02)";
+                          : "rgba(128,128,128,0.03)";
             const cellBorder = isDO ? "1px solid rgba(167,139,250,0.7)"
+                              : isTd ? "2px solid #f472b6"
                               : isSel ? "1px solid rgba(167,139,250,0.55)"
-                              : "1px solid rgba(255,255,255,0.04)";
+                              : "1px solid rgba(128,128,128,0.06)";
 
             const counts = { person1:0, person2:0, together:0 };
             ms.forEach(m => { if (counts[m.who] != null) counts[m.who]++; });

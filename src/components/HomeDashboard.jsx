@@ -110,9 +110,13 @@ export default function HomeDashboard({
   const done  = missions.filter(m => m.status === "DONE").length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
 
-  // Per-person progress (together missions count for both)
-  const p1Ms  = missions.filter(m => m.who === "person1" || m.who === "together");
-  const p2Ms  = missions.filter(m => m.who === "person2" || m.who === "together");
+  // Per-person progress: last 15 days across all weeks (tasks only, not events)
+  const cutoff15 = (() => { const d = new Date(); d.setDate(d.getDate() - 15); return fmtDate(d); })();
+  const last15Ms = weeksData
+    ? Object.values(weeksData).flatMap(w => (w.missions || []).filter(m => m.type !== "event" && m.date && m.date >= cutoff15))
+    : missions.filter(m => m.type !== "event" && m.date && m.date >= cutoff15);
+  const p1Ms  = last15Ms.filter(m => m.who === "person1" || m.who === "together");
+  const p2Ms  = last15Ms.filter(m => m.who === "person2" || m.who === "together");
   const p1Pct = p1Ms.length  ? Math.round(p1Ms.filter(m => m.status === "DONE").length  / p1Ms.length  * 100) : 0;
   const p2Pct = p2Ms.length  ? Math.round(p2Ms.filter(m => m.status === "DONE").length  / p2Ms.length  * 100) : 0;
 
@@ -191,7 +195,7 @@ export default function HomeDashboard({
             overflow:"hidden", textOverflow:"ellipsis",
             display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical",
           }}>{week?.epicGoal || "Define el objetivo de la semana"}</div>
-          <div style={{ height:5, background:"rgba(255,255,255,0.08)", borderRadius:99, overflow:"hidden", marginBottom:5 }}>
+          <div style={{ height:5, background:"rgba(128,128,128,0.12)", borderRadius:99, overflow:"hidden", marginBottom:5 }}>
             <div style={{ height:"100%", width:`${pct}%`,
               background:"linear-gradient(90deg,#f472b6,#a78bfa,#34d399)",
               borderRadius:99, transition:"width .6s ease" }}/>
@@ -253,7 +257,7 @@ export default function HomeDashboard({
           <div style={{...eyebrow, fontSize:8.5, marginBottom:5}}>📊 Pulso</div>
           <div style={{display:"flex", alignItems:"center", gap:8}}>
             <svg width={38} height={38} viewBox="0 0 36 36" style={{flexShrink:0}}>
-              <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4"/>
+              <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="4"/>
               <circle cx="18" cy="18" r="15" fill="none" stroke="url(#hd-pulse)" strokeWidth="4"
                 strokeDasharray={`${pct} 100`} strokeLinecap="round" transform="rotate(-90 18 18)"/>
               <defs><linearGradient id="hd-pulse">
@@ -276,12 +280,6 @@ export default function HomeDashboard({
             {asapMs[0]?.title || "Sin urgentes"}
           </div>
         </div>
-      </div>
-
-      {/* Person progress rings */}
-      <div style={{ display:"flex", justifyContent:"center", gap:32, padding:"4px 0 2px" }}>
-        <PersonRing name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1} />
-        <PersonRing name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2} />
       </div>
 
       {/* Hoy — compact tap-to-cycle list */}
@@ -310,6 +308,12 @@ export default function HomeDashboard({
             })}
           </div>
         )}
+      </div>
+
+      {/* Person progress rings — last 15 days */}
+      <div style={{ display:"flex", justifyContent:"center", gap:32, padding:"6px 0 2px" }}>
+        <PersonRing name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1} />
+        <PersonRing name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2} />
       </div>
 
       {/* Day detail bottom sheet */}
