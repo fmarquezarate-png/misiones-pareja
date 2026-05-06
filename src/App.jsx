@@ -8,61 +8,26 @@ import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
+import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
+import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const APP_VERSION = "3.1.1";
-const LAST_UPDATE = "2026-05-05";
-const CHANGELOG = [
-  { v:"3.1.1", date:"2026-05-05", notes:["Fix crítico: pantalla negra al cargar — dos useState (localThemeId/localFontId) estaban declarados después de un return condicional, violando Rules of Hooks; movidos al bloque inicial","Fix Service Worker: cleanupOutdatedCaches activo para evitar pantalla negra post-deploy","Versión 3.1.1"] },
-  { v:"3.1.0", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links (se abren en móvil sin errores PWA) y cuentas con usuario/contraseña copiable","Inicio: próximos 3 eventos + 3 tareas atrasadas (incluye arrastradas), tira de días con clic para ver detalle","Stats: exportar imagen con selección de secciones y colores del tema activo; horas de trabajo muestran promedio/semana","Corrección de contrastes en temas claros (fondos neutros, texto siempre visible)","Cambio de tema instantáneo sin necesidad de reabrir el modal","6 nuevas tipografías: Raleway, Montserrat, Merriweather, Quicksand, Josefin Sans, DM Serif Display","Favicon actualizado a 📅, logo MP visible en temas claros, fix flash de color al arrancar","Histórico: eliminados botones duplicados de Calendar/PDF","Versión 3.1.0"] },
-  { v:"3.0.3", date:"2026-05-05", notes:["[incluido en 3.1.0]"] },
-  { v:"3.0.2", date:"2026-05-04", notes:["Inicio rediseñado: widgets en columnas apiladas para móvil, sección Hoy compacta (toca para cambiar estado)","Semana: Timeline como vista por defecto, toggle renombrado a 'Lista detallada'","Versión 3.0.2"] },
-  { v:"3.0.1", date:"2026-05-04", notes:["Fix: Timeline — eventos corridos un día y sin lunes (toISOString → formato local, elimina desfase UTC)","Fix: Filtros de persona/categoría ahora se aplican correctamente al pulsar 'Aplicar filtros'","Filtros multi-selección: combina p.ej. 'Persona 1 + Juntos' para ver todas las actividades en las que participas","Fix: cajas de widgets en Home ya no se desbordan fuera del ancho de la pantalla","Calendario: botón 'Volver a hoy' aparece al navegar a otro mes","Fix: pestaña Gastos ya no aparece en negro al abrirla","Versión 3.0.1"] },
-  { v:"3.0.0", date:"2026-05-04", notes:["Rediseño UI mayor: dashboard editorial en Inicio con widgets compactos (ASAP urgentes, Próximo evento, Pulso semanal, Meta cercana, Misiones de hoy)","Logo MP-mark en topbar (dos círculos solapados con colores de pareja) reemplaza el emoji 💞","Vista Timeline en pestaña Semana: alterna entre lista clásica y riel cronológico por día (toggle ☰/⏱)","Tira de días L–D siempre visible en Home con Hoy resaltado en rosa","Filtros de persona y categoría unificados en drawer inferior con badge contador","Menú ⋯ en topbar: exportar .ics, imprimir PDF y actualizar app desde un único acceso","Toast visual para 'Actualizar versión': loading → éxito/error con botón Reintentar","Riel de color por persona (3px borde izq.) en cada tarjeta de misión","Animación pop del badge de estado al ciclarlo","Calendario: Hoy marcado con anillo rosa (antes era fondo relleno), barra de densidad por persona en footer de cada celda","Fix: el diálogo de impresión PDF ahora se cierra automáticamente al terminar o cancelar","Versión 3.0.0"] },
-  { v:"2.5.0", date:"2026-04-26", notes:["Gastos: montos en tiempo real al dividir — muestra cuánto paga cada persona al mover el slider","Gastos: proyectos saldables — botón 'Marcar saldado' cierra el proyecto (🔒) sin borrar datos ni stats","Gastos: home de Gastos muestra solo proyectos separados en Activos / 🔒 Saldados","Gastos: 15 categorías (añadidas Supermercado, Tecnología, Cultura, Deporte, Mascotas, Regalos, Suscripciones)","Tutorial: paso nuevo para Gastos Compartidos","Fix: emoji 🧗 ya no se multiplica en el selector (clave de React corregida + duplicado eliminado)","Versión 2.5.0"] },
-  { v:"2.4.1", date:"2026-04-26", notes:["Gastos: proyectos (ej. 'Viaje a Chile') — agrupa gastos por proyecto con balance propio y saldo acumulado","Gastos: división flexible — slider 0-100% con atajos rápidos (50/50, Solo tú, Solo yo, 70/30)","Gastos: fecha en campo propio con label (ya no queda cortada en móvil)","Gastos: pestaña Stats con gráfico de últimos 6 meses, desglose por categoría, totales y promedio mensual","Versión 2.4.1"] },
-  { v:"2.4.0", date:"2026-04-25", notes:["Nueva pestaña 💸 Gastos Compartidos: registra gastos, divide a medias o gasto propio, 8 categorías, balance mensual automático (quién le debe a quién)","Histórico: foto ahora tiene dos botones — 📷 Tomar foto (cámara, Android+iOS) y 🖼️ Elegir de galería — Android ya puede sacar foto directamente","Perfil: botón 🔄 Actualizar app para forzar la carga de la última versión del PWA desde cualquier dispositivo","Versión 2.4.0"] },
-  { v:"2.3.2", date:"2026-04-24", notes:["Tema por perfil: cada persona tiene su propio tema de color y fuente — cambiar el tuyo no afecta a tu pareja","Fechas de semana: debajo del número de semana aparece el rango de días (ej. 21–27 abr) y la fecha de hoy","Exportar a Google Calendar: selector de rango de fechas — ya no es solo por semana, elige desde/hasta y descarga todas las actividades del rango","Stats: compartir como imagen PNG de diseño visual (no como texto) — con barras por persona, categorías y balance","Análisis IA: todos los cálculos excluyen la semana actual (incompleta) para dar resultados más precisos y honestos","Versión 2.3.2"] },
-  { v:"2.3.1", date:"2026-04-24", notes:["Inicio siempre muestra la semana real de hoy (no la semana que estés viendo en otras pestañas)","Colores del tema ahora se aplican en todos los rincones: histórico, modal de edición de calendario, menú de metas","Selector de fuente independiente del tema: elige entre 5 tipografías desde ⚙️ Mi Perfil","Sensibilidad del gesto deslizar corregida: ya no cambia de semana al hacer scroll vertical","Botones del top bar claros de la barra de estado iOS (safe area)","Versión 2.3.1"] },
-  { v:"2.3.0", date:"2026-04-22", notes:["Gestos de deslizamiento: desliza ← → en la semana actual para cambiar de semana sin tocar botones","Recurrencia potente: nueva opción Bisemanal (cada 2 semanas) + fecha de fin de serie opcional + botón 'Aplicar a todas las futuras' en el editor de calendario","Modo offline: banner de aviso cuando no hay conexión, los cambios se guardan localmente y se sincronizan solos al reconectar","Resumen diario mejorado: ahora también se programa durante la sesión si abres la app antes de la hora configurada","Versión 2.3.0"] },
-  { v:"2.2.4", date:"2026-04-22", notes:["Notificaciones push: recibe alertas de mensajes del chat, cambios de tu pareja y recordatorios de eventos aunque la app esté en segundo plano","Recordatorios de eventos: elige con cuánta antelación quieres que te avisemos (en el momento, 15 min, 30 min, 1 h o 1 día antes)","Resumen diario: notificación matutina con tus misiones del día y metas próximas a vencer","Gestión de notificaciones en ⚙️ Mi perfil — actívalas y personaliza cada tipo por separado","Versión 2.2.4"] },
-  { v:"2.2.3", date:"2026-04-21", notes:["Arranque instantáneo: la app se muestra en <100ms en visitas repetidas (caché local de sesión + datos)","Aislamiento de parejas 100%: cada pareja tiene su propia clave de almacenamiento — imposible ver datos ajenos al cambiar de cuenta","Supabase carga en segundo plano sin bloquear la UI — si hay backup local, se muestra de inmediato","Versión 2.2.3"] },
-  { v:"2.2.2", date:"2026-04-21", notes:["Tutorial interactivo para nuevos usuarios: repasa todas las pestañas con UX paso a paso al iniciar por primera vez","Opción 'Ver tutorial de nuevo' en ⚙️ Mi perfil (para cuando quieras refrescarlo)","Versión 2.2.2"] },
-  { v:"2.2.1", date:"2026-04-21", notes:["Fix: horas de vuelo corregidas — duración se guardaba en minutos pero se mostraba como horas (×60 inflación)","Fix: tareas recurrentes en Pendientes — sólo aparece la instancia de la semana más reciente (sin duplicados)","Fix: foto de semana — lightbox ahora tiene botón ⬇ para descargar además del zoom","Fix: ICS export — duración en DTEND y descripción ahora correcta (minutos, no horas)","Versión 2.2.1"] },
-  { v:"2.2.0", date:"2026-04-17", notes:["App renombrada a Shared Calendar (más abierta, menos de nicho)","5 nuevos temas claros: Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave","Chat integrado: mensajitos en tiempo real entre los miembros (pestaña 💬)","Zoom en móvil corregido: touch-action:manipulation en toda la app (Chrome + Safari)","Compartir botones de imagen eliminados (ocupaban espacio, poco uso)","Cerrar sesión ahora muestra selector de cuenta Google (no reconecta automáticamente)","Botón Compartir Stats al pie de la pestaña Stats (sensible a filtros activos)","Versión 2.2.0"] },
-  { v:"2.1.1", date:"2026-04-17", notes:["Pendientes: sólo tareas (sin eventos), sin duplicados — tareas arrastradas muestran sólo su versión más reciente","Pendientes: badge 🔁/⚠️ indica cuántas semanas lleva arrastrada la tarea","Al marcar una tarea arrastrada como DONE desde pendientes: la original en la semana pasada se marca ⏰ Completada con retraso (no infla stats de esa semana)","Semana anterior: tareas completadas tarde muestran badge ⏰ en la tarjeta"] },
-  { v:"2.1.0", date:"2026-04-17", notes:["Fix crítico: eventos multi-día ahora se muestran en TODOS sus días en el calendario","getMissionDates: tolera hora vacía (00:00 inicio, 23:59 fin) — multi-día garantizado","addMission: fuerza endTime='23:59' si hay endDate sin hora, time='00:00' si hay endDate sin hora inicio","Formulario: defecto automático 23:59 al seleccionar solo fecha fin","CalendarView: getMissionDates se llama una sola vez por misión (Map) — más rápido","Limpieza: eliminadas variables saving/savingError/saved ya no usadas"] },
-  { v:"2.0.9", date:"2026-04-17", notes:["Calendario: columna única (detalle del día debajo, no al lado)","Tareas: sin campos de fecha/hora/duración (limpias)","Eventos: duración en minutos OR fecha+hora de fin (auto-calculado)","Menú: pestaña Pendientes con todas las tareas no-DONE de todas las semanas","Zoom móvil: fix real por CSS font-size≥16px en inputs (Safari iOS)","Stats AI v2.0: Deep Stats — Sincronía, Equidad en casa, Densidad de metas, Hábito ancla, Carga óptima, Ventana horaria","Código: dlBlob y getMissionDates movidos a nivel de módulo (sin duplicación)"] },
-  { v:"2.0.8", date:"2026-04-17", notes:["Calendario: celdas responsivas (ResizeObserver, máximo espacio)", "Calendario: tareas multi-día ocupan todos los días según fecha+hora+duración","Calendario: compartir día / tarea / semana como imagen PNG (WhatsApp/descarga)","Calendario: editar participante al editar actividad inline","Nuevo usuario: pantalla en blanco (sin datos de ejemplo)","Top bar: emoji de pareja configurable (ajustes de perfil)","Tareas arrastradas: se marcan DONE en semana original con flag 'tarde' (no infla stats)","Stats AI: mínimo 5 misiones para considerar mejor/peor semana","Inicio: emoji de participante + tipo (tarea/evento) en cada fila de misiones","Filtros: secciones Participantes/Categorías diferenciadas + ordenar semana","Zoom móvil bloqueado (no queda pegado al hacer zoom in/out)","PWA: siempre carga versión más reciente (skipWaiting + networkFirst)"] },
-  { v:"2.0.7", date:"2026-04-15", notes:["Emoji de pareja elegible desde Mi Perfil (24 opciones)", "Fix: menú lateral usa emoji elegido en vez de 💞 fijo","Fix: dropdown de tema en ProfileModal deja de cortarse (inline)","Fix: select de meta sin contraste blanco-sobre-blanco en Mac","Cursor: sin selección de texto accidental en escritorio","Stats: barras de semanas capeadas a 12 máximo","Nueva pestaña Pendientes en menú (todas las tareas no-DONE)","Inicio: layout 2 columnas en pantallas anchas (pendientes | eventos)","Compartir semana: imagen generada con Canvas + navigator.share/descarga"] },
-  { v:"2.0.6", date:"2026-04-15", notes:["Fix: mensajes de sync (✓ al día / ⬆ subido / ⬇ actualizado / ⚠ error) ahora son toasts flotantes visibles siempre","Fix: error de Supabase también aparece como toast si no hay syncMsg activo","5 temas nuevos: Aurora Boreal (neon verde+magenta), Neón Tokyo (cyan+fucsia), Vino & Oro (burdeos+dorado), Mañana Clara (tema claro crema/blanco), Café Oscuro (chocolate+ámbar)","Sistema de colores de texto por tema (--t-text/muted/dim) — Mañana Clara tiene texto oscuro legible","Selector de tema cambiado de grid de tarjetas a dropdown desplegable con 10 temas listados","S.input, S.label, S.btnSecondary usan CSS vars de texto para adaptarse al tema claro"] },
-  { v:"2.0.5", date:"2026-04-15", notes:["Menú lateral: pie siempre visible en móvil (solo versión + changelog, sin scroll)","Sincronización movida a ⚙️ dropdown (junto a Exportar/Importar/Cerrar sesión)","Sync muestra 'Sincronizando…' mientras está activo"] },
-  { v:"2.0.4", date:"2026-04-15", notes:["Foto de pareja en home, menú lateral y perfil (crop circular 72px, JPEG)","Fotos individuales por persona en perfil (con previsualización de avatar)","5 temas visuales con fondos más saturados y contrastados","Tipografía propia por tema: Jakarta Sans / DM Sans / Nunito / Lato / Space Grotesk","Fuente se carga dinámicamente desde Google Fonts al cambiar tema","Hoja de ruta: v3.0 — modo individual + grupos de amigos (pendiente)"] },
-  { v:"2.0.3", date:"2026-04-15", notes:["Rediseño UX: menú hamburguesa lateral con navegación","Página de inicio con resumen del día (hoy/mañana + semana)","Top bar persistente (☰ + 🏠 + ⚙️) adaptado a móvil/web","⚙️ abre dropdown: Mi perfil / Exportar / Importar / Cerrar sesión","ProfileModal: nombres, colores, fotos individuales y selector de tema","5 temas de color (Noche Violeta, Océano, Jardín, Atardecer, Obsidiana)","Versión y changelog movidos al pie del menú lateral"] },
-  { v:"2.0.2", date:"2026-04-13", notes:["Stats: semana actual excluida de mejor/peor semana","Stats: botón ℹ en Participación por persona","Metas: campo 'Analizar desde' para ignorar períodos anteriores","Metas: historial muestra '–' para períodos sin datos","Objetivo épico integrado en cabecera de semana","Warning arrastrada muestra cuántas semanas lleva pendiente"] },
-  { v:"2.0.1", date:"2026-04-13", notes:["Fix crítico: errores de Supabase ahora visibles en UI (antes silenciosos)","Import JSON sube datos a Supabase inmediatamente","Botón 🔄 sincroniza en ambas direcciones","localStorage por pareja (evita mezcla de datos entre usuarios)"] },
-  { v:"2.0.0", date:"2026-04-08", notes:["Login con Google OAuth","Espacio privado por pareja con código compartido","Sincronización en tiempo real con Supabase Realtime","Backup automático en localStorage"] },
-  { v:"1.9.3", date:"2026-04-06", notes:["P2: columna 'Sin fecha' eliminada, calendario vuelve a pantalla completa","Se mantiene edición inline de actividades desde el panel del día"] },
-  { v:"1.9.2", date:"2026-04-05", notes:["Sin fecha: solo no-hechas, dedup por título+quién+emoji (semana más reciente)","Drag & drop corregido: onDragEnter + relatedTarget fix","Metas: ❌ en TODOS los períodos pasados no cumplidos","Stats: barras con escala absoluta 0-100%","Fecha de hoy bajo 'Semana X', botón nueva misión arriba"] },
-  { v:"1.9.0", date:"2026-04-04", notes:["Fix guardado: debounce evita pérdidas de datos","Filtro de categoría global (persiste entre tabs)","Calendario: columna sin-fecha con drag & drop","Editar actividades directamente en calendario (sin salir)","Metas: períodos no cumplidos en rojo, cumplidos en verde"] },
-  { v:"1.8.0", date:"2026-03-30", notes:["Categoría Viaje + multi-categoría por tarea/evento","Filtro global por persona persiste entre tabs","Metas: tipo Mínimo/Máximo","Countdown en segundos cuando queda <24h","Gráfico horas por categoría (trabajo en escala propia)","Filtro Esta semana en Historial","Meta enlazada: selector desplegable","Barras de progreso relativas","Insights más potentes"] },
-  { v:"1.7.0", date:"2026-03-26", notes:["Filtro por persona en P1 y P2","Versión dorada con fecha y changelog","Editar estado desde P2","Tareas recurrentes (semanal/mensual)","Goals con countdown deadline","Stats rediseñado"] },
-  { v:"1.6.0", date:"2026-03-25", notes:["Fix stats semanas futuras","Calendario navega a semana correcta","Distinción Tarea vs Evento","Distribuir eventos","Historial sin semanas futuras","Emojis con fondo en calendario"] },
-];
-const SEED_VERSION = 6;
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
 const TUTORIAL_STEPS = [
-  { emoji:"👋", tab:null, title:"¡Bienvenido/a a Shared Calendar!", desc:"Tu espacio para planear la vida juntos. Te mostramos cada sección en 2 minutos — después podrás volver a este tutorial desde tu perfil." },
-  { emoji:"🏠", tab:"home",     tabIcon:"🏠", tabLabel:"Inicio",      title:"Vista de hoy",       desc:"Resumen instantáneo: eventos de hoy y mañana, tareas pendientes urgentes y el objetivo épico de la semana. Tu punto de partida." },
-  { emoji:"🎯", tab:"current",  tabIcon:"🎯", tabLabel:"Semana",      title:"Semana actual",      desc:"Añade tareas y eventos, cambia estados, arrástralos a la próxima semana o márcalos ✓ DONE. Es el corazón de la app." },
-  { emoji:"📋", tab:"pending",  tabIcon:"📋", tabLabel:"Pendientes",  title:"Todo pendiente",     desc:"Una lista con todo lo no completado de cualquier semana, sin duplicados. Las tareas recurrentes aparecen una sola vez." },
-  { emoji:"📅", tab:"calendar", tabIcon:"📅", tabLabel:"Calendario",  title:"Calendario mensual", desc:"Vista de cuadrícula del mes completo. Los eventos multi-día se extienden por todos sus días. Toca un día para ver el detalle." },
-  { emoji:"🏅", tab:"goals",    tabIcon:"🏅", tabLabel:"Metas",       title:"Metas y objetivos",  desc:"Define lo que más importa: fecha límite, tipo (mínimo/máximo) y vincula actividades semanales. El progreso se calcula solo." },
-  { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",       title:"Estadísticas",       desc:"Gráficos semanales, análisis inteligente, sincronía de pareja, equidad en casa, hábito ancla y mucho más. Datos que motivan." },
-  { emoji:"💸", tab:"gastos",   tabIcon:"💸", tabLabel:"Gastos",      title:"Gastos compartidos",  desc:"Registra gastos, divide el costo con un slider (0-100%), organiza por proyectos (viaje, finde…) y lleva el balance: quién debe cuánto a quién." },
-  { emoji:"💬", tab:"chat",     tabIcon:"💬", tabLabel:"Chat",        title:"Chat en tiempo real", desc:"Mensajitos con tu pareja directamente en la app. Perfectos para coordinarse al vuelo sin salir del calendario." },
-  { emoji:"✨", tab:null,                                               title:"¡Todo listo!",       desc:"Ya conoces Shared Calendar. Empieza añadiendo algo a esta semana. Puedes repasar el tutorial desde ⚙️ → Mi perfil.", isFinal:true },
+  { emoji:"👋", tab:null,       title:"¡Bienvenido/a a Shared Calendar!", desc:"Tu espacio para planear la vida juntos. Te mostramos cada sección en 2 minutos — después podrás volver a este tutorial desde tu perfil." },
+  { emoji:"🏠", tab:"home",     tabIcon:"🏠", tabLabel:"Inicio",          title:"Vista de hoy",          desc:"Resumen instantáneo: tira de días de la semana, próximos eventos, tareas atrasadas y el objetivo épico. Toca cualquier día para ver sus actividades." },
+  { emoji:"🎯", tab:"current",  tabIcon:"🎯", tabLabel:"Semana",          title:"Semana actual",         desc:"Añade tareas y eventos, cambia estados tocándolos, arrástralos a la próxima semana o márcalos ✓ DONE. Es el corazón de la app." },
+  { emoji:"📋", tab:"pending",  tabIcon:"📋", tabLabel:"Pendientes",      title:"Todo pendiente",        desc:"Lista unificada de todo lo no completado en cualquier semana. Las tareas arrastradas muestran cuántas semanas llevan pendientes." },
+  { emoji:"📅", tab:"calendar", tabIcon:"📅", tabLabel:"Calendario",      title:"Calendario mensual",    desc:"Vista de cuadrícula del mes. Los eventos multi-día se extienden por todos sus días. Toca un día para ver el detalle y editar inline." },
+  { emoji:"🏅", tab:"goals",    tabIcon:"🏅", tabLabel:"Metas",           title:"Metas y objetivos",     desc:"Define metas con período (semanal/mensual/anual), tipo mínimo o máximo y fecha límite. Vincula actividades y el progreso se calcula solo." },
+  { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",           title:"Estadísticas",          desc:"Gráficos semanales, análisis de sincronía, equidad en tareas de casa, hábito ancla y mucho más. Exporta la vista como imagen PNG." },
+  { emoji:"💸", tab:"gastos",   tabIcon:"💸", tabLabel:"Gastos",          title:"Gastos compartidos",    desc:"Registra gastos, divide el costo con un slider (0-100%), organiza por proyectos (viaje, finde…) y lleva el balance: quién debe cuánto a quién." },
+  { emoji:"💬", tab:"chat",     tabIcon:"💬", tabLabel:"Chat",            title:"Chat en tiempo real",   desc:"Mensajitos con tu pareja directamente en la app. Perfectos para coordinarse al vuelo sin salir del calendario." },
+  { emoji:"🔗", tab:"links",    tabIcon:"🔗", tabLabel:"Base de control", title:"Links y cuentas",       desc:"Guarda enlaces de uso frecuente y cuentas (usuario + contraseña). Los links se abren sin salir de la PWA. Tus datos quedan solo en tu cuenta." },
+  { emoji:"🔍", tab:null,       title:"Filtros globales", desc:"El botón de filtros en la barra superior permite filtrar por persona y por categoría. Se aplican en Semana, Pendientes y Calendario al mismo tiempo." },
+  { emoji:"⋯",  tab:null,       title:"Menú de acciones (⋯)", desc:"El botón ⋯ en la barra superior da acceso a: exportar al calendario (.ics / Google Calendar), imprimir PDF de la semana y actualizar la app a la última versión." },
+  { emoji:"⚙️", tab:null,       title:"Mi perfil y personalización", desc:"En ⚙️ → Mi perfil cambias nombres, colores de pareja, foto, tema visual (14 temas) y tipografía. El tema y la fuente son individuales: no afectan a tu pareja." },
+  { emoji:"✨", tab:null,        title:"¡Todo listo!", desc:"Ya conoces Shared Calendar. Empieza añadiendo algo a esta semana. Puedes repasar el tutorial en cualquier momento desde ⚙️ → Mi perfil.", isFinal:true },
 ];
 const STATUS = {
   TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
@@ -114,19 +79,6 @@ const EMOJI_GROUPS = [
   { label:"🎓 Cultura", emojis:["🎓","📖","🖼️","🏛️","🎭","🎨","🎬","📽️","🎼","🎤","📰","✍️","🖋️","📜","🏺","🗿","🎑","🌐","🔭","🔬","🧪","🧬","💎","🪬","🎋","🪁"] },
 ];
 
-const uid = () => Math.random().toString(36).slice(2, 9);
-const isoWeekKey = (wn, yr) => `${yr}-W${String(wn).padStart(2,"0")}`;
-const getWeekAndYear = (date = new Date()) => {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const ys = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return { week: Math.ceil((((d - ys) / 86400000) + 1) / 7), year: d.getUTCFullYear() };
-};
-const isTodayMonday = () => new Date().getDay() === 1;
-const isoWeeksInYear = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
-const prevWeekFn = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TABS = ["home","current","calendar","pending","goals","stats","gastos","chat"];
 
@@ -175,205 +127,6 @@ const scheduleReminders = (data, p1, p2) => {
     _rTimers.push(setTimeout(()=>showNotif(`${m.emoji} ${m.title}`,`${label} · ${who}`,{tag:`rem-${m.id}`}), fireAt-now));
   });
 };
-
-const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" }; // dark theme defaults
-const THEMES = [
-  // ── Oscuros originales ────────────────────────────────────────────────────
-  {
-    id:"violet", name:"Noche Violeta", preview:["#f472b6","#a78bfa","#34d399"],
-    bg:"#080512",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(167,139,250,0.40) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(244,114,182,0.35) 0%,transparent 52%)",
-    menuBg:"rgba(6,3,16,0.98)", topBarBg:"rgba(6,3,14,0.94)",
-    card:"#130d2a", cardBorder:"rgba(167,139,250,0.18)",
-    btnGrad:"linear-gradient(135deg,#f472b6,#a78bfa)",
-    accent:"#a78bfa", accentSoft:"rgba(167,139,250,0.14)",
-    fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", googleFonts:null,
-    ..._DT,
-  },
-  {
-    id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#06b6d4"],
-    bg:"#010c18",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(6,182,212,0.38) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(99,102,241,0.32) 0%,transparent 52%)",
-    menuBg:"rgba(1,7,15,0.98)", topBarBg:"rgba(1,9,18,0.94)",
-    card:"#071a2c", cardBorder:"rgba(6,182,212,0.18)",
-    btnGrad:"linear-gradient(135deg,#06b6d4,#818cf8)",
-    accent:"#22d3ee", accentSoft:"rgba(34,211,238,0.13)",
-    fontBody:"'DM Sans',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
-    ..._DT,
-  },
-  {
-    id:"sage", name:"Jardín Botánico", preview:["#4ade80","#a3e635","#fbbf24"],
-    bg:"#030c06",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(74,222,128,0.35) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,191,36,0.28) 0%,transparent 52%)",
-    menuBg:"rgba(2,8,4,0.98)", topBarBg:"rgba(3,11,5,0.94)",
-    card:"#08180d", cardBorder:"rgba(74,222,128,0.18)",
-    btnGrad:"linear-gradient(135deg,#4ade80,#fbbf24)",
-    accent:"#4ade80", accentSoft:"rgba(74,222,128,0.13)",
-    fontBody:"'Nunito',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    ..._DT,
-  },
-  {
-    id:"sunset", name:"Atardecer", preview:["#fb923c","#f43f5e","#fbbf24"],
-    bg:"#110507",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(251,146,60,0.38) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(244,63,94,0.32) 0%,transparent 52%)",
-    menuBg:"rgba(14,4,6,0.98)", topBarBg:"rgba(14,5,7,0.94)",
-    card:"#1e0b0e", cardBorder:"rgba(251,146,60,0.2)",
-    btnGrad:"linear-gradient(135deg,#fb923c,#f43f5e)",
-    accent:"#fb923c", accentSoft:"rgba(251,146,60,0.13)",
-    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-    ..._DT,
-  },
-  {
-    id:"obsidian", name:"Obsidiana", preview:["#e2e8f0","#94a3b8","#60a5fa"],
-    bg:"#050505",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(96,165,250,0.18) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(148,163,184,0.12) 0%,transparent 52%)",
-    menuBg:"rgba(4,4,4,0.99)", topBarBg:"rgba(5,5,5,0.96)",
-    card:"#101010", cardBorder:"rgba(148,163,184,0.14)",
-    btnGrad:"linear-gradient(135deg,#94a3b8,#60a5fa)",
-    accent:"#94a3b8", accentSoft:"rgba(148,163,184,0.1)",
-    fontBody:"'Space Grotesk',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    ..._DT,
-  },
-  // ── Nuevos: Fuera de la caja ──────────────────────────────────────────────
-  {
-    id:"aurora", name:"Aurora Boreal", preview:["#00ff88","#ff00cc","#00d4ff"],
-    bg:"#030b10",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(0,255,136,0.45) 0%,transparent 50%),radial-gradient(ellipse at 105% -5%,rgba(255,0,204,0.40) 0%,transparent 50%)",
-    menuBg:"rgba(2,7,12,0.98)", topBarBg:"rgba(3,9,14,0.95)",
-    card:"#071520", cardBorder:"rgba(0,255,136,0.2)",
-    btnGrad:"linear-gradient(135deg,#00ff88,#ff00cc)",
-    accent:"#00ff88", accentSoft:"rgba(0,255,136,0.12)",
-    fontBody:"'Space Grotesk',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    ..._DT,
-  },
-  {
-    id:"tokyo", name:"Neón Tokyo", preview:["#f0abfc","#22d3ee","#facc15"],
-    bg:"#06010f",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(240,171,252,0.42) 0%,transparent 50%),radial-gradient(ellipse at 105% -5%,rgba(34,211,238,0.38) 0%,transparent 50%)",
-    menuBg:"rgba(4,1,10,0.99)", topBarBg:"rgba(5,1,12,0.95)",
-    card:"#110820", cardBorder:"rgba(240,171,252,0.2)",
-    btnGrad:"linear-gradient(135deg,#d946ef,#22d3ee)",
-    accent:"#f0abfc", accentSoft:"rgba(240,171,252,0.12)",
-    fontBody:"'Space Grotesk',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    ..._DT,
-  },
-  {
-    id:"wine", name:"Vino & Oro", preview:["#be123c","#fbbf24","#f9a8d4"],
-    bg:"#0e0208",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(190,18,60,0.45) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,191,36,0.35) 0%,transparent 52%)",
-    menuBg:"rgba(10,2,7,0.99)", topBarBg:"rgba(12,2,8,0.95)",
-    card:"#200614", cardBorder:"rgba(251,191,36,0.2)",
-    btnGrad:"linear-gradient(135deg,#9f1239,#fbbf24)",
-    accent:"#fbbf24", accentSoft:"rgba(251,191,36,0.12)",
-    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-    ..._DT,
-  },
-  {
-    id:"dawn", name:"Mañana Clara", preview:["#7c3aed","#f472b6","#10b981"],
-    bg:"#f5f0ea",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(244,114,182,0.22) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(124,58,237,0.18) 0%,transparent 52%)",
-    menuBg:"rgba(245,240,234,0.98)", topBarBg:"rgba(245,240,234,0.94)",
-    card:"rgba(255,255,255,0.85)", cardBorder:"rgba(124,58,237,0.15)",
-    btnGrad:"linear-gradient(135deg,#f472b6,#7c3aed)",
-    accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
-    fontBody:"'Nunito',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    text:"#1e0d3c", textMuted:"#5a4a7a", textDim:"#6e5c8a", error:"#c0392b",
-  },
-  // ── Temas claros ──────────────────────────────────────────────────────────
-  {
-    id:"blush", name:"Rosa Pastel", preview:["#e91e8c","#f472b6","#fb7185"],
-    bg:"#fff0f5",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(233,30,140,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,113,133,0.10) 0%,transparent 52%)",
-    menuBg:"rgba(255,240,245,0.98)", topBarBg:"rgba(255,240,245,0.94)",
-    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(233,30,140,0.15)",
-    btnGrad:"linear-gradient(135deg,#e91e8c,#f472b6)",
-    accent:"#e91e8c", accentSoft:"rgba(233,30,140,0.1)",
-    fontBody:"'Nunito',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    text:"#3d0028", textMuted:"#7a2d58", textDim:"#8c4472", error:"#b52042",
-  },
-  {
-    id:"sky", name:"Cielo Azul", preview:["#0ea5e9","#38bdf8","#7dd3fc"],
-    bg:"#f0f8ff",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(14,165,233,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(56,189,248,0.10) 0%,transparent 52%)",
-    menuBg:"rgba(240,248,255,0.98)", topBarBg:"rgba(240,248,255,0.94)",
-    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(14,165,233,0.15)",
-    btnGrad:"linear-gradient(135deg,#0ea5e9,#38bdf8)",
-    accent:"#0ea5e9", accentSoft:"rgba(14,165,233,0.1)",
-    fontBody:"'DM Sans',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
-    text:"#0c2a48", textMuted:"#1e5c96", textDim:"#2c6898", error:"#b52d20",
-  },
-  {
-    id:"mint", name:"Menta Fresca", preview:["#059669","#10b981","#34d399"],
-    bg:"#f0faf4",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(5,150,105,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(16,185,129,0.10) 0%,transparent 52%)",
-    menuBg:"rgba(240,250,244,0.98)", topBarBg:"rgba(240,250,244,0.94)",
-    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(5,150,105,0.15)",
-    btnGrad:"linear-gradient(135deg,#059669,#10b981)",
-    accent:"#059669", accentSoft:"rgba(5,150,105,0.1)",
-    fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", googleFonts:null,
-    text:"#0a2e1e", textMuted:"#1a6040", textDim:"#1d7045", error:"#a52d14",
-  },
-  {
-    id:"peach", name:"Melocotón", preview:["#ea7026","#f97316","#fb923c"],
-    bg:"#fff8f0",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(234,112,38,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(249,115,22,0.10) 0%,transparent 52%)",
-    menuBg:"rgba(255,248,240,0.98)", topBarBg:"rgba(255,248,240,0.94)",
-    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(234,112,38,0.15)",
-    btnGrad:"linear-gradient(135deg,#ea7026,#f97316)",
-    accent:"#ea7026", accentSoft:"rgba(234,112,38,0.1)",
-    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-    text:"#3d1500", textMuted:"#6e3010", textDim:"#7a3e12", error:"#a02010",
-  },
-  {
-    id:"lavender", name:"Lavanda Suave", preview:["#7c3aed","#8b5cf6","#a78bfa"],
-    bg:"#f5f0ff",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(124,58,237,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(139,92,246,0.10) 0%,transparent 52%)",
-    menuBg:"rgba(245,240,255,0.98)", topBarBg:"rgba(245,240,255,0.94)",
-    card:"rgba(255,255,255,0.9)", cardBorder:"rgba(124,58,237,0.15)",
-    btnGrad:"linear-gradient(135deg,#7c3aed,#8b5cf6)",
-    accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
-    fontBody:"'Space Grotesk',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    text:"#1e0b4b", textMuted:"#5a3a8a", textDim:"#9a7acc",
-  },
-  {
-    id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"],
-    bg:"#0d0805",
-    bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(245,158,11,0.40) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(146,64,14,0.45) 0%,transparent 52%)",
-    menuBg:"rgba(10,6,3,0.99)", topBarBg:"rgba(11,7,4,0.95)",
-    card:"#1c1008", cardBorder:"rgba(245,158,11,0.2)",
-    btnGrad:"linear-gradient(135deg,#92400e,#f59e0b)",
-    accent:"#f59e0b", accentSoft:"rgba(245,158,11,0.12)",
-    fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
-    googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-    ..._DT,
-  },
-];
-
-const FONTS = [
-  { id:"auto",        name:"Automático (del tema)",  family:null, googleFonts:null },
-  { id:"inter",       name:"Inter",                  family:"'Inter',system-ui,sans-serif",                googleFonts:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" },
-  { id:"poppins",     name:"Poppins",                family:"'Poppins',system-ui,sans-serif",              googleFonts:"https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" },
-  { id:"playfair",    name:"Playfair Display",       family:"'Playfair Display',Georgia,serif",            googleFonts:"https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" },
-  { id:"space",       name:"Space Grotesk",          family:"'Space Grotesk',system-ui,sans-serif",        googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" },
-  { id:"raleway",     name:"Raleway",                family:"'Raleway',system-ui,sans-serif",              googleFonts:"https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" },
-  { id:"montserrat",  name:"Montserrat",             family:"'Montserrat',system-ui,sans-serif",           googleFonts:"https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" },
-  { id:"merriweather",name:"Merriweather",           family:"'Merriweather',Georgia,serif",                googleFonts:"https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" },
-  { id:"quicksand",   name:"Quicksand",              family:"'Quicksand',system-ui,sans-serif",            googleFonts:"https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" },
-  { id:"josefin",     name:"Josefin Sans",           family:"'Josefin Sans',system-ui,sans-serif",         googleFonts:"https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap" },
-  { id:"dmserif",     name:"DM Serif Display",       family:"'DM Serif Display',Georgia,serif",            googleFonts:"https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" },
-];
 
 // Per-user localStorage preferences (theme & font are personal, not shared with partner)
 const getUserPrefs = id => { try { return JSON.parse(localStorage.getItem(`user-prefs-${id}`)||"{}"); } catch { return {}; } };
