@@ -145,7 +145,7 @@ export const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" };
 export const THEMES = [
   // ── Oscuros originales ────────────────────────────────────────────────────
   {
-    id:"violet", name:"Noche Violeta", preview:["#f472b6","#a78bfa","#34d399"],
+    id:"violet", name:"Noche Violeta", preview:["#f472b6","#a78bfa","#34d399"], dark:true, pair:"lavender",
     bg:"#080512",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(167,139,250,0.40) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(244,114,182,0.35) 0%,transparent 52%)",
     menuBg:"rgba(6,3,16,0.98)", topBarBg:"rgba(6,3,14,0.94)",
@@ -156,7 +156,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#06b6d4"],
+    id:"ocean", name:"Océano Profundo", preview:["#22d3ee","#818cf8","#06b6d4"], dark:true, pair:"sky",
     bg:"#010c18",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(6,182,212,0.38) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(99,102,241,0.32) 0%,transparent 52%)",
     menuBg:"rgba(1,7,15,0.98)", topBarBg:"rgba(1,9,18,0.94)",
@@ -168,7 +168,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"sage", name:"Jardín Botánico", preview:["#4ade80","#a3e635","#fbbf24"],
+    id:"sage", name:"Jardín Botánico", preview:["#4ade80","#a3e635","#fbbf24"], dark:true, pair:"mint",
     bg:"#030c06",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(74,222,128,0.35) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,191,36,0.28) 0%,transparent 52%)",
     menuBg:"rgba(2,8,4,0.98)", topBarBg:"rgba(3,11,5,0.94)",
@@ -180,7 +180,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"sunset", name:"Atardecer", preview:["#fb923c","#f43f5e","#fbbf24"],
+    id:"sunset", name:"Atardecer", preview:["#fb923c","#f43f5e","#fbbf24"], dark:true, pair:"peach",
     bg:"#110507",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(251,146,60,0.38) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(244,63,94,0.32) 0%,transparent 52%)",
     menuBg:"rgba(14,4,6,0.98)", topBarBg:"rgba(14,5,7,0.94)",
@@ -192,7 +192,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"obsidian", name:"Obsidiana", preview:["#e2e8f0","#94a3b8","#60a5fa"],
+    id:"obsidian", name:"Obsidiana", preview:["#e2e8f0","#94a3b8","#60a5fa"], dark:true, pair:"lavender",
     bg:"#050505",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(96,165,250,0.18) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(148,163,184,0.12) 0%,transparent 52%)",
     menuBg:"rgba(4,4,4,0.99)", topBarBg:"rgba(5,5,5,0.96)",
@@ -205,7 +205,7 @@ export const THEMES = [
   },
   // ── Nuevos: Fuera de la caja ──────────────────────────────────────────────
   {
-    id:"aurora", name:"Aurora Boreal", preview:["#00ff88","#ff00cc","#00d4ff"],
+    id:"aurora", name:"Aurora Boreal", preview:["#00ff88","#ff00cc","#00d4ff"], dark:true, pair:"mint",
     bg:"#030b10",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(0,255,136,0.45) 0%,transparent 50%),radial-gradient(ellipse at 105% -5%,rgba(255,0,204,0.40) 0%,transparent 50%)",
     menuBg:"rgba(2,7,12,0.98)", topBarBg:"rgba(3,9,14,0.95)",
@@ -217,7 +217,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"tokyo", name:"Neón Tokyo", preview:["#f0abfc","#22d3ee","#facc15"],
+    id:"tokyo", name:"Neón Tokyo", preview:["#f0abfc","#22d3ee","#facc15"], dark:true, pair:"blush",
     bg:"#06010f",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(240,171,252,0.42) 0%,transparent 50%),radial-gradient(ellipse at 105% -5%,rgba(34,211,238,0.38) 0%,transparent 50%)",
     menuBg:"rgba(4,1,10,0.99)", topBarBg:"rgba(5,1,12,0.95)",
@@ -229,7 +229,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"wine", name:"Vino & Oro", preview:["#be123c","#fbbf24","#f9a8d4"],
+    id:"wine", name:"Vino & Oro", preview:["#be123c","#fbbf24","#f9a8d4"], dark:true, pair:"blush",
     bg:"#0e0208",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(190,18,60,0.45) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,191,36,0.35) 0%,transparent 52%)",
     menuBg:"rgba(10,2,7,0.99)", topBarBg:"rgba(12,2,8,0.95)",
@@ -241,7 +241,7 @@ export const THEMES = [
     ..._DT,
   },
   {
-    id:"dawn", name:"Mañana Clara", preview:["#7c3aed","#f472b6","#10b981"],
+    id:"dawn", name:"Mañana Clara", preview:["#7c3aed","#f472b6","#10b981"], dark:false, pair:"violet",
     bg:"#f5f0ea",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(244,114,182,0.22) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(124,58,237,0.18) 0%,transparent 52%)",
     menuBg:"rgba(245,240,234,0.98)", topBarBg:"rgba(245,240,234,0.94)",
@@ -254,7 +254,7 @@ export const THEMES = [
   },
   // ── Temas claros ──────────────────────────────────────────────────────────
   {
-    id:"blush", name:"Rosa Pastel", preview:["#e91e8c","#f472b6","#fb7185"],
+    id:"blush", name:"Rosa Pastel", preview:["#e91e8c","#f472b6","#fb7185"], dark:false, pair:"tokyo",
     bg:"#fff0f5",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(233,30,140,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(251,113,133,0.10) 0%,transparent 52%)",
     menuBg:"rgba(255,240,245,0.98)", topBarBg:"rgba(255,240,245,0.94)",
@@ -266,7 +266,7 @@ export const THEMES = [
     text:"#3d0028", textMuted:"#7a2d58", textDim:"#8c4472", error:"#b52042",
   },
   {
-    id:"sky", name:"Cielo Azul", preview:["#0ea5e9","#38bdf8","#7dd3fc"],
+    id:"sky", name:"Cielo Azul", preview:["#0ea5e9","#38bdf8","#7dd3fc"], dark:false, pair:"ocean",
     bg:"#f0f8ff",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(14,165,233,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(56,189,248,0.10) 0%,transparent 52%)",
     menuBg:"rgba(240,248,255,0.98)", topBarBg:"rgba(240,248,255,0.94)",
@@ -278,7 +278,7 @@ export const THEMES = [
     text:"#0c2a48", textMuted:"#1e5c96", textDim:"#2c6898", error:"#b52d20",
   },
   {
-    id:"mint", name:"Menta Fresca", preview:["#059669","#10b981","#34d399"],
+    id:"mint", name:"Menta Fresca", preview:["#059669","#10b981","#34d399"], dark:false, pair:"sage",
     bg:"#f0faf4",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(5,150,105,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(16,185,129,0.10) 0%,transparent 52%)",
     menuBg:"rgba(240,250,244,0.98)", topBarBg:"rgba(240,250,244,0.94)",
@@ -289,7 +289,7 @@ export const THEMES = [
     text:"#0a2e1e", textMuted:"#1a6040", textDim:"#1d7045", error:"#a52d14",
   },
   {
-    id:"peach", name:"Melocotón", preview:["#ea7026","#f97316","#fb923c"],
+    id:"peach", name:"Melocotón", preview:["#ea7026","#f97316","#fb923c"], dark:false, pair:"sunset",
     bg:"#fff8f0",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(234,112,38,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(249,115,22,0.10) 0%,transparent 52%)",
     menuBg:"rgba(255,248,240,0.98)", topBarBg:"rgba(255,248,240,0.94)",
@@ -301,7 +301,7 @@ export const THEMES = [
     text:"#3d1500", textMuted:"#6e3010", textDim:"#7a3e12", error:"#a02010",
   },
   {
-    id:"lavender", name:"Lavanda Suave", preview:["#7c3aed","#8b5cf6","#a78bfa"],
+    id:"lavender", name:"Lavanda Suave", preview:["#7c3aed","#8b5cf6","#a78bfa"], dark:false, pair:"violet",
     bg:"#f5f0ff",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(124,58,237,0.12) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(139,92,246,0.10) 0%,transparent 52%)",
     menuBg:"rgba(245,240,255,0.98)", topBarBg:"rgba(245,240,255,0.94)",
@@ -313,7 +313,7 @@ export const THEMES = [
     text:"#1e0b4b", textMuted:"#5a3a8a", textDim:"#9a7acc",
   },
   {
-    id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"],
+    id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"], dark:true, pair:"peach",
     bg:"#0d0805",
     bgGrad:"radial-gradient(ellipse at -5% 105%,rgba(245,158,11,0.40) 0%,transparent 52%),radial-gradient(ellipse at 105% -5%,rgba(146,64,14,0.45) 0%,transparent 52%)",
     menuBg:"rgba(10,6,3,0.99)", topBarBg:"rgba(11,7,4,0.95)",

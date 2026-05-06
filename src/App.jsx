@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, saveData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
+import { loadData, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
 import Brand from "./components/Brand.jsx";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -918,22 +918,23 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   // Retry pending save when reconnecting
   useEffect(() => {
-    if (isOnline && pendingSave && data && coupleId) {
-      saveData(data, coupleId)
+    if (isOnline && pendingSave && data && coupleId && isValidAppData(data)) {
+      saveWithRetry(data, coupleId)
         .then(() => { setPendingSave(false); setSyncError(null); showSyncMsg("✓ Cambios sincronizados"); })
-        .catch(() => {}); // still offline — keep pendingSave true
+        .catch(e => { setSyncError(e.message); showSyncMsg("⚠ Sin conexión — reintentando…"); });
     }
   }, [isOnline]); // eslint-disable-line
 
   const update = useCallback(fn => {
     setData(prev => {
       const next = fn(prev);
-      // Debounced save: 700ms after last change
+      if (!isValidAppData(next)) return next; // guard: skip save if state looks corrupt
+      // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
-        saveData(next, coupleId)
+        saveWithRetry(next, coupleId)
           .then(() => { setSyncError(null); setPendingSave(false); })
-          .catch(e => { setSyncError(e.message); setPendingSave(true); });
+          .catch(e => { setSyncError(e.message); setPendingSave(true); showSyncMsg("⚠ Error al guardar — reintentando…"); });
       }, 700);
       return next;
     });
@@ -971,6 +972,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const _uprefs = getUserPrefs(sessionUserId);
   const themeId = localThemeId || _uprefs.themeId || data.settings?.themeId || "violet";
   const fontId  = localFontId  || _uprefs.fontId  || data.settings?.fontId  || "auto";
+  const _activeTheme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  const toggleDarkLight = () => {
+    const pair = _activeTheme.pair || (_activeTheme.dark ? "lavender" : "violet");
+    setLocalThemeId(pair);
+    if (sessionUserId) saveUserPrefs(sessionUserId, { themeId: pair });
+  };
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1457,6 +1464,12 @@ ${ms.map(m=>{
               </span>
           }
         </div>
+        {/* Dark/light toggle */}
+        <button onClick={toggleDarkLight} aria-label={_activeTheme.dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+          title={_activeTheme.dark ? "Modo claro" : "Modo oscuro"}
+          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
+          <span aria-hidden="true">{_activeTheme.dark ? "☀️" : "🌙"}</span>
+        </button>
         {/* Overflow menu ⋯ */}
         <div style={{ position:"relative", flexShrink:0 }}>
           <OverflowButton onClick={() => setPopOpen(o => !o)} />
