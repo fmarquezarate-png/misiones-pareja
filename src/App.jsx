@@ -436,6 +436,7 @@ function ThemeInjector({ themeId, fontId }) {
     r.setProperty("--t-text-muted",  t.textMuted || "#8b7fa8");
     r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
     r.setProperty("--t-error",       t.error     || "#f87171");
+    r.setProperty("--t-input-bg",    t.dark === false ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.06)");
     document.documentElement.style.background = t.bg;
     try { localStorage.setItem("mp-quick-bg", t.bg); } catch {}
   }, [themeId, fontId]);
@@ -1552,6 +1553,8 @@ ${ms.map(m=>{
               colors={colors}
               p1={p1} p2={p2}
               photo={data.settings?.photos?.couple}
+              p1Photo={data.settings?.photos?.person1}
+              p2Photo={data.settings?.photos?.person2}
               onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
               onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
               onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
@@ -3618,9 +3621,9 @@ function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProye
   };
   const settleProject = (id, settled) => onUpdateProyectos((proyectos||[]).map(p=>p.id===id?{...p,settled}:p));
 
-  const INP = { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:10, color:"var(--t-text,#e2dff5)", fontSize:16, padding:"12px 12px", fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" };
+  const INP = { background:"var(--t-input-bg,rgba(255,255,255,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:10, color:"var(--t-text,#f0e8ff)", fontSize:16, padding:"12px 12px", fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" };
   const SEL = { ...INP, fontSize:14, padding:"11px 10px", cursor:"pointer", WebkitAppearance:"none", appearance:"none" };
-  const TAB_BTN = (active) => ({ flexShrink:0, padding:"6px 14px", borderRadius:20, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:active?600:400, background:active?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(255,255,255,0.05)", color:active?"var(--t-accent,#c4b8ff)":"#6b5f88" });
+  const TAB_BTN = (active) => ({ flexShrink:0, padding:"6px 14px", borderRadius:20, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:active?600:400, background:active?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.07)", color:active?"var(--t-accent,#a78bfa)":"var(--t-text-dim,#6b5f88)" });
   const BAL_PILL = (owes) => ({ background:owes?"rgba(248,113,113,0.1)":"rgba(52,211,153,0.1)", border:`1px solid ${owes?"rgba(248,113,113,0.3)":"rgba(52,211,153,0.3)"}`, borderRadius:8, padding:"8px 12px", fontSize:12, color:owes?"#f87171":"#34d399", fontWeight:600, textAlign:"center" });
 
   return (

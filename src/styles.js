@@ -54,8 +54,8 @@ export const whoHex = (who, colors) => {
 // ─── Original v2.5 exports — unchanged ────────────────────────────────────
 export const S = {
   card:      { background:"#1d1733", border:"1px solid rgba(167,139,250,0.12)", borderRadius:14, padding:"14px 16px" },
-  input:     { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.25)", borderRadius:8, padding:"8px 12px", color:"#f8f4ff", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  inputSm:   { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:7, padding:"5px 8px", color:"#f8f4ff", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
+  input:     { background:"var(--t-input-bg,rgba(255,255,255,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.25))", borderRadius:8, padding:"8px 12px", color:"var(--t-text,#f0e8ff)", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
+  inputSm:   { background:"var(--t-input-bg,rgba(255,255,255,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:7, padding:"5px 8px", color:"var(--t-text,#f0e8ff)", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
   btnNav:    { background:"rgba(255,255,255,0.05)", border:"1px solid rgba(167,139,250,0.2)", borderRadius:8, color:"#a78bfa", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
   btnPrimary:   { background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
   btnSecondary: { background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"#8b7fa8", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },

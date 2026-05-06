@@ -1,7 +1,8 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.1.1";
-export const LAST_UPDATE = "2026-05-05";
+export const APP_VERSION = "3.1.2";
+export const LAST_UPDATE = "2026-05-06";
 export const CHANGELOG = [
+  { v:"3.1.2", date:"2026-05-06", notes:["Fix: pestaña Gastos en blanco en temas claros — inputs usaban colores hardcodeados dark-only; migrados a CSS vars (--t-input-bg, --t-text, --t-accent)","Fix: contrastes inputs — S.input/S.inputSm ahora usan var(--t-text) y var(--t-input-bg)","Fix: contraste lavanda — textDim #9a7acc →#6b4fa8 (~4.5:1 sobre #f5f0ff)","A5: Sync resiliente — saveWithRetry con backoff 2s/4s/8s + isValidAppData guard","B7: Toggle oscuro/claro en topbar (☀️/🌙) con memoria de preferencia","B5: Base de control — carpetas para agrupar links y cuentas con autocompletado","Home: fotos circulares de cada persona con anillo de progreso (verde ≥80%, amarillo ≥50%, rojo <50%)","Versión 3.1.2"] },
   { v:"3.1.1", date:"2026-05-05", notes:["Fix crítico: pantalla negra al cargar — dos useState (localThemeId/localFontId) estaban declarados después de un return condicional, violando Rules of Hooks; movidos al bloque inicial","Fix Service Worker: cleanupOutdatedCaches activo para evitar pantalla negra post-deploy","Versión 3.1.1"] },
   { v:"3.1.0", date:"2026-05-05", notes:["Nueva pestaña 'Base de control 🔗': guarda links (se abren en móvil sin errores PWA) y cuentas con usuario/contraseña copiable","Inicio: próximos 3 eventos + 3 tareas atrasadas (incluye arrastradas), tira de días con clic para ver detalle","Stats: exportar imagen con selección de secciones y colores del tema activo; horas de trabajo muestran promedio/semana","Corrección de contrastes en temas claros (fondos neutros, texto siempre visible)","Cambio de tema instantáneo sin necesidad de reabrir el modal","6 nuevas tipografías: Raleway, Montserrat, Merriweather, Quicksand, Josefin Sans, DM Serif Display","Favicon actualizado a 📅, logo MP visible en temas claros, fix flash de color al arrancar","Histórico: eliminados botones duplicados de Calendar/PDF","Versión 3.1.0"] },
   { v:"3.0.3", date:"2026-05-05", notes:["[incluido en 3.1.0]"] },
@@ -310,7 +311,7 @@ export const THEMES = [
     accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
     fontBody:"'Space Grotesk',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    text:"#1e0b4b", textMuted:"#5a3a8a", textDim:"#9a7acc",
+    text:"#1e0b4b", textMuted:"#5a3a8a", textDim:"#6b4fa8",
   },
   {
     id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"], dark:true, pair:"peach",
