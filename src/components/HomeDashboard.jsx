@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { T, homeHero, eyebrow } from "../styles.js";
+import { T, homeHero } from "../styles.js";
+const eyebrow = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700 };
 import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS } from "../constants.js";
 import WeekStrip from "./WeekStrip.jsx";
@@ -31,7 +32,7 @@ function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleSta
         padding:"16px 18px calc(28px + env(safe-area-inset-bottom))",
         maxHeight:"70vh", overflowY:"auto",
       }}>
-        <div style={{ width:32, height:3, background:"var(--t-card-border,#4a4166)", borderRadius:99, margin:"0 auto 14px" }} />
+        <div style={{ width:32, height:3, background:"rgba(128,128,128,0.3)", borderRadius:99, margin:"0 auto 14px" }} />
         <div style={{ marginBottom:14 }}>
           <div style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#f8f4ff)", textTransform:"capitalize" }}>{d}</div>
           <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)" }}>{m}</div>
@@ -45,7 +46,7 @@ function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleSta
               return (
                 <div key={mi.id} onClick={() => onCycleStatus && onCycleStatus(mi.id)}
                   style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 11px", borderRadius:10, cursor:"pointer",
-                    background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderLeft:`3px solid ${whoColor}` }}>
+                    background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.14)", borderLeft:`3px solid ${whoColor}` }}>
                   <span style={{ fontSize:18 }}>{mi.emoji||"🎯"}</span>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, fontWeight:500, color:mi.status==="DONE"?"var(--t-text-dim,#6b5f88)":"var(--t-text,#f0e8ff)",
@@ -92,10 +93,23 @@ export default function HomeDashboard({
     .sort((a, b) => (a.date + (a.time||"")) > (b.date + (b.time||"")) ? 1 : -1)
     .slice(0, 3);
 
-  const overdue3 = allMissions
-    .filter(m => m.date && m.date < todayStr && m.status !== "DONE" && m.type !== "event")
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 3);
+  const overdue3 = (() => {
+    const seen = new Set();
+    const result = [];
+    // 1. Tasks with explicit past dates
+    for (const m of allMissions) {
+      if (m.date && m.date < todayStr && m.status !== "DONE" && m.type !== "event") {
+        seen.add(m.id); result.push(m);
+      }
+    }
+    // 2. Carried (arrastradas) tasks not done — in current week missions
+    for (const m of missions) {
+      if (m.carriedFrom && m.status !== "DONE" && !seen.has(m.id)) {
+        seen.add(m.id); result.push(m);
+      }
+    }
+    return result.sort((a,b) => (a.date||"0") < (b.date||"0") ? -1 : 1).slice(0, 3);
+  })();
 
   const activeGoal = goals.filter(g => g.active !== false)[0];
 
@@ -188,7 +202,7 @@ export default function HomeDashboard({
             <div style={{fontSize:11, color:T.green, fontStyle:"italic"}}>¡Al día! 🎉</div>
           ) : overdue3.map(m => (
             <div key={m.id} style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-              <div style={{fontSize:11.5, fontWeight:600, color:"#f87171", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+              <div style={{fontSize:11.5, fontWeight:600, color:"var(--t-error,#f87171)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                 {m.emoji||"🎯"} {m.title}
               </div>
               <div style={{fontSize:9.5, color:"var(--t-text-dim,#6b5f88)", marginTop:1}}>{m.date}</div>
@@ -240,7 +254,7 @@ export default function HomeDashboard({
               return (
                 <div key={m.id} onClick={() => onCycleStatus && onCycleStatus(m.id)}
                   style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:9, cursor:"pointer",
-                    background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderLeft:`3px solid ${whoColor}` }}>
+                    background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.14)", borderLeft:`3px solid ${whoColor}` }}>
                   <span style={{fontSize:16, flexShrink:0}}>{m.emoji||"🎯"}</span>
                   <span style={{flex:1, minWidth:0, fontSize:12.5, fontWeight:500,
                     color:m.status==="DONE"?"var(--t-text-dim,#6b5f88)":"var(--t-text,#f0e8ff)",

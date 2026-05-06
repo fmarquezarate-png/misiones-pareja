@@ -41,7 +41,7 @@ export default function Brand({ size = 24, wordmark = false, colors }) {
           boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
         }}/>
       </span>
-      {wordmark && <span>Misiones</span>}
+      {wordmark && <span>Shared Calendar</span>}
     </span>
   );
 }

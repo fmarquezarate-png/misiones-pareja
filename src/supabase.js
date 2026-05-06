@@ -234,6 +234,29 @@ export async function saveData(appData, coupleId) {
   }
 }
 
+// Basic schema guard — avoid persisting accidentally empty/corrupt state
+export function isValidAppData(d) {
+  return !!(d && typeof d === "object" && d.weeks && typeof d.weeks === "object" && d.settings);
+}
+
+// Retry saveData with exponential backoff (2 s, 4 s, 8 s)
+export async function saveWithRetry(appData, coupleId, opts = {}) {
+  const { retries = 3, baseDelay = 2000 } = opts;
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      await saveData(appData, coupleId);
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 /* ── Realtime: notify when partner saves ─────────────────────────── */
 
 export function subscribeToUpdates(coupleId, onUpdate) {

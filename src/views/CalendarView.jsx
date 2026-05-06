@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { CATEGORIES, STATUS, STATUS_ORDER, DEFAULT_COLORS, getMCats, CAT_MAP } from "../constants.js";
 import { S, badgeStyle, catBadgeStyle } from "../styles.js";
+import { useConfirm } from "../components/ConfirmModal.jsx";
 
 export default function CalendarView({
   allDatedMissions, week, wkey, p1, p2, weeks, colors,
@@ -15,6 +16,7 @@ export default function CalendarView({
   const [selectedDay, setSelectedDay] = useState(null);
   const [editingMission, setEditingMission] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DAYS = ["L","M","X","J","V","S","D"];
@@ -38,7 +40,19 @@ export default function CalendarView({
   const onDragStart = (e, m) => { e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", JSON.stringify({ id:m.id, wn:m.weekNumber, yr:m._yr })); };
   const onDropDay = (e, dateStr) => {
     e.preventDefault(); setDragOver(null);
-    try { const { id, wn, yr } = JSON.parse(e.dataTransfer.getData("text/plain")); onPatchMission && onPatchMission(wn, yr, id, { date:dateStr }); } catch(err) { console.warn("drop err", err); }
+    try {
+      const { id, wn, yr } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      // Find the mission to check if it's a multi-day event
+      const mission = allDatedMissions.find(m => m.id === id);
+      const patch = { date: dateStr };
+      if (mission?.endDate && mission.date) {
+        // Shift endDate by the same delta as startDate
+        const delta = new Date(dateStr) - new Date(mission.date);
+        const newEnd = new Date(new Date(mission.endDate).getTime() + delta);
+        patch.endDate = `${newEnd.getFullYear()}-${String(newEnd.getMonth()+1).padStart(2,"0")}-${String(newEnd.getDate()).padStart(2,"0")}`;
+      }
+      onPatchMission && onPatchMission(wn, yr, id, patch);
+    } catch(err) { console.warn("drop err", err); }
   };
 
   const openEdit = m => setEditingMission({ mission:m, wn:m.weekNumber, yr:m._yr });
@@ -207,12 +221,13 @@ export default function CalendarView({
               </div>
             )}
             <div style={{ display:"flex", gap:8, justifyContent:"space-between", marginTop:14 }}>
-              <button onClick={()=>{ if(window.confirm("¿Eliminar esta actividad?")) { onDeleteMission && onDeleteMission(editingMission.wn, editingMission.yr, editingMission.mission.id); closeEdit(); } }} style={{ ...S.btnSecondary, color:"#f472b6", borderColor:"rgba(244,114,182,0.3)" }}>🗑 Eliminar</button>
+              <button onClick={()=>{ confirm("¿Eliminar esta actividad?", () => { onDeleteMission && onDeleteMission(editingMission.wn, editingMission.yr, editingMission.mission.id); closeEdit(); }); }} style={{ ...S.btnSecondary, color:"#f472b6", borderColor:"rgba(244,114,182,0.3)" }}>🗑 Eliminar</button>
               <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
             </div>
           </div>
         </div>
       )}
     </div>
+    <ConfirmDialog />
   );
 }
