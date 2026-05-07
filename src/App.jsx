@@ -1779,12 +1779,21 @@ ${ms.map(m=>{
             (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
           );
           // ── Logros ──────────────────────────────────────────────────────────
+          // Sorted newest-week-first so dedup keeps the most recent completion
           const logrosAll=Object.entries(data.weeks)
             .sort((a,b)=>b[0].localeCompare(a[0]))
             .flatMap(([key,w])=>(w.missions||[])
               .filter(m=>m.status==="DONE" && m.type!=="event")
               .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
-          const logrosFiltered=logrosAll.filter(m=>
+          // Dedup: by seriesId (recurring tasks) then by normalized title+who (manual repeats)
+          const _seenSeries=new Set(), _seenTW=new Set();
+          const logrosDeduped=logrosAll.filter(m=>{
+            if(m.seriesId){if(_seenSeries.has(m.seriesId))return false;_seenSeries.add(m.seriesId);}
+            const tw=`${(m.title||"").toLowerCase().trim()}|${m.who||""}`;
+            if(_seenTW.has(tw))return false;_seenTW.add(tw);
+            return true;
+          });
+          const logrosFiltered=logrosDeduped.filter(m=>
             (!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&
             (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
           );
