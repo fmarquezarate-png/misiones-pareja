@@ -110,11 +110,20 @@ export default function HomeDashboard({
   const done  = missions.filter(m => m.status === "DONE").length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
 
-  // Per-person progress: last 15 days across all weeks (tasks only, not events)
-  const cutoff15 = (() => { const d = new Date(); d.setDate(d.getDate() - 15); return fmtDate(d); })();
+  // Per-person progress: all tasks (dated or not) from weeks spanning last 15 days
+  const toWkey = d => {
+    const t = new Date(d); t.setDate(d.getDate() + 4 - ((d.getDay()+6)%7));
+    const j = new Date(t.getFullYear(),0,1);
+    return `${t.getFullYear()}-W${String(Math.ceil(((t-j)/86400000+(j.getDay()+6)%7+1)/7)).padStart(2,"0")}`;
+  };
+  const cutoff14 = new Date(); cutoff14.setDate(cutoff14.getDate() - 14);
+  const cutoffWkey = toWkey(cutoff14);
+  const todayWkey  = toWkey(new Date());
   const last15Ms = weeksData
-    ? Object.values(weeksData).flatMap(w => (w.missions || []).filter(m => m.type !== "event" && m.date && m.date >= cutoff15))
-    : missions.filter(m => m.type !== "event" && m.date && m.date >= cutoff15);
+    ? Object.entries(weeksData)
+        .filter(([key]) => key >= cutoffWkey && key <= todayWkey)
+        .flatMap(([,w]) => (w.missions || []).filter(m => m.type !== "event"))
+    : missions.filter(m => m.type !== "event");
   const p1Ms  = last15Ms.filter(m => m.who === "person1" || m.who === "together");
   const p2Ms  = last15Ms.filter(m => m.who === "person2" || m.who === "together");
   const p1Pct = p1Ms.length  ? Math.round(p1Ms.filter(m => m.status === "DONE").length  / p1Ms.length  * 100) : 0;

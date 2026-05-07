@@ -1517,7 +1517,7 @@ ${ms.map(m=>{
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
 
         {/* Global filters — show only for tabs that need them */}
-        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history") && (() => {
+        {(activeTab==="current"||activeTab==="calendar"||activeTab==="history"||activeTab==="pending") && (() => {
           const filterCount = globalPersonFilter.length + globalCatFilter.length;
           return (
             <div style={{ marginBottom:12 }}>
@@ -1764,7 +1764,8 @@ ${ms.map(m=>{
 
         {activeTab==="pending" && (()=>{
           // ── Pendientes ──────────────────────────────────────────────────────
-          const carriedFromIds=new Set(Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.carriedFrom).map(m=>m.carriedFrom)));
+          // Only suppress originals when an UNDONE carry copy exists (if carry copy is DONE, show original)
+          const carriedFromIds=new Set(Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.carriedFrom&&m.status!=="DONE").map(m=>m.carriedFrom)));
           const pendingRaw=Object.entries(data.weeks)
             .sort((a,b)=>a[0].localeCompare(b[0]))
             .flatMap(([key,w])=>(w.missions||[])
@@ -3598,6 +3599,7 @@ function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAdd, onUpdate, on
 const PROJECT_EMOJIS = ["🏖️","🗺️","🎉","🏠","🍽️","🎊","✈️","🎸","🏕️","💒","🎭","🎄","🏔️","🚂","🎿","🏄","🎪","🎨","🛳️","🌴","🎠","🚀","💍","🥂"];
 
 function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate, onUpdateProyectos, onUpdateAll }) {
+  const { confirm, ConfirmDialog } = useConfirm();
   const [view, setView] = useState("list");
   const [projectId, setProjectId] = useState(null);
   const [showForm, setShowForm] = useState(false);
