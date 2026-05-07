@@ -24,7 +24,7 @@ export default function OverflowMenu({ open, onClose, items = [], anchor = "top-
       ref={ref}
       style={{
         position:"absolute", ...pos,
-        background:"rgba(8,5,18,0.98)",
+        background:"var(--t-menu-bg,rgba(8,5,18,0.98))",
         border:"1px solid rgba(167,139,250,0.3)",
         borderRadius:12, padding:6,
         zIndex:80, minWidth:220,
@@ -48,7 +48,7 @@ export default function OverflowMenu({ open, onClose, items = [], anchor = "top-
             style={{
               display:"flex", alignItems:"center", gap:10, width:"100%",
               background:"none", border:"none",
-              color: it.danger ? "#f472b6" : "#f0e8ff",
+              color: it.danger ? "#f472b6" : "var(--t-text,#f0e8ff)",
               padding:"9px 11px", fontSize:13,
               fontFamily:"inherit", borderRadius:8,
               cursor: it.disabled ? "not-allowed" : "pointer",
@@ -81,9 +81,9 @@ export function OverflowButton({ onClick, ...rest }) {
       onClick={onClick}
       style={{
         width:34, height:34, borderRadius:99,
-        background:"rgba(255,255,255,0.05)",
+        background:"rgba(128,128,128,0.08)",
         border:"1px solid rgba(167,139,250,0.18)",
-        color:"#f0e8ff", fontSize:16, fontWeight:700,
+        color:"var(--t-text,#f0e8ff)", fontSize:16, fontWeight:700,
         cursor:"pointer", fontFamily:"inherit",
         display:"inline-flex", alignItems:"center", justifyContent:"center",
         lineHeight:0.5,

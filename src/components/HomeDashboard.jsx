@@ -3,6 +3,7 @@ import { T, homeHero } from "../styles.js";
 const eyebrow = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700 };
 import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS } from "../constants.js";
+import { PHRASES } from "../phrases.js";
 import WeekStrip from "./WeekStrip.jsx";
 
 const W = {
@@ -323,6 +324,18 @@ export default function HomeDashboard({
       <div style={{ display:"flex", justifyContent:"center", gap:32, padding:"6px 0 2px" }}>
         <PersonRing name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1} />
         <PersonRing name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2} />
+      </div>
+
+      {/* Daily phrase */}
+      <div style={{ textAlign:"center", padding:"2px 16px 4px" }}>
+        <span style={{
+          fontFamily:"'Fraunces', Georgia, serif",
+          fontStyle:"italic",
+          fontSize:15,
+          color:"var(--t-text-muted,#8b7fa8)",
+          lineHeight:1.5,
+          letterSpacing:0.2,
+        }}>"{PHRASES[parseInt(todayStr.replace(/-/g,"")) % PHRASES.length]}"</span>
       </div>
 
       {/* Day detail bottom sheet */}
