@@ -1455,7 +1455,7 @@ ${ms.map(m=>{
             : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#8b7fa8)" }}>
                 {activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
                 :activeTab==="pending"  ? "📋 Pendientes"
-                :activeTab==="calendar" ? "📅 Calendario"
+                :activeTab==="calendar" ? "Calendario"
                 :activeTab==="history"  ? "🗂️ Histórico"
                 :activeTab==="goals"    ? "🏅 Metas"
                 :activeTab==="stats"    ? "📊 Stats"

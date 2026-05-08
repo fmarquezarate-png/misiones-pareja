@@ -15,10 +15,10 @@ function CatStatsCard({ catStats }) {
   return (
     <div style={S.card}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>🏷️ Por categoría</span>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-muted,#6b5f88)", fontWeight:600 }}>🏷️ Por categoría</span>
         <div style={{ display:"flex", gap:3 }}>
           {[["act","Actividades"],["h","Horas"]].map(([v, l]) => (
-            <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
+            <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(128,128,128,0.12)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
           ))}
         </div>
       </div>
@@ -32,7 +32,7 @@ function CatStatsCard({ catStats }) {
                   <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
                   <span style={{ fontSize:12, color:cpct===100?"#34d399":"#6b5f88", fontWeight:600 }}>{c.done}/{c.count} ({cpct}%)</span>
                 </div>
-                <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
+                <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:6, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${(c.count/maxC)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
                 </div>
               </div>
@@ -40,14 +40,14 @@ function CatStatsCard({ catStats }) {
           })
         : <>
             {lifeStats.filter(c => c.dur > 0).length > 0 && <>
-              <div style={{ fontSize:10, color:"#4a4166", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
+              <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
               {lifeStats.filter(c => c.dur > 0).map(c => (
                 <div key={c.id} style={{ marginBottom:10 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                     <span style={{ fontSize:12, color:c.color, fontWeight:600 }}>{c.icon} {c.label}</span>
                     <span style={{ fontSize:12, color:"#60a5fa" }}>{c.dur}h</span>
                   </div>
-                  <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:6, overflow:"hidden" }}>
+                  <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:6, overflow:"hidden" }}>
                     <div style={{ height:"100%", width:`${(c.dur/maxLifeH)*100}%`, background:c.color, borderRadius:99, opacity:0.8 }} />
                   </div>
                 </div>
@@ -55,7 +55,7 @@ function CatStatsCard({ catStats }) {
             </>}
             {workStat && workStat.dur > 0 && <>
               <div style={{ borderTop:"1px dashed rgba(251,191,36,0.2)", marginTop:10, paddingTop:10, marginBottom:8 }}>
-                <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"#4a4166", fontWeight:400 }}>(escala propia)</span></div>
+                <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"var(--t-text-dim,#4a4166)", fontWeight:400 }}>(escala propia)</span></div>
               </div>
               <div style={{ marginBottom:8 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -67,7 +67,7 @@ function CatStatsCard({ catStats }) {
                 </div>
               </div>
             </>}
-            {!catStats.some(c => c.dur > 0) && <div style={{ textAlign:"center", color:"#4a4166", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
+            {!catStats.some(c => c.dur > 0) && <div style={{ textAlign:"center", color:"var(--t-text-dim,#4a4166)", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
           </>
       }
     </div>
@@ -90,22 +90,22 @@ function WeekDetailList({ allW, onGoToWeek }) {
   return (
     <div style={S.card}>
       <button onClick={()=>setOpen(o=>!o)} style={{ width:"100%", background:"none", border:"none", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", padding:0, fontFamily:"inherit" }}>
-        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>📋 Detalle por semana</span>
-        <span style={{ fontSize:12, color:"#4a4166", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-muted,#6b5f88)", fontWeight:600 }}>📋 Detalle por semana</span>
+        <span style={{ fontSize:12, color:"var(--t-text-dim,#4a4166)", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
       </button>
 
       {open && (
         <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:0 }}>
           {rows.map(({ w, d, t, pct, color }, i) => (
-            <div key={w.weekNumber} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderTop:i>0?"1px solid rgba(255,255,255,0.04)":"none" }}>
+            <div key={w.weekNumber} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderTop:i>0?"1px solid rgba(128,128,128,0.06)":"none" }}>
               <div style={{ minWidth:34, height:34, borderRadius:9, background:`${color}18`, border:`1px solid ${color}40`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                 <span style={{ fontSize:9, color, fontWeight:700, lineHeight:1 }}>S{w.weekNumber}</span>
-                <span style={{ fontSize:8, color:"#4a4166", lineHeight:1.2 }}>{w._yr}</span>
+                <span style={{ fontSize:8, color:"var(--t-text-dim,#4a4166)", lineHeight:1.2 }}>{w._yr}</span>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
-                {w.epicObjective && <div style={{ fontSize:11, color:"#8b7fa8", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>{w.epicObjective}</div>}
+                {w.epicObjective && <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>{w.epicObjective}</div>}
                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                  <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:5, overflow:"hidden" }}>
+                  <div style={{ flex:1, background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden" }}>
                     <div style={{ height:"100%", width:`${pct}%`, background:color, borderRadius:99, transition:"width 0.4s" }} />
                   </div>
                   <span style={{ fontSize:11, color, fontWeight:600, flexShrink:0, minWidth:36, textAlign:"right" }}>{d}/{t}</span>
@@ -228,7 +228,7 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     return seg;
   });
 
-  const whoOpts   = [{ id:"all", label:"Todos", color:"#8b7fa8" },{ id:"person1", label:p1, color:clr.person1 },{ id:"person2", label:p2, color:clr.person2 },{ id:"together", label:"Juntos", color:clr.together }];
+  const whoOpts   = [{ id:"all", label:"Todos", color:"var(--t-text-muted,#8b7fa8)" },{ id:"person1", label:p1, color:clr.person1 },{ id:"person2", label:p2, color:clr.person2 },{ id:"together", label:"Juntos", color:clr.together }];
   const rangeOpts = [{ id:"all", label:"Siempre" },{ id:"1", label:"Esta sem." },{ id:"4", label:"4 sem." },{ id:"8", label:"8 sem." },{ id:"12", label:"12 sem." }];
 
   return (
@@ -237,17 +237,17 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* Filtros */}
       <div style={{ ...S.card, padding:"10px 12px", display:"flex", flexDirection:"column", gap:9 }}>
         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Quién</span>
+          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Quién</span>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
             {whoOpts.map(o => <button key={o.id} onClick={()=>setStWho(o.id)}
-              style={{ background:stWho===o.id?`${o.color}22`:"rgba(255,255,255,0.03)", border:`1px solid ${stWho===o.id?o.color:"rgba(255,255,255,0.08)"}`, borderRadius:99, color:stWho===o.id?o.color:"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:stWho===o.id?600:400 }}>{o.label}</button>)}
+              style={{ background:stWho===o.id?`${o.color}22`:"rgba(128,128,128,0.05)", border:`1px solid ${stWho===o.id?o.color:"rgba(128,128,128,0.12)"}`, borderRadius:99, color:stWho===o.id?o.color:"var(--t-text-dim,#4a4166)", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:stWho===o.id?600:400 }}>{o.label}</button>)}
           </div>
         </div>
         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-          <span style={{ fontSize:10, color:"#4a4166", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Rango</span>
+          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", textTransform:"uppercase", letterSpacing:1.2, flexShrink:0, width:40 }}>Rango</span>
           <div style={{ display:"flex", gap:4 }}>
             {rangeOpts.map(o => <button key={o.id} onClick={()=>setStRange(o.id)}
-              style={{ background:stRange===o.id?"rgba(167,139,250,0.18)":"rgba(255,255,255,0.03)", border:`1px solid ${stRange===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:99, color:stRange===o.id?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:stRange===o.id?600:400 }}>{o.label}</button>)}
+              style={{ background:stRange===o.id?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${stRange===o.id?"rgba(167,139,250,0.5)":"rgba(128,128,128,0.12)"}`, borderRadius:99, color:stRange===o.id?"#c4b8ff":"#4a4166", padding:"3px 11px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:stRange===o.id?600:400 }}>{o.label}</button>)}
           </div>
         </div>
       </div>
@@ -262,11 +262,11 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
                 <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
                 <div style={{ flex:1 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
-                    <span style={{ fontSize:13, color:"#e2d9ff", fontWeight:600 }}>{ins.title}</span>
+                    <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600 }}>{ins.title}</span>
                     {ins.weekNumber && onGoToWeek && <button onClick={()=>onGoToWeek(ins.weekNumber, ins.year||new Date().getFullYear())}
                       style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit" }}>→ S{ins.weekNumber}</button>}
                   </div>
-                  <div style={{ fontSize:12, color:"#8b7fa8", lineHeight:1.5 }}>{ins.desc}</div>
+                  <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.5 }}>{ins.desc}</div>
                 </div>
               </div>
             ))}
@@ -277,7 +277,7 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* KPIs */}
       <div>
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:7 }}>
-          <span style={{ fontSize:10, color:"#4a4166", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
+          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
           {[
@@ -288,8 +288,8 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
           ].map(s => (
             <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px", borderColor:s.color?`${s.color}55`:undefined }}>
               <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"#f8f4ff", lineHeight:1 }}>{s.value}</div>
-              <div style={{ fontSize:9, color:"#6b5f88", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"var(--t-text,#f8f4ff)", lineHeight:1 }}>{s.value}</div>
+              <div style={{ fontSize:9, color:"var(--t-text-muted,#6b5f88)", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -297,11 +297,11 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
       {/* Status donut + bars */}
       <div style={S.card}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:14, fontWeight:600 }}>📊 Distribución de estados</div>
+        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-muted,#6b5f88)", marginBottom:14, fontWeight:600 }}>📊 Distribución de estados</div>
         <div style={{ display:"flex", gap:16, alignItems:"center" }}>
           <div style={{ flexShrink:0 }}>
             <svg viewBox="0 0 36 36" width={90} height={90} style={{ transform:"rotate(-90deg)" }}>
-              <circle cx="18" cy="18" r="15.9155" strokeWidth="3.8" fill="none" stroke="rgba(255,255,255,0.05)"/>
+              <circle cx="18" cy="18" r="15.9155" strokeWidth="3.8" fill="none" stroke="rgba(128,128,128,0.08)"/>
               {donutSegments.map(({ s, pct: p, offset }) => (
                 <circle key={s} cx="18" cy="18" r="15.9155" fill="none" strokeWidth="3.8"
                   stroke={STATUS[s].color} strokeDasharray={`${p} ${100-p}`} strokeDashoffset={-offset} style={{ opacity:0.85 }} />
@@ -312,10 +312,10 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             {bySt.filter(x=>x.count>0).map(({ s, count }) => (
               <div key={s} style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:78, fontSize:12, color:STATUS[s].color, fontWeight:600, flexShrink:0 }}>{STATUS[s].icon} {STATUS[s].label}</div>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:7, overflow:"hidden" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.10)", borderRadius:99, height:7, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${(count/maxSt)*100}%`, background:STATUS[s].color, borderRadius:99, opacity:0.85, transition:"width 0.5s" }} />
                 </div>
-                <div style={{ fontSize:12, color:"#8b7fa8", width:24, textAlign:"right", flexShrink:0 }}>{count}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", width:24, textAlign:"right", flexShrink:0 }}>{count}</div>
               </div>
             ))}
           </div>
@@ -328,7 +328,7 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         const BAR_MAX   = 72;
         return (
           <div style={S.card}>
-            <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", marginBottom:12, fontWeight:600 }}>✅ Progreso semana a semana</div>
+            <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-muted,#6b5f88)", marginBottom:12, fontWeight:600 }}>✅ Progreso semana a semana</div>
             <div style={{ display:"flex", alignItems:"flex-end", gap:4, height:BAR_MAX+28 }}>
               {series.map((w, i) => {
                 const isLast = i === series.length-1;
@@ -350,14 +350,14 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
       {/* Participación por persona */}
       <div style={S.card}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:showPartInfo?8:14 }}>
-          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#6b5f88", fontWeight:600 }}>👥 Participación por persona</span>
+          <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-muted,#6b5f88)", fontWeight:600 }}>👥 Participación por persona</span>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            {stWho!=="all" && <span style={{ fontSize:10, color:"#4a4166", fontStyle:"italic" }}>distribución real del rango</span>}
-            <button onClick={()=>setShowPartInfo(v=>!v)} title="¿Qué mide esto?" style={{ background:showPartInfo?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.05)", border:`1px solid ${showPartInfo?"rgba(167,139,250,0.45)":"rgba(255,255,255,0.1)"}`, borderRadius:99, color:showPartInfo?"#c4b8ff":"#6b5f88", fontSize:11, padding:"1px 7px", cursor:"pointer", fontFamily:"inherit", lineHeight:1.6 }}>ℹ</button>
+            {stWho!=="all" && <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>distribución real del rango</span>}
+            <button onClick={()=>setShowPartInfo(v=>!v)} title="¿Qué mide esto?" style={{ background:showPartInfo?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.08)", border:`1px solid ${showPartInfo?"rgba(167,139,250,0.45)":"rgba(128,128,128,0.15)"}`, borderRadius:99, color:showPartInfo?"#c4b8ff":"#6b5f88", fontSize:11, padding:"1px 7px", cursor:"pointer", fontFamily:"inherit", lineHeight:1.6 }}>ℹ</button>
           </div>
         </div>
         {showPartInfo && (
-          <div style={{ marginBottom:12, padding:"8px 10px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:12, color:"#8b7fa8", lineHeight:1.6 }}>
+          <div style={{ marginBottom:12, padding:"8px 10px", background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:8, fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.6 }}>
             Muestra cuántas actividades tiene asignadas cada persona en el período seleccionado y qué porcentaje completó. No mide quién hizo más trabajo, sino cómo están distribuidas las responsabilidades.
           </div>
         )}
@@ -367,10 +367,10 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             return (
               <div key={name} style={{ display:"flex", alignItems:"center", gap:10 }}>
                 <div style={{ width:64, fontSize:12, color, fontWeight:600, flexShrink:0 }}>{name}</div>
-                <div style={{ flex:1, background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+                <div style={{ flex:1, background:"rgba(128,128,128,0.10)", borderRadius:99, height:8, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${(h.count/tot)*100}%`, background:color, borderRadius:99, opacity:0.8 }} />
                 </div>
-                <div style={{ fontSize:12, color:"#8b7fa8", flexShrink:0, width:60, textAlign:"right" }}>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", flexShrink:0, width:60, textAlign:"right" }}>
                   {h.count} <span style={{ color, fontWeight:600 }}>{h.count>0?`(${Math.round((h.done/h.count)*100)}%✓)`:""}</span>
                 </div>
               </div>
@@ -390,12 +390,12 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
             {[[p1,totalWork1],[p2,totalWork2]].map(([name, h]) => (
               <div key={name} style={{ background:"rgba(251,191,36,0.07)", border:"1px solid rgba(251,191,36,0.15)", borderRadius:10, padding:"12px", textAlign:"center" }}>
                 <div style={{ fontFamily:"'Fraunces',serif", fontSize:28, fontWeight:700, color:"#fbbf24" }}>{h}h</div>
-                <div style={{ fontSize:12, color:"#8b7fa8", marginTop:2 }}>{name}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:2 }}>{name}</div>
               </div>
             ))}
           </div>
           {totalWork1>0&&totalWork2>0&&(
-            <div style={{ marginTop:10, fontSize:12, color:"#8b7fa8", textAlign:"center" }}>
+            <div style={{ marginTop:10, fontSize:12, color:"var(--t-text-muted,#8b7fa8)", textAlign:"center" }}>
               {Math.abs(totalWork1-totalWork2)<5?"⚖️ Carga laboral muy equilibrada":totalWork1>totalWork2?`⚡ ${p1} trabajó ${totalWork1-totalWork2}h más esta temporada`:`⚡ ${p2} trabajó ${totalWork2-totalWork1}h más esta temporada`}
             </div>
           )}

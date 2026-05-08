@@ -166,7 +166,7 @@ export default function CalendarView({
                     return <div key={m.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid rgba(167,139,250,0.08)" }}>
                       <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji}</span>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, color:m.status==="DONE"?"#4d4566":"#e2d9ff", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                        <div style={{ fontSize:13, color:m.status==="DONE"?"var(--t-text-dim,#4d4566)":"var(--t-text,#e2d9ff)", textDecoration:m.status==="DONE"?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
                         <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:2 }}>
                           {m.time && <span style={{ fontSize:10, color:"#a78bfa" }}>🕐 {m.time}</span>}
                           {getMCats(m).map(ci => { const c = CAT_MAP[ci]; return c ? <span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon}</span> : null; })}

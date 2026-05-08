@@ -21,7 +21,7 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
         <div style={{ display:"flex", gap:5 }}>
           {WHO.map(w => (
             <button key={w.id} onClick={()=>setForm(f=>({ ...f, who:w.id }))}
-              style={{ background:form.who===w.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${form.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:form.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
+              style={{ background:form.who===w.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${form.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:form.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>
               {w.icon} {w.label}
             </button>
           ))}
@@ -34,7 +34,7 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
           <div style={{ display:"flex", gap:4 }}>
             {PERIODS.map(p => (
               <button key={p.id} onClick={()=>setForm(f=>({ ...f, period:p.id }))}
-                style={{ flex:1, background:form.period===p.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${form.period===p.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:form.period===p.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
+                style={{ flex:1, background:form.period===p.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${form.period===p.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:form.period===p.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
                 {p.label}
               </button>
             ))}
@@ -55,7 +55,7 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
         <div style={{ display:"flex", gap:4 }}>
           {[{ id:"min", label:"✅ Mínimo (hacer al menos X)" }, { id:"max", label:"🚫 Máximo (no más de X)" }].map(t => (
             <button key={t.id} onClick={()=>setForm(f=>({ ...f, goalType:t.id }))}
-              style={{ flex:1, background:(form.goalType||"min")===t.id?"rgba(167,139,250,0.2)":"rgba(255,255,255,0.04)", border:`1px solid ${(form.goalType||"min")===t.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:(form.goalType||"min")===t.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
+              style={{ flex:1, background:(form.goalType||"min")===t.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${(form.goalType||"min")===t.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:(form.goalType||"min")===t.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
               {t.label}
             </button>
           ))}
@@ -105,17 +105,17 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
           <span style={{ fontSize:28 }}>{goal.emoji}</span>
           <div>
-            <div style={{ fontSize:14, fontWeight:600, color:"#f0e8ff" }}>{goal.title}</div>
+            <div style={{ fontSize:14, fontWeight:600, color:"var(--t-text,#f0e8ff)" }}>{goal.title}</div>
             <div style={{ display:"flex", gap:5, marginTop:3, flexWrap:"wrap" }}>
               <span style={{ fontSize:11, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"1px 6px", borderRadius:99 }}>{whoIcon} {whoLabel}</span>
-              <span style={{ fontSize:11, color:"#6b5f88" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · {isMax?"máx.":"mín."} {goal.target}×</span>
+              <span style={{ fontSize:11, color:"var(--t-text-muted,#6b5f88)" }}>{PERIOD_EMOJI[goal.period]} {PERIOD_LABEL[goal.period]} · {isMax?"máx.":"mín."} {goal.target}×</span>
             </div>
           </div>
         </div>
         <div style={{ display:"flex", gap:2 }}>
-          <button onClick={onEdit} style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4166", fontSize:15, padding:"3px 5px" }}
+          <button onClick={onEdit} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:15, padding:"3px 5px" }}
             onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>✏️</button>
-          <button onClick={onArchive} title="Archivar" style={{ background:"none", border:"none", cursor:"pointer", color:"#4a4166", fontSize:13, padding:"3px 5px" }}
+          <button onClick={onArchive} title="Archivar" style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:13, padding:"3px 5px" }}
             onMouseEnter={e=>e.currentTarget.style.color="#fb923c"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>📦</button>
         </div>
       </div>
@@ -124,11 +124,11 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
       <div style={{ marginBottom:10 }}>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:5 }}>
           <span style={{ color:"#8b7fa8" }}>{goal.period==="weekly"?"Esta semana":goal.period==="monthly"?"Este mes":"Este año"}</span>
-          <span style={{ color:met?"#34d399":isMax&&progress.current>progress.target?"#f472b6":"#f8f4ff", fontWeight:600 }}>
+          <span style={{ color:met?"#34d399":isMax&&progress.current>progress.target?"#f472b6":"var(--t-text,#f8f4ff)", fontWeight:600 }}>
             {met?"✅ ":isMax&&progress.current>progress.target?"❌ ":""}{progress.current}/{progress.target}{isMax?" (máx.)":""}
           </span>
         </div>
-        <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:99, height:8, overflow:"hidden" }}>
+        <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:8, overflow:"hidden" }}>
           <div style={{ height:"100%", width:`${progress.pct}%`, background:met?"linear-gradient(90deg,#34d399,#60a5fa)":isMax&&progress.current>progress.target?"linear-gradient(90deg,#f472b6,#fb923c)":`linear-gradient(90deg,${whoColor},${whoColor}99)`, borderRadius:99, transition:"width 0.5s" }} />
         </div>
       </div>
@@ -146,23 +146,23 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
         const urgent = !expired && msLeft < 7 * 86400000;
         return <div style={{ marginBottom:10, display:"flex", alignItems:"center", gap:6, background:expired?"rgba(244,114,182,0.1)":under24h?"rgba(244,114,182,0.08)":urgent?"rgba(251,146,60,0.08)":"rgba(167,139,250,0.06)", border:`1px solid ${expired||under24h?"rgba(244,114,182,0.3)":urgent?"rgba(251,146,60,0.25)":"rgba(167,139,250,0.15)"}`, borderRadius:8, padding:"6px 10px" }}>
           <span style={{ fontSize:12, color:expired||under24h?"#f472b6":urgent?"#fb923c":"#8b7fa8", fontWeight:600, fontFamily:under24h?"monospace":"inherit", letterSpacing:under24h?1:0 }}>{label}</span>
-          <span style={{ fontSize:11, color:"#4a4166", marginLeft:"auto" }}>{goal.deadline}</span>
+          <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginLeft:"auto" }}>{goal.deadline}</span>
         </div>;
       })()}
 
       {/* Historial */}
       {history.length > 0 && (
         <div>
-          <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"#4a4166", marginBottom:5 }}>Historial</div>
+          <div style={{ fontSize:9, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#4a4166)", marginBottom:5 }}>Historial</div>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
             {history.map((h, i) => {
               const failed  = !h.met && (h.count > 0 || h.isPast) && !h.noData;
               const noData  = !!h.noData;
               return <div key={i} title={noData ? `${h.label}: sin datos` : `${h.label}: ${h.count}/${goal.target}`}
                 style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
-                  background:noData?"rgba(255,255,255,0.02)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(255,255,255,0.04)",
-                  border:`1px solid ${noData?"rgba(255,255,255,0.06)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(255,255,255,0.07)"}`,
-                  color:noData?"#2d2450":failed?"#f472b6":h.met?"#34d399":"#4a4166", padding:"0 4px" }}>
+                  background:noData?"rgba(128,128,128,0.04)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(128,128,128,0.06)",
+                  border:`1px solid ${noData?"rgba(128,128,128,0.10)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(128,128,128,0.10)"}`,
+                  color:noData?"var(--t-text-dim,#2d2450)":failed?"#f472b6":h.met?"#34d399":"var(--t-text-dim,#4a4166)", padding:"0 4px" }}>
                 <span style={{ fontSize:11 }}>{noData ? "–" : failed ? "❌" : h.met ? "✅" : "·"}</span>
                 <span style={{ fontSize:8 }}>{h.label}</span>
               </div>;
@@ -209,7 +209,7 @@ export default function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAd
       })}
 
       {!active.length && !showForm && (
-        <div style={{ textAlign:"center", padding:48, color:"#3d3360" }}>
+        <div style={{ textAlign:"center", padding:48, color:"var(--t-text-dim,#3d3360)" }}>
           <div style={{ fontSize:44, marginBottom:12 }}>🏅</div>
           <div style={{ fontStyle:"italic", fontSize:14 }}>Sin metas activas aún.<br/>¡Crea la primera!</div>
         </div>
@@ -217,13 +217,13 @@ export default function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAd
 
       {archived.length > 0 && (
         <div>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#4a4166", fontWeight:600, marginBottom:8, marginTop:4 }}>Archivadas</div>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#4a4166)", fontWeight:600, marginBottom:8, marginTop:4 }}>Archivadas</div>
           {archived.map(g => (
             <div key={g.id} style={{ ...S.card, opacity:0.5, marginBottom:6, display:"flex", alignItems:"center", gap:10, padding:"10px 14px" }}>
               <span style={{ fontSize:20 }}>{g.emoji}</span>
-              <div style={{ flex:1, fontSize:13, color:"#6b5f88" }}>{g.title}</div>
+              <div style={{ flex:1, fontSize:13, color:"var(--t-text-muted,#6b5f88)" }}>{g.title}</div>
               <button onClick={()=>onUpdate(g.id, { active:true })} style={{ ...S.btnSecondary, fontSize:11, padding:"3px 10px" }}>↺ Reactivar</button>
-              <button onClick={()=>onDelete(g.id)} style={{ background:"none", border:"none", color:"#3d3360", cursor:"pointer", fontSize:18, lineHeight:1, padding:"0 2px" }}
+              <button onClick={()=>onDelete(g.id)} style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:18, lineHeight:1, padding:"0 2px" }}
                 onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
             </div>
           ))}
