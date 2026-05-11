@@ -154,6 +154,10 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
             style={{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.15)", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", fontSize:11, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
             ✏️
           </button>
+          <button onClick={onDelete}
+            style={{ background:"rgba(244,114,182,0.06)", border:"1px solid rgba(244,114,182,0.18)", borderRadius:8, color:"var(--t-error,#f87171)", fontSize:11, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+            🗑
+          </button>
         </div>
       </div>
 
@@ -177,9 +181,6 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
               </button>
             </div>
           )}
-          <button onClick={onDelete} style={{ alignSelf:"flex-start", background:"none", border:"none", fontSize:11, color:"var(--t-error,#f87171)", cursor:"pointer", padding:"2px 0", fontFamily:"inherit", marginTop:2 }}>
-            🗑 Eliminar
-          </button>
         </div>
       )}
     </div>
