@@ -1938,7 +1938,8 @@ function WorkHoursCard({ week, patchWeek, p1, p2 }) {
 
 function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
-  const activeGoals = (goals||[]).filter(g=>g.active!==false);
+  const goalMatchesWho = (g, who) => who === "together" || g.who === "together" || !g.who || g.who === who;
+  const activeGoals = (goals||[]).filter(g => g.active!==false && goalMatchesWho(g, newM.who));
   const isEvent = newM.type==="event";
   const [endMode, setEndMode] = useState("duration");
 
@@ -2175,13 +2176,13 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
             <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={mission.endTime||""} onChange={e=>{const et=e.target.value||null;const dur=mission.date&&mission.time&&mission.endDate&&et?Math.round((new Date(mission.endDate+"T"+et)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
           </div>}
           {!isEvent&&<div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (min)</label><input type="number" min="0" step="15" value={mission.duration||""} onChange={e=>onPatch({duration:parseInt(e.target.value)||null})} placeholder="90" style={S.inputSm} /></div>}
-          {(goals||[]).filter(g=>g.active!==false).length>0&&<div style={{ marginBottom:8 }}>
+          {(()=>{const gmw=(g,w)=>w==="together"||g.who==="together"||!g.who||g.who===w;const filtered=(goals||[]).filter(g=>g.active!==false&&gmw(g,mission.who));return filtered.length>0&&<div style={{ marginBottom:8 }}>
             <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
             <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
               <option value="">— Sin meta —</option>
-              {(goals||[]).filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
+              {filtered.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
-          </div>}
+          </div>;})()}
           {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
         </div>
       )}
@@ -3357,13 +3358,13 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
               {STATUS_ORDER.map(s=><button key={s} onClick={()=>patchEditing({status:s,completedAt:s==="DONE"?Date.now():null})} style={{...badgeStyle(s),opacity:editingMission.mission.status===s?1:0.35}}>{STATUS[s].icon} {STATUS[s].label}</button>)}
             </div>
           </div>
-          {goals.filter(g=>g.active!==false).length>0&&<div style={{marginBottom:10}}>
+          {(()=>{const gmw=(g,w)=>w==="together"||g.who==="together"||!g.who||g.who===w;const filtered=goals.filter(g=>g.active!==false&&gmw(g,editingMission.mission.who));return filtered.length>0&&<div style={{marginBottom:10}}>
             <label style={S.label}>🏅 Meta</label>
             <select value={editingMission.mission.goalId||""} onChange={e=>patchEditing({goalId:e.target.value||null})} style={{...S.input,fontSize:13,colorScheme:"dark",background:"var(--t-card,rgba(16,10,32,0.95))",color:"var(--t-text,#f8f4ff)"}}>
               <option value="">— Sin meta —</option>
-              {goals.filter(g=>g.active!==false).map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
+              {filtered.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
             </select>
-          </div>}
+          </div>;})()}
           {editingMission.mission.seriesId && onPatchAllFutureSeries && (
             <div style={{ background:"rgba(52,211,153,0.07)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
               <div style={{ fontSize:11, color:"#34d399", fontWeight:600, marginBottom:6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern==="weekly"?"Semanal":editingMission.mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</div>

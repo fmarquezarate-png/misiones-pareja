@@ -82,7 +82,7 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
 }
 
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
-function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }) {
+function GoalCard({ goal, progress, history, weeks, p1, p2, colors, onEdit, onArchive }) {
   const clr      = colors || DEFAULT_COLORS;
   const whoColor = goal.who === "person1" ? clr.person1 : goal.who === "person2" ? clr.person2 : clr.together;
   const whoLabel = goal.who === "person1" ? p1 : goal.who === "person2" ? p2 : "Juntos";
@@ -90,6 +90,25 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
   const isMax    = goal.goalType === "max";
   const met      = isMax ? progress.current <= progress.target : progress.current >= progress.target;
   const [tick, setTick] = useState(0);
+  const [detailIdx, setDetailIdx] = useState(null);
+
+  const getPeriodMissions = (h) => {
+    if (!weeks || h.noData) return [];
+    const allDone = Object.values(weeks).flatMap(w =>
+      (w.missions || []).filter(m => m.goalId === goal.id && m.status === "DONE")
+        .map(m => ({ ...m, _wn: w.weekNumber, _wy: w.year || new Date().getFullYear() }))
+    );
+    if (goal.period === "weekly") return allDone.filter(m => m._wn === h.wn && m._wy === h.wy);
+    if (goal.period === "monthly") return allDone.filter(m => {
+      if (m.date) { const d = new Date(m.date); return d.getMonth() === h.mo && d.getFullYear() === h.yr; }
+      const approx = new Date(m._wy, 0, 1 + (m._wn - 1) * 7);
+      return approx.getMonth() === h.mo && approx.getFullYear() === h.yr;
+    });
+    return allDone.filter(m => {
+      if (m.date) return new Date(m.date).getFullYear() === h.yr;
+      return m._wy === h.yr;
+    });
+  };
 
   useEffect(() => {
     if (!goal.deadline) return;
@@ -158,16 +177,49 @@ function GoalCard({ goal, progress, history, p1, p2, colors, onEdit, onArchive }
             {history.map((h, i) => {
               const failed  = !h.met && (h.count > 0 || h.isPast) && !h.noData;
               const noData  = !!h.noData;
-              return <div key={i} title={noData ? `${h.label}: sin datos` : `${h.label}: ${h.count}/${goal.target}`}
+              const selected = detailIdx === i;
+              return <div key={i}
+                onClick={() => !noData && setDetailIdx(selected ? null : i)}
+                title={noData ? `${h.label}: sin datos` : `${h.label}: ${h.count}/${goal.target}`}
                 style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
-                  background:noData?"rgba(128,128,128,0.04)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(128,128,128,0.06)",
-                  border:`1px solid ${noData?"rgba(128,128,128,0.10)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(128,128,128,0.10)"}`,
-                  color:noData?"var(--t-text-dim,#2d2450)":failed?"#f472b6":h.met?"#34d399":"var(--t-text-dim,#4a4166)", padding:"0 4px" }}>
+                  background:selected?"rgba(167,139,250,0.22)":noData?"rgba(128,128,128,0.04)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(128,128,128,0.06)",
+                  border:`1px solid ${selected?"rgba(167,139,250,0.6)":noData?"rgba(128,128,128,0.10)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(128,128,128,0.10)"}`,
+                  color:selected?"#c4b8ff":noData?"var(--t-text-dim,#2d2450)":failed?"#f472b6":h.met?"#34d399":"var(--t-text-dim,#4a4166)",
+                  padding:"0 4px", cursor:noData?"default":"pointer", transition:"background .15s,border .15s" }}>
                 <span style={{ fontSize:11 }}>{noData ? "–" : failed ? "❌" : h.met ? "✅" : "·"}</span>
                 <span style={{ fontSize:8 }}>{h.label}</span>
               </div>;
             })}
           </div>
+
+          {detailIdx !== null && (() => {
+            const h = history[detailIdx];
+            const ms = getPeriodMissions(h);
+            return (
+              <div style={{ marginTop:8, background:"rgba(128,128,128,0.05)", border:"1px solid rgba(167,139,250,0.18)", borderRadius:8, padding:"8px 10px" }}>
+                <div style={{ fontSize:10, fontWeight:600, color:"var(--t-accent,#a78bfa)", marginBottom:ms.length ? 6 : 0 }}>
+                  {h.label} · {ms.length} actividad{ms.length !== 1 ? "es" : ""}
+                </div>
+                {ms.length === 0 ? (
+                  <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>Sin actividades registradas</div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                    {ms.map(m => {
+                      const mc = m.who==="person1"?clr.person1:m.who==="person2"?clr.person2:clr.together;
+                      return (
+                        <div key={m.id} style={{ display:"flex", alignItems:"center", gap:7, padding:"4px 0", borderBottom:"1px solid rgba(128,128,128,0.08)" }}>
+                          <span style={{ fontSize:14, flexShrink:0 }}>{m.emoji||"🎯"}</span>
+                          <span style={{ flex:1, fontSize:12, color:"var(--t-text,#f0e8ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
+                          {m.date && <span style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>{m.date}</span>}
+                          <span style={{ width:8, height:8, borderRadius:99, background:mc, flexShrink:0 }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -204,7 +256,7 @@ export default function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAd
       {active.map(g => {
         const prog = computeGoalProgress(g, weeks, cwn, cyr);
         const hist = computeGoalHistory(g, weeks);
-        return <GoalCard key={g.id} goal={g} progress={prog} history={hist} p1={p1} p2={p2} colors={colors}
+        return <GoalCard key={g.id} goal={g} progress={prog} history={hist} weeks={weeks} p1={p1} p2={p2} colors={colors}
           onEdit={()=>openEdit(g)} onArchive={()=>onUpdate(g.id, { active:false })} />;
       })}
 
