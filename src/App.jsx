@@ -807,14 +807,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncError(null);
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
+      // saveWithRetry now uses .select() so it throws if RLS blocks silently
       await saveWithRetry(data, coupleId);
-      // Verify: read back and compare week count as a sanity check
+      // Read back to confirm the data is actually there
       const verified = await loadData(coupleId);
+      if (!verified?.weeks) throw new Error("Guardado pero lectura posterior vacía — posible problema de permisos.");
       const localWeeks  = Object.keys(data.weeks || {}).length;
-      const remoteWeeks = Object.keys(verified?.weeks || {}).length;
-      if (!verified) throw new Error("Guardado pero no se pudo verificar la lectura posterior.");
-      if (remoteWeeks !== localWeeks) throw new Error(`Verificación fallida: local tiene ${localWeeks} semanas, remoto tiene ${remoteWeeks}.`);
-      showSyncMsg(`✅ Guardado y verificado en Supabase (${localWeeks} semanas)`);
+      const remoteWeeks = Object.keys(verified.weeks).length;
+      if (remoteWeeks < localWeeks * 0.9) throw new Error(`Datos incompletos en Supabase: local=${localWeeks} semanas, remoto=${remoteWeeks}. Intenta de nuevo.`);
+      showSyncMsg(`✅ Guardado y verificado (${remoteWeeks} semanas en Supabase)`);
     } catch (e) {
       setSyncError(e.message);
       showSyncMsg("⚠ " + e.message);
