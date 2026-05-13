@@ -1,7 +1,8 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.3.4";
+export const APP_VERSION = "3.3.5";
 export const LAST_UPDATE = "2026-05-13";
 export const CHANGELOG = [
+  { v:"3.3.5", date:"2026-05-13", notes:["Fix: saveData usa upsert sin enviar updated_at manualmente — el trigger de la BD lo actualiza solo, evitando conflictos","Sync ⬆ Subir: restaurada verificación por timestamp real (updated_at del trigger) — muestra '✅ Guardado · HH:MM:SS (hace Xs)' y alerta si el write no aterrizó","Versión 3.3.5"] },
   { v:"3.3.4", date:"2026-05-13", notes:["Fix: saveData ahora usa .upsert() en lugar de INSERT/UPDATE separados — elimina el SELECT previo, más robusto y sin errores de duplicado; detecta bloqueos de RLS si Supabase no devuelve la fila guardada","Versión 3.3.4"] },
   { v:"3.3.3", date:"2026-05-13", notes:["Sync ⬆ Subir: verifica con timestamp real de Supabase — muestra '✅ Guardado · HH:MM:SS (hace Xs)' para confirmar que el UPDATE fue de este momento; si el timestamp tiene más de 30s de diferencia, avisa que el UPDATE no se aplicó (RLS o sesión)","Versión 3.3.3"] },
   { v:"3.3.2", date:"2026-05-13", notes:["Fix crítico: saveData ahora usa .select() tras UPDATE para detectar bloqueos silenciosos de RLS — antes count era null y el error pasaba desapercibido","Fix PWA: index.html, sw.js y version.json se sirven con Cache-Control no-store en Netlify — el browser siempre pide versión fresca y detecta actualizaciones correctamente","Fix PWA: version.json excluida del precache de Workbox con estrategia NetworkOnly — el service worker ya no la intercepta con versión vieja","Automatización: version.json se genera desde APP_VERSION en cada build (prebuild hook) — imposible que queden desincronizadas","Versión 3.3.2"] },
