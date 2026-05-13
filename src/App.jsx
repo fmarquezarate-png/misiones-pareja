@@ -726,19 +726,44 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
   const checkUpdate = async () => {
-    pushToast({ kind: "loading", text: "Actualizando…" });
+    pushToast({ kind: "loading", text: "Verificando versión…" });
     try {
+      // Step 1: fetch server version bypassing all caches
+      let serverVersion = null;
+      try {
+        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) serverVersion = (await res.json()).v;
+      } catch { /* offline or missing file — skip version check */ }
+
+      // Step 2: compare with current bundle version
+      if (serverVersion && serverVersion === APP_VERSION) {
+        pushToast({ kind: "error", text: `Ya tienes la última versión (v${APP_VERSION}). Si acabas de desplegar, espera unos minutos y vuelve a intentar.` });
+        return;
+      }
+
+      // Step 3: trigger service worker update
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           await reg.update();
-          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          } else if (!reg.installing && serverVersion && serverVersion !== APP_VERSION) {
+            // SW updated but not yet waiting — force reload anyway
+          } else if (!reg.waiting && !reg.installing && !serverVersion) {
+            pushToast({ kind: "error", text: "No se encontró actualización en el service worker. Intenta limpiar caché del navegador (Ctrl+Shift+R)." });
+            return;
+          }
         }
       }
-      pushToast({ kind: "success", text: "¡App actualizada!" });
+
+      const msg = serverVersion && serverVersion !== APP_VERSION
+        ? `Actualizando v${APP_VERSION} → v${serverVersion}…`
+        : "Actualizando…";
+      pushToast({ kind: "success", text: msg });
       setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
-      pushToast({ kind: "error", text: "No se pudo actualizar", onRetry: checkUpdate });
+      pushToast({ kind: "error", text: `Error al actualizar: ${err.message}` });
     }
   };
 
