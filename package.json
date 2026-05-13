@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/gen-version.js",
     "build": "vite build",
     "preview": "vite preview"
   },
