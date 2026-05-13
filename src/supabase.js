@@ -209,35 +209,15 @@ export async function saveData(appData, coupleId) {
   saveLocalBackup(appData, coupleId);
   if (!coupleId) return;
 
-  // Check whether a row already exists for this couple
-  const { data: existing, error: selErr } = await supabase
-    .from("app_data")
-    .select("id")
-    .eq("id", coupleId)
-    .limit(1);
-
-  if (selErr) throw new Error("Supabase SELECT: " + selErr.message);
-
   const ts = new Date().toISOString();
 
-  if (existing && existing.length > 0) {
-    // .select("updated_at") makes Supabase return the affected rows —
-    // empty array means RLS blocked the update silently (count is null by default)
-    const { data: updated, error } = await supabase
-      .from("app_data")
-      .update({ data: appData, updated_at: ts })
-      .eq("id", coupleId)
-      .select("updated_at");
-    if (error) throw new Error("Error al actualizar: " + error.message);
-    if (!updated || updated.length === 0) throw new Error("Sin permisos para guardar (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
-  } else {
-    const { data: inserted, error } = await supabase
-      .from("app_data")
-      .insert({ id: coupleId, data: appData, updated_at: ts })
-      .select("id");
-    if (error) throw new Error("Error al insertar: " + error.message);
-    if (!inserted || inserted.length === 0) throw new Error("Sin permisos para crear registro (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
-  }
+  const { data: upserted, error } = await supabase
+    .from("app_data")
+    .upsert({ id: coupleId, data: appData, updated_at: ts })
+    .select("updated_at");
+
+  if (error) throw new Error("Error al guardar: " + error.message);
+  if (!upserted || upserted.length === 0) throw new Error("Sin permisos para guardar (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
 }
 
 // Basic schema guard — avoid persisting accidentally empty/corrupt state
