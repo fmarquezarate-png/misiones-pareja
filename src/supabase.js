@@ -221,20 +221,22 @@ export async function saveData(appData, coupleId) {
   const ts = new Date().toISOString();
 
   if (existing && existing.length > 0) {
-    const { error, count } = await supabase
+    // .select("updated_at") makes Supabase return the affected rows —
+    // empty array means RLS blocked the update silently (count is null by default)
+    const { data: updated, error } = await supabase
       .from("app_data")
       .update({ data: appData, updated_at: ts })
-      .eq("id", coupleId);
+      .eq("id", coupleId)
+      .select("updated_at");
     if (error) throw new Error("Error al actualizar: " + error.message);
-    // count===0 means RLS blocked the update silently
-    if (count === 0) throw new Error("Sin permisos para guardar (RLS). Verifica que tu sesión está activa.");
+    if (!updated || updated.length === 0) throw new Error("Sin permisos para guardar (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
   } else {
-    const { error, data: inserted } = await supabase
+    const { data: inserted, error } = await supabase
       .from("app_data")
       .insert({ id: coupleId, data: appData, updated_at: ts })
       .select("id");
     if (error) throw new Error("Error al insertar: " + error.message);
-    if (!inserted || inserted.length === 0) throw new Error("Sin permisos para crear registro (RLS). Verifica que tu sesión está activa.");
+    if (!inserted || inserted.length === 0) throw new Error("Sin permisos para crear registro (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
   }
 }
 
