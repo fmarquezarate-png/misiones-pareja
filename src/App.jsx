@@ -775,17 +775,24 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(false);
   };
 
-  // Force-push local data up to Supabase (overwrite remote)
+  // Force-push local data up to Supabase, then verify with a read-back
   const forcePush = async () => {
     if (!coupleId) return;
     setSyncing(true);
     setSyncError(null);
+    showSyncMsg("⬆ Subiendo a Supabase…");
     try {
       await saveWithRetry(data, coupleId);
-      showSyncMsg("⬆ Datos subidos a Supabase");
+      // Verify: read back and compare week count as a sanity check
+      const verified = await loadData(coupleId);
+      const localWeeks  = Object.keys(data.weeks || {}).length;
+      const remoteWeeks = Object.keys(verified?.weeks || {}).length;
+      if (!verified) throw new Error("Guardado pero no se pudo verificar la lectura posterior.");
+      if (remoteWeeks !== localWeeks) throw new Error(`Verificación fallida: local tiene ${localWeeks} semanas, remoto tiene ${remoteWeeks}.`);
+      showSyncMsg(`✅ Guardado y verificado en Supabase (${localWeeks} semanas)`);
     } catch (e) {
       setSyncError(e.message);
-      showSyncMsg("⚠ Error al subir: " + e.message);
+      showSyncMsg("⚠ " + e.message);
     }
     setSyncing(false);
   };
