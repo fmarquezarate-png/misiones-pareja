@@ -1492,6 +1492,8 @@ ${ms.map(m=>{
           <OverflowButton onClick={() => setPopOpen(o => !o)} />
           <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
             { icon:"↻", label:"Actualizar versión", onClick: checkUpdate },
+            { icon:"⬆", label: syncing ? "Subiendo…" : "Subir datos a Supabase", onClick: () => { forcePush(); setPopOpen(false); } },
+            { icon:"🔄", label: syncing ? "Sincronizando…" : "Bajar datos de Supabase", onClick: () => { forceSync(); setPopOpen(false); } },
             { divider: true },
             { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => downloadWeekICS(week, wkey, p1, p2) },
             { icon:"🖨", label:"Imprimir / PDF", onClick: () => downloadWeekPDF(week, wkey, p1, p2) },
