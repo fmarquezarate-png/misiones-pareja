@@ -775,6 +775,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(false);
   };
 
+  // Force-push local data up to Supabase (overwrite remote)
+  const forcePush = async () => {
+    if (!coupleId) return;
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      await saveWithRetry(data, coupleId);
+      showSyncMsg("⬆ Datos subidos a Supabase");
+    } catch (e) {
+      setSyncError(e.message);
+      showSyncMsg("⚠ Error al subir: " + e.message);
+    }
+    setSyncing(false);
+  };
+
   useEffect(() => {
     (async () => {
       // Fast path: render local backup instantly (zero network wait for returning users)
@@ -1477,6 +1492,8 @@ ${ms.map(m=>{
           <OverflowButton onClick={() => setPopOpen(o => !o)} />
           <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
             { icon:"↻", label:"Actualizar versión", onClick: checkUpdate },
+            { icon:"⬆", label: syncing ? "Subiendo…" : "Subir datos a Supabase", onClick: () => { forcePush(); setPopOpen(false); } },
+            { icon:"🔄", label: syncing ? "Sincronizando…" : "Bajar datos de Supabase", onClick: () => { forceSync(); setPopOpen(false); } },
             { divider: true },
             { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => downloadWeekICS(week, wkey, p1, p2) },
             { icon:"🖨", label:"Imprimir / PDF", onClick: () => downloadWeekPDF(week, wkey, p1, p2) },
@@ -1811,9 +1828,13 @@ ${ms.map(m=>{
                 <button onClick={()=>setPendingTab("pending")} style={subTabStyle(pendingTab==="pending")}>📋 Pendientes <span style={{fontSize:10,opacity:0.7}}>({pendingFiltered.length})</span></button>
                 <button onClick={()=>setPendingTab("logros")}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosFiltered.length})</span></button>
               </div>
-              <button onClick={()=>forceSync()} title="Refrescar datos"
-                style={{...S.btnSecondary, padding:"7px 12px", fontSize:12, display:"flex", alignItems:"center", gap:5, flexShrink:0}}>
-                🔄 Refrescar
+              <button onClick={()=>forceSync()} title="Bajar datos de Supabase"
+                style={{...S.btnSecondary, padding:"7px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4, flexShrink:0}}>
+                🔄 Bajar
+              </button>
+              <button onClick={()=>forcePush()} title="Subir datos locales a Supabase"
+                style={{...S.btnSecondary, padding:"7px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4, flexShrink:0, color:"var(--t-accent,#a78bfa)"}}>
+                ⬆ Subir
               </button>
             </div>
             {/* Pendientes list */}
