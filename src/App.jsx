@@ -800,22 +800,29 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(false);
   };
 
-  // Force-push local data up to Supabase, then verify with a read-back
+  // Force-push local data up to Supabase, then verify with actual timestamp from DB
   const forcePush = async () => {
     if (!coupleId) return;
     setSyncing(true);
     setSyncError(null);
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
-      // saveWithRetry now uses .select() so it throws if RLS blocks silently
       await saveWithRetry(data, coupleId);
-      // Read back to confirm the data is actually there
-      const verified = await loadData(coupleId);
-      if (!verified?.weeks) throw new Error("Guardado pero lectura posterior vacía — posible problema de permisos.");
-      const localWeeks  = Object.keys(data.weeks || {}).length;
-      const remoteWeeks = Object.keys(verified.weeks).length;
-      if (remoteWeeks < localWeeks * 0.9) throw new Error(`Datos incompletos en Supabase: local=${localWeeks} semanas, remoto=${remoteWeeks}. Intenta de nuevo.`);
-      showSyncMsg(`✅ Guardado y verificado (${remoteWeeks} semanas en Supabase)`);
+      // Read back the updated_at from Supabase — this is the ground truth timestamp
+      const { data: row, error: readErr } = await supabase
+        .from("app_data")
+        .select("updated_at")
+        .eq("id", coupleId)
+        .single();
+      if (readErr || !row) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
+      const savedAt = new Date(row.updated_at);
+      const nowMs   = Date.now();
+      const diffSec = Math.round((nowMs - savedAt.getTime()) / 1000);
+      const timeStr = savedAt.toLocaleTimeString("es-ES");
+      if (diffSec > 30) {
+        throw new Error(`Supabase muestra updated_at ${timeStr} (hace ${diffSec}s) — el UPDATE no se aplicó. Posible problema de RLS o sesión.`);
+      }
+      showSyncMsg(`✅ Guardado en Supabase · ${timeStr} (hace ${diffSec}s)`);
     } catch (e) {
       setSyncError(e.message);
       showSyncMsg("⚠ " + e.message);
