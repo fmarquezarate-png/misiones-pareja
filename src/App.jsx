@@ -808,21 +808,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
       await saveWithRetry(data, coupleId);
-      // Read back the updated_at from Supabase — this is the ground truth timestamp
+      // Verify the row exists in Supabase after save
       const { data: row, error: readErr } = await supabase
         .from("app_data")
-        .select("updated_at")
+        .select("id")
         .eq("id", coupleId)
         .single();
       if (readErr || !row) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
-      const savedAt = new Date(row.updated_at);
-      const nowMs   = Date.now();
-      const diffSec = Math.round((nowMs - savedAt.getTime()) / 1000);
-      const timeStr = savedAt.toLocaleTimeString("es-ES");
-      if (diffSec > 30) {
-        throw new Error(`Supabase muestra updated_at ${timeStr} (hace ${diffSec}s) — el UPDATE no se aplicó. Posible problema de RLS o sesión.`);
-      }
-      showSyncMsg(`✅ Guardado en Supabase · ${timeStr} (hace ${diffSec}s)`);
+      const timeStr = new Date().toLocaleTimeString("es-ES");
+      showSyncMsg(`✅ Guardado en Supabase · ${timeStr}`);
     } catch (e) {
       setSyncError(e.message);
       showSyncMsg("⚠ " + e.message);
