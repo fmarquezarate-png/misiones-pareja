@@ -208,10 +208,11 @@ export async function saveData(appData, coupleId) {
   saveLocalBackup(appData, coupleId);
   if (!coupleId) return;
 
+  const ts = new Date().toISOString();
   const { data: upserted, error } = await supabase
     .from("app_data")
-    .upsert({ id: coupleId, data: appData })
-    .select("id");
+    .upsert({ id: coupleId, data: appData, updated_at: ts })
+    .select("updated_at");
 
   if (error) throw new Error("Error al guardar: " + error.message);
   if (!upserted || upserted.length === 0) throw new Error("Sin permisos para guardar (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
