@@ -687,6 +687,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const saveTimerRef = useRef(null);
+  const dataRef      = useRef(null);
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
@@ -808,16 +809,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
       await saveWithRetry(data, coupleId);
-      // Read back the data from Supabase to confirm the write actually landed
+      // Read back updated_at — set by BEFORE UPDATE trigger, ground truth that the write landed
       const { data: row, error: readErr } = await supabase
         .from("app_data")
-        .select("data")
+        .select("updated_at")
         .eq("id", coupleId)
         .single();
-      if (readErr || !row?.data) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
-      const weekCount = Object.keys(row.data.weeks || {}).length;
-      const timeStr = new Date().toLocaleTimeString("es-ES");
-      showSyncMsg(`✅ Guardado en Supabase · ${timeStr} · ${weekCount} semanas`);
+      if (readErr || !row) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
+      const savedAt = new Date(row.updated_at);
+      const diffSec = Math.round((Date.now() - savedAt.getTime()) / 1000);
+      const timeStr = savedAt.toLocaleTimeString("es-ES");
+      if (diffSec > 30) throw new Error(`updated_at tiene ${diffSec}s de antigüedad — el write no se aplicó. Revisa RLS o sesión.`);
+      showSyncMsg(`✅ Guardado en Supabase · ${timeStr} (hace ${diffSec}s)`);
     } catch (e) {
       setSyncError(e.message);
       showSyncMsg("⚠ " + e.message);
@@ -841,10 +844,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       try {
         let base = await loadData(coupleId);
         let isRealData = !!base;
+        let didMigrate = false;
 
         if (base) {
           if (!base.seedVersion || base.seedVersion < SEED_VERSION) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
+            didMigrate = true;
           }
         } else {
           if (local?.data?.weeks && Object.keys(local.data.weeks).length > 1) {
@@ -859,7 +864,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (isTodayMonday()) base = applyCarryOver(base);
         setData(base);
 
-        if (isRealData) await saveData(base, coupleId);
+        if (isRealData && didMigrate) await saveData(base, coupleId);
       } catch(e) {
         // Only surface error if we have nothing to show (no local backup)
         if (!local?.data) {
@@ -950,6 +955,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (!coupleId) return;
     const channel = subscribeToUpdates(coupleId, remoteData => {
       if (remoteData) {
+        // Cancel any pending debounced save — prevents overwriting partner's changes with stale local state
+        clearTimeout(saveTimerRef.current);
         if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
           showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
         }
@@ -957,6 +964,24 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
     });
     return () => { supabase.removeChannel(channel); };
+  }, [coupleId]);
+
+  // Keep dataRef in sync so visibilitychange handler always has fresh data
+  useEffect(() => { dataRef.current = data; }, [data]);
+
+  // Flush debounced save immediately when app goes to background (critical on iOS)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        if (dataRef.current && coupleId && isValidAppData(dataRef.current)) {
+          saveWithRetry(dataRef.current, coupleId).catch(() => {});
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [coupleId]);
 
   // Online/offline detection
