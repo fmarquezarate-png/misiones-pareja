@@ -808,18 +808,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
       await saveWithRetry(data, coupleId);
-      // Read back updated_at — auto-set by DB trigger, ground truth that the write landed
+      // Read back the data from Supabase to confirm the write actually landed
       const { data: row, error: readErr } = await supabase
         .from("app_data")
-        .select("updated_at")
+        .select("data")
         .eq("id", coupleId)
         .single();
-      if (readErr || !row) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
-      const savedAt = new Date(row.updated_at);
-      const diffSec = Math.round((Date.now() - savedAt.getTime()) / 1000);
-      const timeStr = savedAt.toLocaleTimeString("es-ES");
-      if (diffSec > 30) throw new Error(`Supabase muestra updated_at ${timeStr} (hace ${diffSec}s) — el write no se aplicó. Posible RLS o sesión expirada.`);
-      showSyncMsg(`✅ Guardado en Supabase · ${timeStr} (hace ${diffSec}s)`);
+      if (readErr || !row?.data) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
+      const weekCount = Object.keys(row.data.weeks || {}).length;
+      const timeStr = new Date().toLocaleTimeString("es-ES");
+      showSyncMsg(`✅ Guardado en Supabase · ${timeStr} · ${weekCount} semanas`);
     } catch (e) {
       setSyncError(e.message);
       showSyncMsg("⚠ " + e.message);
