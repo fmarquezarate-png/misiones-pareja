@@ -46,12 +46,15 @@ export function onAuthChange(callback) {
 /* ── Couple helpers ──────────────────────────────────────────────── */
 
 export async function getMyCoupleId() {
-  const session = await getSession();
-  if (!session) return null;
+  // fix #1: getUser() validates the JWT with the Supabase Auth server.
+  // getSession() only returns the cached JWT without server verification,
+  // which could allow a tampered/expired token to pass through.
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return null;
   const { data, error } = await supabase
     .from("couple_members")
     .select("couple_id, person_name")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .maybeSingle(); // maybeSingle: no error when row doesn't exist
   if (error) { console.error("getMyCoupleId error:", error); return null; }
   return data; // null if not in a couple yet
@@ -96,8 +99,20 @@ export async function createCouple(code, personName) {
 }
 
 export async function joinCouple(code, personName) {
-  const session = await getSession();
-  if (!session) return { error: "No hay sesión activa" };
+  // fix #1 (consistencia): usar getUser() en vez de getSession() para
+  // garantizar que el token está validado contra el servidor Auth.
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return { error: "No hay sesión activa" };
+
+  // fix #2: verificar que el usuario no pertenece ya a otra pareja antes
+  // de intentar el INSERT, evitando duplicados y errores de RLS confusos.
+  const { data: existingMembership } = await supabase
+    .from("couple_members")
+    .select("couple_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingMembership) return { error: "Ya perteneces a una pareja. Sal de ella antes de unirte a otra." };
 
   // Find couple by code
   const { data: couple, error: findErr } = await supabase
@@ -120,7 +135,7 @@ export async function joinCouple(code, personName) {
   // Join
   const { error: memberErr } = await supabase
     .from("couple_members")
-    .insert({ user_id: session.user.id, couple_id: couple.id, person_name: personName });
+    .insert({ user_id: user.id, couple_id: couple.id, person_name: personName });
 
   if (memberErr) return { error: memberErr.message };
 
@@ -138,13 +153,20 @@ function saveLocalBackup(appData, coupleId) {
 }
 
 export function loadLocalBackup(coupleId) {
+  // fix #4: localStorage puede lanzar SecurityError en Safari/iOS en modo
+  // privado. En lugar de silenciar el error devolvemos { error: 'unavailable' }
+  // para que el caller decida si mostrar un aviso al usuario.
   try {
-    // Strictly couple-specific key — no generic fallback (prevents cross-couple data leakage)
     const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     return { data: JSON.parse(raw), ts: localStorage.getItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts") };
-  } catch { return null; }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "SecurityError") {
+      return { error: "unavailable" }; // Safari private mode — caller should warn user
+    }
+    return null;
+  }
 }
 
 /* ── Export / Import ─────────────────────────────────────────────── */
@@ -252,7 +274,10 @@ export function subscribeToUpdates(coupleId, onUpdate) {
       { event: "*", schema: "public", table: "app_data", filter: `id=eq.${coupleId}` },
       payload => {
         const newData = payload.new?.data;
-        if (newData) onUpdate(newData);
+        // fix #3: validar con isValidAppData() antes de propagar al estado
+        // local. Evita que un payload corrupto o incompleto sobreescriba
+        // los datos en memoria del usuario.
+        if (newData && isValidAppData(newData)) onUpdate(newData);
       }
     )
     .subscribe();
