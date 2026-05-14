@@ -18,7 +18,7 @@ const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0"
 function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleStatus }) {
   const clr = colors || DEFAULT_COLORS;
   const items = missions.filter(m => m.date === dateStr);
-  const [d, m, y] = [
+  const [d] = [
     new Date(dateStr + "T00:00:00").toLocaleDateString("es-ES", { weekday:"long" }),
     new Date(dateStr + "T00:00:00").toLocaleDateString("es-ES", { day:"numeric", month:"long" }),
   ];
@@ -36,7 +36,6 @@ function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleSta
         <div style={{ width:32, height:3, background:"rgba(128,128,128,0.3)", borderRadius:99, margin:"0 auto 14px" }} />
         <div style={{ marginBottom:14 }}>
           <div style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#f8f4ff)", textTransform:"capitalize" }}>{d}</div>
-          <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)" }}>{m}</div>
         </div>
         {items.length === 0 ? (
           <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic", textAlign:"center", padding:"20px 0" }}>Día libre 🌿</div>
@@ -66,12 +65,109 @@ function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleSta
   );
 }
 
-function PersonRing({ name, photo, pct, clrAccent }) {
+function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose }) {
+  const r = 54, circ = 2 * Math.PI * r;
+  const ringColor = pct >= 80 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#f87171";
+  const initial = (name || "?").charAt(0).toUpperCase();
+
+  const statusRows = [
+    { label:"Completadas", icon:"✅", count: stats.done,       color:"#34d399" },
+    { label:"En curso",    icon:"⚡", count: stats.inProgress, color:"#60a5fa" },
+    { label:"ASAP",        icon:"🔥", count: stats.asap,       color:"#fb923c" },
+    { label:"Pendientes",  icon:"⏳", count: stats.tbc,        color:"#94a3b8" },
+  ];
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:90 }} />
+      <div style={{
+        position:"fixed", left:0, right:0, bottom:0, zIndex:100,
+        background:"var(--t-card,rgba(8,5,18,0.98))",
+        borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.3))",
+        borderRadius:"20px 20px 0 0",
+        padding:"16px 20px calc(32px + env(safe-area-inset-bottom))",
+        maxHeight:"80vh", overflowY:"auto",
+      }}>
+        <div style={{ width:32, height:3, background:"rgba(128,128,128,0.3)", borderRadius:99, margin:"0 auto 16px" }} />
+
+        {/* Header: photo + ring side by side */}
+        <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:20 }}>
+          {/* Large ring + photo */}
+          <div style={{ position:"relative", width:128, height:128, flexShrink:0 }}>
+            <svg width={128} height={128} viewBox="0 0 128 128" style={{ position:"absolute", inset:0 }}>
+              <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(128,128,128,0.12)" strokeWidth="8"/>
+              <circle cx="64" cy="64" r={r} fill="none" stroke={ringColor} strokeWidth="8"
+                strokeDasharray={`${pct * circ / 100} ${circ}`} strokeLinecap="round"
+                transform="rotate(-90 64 64)" style={{ transition:"stroke-dasharray .6s ease" }}/>
+            </svg>
+            <div style={{
+              position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+              width:96, height:96, borderRadius:99, overflow:"hidden",
+              background: photo ? "transparent" : `linear-gradient(135deg,${clrAccent}cc,${clrAccent}66)`,
+              border:"2px solid rgba(128,128,128,0.2)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:40, color:"#fff", fontWeight:700,
+            }}>
+              {photo ? <img src={photo} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt={name} /> : initial}
+            </div>
+          </div>
+
+          {/* Name + score summary */}
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:20, fontWeight:700, color:"var(--t-text,#f8f4ff)", marginBottom:2 }}>{name}</div>
+            <div style={{ fontSize:36, fontWeight:800, color:ringColor, lineHeight:1 }}>{pct}<span style={{ fontSize:16, fontWeight:600 }}>%</span></div>
+            <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:2 }}>
+              {stats.done} de {stats.total} tareas · últimos 15 días
+            </div>
+            {stats.total === 0 && (
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:4, fontStyle:"italic" }}>
+                Sin tareas asignadas aún
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Status breakdown */}
+        <div style={{ ...W, marginBottom:14 }}>
+          <div style={{ ...eyebrow, marginBottom:10 }}>Desglose de tareas</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {statusRows.map(row => (
+              <div key={row.label} style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <span style={{ fontSize:14, width:20 }}>{row.icon}</span>
+                <span style={{ flex:1, fontSize:13, color:"var(--t-text,#f8f4ff)" }}>{row.label}</span>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  {/* Mini bar */}
+                  <div style={{ width:80, height:5, background:"rgba(128,128,128,0.15)", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{
+                      height:"100%",
+                      width: stats.total ? `${(row.count / stats.total) * 100}%` : "0%",
+                      background: row.color, borderRadius:99,
+                      transition:"width .5s ease",
+                    }}/>
+                  </div>
+                  <span style={{ fontSize:13, fontWeight:700, color: row.color, minWidth:18, textAlign:"right" }}>{row.count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Note */}
+        <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", textAlign:"center", lineHeight:1.5 }}>
+          El porcentaje incluye tareas de hoy hacia atrás (15 días).<br/>
+          Las tareas con fecha futura no penalizan el score.
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PersonRing({ name, photo, pct, clrAccent, onClick }) {
   const r = 26, circ = 2 * Math.PI * r;
   const ringColor = pct >= 80 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#f87171";
   const initial   = (name || "?").charAt(0).toUpperCase();
   return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+    <div onClick={onClick} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, cursor:"pointer" }}>
       <div style={{ position:"relative", width:68, height:68 }}>
         <svg width={68} height={68} viewBox="0 0 68 68" style={{ position:"absolute", inset:0 }}>
           <circle cx="34" cy="34" r={r} fill="none" stroke="rgba(128,128,128,0.12)" strokeWidth="5"/>
@@ -103,7 +199,8 @@ export default function HomeDashboard({
   weeksData,
 }) {
   const clr = colors || DEFAULT_COLORS;
-  const [daySheet, setDaySheet] = useState(null);
+  const [daySheet, setDaySheet]     = useState(null);
+  const [personSheet, setPersonSheet] = useState(null); // "p1" | "p2" | null
 
   const todayStr = fmtDate(new Date());
 
@@ -111,7 +208,7 @@ export default function HomeDashboard({
   const done  = missions.filter(m => m.status === "DONE").length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
 
-  // Per-person progress: all tasks (dated or not) from weeks spanning last 15 days
+  // Per-person progress: last 15 days, excluding events and FUTURE-dated tasks
   const toWkey = d => {
     const t = new Date(d); t.setDate(d.getDate() + 4 - ((d.getDay()+6)%7));
     const j = new Date(t.getFullYear(),0,1);
@@ -120,20 +217,36 @@ export default function HomeDashboard({
   const cutoff14 = new Date(); cutoff14.setDate(cutoff14.getDate() - 14);
   const cutoffWkey = toWkey(cutoff14);
   const todayWkey  = toWkey(new Date());
+
+  // Exclude future-dated tasks — can't be penalized for what hasn't happened yet
   const last15Ms = weeksData
     ? Object.entries(weeksData)
         .filter(([key]) => key >= cutoffWkey && key <= todayWkey)
-        .flatMap(([,w]) => (w.missions || []).filter(m => m.type !== "event"))
-    : missions.filter(m => m.type !== "event");
-  const p1Ms  = last15Ms.filter(m => m.who === "person1" || m.who === "together");
-  const p2Ms  = last15Ms.filter(m => m.who === "person2" || m.who === "together");
-  const p1Pct = p1Ms.length  ? Math.round(p1Ms.filter(m => m.status === "DONE").length  / p1Ms.length  * 100) : 0;
-  const p2Pct = p2Ms.length  ? Math.round(p2Ms.filter(m => m.status === "DONE").length  / p2Ms.length  * 100) : 0;
+        .flatMap(([,w]) => (w.missions || []).filter(m =>
+          m.type !== "event" && (!m.date || m.date <= todayStr)
+        ))
+    : missions.filter(m => m.type !== "event" && (!m.date || m.date <= todayStr));
+
+  const p1Ms = last15Ms.filter(m => m.who === "person1" || m.who === "together");
+  const p2Ms = last15Ms.filter(m => m.who === "person2" || m.who === "together");
+
+  const buildStats = ms => ({
+    total:      ms.length,
+    done:       ms.filter(m => m.status === "DONE").length,
+    inProgress: ms.filter(m => m.status === "IN_PROGRESS").length,
+    asap:       ms.filter(m => m.status === "ASAP").length,
+    tbc:        ms.filter(m => m.status === "TBC").length,
+    pct:        ms.length ? Math.round(ms.filter(m => m.status === "DONE").length / ms.length * 100) : 0,
+  });
+
+  const p1Stats = buildStats(p1Ms);
+  const p2Stats = buildStats(p2Ms);
+  const p1Pct   = p1Stats.pct;
+  const p2Pct   = p2Stats.pct;
 
   const todayMs = missions.filter(m => m.date === todayStr);
   const asapMs  = missions.filter(m => m.status === "ASAP");
 
-  // All missions across weeks for upcoming + overdue
   const allMissions = weeksData
     ? Object.values(weeksData).flatMap(w => (w.missions || []).map(m => ({ ...m, weekNumber: w.weekNumber, year: w.year })))
     : missions;
@@ -146,13 +259,11 @@ export default function HomeDashboard({
   const overdue3 = (() => {
     const seen = new Set();
     const result = [];
-    // 1. Tasks with explicit past dates
     for (const m of allMissions) {
       if (m.date && m.date < todayStr && m.status !== "DONE" && m.type !== "event") {
         seen.add(m.id); result.push(m);
       }
     }
-    // 2. Carried (arrastradas) tasks not done — in current week missions
     for (const m of missions) {
       if (m.carriedFrom && m.status !== "DONE" && !seen.has(m.id)) {
         seen.add(m.id); result.push(m);
@@ -163,12 +274,6 @@ export default function HomeDashboard({
 
   const activeGoal = goals.filter(g => g.active !== false)[0];
 
-  const handleDayClick = (ds) => {
-    // Collect missions for that day from weeksData
-    setDaySheet(ds);
-  };
-
-  // Missions for the day detail sheet
   const dayMissions = weeksData
     ? Object.values(weeksData).flatMap(w => (w.missions || []).map(m => ({ ...m })))
     : missions;
@@ -225,11 +330,11 @@ export default function HomeDashboard({
         }}>{!photo && "💞"}</div>
       </div>
 
-      {/* WeekStrip with day click */}
-      <WeekStrip missions={allMissions} onSelectDay={handleDayClick} />
+      {/* WeekStrip */}
+      <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} />
       <div style={{ fontSize:9.5, color:"var(--t-text-dim,#4a4166)", textAlign:"center", marginTop:-6 }}>Toca un día para ver sus actividades</div>
 
-      {/* Row 1: Próximos eventos | Tareas atrasadas */}
+      {/* Row 1: Próximos | Atrasadas */}
       <div style={{display:"flex", gap:8}}>
         <div style={{...W, flex:1, minWidth:0}}>
           <div style={{...eyebrow, fontSize:8.5, marginBottom:6}}>⏰ Próximos</div>
@@ -292,7 +397,7 @@ export default function HomeDashboard({
         </div>
       </div>
 
-      {/* Hoy — compact tap-to-cycle list */}
+      {/* Hoy */}
       <div style={{...W, borderRadius:12}}>
         <div style={{...eyebrow, fontSize:8.5, marginBottom:8}}>📋 Hoy</div>
         {todayMs.length === 0 ? (
@@ -320,35 +425,49 @@ export default function HomeDashboard({
         )}
       </div>
 
-      {/* Person progress rings — last 15 days */}
+      {/* Person progress rings — clickable */}
       <div style={{ display:"flex", justifyContent:"center", gap:32, padding:"6px 0 2px" }}>
-        <PersonRing name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1} />
-        <PersonRing name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2} />
+        <PersonRing
+          name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1}
+          onClick={() => setPersonSheet("p1")}
+        />
+        <PersonRing
+          name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2}
+          onClick={() => setPersonSheet("p2")}
+        />
       </div>
 
       {/* Daily phrase */}
       <div style={{ textAlign:"center", padding:"2px 16px 4px" }}>
         <span style={{
           fontFamily:"'Fraunces', Georgia, serif",
-          fontStyle:"italic",
-          fontSize:15,
+          fontStyle:"italic", fontSize:15,
           color:"var(--t-text-muted,#8b7fa8)",
-          lineHeight:1.5,
-          letterSpacing:0.2,
+          lineHeight:1.5, letterSpacing:0.2,
         }}>"{PHRASES[parseInt(todayStr.replace(/-/g,"")) % PHRASES.length]}"</span>
       </div>
 
-      {/* Day detail bottom sheet */}
+      {/* Day detail sheet */}
       {daySheet && (
         <DayDetailSheet
-          dateStr={daySheet}
-          missions={dayMissions}
+          dateStr={daySheet} missions={dayMissions}
           onClose={() => setDaySheet(null)}
           p1={p1} p2={p2} colors={colors}
-          onCycleStatus={(id) => {
-            onCycleStatus && onCycleStatus(id);
-            setDaySheet(null);
-          }}
+          onCycleStatus={(id) => { onCycleStatus && onCycleStatus(id); setDaySheet(null); }}
+        />
+      )}
+
+      {/* Person stats sheet */}
+      {personSheet === "p1" && (
+        <PersonStatsSheet
+          name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1}
+          stats={p1Stats} onClose={() => setPersonSheet(null)}
+        />
+      )}
+      {personSheet === "p2" && (
+        <PersonStatsSheet
+          name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2}
+          stats={p2Stats} onClose={() => setPersonSheet(null)}
         />
       )}
     </div>
