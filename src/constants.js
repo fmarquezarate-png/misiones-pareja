@@ -1,7 +1,8 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.3.7";
+export const APP_VERSION = "3.3.8";
 export const LAST_UPDATE = "2026-05-14";
 export const CHANGELOG = [
+  { v:"3.3.8", date:"2026-05-14", notes:["Tutorial rediseñado: ya no bloquea la pantalla — la app queda visible y activa debajo","Tutorial dinámico: navega automáticamente a cada sección mientras explica","Flechas doodle SVG apuntan a los elementos de la UI (anillos, botones, menú, ⚙️)","Burbuja de texto con fondo blanco semitransparente (88%) para leer sin perder el contexto visual","Versión 3.3.8"] },
   { v:"3.3.7", date:"2026-05-14", notes:["Home: toca el anillo de cada persona para ver su foto en grande con desglose completo — tareas completadas, en curso, ASAP y pendientes con barra visual","Fix score: las tareas con fecha futura ya no penalizan el porcentaje — solo cuentan tareas de hoy hacia atrás (últimos 15 días)","Versión 3.3.7"] },
   { v:"3.3.6", date:"2026-05-14", notes:["Fix race condition: al recibir actualización del partner vía Realtime se cancela el debounce pendiente — ya no sobreescribe los cambios del partner","Fix iOS: handler visibilitychange fuerza el save inmediatamente al pasar la app a background","Fix falso save: la carga inicial solo guarda a Supabase si hubo migración de schema (didMigrate)","Sync ⬆ Subir: verificación por timestamp real (updated_at) restaurada","Versión 3.3.6"] },
   { v:"3.3.5", date:"2026-05-13", notes:["Fix crítico: saveData upsert ya no envía updated_at — enviarlo causaba error 400 (PostgREST) y bloqueaba todos los guardados, perdiendo datos","Versión 3.3.5"] },

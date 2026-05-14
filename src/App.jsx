@@ -16,21 +16,36 @@ import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
 const TUTORIAL_STEPS = [
-  { emoji:"👋", tab:null,       title:"¡Bienvenido/a a Shared Calendar!", desc:"Tu espacio para planear la vida juntos. Te mostramos cada sección en 2 minutos — después podrás volver a este tutorial desde tu perfil." },
-  { emoji:"🏠", tab:"home",     tabIcon:"🏠", tabLabel:"Inicio",          title:"Vista de hoy",          desc:"Resumen instantáneo: tira de días de la semana, próximos eventos, tareas atrasadas y el objetivo épico. Toca cualquier día para ver sus actividades." },
-  { emoji:"🎯", tab:"current",  tabIcon:"🎯", tabLabel:"Semana",          title:"Semana actual",         desc:"Añade tareas y eventos, cambia estados tocándolos, arrástralos a la próxima semana o márcalos ✓ DONE. Es el corazón de la app." },
-  { emoji:"📋", tab:"pending",  tabIcon:"📋", tabLabel:"Pendientes",      title:"Todo pendiente",        desc:"Lista unificada de todo lo no completado en cualquier semana. Las tareas arrastradas muestran cuántas semanas llevan pendientes." },
-  { emoji:"📅", tab:"calendar", tabIcon:"📅", tabLabel:"Calendario",      title:"Calendario mensual",    desc:"Vista de cuadrícula del mes. Los eventos multi-día se extienden por todos sus días. Toca un día para ver el detalle y editar inline." },
-  { emoji:"🗂️", tab:"history",  tabIcon:"🗂️", tabLabel:"Histórico",       title:"Histórico de semanas",  desc:"Navega por cualquier semana pasada: mira sus misiones, el objetivo épico y las fotos guardadas. Útil para recordar qué hicisteis y cuánto avanzasteis." },
-  { emoji:"🏅", tab:"goals",    tabIcon:"🏅", tabLabel:"Metas",           title:"Metas y objetivos",     desc:"Define metas con período (semanal/mensual/anual), tipo mínimo o máximo y fecha límite. Vincula actividades y el progreso se calcula solo." },
-  { emoji:"📊", tab:"stats",    tabIcon:"📊", tabLabel:"Stats",           title:"Estadísticas",          desc:"Gráficos semanales, análisis de sincronía, equidad en tareas de casa, hábito ancla y mucho más. Exporta la vista como imagen PNG." },
-  { emoji:"💸", tab:"gastos",   tabIcon:"💸", tabLabel:"Gastos",          title:"Gastos compartidos",    desc:"Registra gastos, divide el costo con un slider (0-100%), organiza por proyectos (viaje, finde…) y lleva el balance: quién debe cuánto a quién." },
-  { emoji:"💬", tab:"chat",     tabIcon:"💬", tabLabel:"Chat",            title:"Chat en tiempo real",   desc:"Mensajitos con tu pareja directamente en la app. Perfectos para coordinarse al vuelo sin salir del calendario." },
-  { emoji:"🔗", tab:"links",    tabIcon:"🔗", tabLabel:"Links de Interés", title:"Links de Interés",     desc:"Guarda enlaces de uso frecuente y cuentas (usuario + contraseña). Los links se abren sin salir de la PWA. Tus datos quedan solo en tu cuenta." },
-  { emoji:"🔍", tab:null,       title:"Filtros globales", desc:"El botón de filtros en la barra superior permite filtrar por persona y por categoría. Se aplican en Semana, Pendientes y Calendario al mismo tiempo." },
-  { emoji:"⋯",  tab:null,       title:"Menú de acciones (⋯)", desc:"El botón ⋯ en la barra superior da acceso a: exportar al calendario (.ics / Google Calendar), imprimir PDF de la semana y actualizar la app a la última versión." },
-  { emoji:"⚙️", tab:null,       title:"Mi perfil y personalización", desc:"En ⚙️ → Mi perfil cambias nombres, colores de pareja, foto, tema visual (14 temas) y tipografía. El tema y la fuente son individuales: no afectan a tu pareja." },
-  { emoji:"✨", tab:null,        title:"¡Todo listo!", desc:"Ya conoces Shared Calendar. Empieza añadiendo algo a esta semana. Puedes repasar el tutorial en cualquier momento desde ⚙️ → Mi perfil.", isFinal:true },
+  { id:"welcome",      tab:null,       bubblePos:"center",  arrowType:null,
+    title:"¡Bienvenido/a a Shared Calendar!",
+    desc:"Tu espacio para planear la vida juntos. Te mostramos cada sección en 2 minutos — después podrás volver a este tutorial desde ⚙️." },
+  { id:"home-rings",   tab:"home",     bubblePos:"top",     arrowType:"down-left",
+    title:"Scorecards de pareja",
+    desc:"Tu foto y el porcentaje de tareas completadas en las últimas 2 semanas. Toca el anillo para ver el desglose completo." },
+  { id:"home-events",  tab:"home",     bubblePos:"top",     arrowType:"down-center",
+    title:"Tira de días y actividades",
+    desc:"Las actividades de la semana ordenadas por día. Toca cualquier tarjeta para editar o cambiar su estado rápidamente." },
+  { id:"current-week", tab:"current",  bubblePos:"top",     arrowType:"down-right",
+    title:"Semana actual — el corazón",
+    desc:"Añade tareas ✅ y eventos 📅 con los botones de arriba a la derecha. Toca el estado para avanzarlo: TBC → ASAP → En curso → Hecho." },
+  { id:"calendar",     tab:"calendar", bubblePos:"top",     arrowType:"down-center",
+    title:"Calendario mensual",
+    desc:"Vista de cuadrícula del mes. Los eventos multi-día se extienden visualmente. Toca cualquier día para ver el detalle." },
+  { id:"stats",        tab:"stats",    bubblePos:"top",     arrowType:"down-center",
+    title:"Estadísticas de pareja",
+    desc:"Gráficos de completado por semana, análisis de equidad en tareas, hábito ancla y más. Exporta la vista como imagen PNG." },
+  { id:"chat",         tab:"chat",     bubblePos:"top",     arrowType:"down-center",
+    title:"Chat en tiempo real",
+    desc:"Mensajes con tu pareja sincronizados al instante. Perfectos para coordinarse sin salir de la app." },
+  { id:"nav-menu",     tab:"home",     bubblePos:"top-nav", arrowType:"up-left",
+    title:"Menú de navegación ☰",
+    desc:"Toca el botón de menú arriba a la izquierda para acceder a Pendientes, Histórico, Metas, Gastos, Links y más secciones." },
+  { id:"settings",     tab:null,       bubblePos:"top-nav", arrowType:"up-right",
+    title:"Perfil y personalización ⚙️",
+    desc:"Toca ⚙️ arriba a la derecha para cambiar foto, nombre, tema visual (14 temas) y tipografía. Son ajustes personales, no afectan a tu pareja." },
+  { id:"done",         tab:"home",     bubblePos:"center",  arrowType:null,        isFinal:true,
+    title:"¡Todo listo! ✨",
+    desc:"Ya conoces Shared Calendar. Empieza añadiendo algo a esta semana. Puedes repasar el tutorial desde ⚙️ → Mi perfil cuando quieras." },
 ];
 const STATUS = {
   TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
@@ -635,49 +650,103 @@ function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
   const isFirst = step === 0;
   const isLast = step === total - 1;
 
+  // Bubble container position (the arrow lives outside this)
+  const bubbleContainerStyle = (() => {
+    if (s.bubblePos === "center") return { top:"50%", left:"50%", width:300, maxWidth:"88vw", transform:"translate(-50%,-50%)" };
+    if (s.bubblePos === "top-nav") return { top:130, left:16, right:16 };
+    return { top:68, left:16, right:16 }; // "top" — below topbar
+  })();
+
+  // Doodle arrow elements
+  const arrowEl = (() => {
+    const t = s.arrowType;
+    if (!t) return null;
+    const st = "#2d1060";
+    const sw = "3.5";
+    const sw2 = "3";
+    const base = { position:"absolute", pointerEvents:"none" };
+
+    if (t === "down-center") return (
+      <div style={{ ...base, top:248, left:"calc(50% - 25px)" }}>
+        <svg width="50" height="80" viewBox="0 0 50 80" fill="none">
+          <path d="M 25,4 C 38,22 14,52 25,72" stroke={st} strokeWidth={sw} strokeLinecap="round"/>
+          <path d="M 13,61 L 25,76 L 37,62" stroke={st} strokeWidth={sw2} strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+    if (t === "down-left") return (
+      <div style={{ ...base, top:248, left:"26%" }}>
+        <svg width="70" height="90" viewBox="0 0 70 90" fill="none">
+          <path d="M 55,5 C 68,38 22,55 18,80" stroke={st} strokeWidth={sw} strokeLinecap="round"/>
+          <path d="M 6,68 L 18,84 L 31,72" stroke={st} strokeWidth={sw2} strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+    if (t === "down-right") return (
+      <div style={{ ...base, top:248, right:"6%" }}>
+        <svg width="70" height="90" viewBox="0 0 70 90" fill="none">
+          <path d="M 15,5 C 2,38 48,55 52,80" stroke={st} strokeWidth={sw} strokeLinecap="round"/>
+          <path d="M 39,68 L 52,84 L 64,72" stroke={st} strokeWidth={sw2} strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+    if (t === "up-left") return (
+      <div style={{ ...base, top:50, left:14 }}>
+        <svg width="60" height="72" viewBox="0 0 60 72" fill="none">
+          <path d="M 50,68 C 56,44 18,26 14,8" stroke={st} strokeWidth={sw} strokeLinecap="round"/>
+          <path d="M 2,18 L 14,5 L 26,17" stroke={st} strokeWidth={sw2} strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+    if (t === "up-right") return (
+      <div style={{ ...base, top:50, right:14 }}>
+        <svg width="60" height="72" viewBox="0 0 60 72" fill="none">
+          <path d="M 10,68 C 4,44 42,26 46,8" stroke={st} strokeWidth={sw} strokeLinecap="round"/>
+          <path d="M 34,18 L 46,5 L 58,17" stroke={st} strokeWidth={sw2} strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+    return null;
+  })();
+
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:500, background:"rgba(10,7,20,0.85)", backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
-      <style>{`
-        @keyframes tut-in { from { opacity:0; transform:translateY(20px) scale(0.97) } to { opacity:1; transform:translateY(0) scale(1) } }
-        @keyframes tut-emoji { 0%,100% { transform:scale(1) } 50% { transform:scale(1.08) } }
-      `}</style>
+    <div style={{ position:"fixed", inset:0, zIndex:500, pointerEvents:"none" }}>
+      <style>{`@keyframes tut-pop { from { opacity:0; transform:scale(0.95) } to { opacity:1; transform:scale(1) } }`}</style>
 
-      {/* Card */}
-      <div style={{ background:"linear-gradient(160deg,#1e1a35 0%,#14102a 100%)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:26, padding:"34px 28px 26px", width:"100%", maxWidth:390, boxShadow:"0 32px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(167,139,250,0.06) inset", position:"relative", animation:"tut-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+      {arrowEl}
 
-        {/* Skip */}
-        {!isLast && <button onClick={onSkip} style={{ position:"absolute", top:16, right:18, background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:12, fontFamily:"inherit", padding:"4px 8px", letterSpacing:0.2 }}>Saltar</button>}
+      {/* Speech bubble container — only this subtree captures pointer events */}
+      <div style={{ position:"absolute", pointerEvents:"auto", ...bubbleContainerStyle }}>
+        {/* Inner div keyed to step for re-animation on each step change */}
+        <div key={step} style={{ animation:"tut-pop 0.28s cubic-bezier(0.34,1.2,0.64,1) both", background:"rgba(255,255,255,0.88)", backdropFilter:"blur(8px)", WebkitBackdropFilter:"blur(8px)", borderRadius:20, padding:"18px 20px 16px", boxShadow:"0 8px 40px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.1)", position:"relative" }}>
 
-        {/* Tab badge */}
-        {s.tab && <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:"rgba(167,139,250,0.1)", border:"1px solid rgba(167,139,250,0.22)", borderRadius:99, padding:"3px 12px", marginBottom:18, fontSize:11, color:"var(--t-accent,#a78bfa)", fontWeight:600, letterSpacing:0.3 }}>{s.tabIcon} Pestaña: {s.tabLabel}</div>}
+          {!isLast && (
+            <button onClick={onSkip} style={{ position:"absolute", top:12, right:14, background:"none", border:"none", cursor:"pointer", fontSize:11, color:"rgba(45,16,96,0.35)", fontFamily:"inherit", padding:0 }}>
+              Saltar
+            </button>
+          )}
 
-        {/* Emoji */}
-        <div style={{ fontSize:54, lineHeight:1, textAlign:"center", marginBottom:16, display:"block", animation:"tut-emoji 2s ease-in-out infinite" }}>{s.emoji}</div>
+          <div style={{ fontSize:15, fontWeight:700, color:"#1a0a30", marginBottom:6, paddingRight:44, lineHeight:1.3 }}>{s.title}</div>
+          <div style={{ fontSize:13, color:"#3d2060", lineHeight:1.65, marginBottom:14 }}>{s.desc}</div>
 
-        {/* Title */}
-        <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:"#f8f4ff", textAlign:"center", marginBottom:10, lineHeight:1.25 }}>{s.title}</div>
+          <div style={{ display:"flex", gap:4, marginBottom:14 }}>
+            {TUTORIAL_STEPS.map((_,i) => (
+              <div key={i} style={{ height:5, width:i===step?18:5, borderRadius:99, background:i===step?"#7c3aed":i<step?"rgba(124,58,237,0.4)":"rgba(30,10,80,0.12)", transition:"all 0.3s" }} />
+            ))}
+          </div>
 
-        {/* Description */}
-        <div style={{ fontSize:14, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.7, textAlign:"center", marginBottom:26 }}>{s.desc}</div>
+          <button
+            onClick={isLast ? onFinish : onNext}
+            onMouseDown={e=>e.currentTarget.style.transform="scale(0.97)"}
+            onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}
+            onTouchStart={e=>e.currentTarget.style.transform="scale(0.97)"}
+            onTouchEnd={e=>e.currentTarget.style.transform="scale(1)"}
+            style={{ background:"linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)", border:"none", borderRadius:12, padding:"11px 0", color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit", width:"100%", letterSpacing:0.2, transition:"transform 0.1s", display:"block" }}>
+            {isLast ? "¡Empezar! 🚀" : isFirst ? "Mostrarme la app →" : "Siguiente →"}
+          </button>
 
-        {/* Progress dots */}
-        <div style={{ display:"flex", justifyContent:"center", gap:5, marginBottom:22 }}>
-          {TUTORIAL_STEPS.map((_,i) => (
-            <div key={i} style={{ height:6, width:i===step?22:6, borderRadius:99, background:i===step?"#a78bfa":i<step?"rgba(167,139,250,0.35)":"rgba(255,255,255,0.07)", transition:"all 0.35s cubic-bezier(0.4,0,0.2,1)" }} />
-          ))}
+          <div style={{ textAlign:"center", fontSize:11, color:"rgba(45,16,96,0.28)", marginTop:8 }}>{step+1} de {total}</div>
         </div>
-
-        {/* CTA button */}
-        <button onClick={isLast ? onFinish : onNext} style={{ width:"100%", background:"linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)", border:"none", borderRadius:13, padding:"13px 0", color:"#fff", fontSize:15, fontWeight:700, cursor:"pointer", fontFamily:"inherit", boxShadow:"0 6px 20px rgba(124,58,237,0.4), 0 0 0 1px rgba(168,85,247,0.3) inset", letterSpacing:0.2, transition:"transform 0.1s, box-shadow 0.1s" }}
-          onMouseDown={e=>e.currentTarget.style.transform="scale(0.98)"}
-          onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}
-          onTouchStart={e=>e.currentTarget.style.transform="scale(0.98)"}
-          onTouchEnd={e=>e.currentTarget.style.transform="scale(1)"}>
-          {isLast ? "¡Empezar! 🚀" : isFirst ? "Mostrarme la app  →" : "Siguiente  →"}
-        </button>
-
-        {/* Step counter */}
-        <div style={{ textAlign:"center", fontSize:11, color:"var(--t-text-dim,#3d3360)", marginTop:10 }}>{step+1} de {total}</div>
       </div>
     </div>
   );
