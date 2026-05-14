@@ -16,7 +16,7 @@ export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://unrivaled-rugelach-43b291.netlify.app",
+      redirectTo: "https://the-shared-calendar.netlify.app",
       queryParams: {
         // Force Google account chooser on every sign-in so users can switch accounts
         prompt: "select_account",
