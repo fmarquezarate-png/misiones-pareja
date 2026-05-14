@@ -56,7 +56,6 @@ export async function createCouple(code, personName) {
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user) return { error: "No hay sesión activa" };
 
-  // Usar RPC para verificar si el código ya existe (bypasea RLS)
   const { data: existing } = await supabase
     .rpc("find_couple_by_code", { p_code: code.toUpperCase() });
 
@@ -87,7 +86,6 @@ export async function joinCouple(code, personName) {
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user) return { error: "No hay sesión activa" };
 
-  // Verificar que no pertenece ya a otra pareja
   const { data: existingMembership } = await supabase
     .from("couple_members")
     .select("couple_id")
@@ -96,7 +94,6 @@ export async function joinCouple(code, personName) {
 
   if (existingMembership) return { error: "Ya perteneces a una pareja. Sal de ella antes de unirte a otra." };
 
-  // Usar RPC para buscar por código — bypasea RLS sin abrir la tabla entera
   const { data: rows, error: rpcErr } = await supabase
     .rpc("find_couple_by_code", { p_code: code.toUpperCase() });
 
@@ -171,16 +168,53 @@ export function importData(file) {
 
 /* ── Supabase CRUD ─────────────────────────────────────────────────────── */
 
-export async function loadData(coupleId) {
+/**
+ * Carga los datos desde Supabase con cache diario.
+ *
+ * Lógica de decisión (se ejecuta en BD vía RPC para evitar round-trips extra):
+ *  1. Si el partner hizo cambios DESPUÉS de nuestra última carga  → recarga
+ *  2. Si la última carga fue ayer o antes (nuevo día UTC)         → recarga
+ *  3. Si tenemos datos en localStorage y el cache sigue vigente  → usa localStorage (0 lecturas de BD)
+ *
+ * @param {string} coupleId
+ * @param {{ force?: boolean }} opts  — force:true salta el cache (ej: botón "recargar")
+ */
+export async function loadData(coupleId, opts = {}) {
   try {
+    // 1. Intentar servir desde localStorage si el cache sigue vigente
+    if (!opts.force) {
+      const local = loadLocalBackup(coupleId);
+      if (local?.data && isValidAppData(local.data)) {
+        // Preguntar a BD si necesitamos recargar (query mínima, solo metadatos)
+        const { data: check, error: checkErr } = await supabase
+          .rpc("should_reload_from_db", { p_couple_id: coupleId });
+
+        if (!checkErr && check?.should_reload === false) {
+          // Cache vigente: devolver datos locales sin tocar app_data
+          console.debug("[loadData] Sirviendo desde cache local. Razón:", check.reason);
+          return local.data;
+        }
+        // Si el check falla por red, cargamos BD igualmente (fail-safe)
+      }
+    }
+
+    // 2. Cargar desde BD
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
       .eq("id", coupleId)
       .limit(1);
+
     if (error) { console.error("loadData error:", error.message); return null; }
+
     const result = rows?.[0]?.data ?? null;
-    if (result) saveLocalBackup(result, coupleId);
+    if (result) {
+      saveLocalBackup(result, coupleId);
+      // Registrar en BD que acabamos de cargar (no bloqueante)
+      supabase.rpc("mark_cache_loaded", { p_couple_id: coupleId }).catch(e =>
+        console.warn("mark_cache_loaded error (non-fatal):", e)
+      );
+    }
     return result;
   } catch (e) {
     console.error("loadData exception:", e);
@@ -228,7 +262,11 @@ export function subscribeToUpdates(coupleId, onUpdate) {
       { event: "*", schema: "public", table: "app_data", filter: `id=eq.${coupleId}` },
       payload => {
         const newData = payload.new?.data;
-        if (newData && isValidAppData(newData)) onUpdate(newData);
+        if (newData && isValidAppData(newData)) {
+          // Actualizar el backup local y el timestamp de cache cuando llega un evento remoto
+          saveLocalBackup(newData, coupleId);
+          onUpdate(newData);
+        }
       }
     )
     .subscribe();
