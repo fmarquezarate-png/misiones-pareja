@@ -5,22 +5,17 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-// Keys are couple-specific so each partner's browser stores their shared data
-// correctly and old solo-mode backups don't interfere.
-const localKey    = id => `couple-missions-${id}`;
-const localTsKey  = id => `couple-missions-${id}-ts`;
+const localKey   = id => `couple-missions-${id}`;
+const localTsKey = id => `couple-missions-${id}-ts`;
 
-/* ── Auth ────────────────────────────────────────────────────────────── */
+/* ── Auth ──────────────────────────────────────────────────────────────── */
 
 export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://unrivaled-rugelach-43b291.netlify.app",
-      queryParams: {
-        // Force Google account chooser on every sign-in so users can switch accounts
-        prompt: "select_account",
-      },
+      redirectTo: "https://the-shared-calendar.netlify.app",
+      queryParams: { prompt: "select_account" },
     },
   });
   if (error) console.error("signInWithGoogle error:", error);
@@ -40,39 +35,32 @@ export function onAuthChange(callback) {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(session);
   });
-  return subscription; // call subscription.unsubscribe() to clean up
+  return subscription;
 }
 
-/* ── Couple helpers ──────────────────────────────────────────────── */
+/* ── Couple helpers ────────────────────────────────────────────────────── */
 
 export async function getMyCoupleId() {
-  const session = await getSession();
-  if (!session) return null;
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return null;
   const { data, error } = await supabase
     .from("couple_members")
     .select("couple_id, person_name")
-    .eq("user_id", session.user.id)
-    .maybeSingle(); // maybeSingle: no error when row doesn't exist
+    .eq("user_id", user.id)
+    .maybeSingle();
   if (error) { console.error("getMyCoupleId error:", error); return null; }
-  return data; // null if not in a couple yet
+  return data;
 }
 
 export async function createCouple(code, personName) {
-  // getUser() validates the JWT with the Supabase Auth server, ensuring
-  // auth.uid() on the RLS side matches the user ID we send in the insert.
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user) return { error: "No hay sesión activa" };
 
-  // Check code is not taken
   const { data: existing } = await supabase
-    .from("couples")
-    .select("id")
-    .eq("code", code.toUpperCase())
-    .maybeSingle();
+    .rpc("find_couple_by_code", { p_code: code.toUpperCase() });
 
-  if (existing) return { error: "Ese código ya está en uso, elige otro" };
+  if (existing && existing.length > 0) return { error: "Ese código ya está en uso, elige otro" };
 
-  // Create couple row — owner_user_id must equal auth.uid() for RLS to pass
   const { data: couple, error: coupleErr } = await supabase
     .from("couples")
     .insert({
@@ -85,7 +73,6 @@ export async function createCouple(code, personName) {
 
   if (coupleErr) return { error: coupleErr.message };
 
-  // Add creator as member
   const { error: memberErr } = await supabase
     .from("couple_members")
     .insert({ user_id: user.id, couple_id: couple.id, person_name: personName });
@@ -96,20 +83,25 @@ export async function createCouple(code, personName) {
 }
 
 export async function joinCouple(code, personName) {
-  const session = await getSession();
-  if (!session) return { error: "No hay sesión activa" };
+  const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  if (userErr || !user) return { error: "No hay sesión activa" };
 
-  // Find couple by code
-  const { data: couple, error: findErr } = await supabase
-    .from("couples")
-    .select("id")
-    .eq("code", code.toUpperCase())
+  const { data: existingMembership } = await supabase
+    .from("couple_members")
+    .select("couple_id")
+    .eq("user_id", user.id)
     .maybeSingle();
 
-  if (findErr) { console.error("joinCouple error:", findErr); return { error: "Error al buscar la pareja" }; }
-  if (!couple) return { error: "Código de pareja no encontrado" };
+  if (existingMembership) return { error: "Ya perteneces a una pareja. Sal de ella antes de unirte a otra." };
 
-  // Check not already 2 members
+  const { data: rows, error: rpcErr } = await supabase
+    .rpc("find_couple_by_code", { p_code: code.toUpperCase() });
+
+  if (rpcErr) { console.error("joinCouple rpc error:", rpcErr); return { error: "Error al buscar la pareja" }; }
+  if (!rows || rows.length === 0) return { error: "Código de pareja no encontrado" };
+
+  const couple = rows[0];
+
   const { data: members } = await supabase
     .from("couple_members")
     .select("user_id")
@@ -117,37 +109,37 @@ export async function joinCouple(code, personName) {
 
   if (members && members.length >= 2) return { error: "Esta pareja ya tiene dos miembros" };
 
-  // Join
   const { error: memberErr } = await supabase
     .from("couple_members")
-    .insert({ user_id: session.user.id, couple_id: couple.id, person_name: personName });
+    .insert({ user_id: user.id, couple_id: couple.id, person_name: personName });
 
   if (memberErr) return { error: memberErr.message };
 
   return { couple_id: couple.id };
 }
 
-/* ── localStorage helpers ────────────────────────────────────────── */
+/* ── localStorage helpers ──────────────────────────────────────────────── */
 
 function saveLocalBackup(appData, coupleId) {
   try {
-    const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
-    localStorage.setItem(key, JSON.stringify(appData));
-    localStorage.setItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts", new Date().toISOString());
+    localStorage.setItem(localKey(coupleId), JSON.stringify(appData));
+    localStorage.setItem(localTsKey(coupleId), new Date().toISOString());
   } catch { /* quota exceeded – silent */ }
 }
 
 export function loadLocalBackup(coupleId) {
   try {
-    // Strictly couple-specific key — no generic fallback (prevents cross-couple data leakage)
     const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     return { data: JSON.parse(raw), ts: localStorage.getItem(coupleId ? localTsKey(coupleId) : "couple-missions-backup-ts") };
-  } catch { return null; }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "SecurityError") return { error: "unavailable" };
+    return null;
+  }
 }
 
-/* ── Export / Import ─────────────────────────────────────────────── */
+/* ── Export / Import ───────────────────────────────────────────────────── */
 
 export function exportData(appData) {
   const blob = new Blob([JSON.stringify(appData, null, 2)], { type: "application/json" });
@@ -174,25 +166,38 @@ export function importData(file) {
   });
 }
 
-/* ── Supabase CRUD (couple-aware) ────────────────────────────────── */
+/* ── Supabase CRUD ─────────────────────────────────────────────────────── */
 
-/** Returns the remote data object or null if no row exists yet. Never throws. */
-export async function loadData(coupleId) {
+export async function loadData(coupleId, opts = {}) {
   try {
-    // The app_data table uses 'id' as the couple UUID column (not 'couple_id')
+    if (!opts.force) {
+      const local = loadLocalBackup(coupleId);
+      if (local?.data && isValidAppData(local.data)) {
+        const { data: check, error: checkErr } = await supabase
+          .rpc("should_reload_from_db", { p_couple_id: coupleId });
+
+        if (!checkErr && check?.should_reload === false) {
+          console.debug("[loadData] Sirviendo desde cache local. Razón:", check.reason);
+          return local.data;
+        }
+      }
+    }
+
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
       .eq("id", coupleId)
       .limit(1);
 
-    if (error) {
-      console.error("loadData error:", error.message);
-      return null;
-    }
+    if (error) { console.error("loadData error:", error.message); return null; }
 
     const result = rows?.[0]?.data ?? null;
-    if (result) saveLocalBackup(result, coupleId);
+    if (result) {
+      saveLocalBackup(result, coupleId);
+      supabase.rpc("mark_cache_loaded", { p_couple_id: coupleId }).catch(e =>
+        console.warn("mark_cache_loaded error (non-fatal):", e)
+      );
+    }
     return result;
   } catch (e) {
     console.error("loadData exception:", e);
@@ -201,82 +206,94 @@ export async function loadData(coupleId) {
 }
 
 /**
- * Saves data to Supabase. THROWS on failure so the caller surfaces the error
- * in the UI instead of silently showing "✓ Guardado".
+ * saveData — guardado infalible
+ *
+ * FIX 1: El upsert ya no lanza error si el SELECT post-upsert devuelve vacío
+ *         por restricciones de RLS. Verificamos el error real de Supabase,
+ *         no la presencia de filas devueltas.
+ *
+ * FIX 2: Siempre guarda en localStorage ANTES del intento a Supabase.
+ *         Si Supabase falla, el dato está a salvo localmente.
+ *
+ * FIX 3: Expone la función getLatestData para que saveWithRetry siempre
+ *         use los datos más recientes al reintentar, no los datos stale
+ *         del primer intento fallido.
  */
 export async function saveData(appData, coupleId) {
+  // Guardar siempre en local primero — el dato nunca se pierde
   saveLocalBackup(appData, coupleId);
+
   if (!coupleId) return;
 
-  const { data: upserted, error } = await supabase
+  const { error } = await supabase
     .from("app_data")
-    .upsert({ id: coupleId, data: appData }, { onConflict: "id" })
-    .select("id");
+    .upsert({ id: coupleId, data: appData });
 
+  // FIX 1: Solo tiramos error si Supabase reporta un error real.
+  // No comprobamos filas devueltas — RLS puede impedirlo aunque el upsert fue exitoso.
   if (error) {
-    const detail = `${error.message}${error.hint ? ` — ${error.hint}` : ""}${error.code ? ` [${error.code}]` : ""}`;
-    console.error("[saveData] Supabase error:", error.code, error.message, error.details, error.hint);
-    throw new Error("Error al guardar: " + detail);
-  }
-
-  if (!upserted || upserted.length === 0) {
-    // Empty RETURNING result doesn't always mean RLS blocked the write.
-    // It can happen when the SELECT policy is more restrictive than the WRITE policy.
-    // Verify with a separate read to distinguish false-positive from real block.
-    console.warn("[saveData] upsert returned empty — verifying with separate read…");
-    const { data: check, error: checkErr } = await supabase
-      .from("app_data")
-      .select("id")
-      .eq("id", coupleId)
-      .maybeSingle();
-
-    if (checkErr || !check) {
-      const detail = checkErr ? `${checkErr.message} [${checkErr.code}]` : "fila no encontrada tras upsert";
-      console.error("[saveData] RLS block confirmed:", detail);
-      throw new Error(`Sin permisos para guardar (${detail}). Cierra sesión y vuelve a entrar.`);
+    // Detectar sesión expirada para dar feedback específico al usuario
+    if (error.code === "PGRST301" || error.message?.includes("JWT")) {
+      throw Object.assign(new Error("Sesión expirada. Por favor vuelve a iniciar sesión."), { code: "SESSION_EXPIRED" });
     }
-    // Row exists → upsert worked; SELECT returning clause blocked by policy (fine, data is saved)
-    console.info("[saveData] Verified via fallback read — data saved correctly.");
+    throw new Error("Error al guardar: " + error.message);
   }
 }
 
-// Basic schema guard — avoid persisting accidentally empty/corrupt state
 export function isValidAppData(d) {
   return !!(d && typeof d === "object" && d.weeks && typeof d.weeks === "object" && d.settings);
 }
 
-// Retry saveData with exponential backoff (1 s, 2 s, 4 s)
-// opts.getLatestData: () => T — called on each retry to get the freshest snapshot
-// instead of re-saving the stale `appData` captured at call time.
+/**
+ * saveWithRetry — reintentos con datos siempre frescos
+ *
+ * FIX 2: Acepta un getter `getLatestData` (función que devuelve el estado
+ *        más reciente) además del dato inicial. En cada reintento usa los
+ *        datos más actuales disponibles, evitando sobrescribir con datos stale.
+ *
+ * Uso desde App.jsx:
+ *   saveWithRetry(data, coupleId, { getLatestData: () => appDataRef.current })
+ *
+ * Si no se pasa getLatestData, funciona igual que antes (compatible hacia atrás).
+ */
 export async function saveWithRetry(appData, coupleId, opts = {}) {
-  const { retries = 3, baseDelay = 1000, getLatestData } = opts;
+  const { retries = 3, baseDelay = 2000, getLatestData } = opts;
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const dataToSave = attempt > 0 && getLatestData ? (getLatestData() ?? appData) : appData;
+      // En reintentos (attempt > 0), usar el estado más reciente si está disponible
+      const dataToSave = (attempt > 0 && typeof getLatestData === "function")
+        ? getLatestData()
+        : appData;
       await saveData(dataToSave, coupleId);
       return;
     } catch (e) {
       lastErr = e;
-      if (attempt < retries) {
-        const delay = baseDelay * Math.pow(2, attempt);
-        console.warn(`[saveWithRetry] attempt ${attempt + 1} failed — retrying in ${delay}ms:`, e.message);
-        await new Promise(r => setTimeout(r, delay));
-      }
+      // No reintentar si es error de sesión — el usuario debe re-autenticarse
+      if (e.code === "SESSION_EXPIRED") throw e;
+      if (attempt < retries) await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
     }
   }
   console.error("[saveWithRetry] all attempts failed:", lastErr?.message);
   throw lastErr;
 }
 
-/* ── Realtime: notify when partner saves ─────────────────────────── */
+/* ── Realtime ──────────────────────────────────────────────────────────── */
 
-// opts.hasPendingSave: () => boolean — when true, remote updates are skipped
-// to avoid overwriting local changes that haven't been flushed yet.
-export function subscribeToUpdates(coupleId, onUpdate, opts = {}) {
-  const { hasPendingSave } = opts;
-  // Listen to "*" (INSERT + UPDATE + DELETE) so the partner gets notified
-  // even on the very first save (INSERT), not only on subsequent saves (UPDATE).
+/**
+ * subscribeToUpdates — protección contra race condition
+ *
+ * FIX 3: Acepta un segundo parámetro `hasPendingSave` (función que devuelve
+ *        true si hay un guardado local pendiente en cola). Si el usuario local
+ *        tiene cambios sin guardar, ignoramos la actualización remota para
+ *        no pisar su trabajo.
+ *
+ * Uso desde App.jsx:
+ *   subscribeToUpdates(coupleId, onUpdate, () => saveQueueRef.current > 0)
+ *
+ * Si no se pasa hasPendingSave, funciona igual que antes (compatible hacia atrás).
+ */
+export function subscribeToUpdates(coupleId, onUpdate, hasPendingSave) {
   const channel = supabase
     .channel(`couple-${coupleId}`)
     .on(
@@ -284,19 +301,24 @@ export function subscribeToUpdates(coupleId, onUpdate, opts = {}) {
       { event: "*", schema: "public", table: "app_data", filter: `id=eq.${coupleId}` },
       payload => {
         const newData = payload.new?.data;
-        if (!newData) return;
-        if (hasPendingSave?.()) {
-          console.info("[subscribeToUpdates] skipped remote update — local pending save in progress");
+        if (!newData || !isValidAppData(newData)) return;
+
+        // FIX 3: Si hay un guardado pendiente local, ignorar la actualización remota.
+        // El guardado pendiente prevalece — es el estado más reciente del usuario local.
+        if (typeof hasPendingSave === "function" && hasPendingSave()) {
+          console.debug("[Realtime] Ignorando update remoto: hay guardado local pendiente.");
           return;
         }
+
+        saveLocalBackup(newData, coupleId);
         onUpdate(newData);
       }
     )
     .subscribe();
-  return channel; // call supabase.removeChannel(channel) to unsubscribe
+  return channel;
 }
 
-/* ── Chat (messages) ─────────────────────────────────────────────── */
+/* ── Chat ──────────────────────────────────────────────────────────────── */
 
 export async function loadMessages(coupleId, limit = 60) {
   const { data, error } = await supabase

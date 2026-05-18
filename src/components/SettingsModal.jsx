@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DEFAULT_COLORS } from "../constants.js";
-import { exportData, importData, saveData } from "../supabase.js";
+import { exportData, importData, saveWithRetry } from "../supabase.js";
 import { S } from "../styles.js";
 
 export default function SettingsModal({ data, update, onClose, onSignOut, coupleId }) {
@@ -19,12 +19,12 @@ export default function SettingsModal({ data, update, onClose, onSignOut, couple
     if (!file) return;
     try {
       const imported = await importData(file);
-      // 1. Update local state (triggers debounced save)
       update(() => imported);
-      // 2. Also push to Supabase immediately so both devices sync right away
+      // fix #5: usar saveWithRetry en vez de saveData para reintentar
+      // automáticamente si Supabase falla por un error de red transitorio.
       if (coupleId) {
         try {
-          await saveData(imported, coupleId);
+          await saveWithRetry(imported, coupleId);
           setImportMsg("✅ Restaurado y subido a Supabase");
         } catch (saveErr) {
           setImportMsg("⚠️ Restaurado localmente, error Supabase: " + saveErr.message);
