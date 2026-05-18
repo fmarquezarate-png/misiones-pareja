@@ -210,11 +210,34 @@ export async function saveData(appData, coupleId) {
 
   const { data: upserted, error } = await supabase
     .from("app_data")
-    .upsert({ id: coupleId, data: appData })
+    .upsert({ id: coupleId, data: appData }, { onConflict: "id" })
     .select("id");
 
-  if (error) throw new Error("Error al guardar: " + error.message);
-  if (!upserted || upserted.length === 0) throw new Error("Sin permisos para guardar (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
+  if (error) {
+    const detail = `${error.message}${error.hint ? ` — ${error.hint}` : ""}${error.code ? ` [${error.code}]` : ""}`;
+    console.error("[saveData] Supabase error:", error.code, error.message, error.details, error.hint);
+    throw new Error("Error al guardar: " + detail);
+  }
+
+  if (!upserted || upserted.length === 0) {
+    // Empty RETURNING result doesn't always mean RLS blocked the write.
+    // It can happen when the SELECT policy is more restrictive than the WRITE policy.
+    // Verify with a separate read to distinguish false-positive from real block.
+    console.warn("[saveData] upsert returned empty — verifying with separate read…");
+    const { data: check, error: checkErr } = await supabase
+      .from("app_data")
+      .select("id")
+      .eq("id", coupleId)
+      .maybeSingle();
+
+    if (checkErr || !check) {
+      const detail = checkErr ? `${checkErr.message} [${checkErr.code}]` : "fila no encontrada tras upsert";
+      console.error("[saveData] RLS block confirmed:", detail);
+      throw new Error(`Sin permisos para guardar (${detail}). Cierra sesión y vuelve a entrar.`);
+    }
+    // Row exists → upsert worked; SELECT returning clause blocked by policy (fine, data is saved)
+    console.info("[saveData] Verified via fallback read — data saved correctly.");
+  }
 }
 
 // Basic schema guard — avoid persisting accidentally empty/corrupt state
@@ -222,9 +245,9 @@ export function isValidAppData(d) {
   return !!(d && typeof d === "object" && d.weeks && typeof d.weeks === "object" && d.settings);
 }
 
-// Retry saveData with exponential backoff (2 s, 4 s, 8 s)
+// Retry saveData with exponential backoff (1 s, 2 s, 4 s)
 export async function saveWithRetry(appData, coupleId, opts = {}) {
-  const { retries = 3, baseDelay = 2000 } = opts;
+  const { retries = 3, baseDelay = 1000 } = opts;
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -233,10 +256,13 @@ export async function saveWithRetry(appData, coupleId, opts = {}) {
     } catch (e) {
       lastErr = e;
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.warn(`[saveWithRetry] attempt ${attempt + 1} failed — retrying in ${delay}ms:`, e.message);
+        await new Promise(r => setTimeout(r, delay));
       }
     }
   }
+  console.error("[saveWithRetry] all attempts failed:", lastErr?.message);
   throw lastErr;
 }
 

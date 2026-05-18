@@ -1503,7 +1503,13 @@ ${ms.map(m=>{
 
       {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
-      {syncError && !syncMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(251,146,60,0.12)", border:"1px solid rgba(251,146,60,0.35)", borderRadius:12, padding:"8px 16px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:300, textAlign:"center", backdropFilter:"blur(8px)" }}>⚠ {syncError.slice(0,80)}</div>}
+      {syncError && !syncMsg && (
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(20,8,6,0.97)", border:"1px solid rgba(251,146,60,0.5)", borderRadius:12, padding:"10px 16px 10px 14px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:340, textAlign:"left", backdropFilter:"blur(8px)", display:"flex", alignItems:"flex-start", gap:8, boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
+          <span style={{ flexShrink:0, fontSize:14 }}>⚠</span>
+          <span style={{ flex:1, lineHeight:1.5, wordBreak:"break-word" }}>{syncError}</span>
+          <button onClick={() => setSyncError(null)} style={{ flexShrink:0, background:"none", border:"none", color:"rgba(251,146,60,0.5)", cursor:"pointer", fontSize:16, padding:"0 0 0 4px", lineHeight:1 }}>×</button>
+        </div>
+      )}
 
       {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} />}
 
@@ -1648,14 +1654,21 @@ ${ms.map(m=>{
               </span>
           }
         </div>
-        {/* Saving indicator dot */}
+        {/* Saving indicator dot — tappable when error to show detail */}
         {savingState !== "idle" && (
-          <div aria-live="polite" aria-label={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado" : "Error al guardar"}
-            style={{ width:7, height:7, borderRadius:99, flexShrink:0,
-              background: savingState === "saving" ? "#a78bfa" : savingState === "saved" ? "#34d399" : "#f87171",
+          <div
+            role={savingState === "error" ? "button" : undefined}
+            onClick={savingState === "error" ? () => forcePush() : undefined}
+            title={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado ✓" : "Error al guardar — toca para reintentar"}
+            aria-label={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado" : "Error al guardar — toca para reintentar"}
+            style={{ width:savingState==="error"?20:7, height:savingState==="error"?20:7, borderRadius:99, flexShrink:0, cursor:savingState==="error"?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center",
+              background: savingState === "saving" ? "#a78bfa" : savingState === "saved" ? "#34d399" : "rgba(248,113,113,0.15)",
+              border: savingState === "error" ? "1.5px solid #f87171" : "none",
               animation: savingState === "saving" ? "sc-dot-pulse 1s ease-in-out infinite" : savingState === "saved" ? "sc-saved-fade 2s ease-out 0.5s forwards" : "none",
-              boxShadow: savingState === "saving" ? "0 0 6px rgba(167,139,250,0.6)" : savingState === "saved" ? "0 0 6px rgba(52,211,153,0.6)" : "0 0 6px rgba(248,113,113,0.6)",
-            }} />
+              boxShadow: savingState === "saving" ? "0 0 6px rgba(167,139,250,0.6)" : savingState === "saved" ? "0 0 6px rgba(52,211,153,0.6)" : "0 0 4px rgba(248,113,113,0.4)",
+            }}>
+            {savingState === "error" && <span style={{ fontSize:11, color:"#f87171", lineHeight:1 }}>!</span>}
+          </div>
         )}
         {/* Dark/light toggle */}
         <button onClick={toggleDarkLight} aria-label={_activeTheme.dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
