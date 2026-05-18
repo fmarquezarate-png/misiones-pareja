@@ -274,6 +274,7 @@ export async function saveWithRetry(appData, coupleId, opts = {}) {
       if (attempt < retries) await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
     }
   }
+  console.error("[saveWithRetry] all attempts failed:", lastErr?.message);
   throw lastErr;
 }
 
