@@ -12,6 +12,7 @@ import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
+import { track, setTrackContext } from "./lib/track.js";
 
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
@@ -453,7 +454,19 @@ function ThemeInjector({ themeId, fontId }) {
     r.setProperty("--t-error",       t.error     || "#f87171");
     r.setProperty("--t-input-bg",    t.dark === false ? "rgba(0,0,0,0.05)" : "rgba(128,128,128,0.10)");
     document.documentElement.style.background = t.bg;
-    try { localStorage.setItem("mp-quick-bg", t.bg); } catch {}
+    try {
+      const vars = {
+        "--t-bg": t.bg, "--t-bg-grad": t.bgGrad, "--t-menu-bg": t.menuBg,
+        "--t-topbar-bg": t.topBarBg, "--t-card": t.card, "--t-card-border": t.cardBorder,
+        "--t-btn-grad": t.btnGrad, "--t-accent": t.accent, "--t-accent-soft": t.accentSoft,
+        "--t-font-body": useCustomFont ? f.family : t.fontBody,
+        "--t-text": t.text || "#f8f4ff", "--t-text-muted": t.textMuted || "#8b7fa8",
+        "--t-text-dim": t.textDim || "#4a4166", "--t-error": t.error || "#f87171",
+        "--t-input-bg": t.dark === false ? "rgba(0,0,0,0.05)" : "rgba(128,128,128,0.10)",
+      };
+      localStorage.setItem("mp_theme", JSON.stringify(vars));
+      localStorage.setItem("mp-quick-bg", t.bg);
+    } catch {}
   }, [themeId, fontId]);
   return null;
 }
@@ -783,6 +796,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const notifSettingsRef = useRef(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
+  const [savingState, setSavingState] = useState("idle"); // "idle"|"saving"|"saved"|"error"
   const [pendingTab, setPendingTab] = useState("pending"); // "pending" | "logros"
   const [icsModal, setIcsModal] = useState(false);
   const [icsFrom,  setIcsFrom]  = useState("");
@@ -967,6 +981,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // Keep notifSettingsRef current for use inside async callbacks
   useEffect(() => { notifSettingsRef.current = data?.settings?.notifications; }, [data?.settings?.notifications]);
 
+  // Telemetry: expose coupleId globally + fire app_open once
+  useEffect(() => {
+    if (!coupleId) return;
+    window.__mpCoupleId = coupleId;
+    setTrackContext({ coupleId, userId: sessionUserId });
+    track("app_open", { version: APP_VERSION });
+  }, [coupleId]); // eslint-disable-line
+
+  // Telemetry: track view changes
+  useEffect(() => {
+    if (!coupleId) return;
+    track("view_changed", { view: activeTab });
+  }, [activeTab, coupleId]); // eslint-disable-line
+
   // Schedule event reminders whenever data changes
   useEffect(() => {
     if (!data || !notifGranted) return;
@@ -1026,6 +1054,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (remoteData) {
         // Cancel any pending debounced save — prevents overwriting partner's changes with stale local state
         clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        setSavingState("idle");
         if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
           showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
         }
@@ -1038,10 +1068,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // Keep dataRef in sync so visibilitychange handler always has fresh data
   useEffect(() => { dataRef.current = data; }, [data]);
 
-  // Flush debounced save immediately when app goes to background (critical on iOS)
+  // Flush debounced save immediately when app goes to background (iOS) or tab closes (desktop)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && saveTimerRef.current) {
+    const flushPendingSave = () => {
+      if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
         if (dataRef.current && coupleId && isValidAppData(dataRef.current)) {
@@ -1049,8 +1079,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         }
       }
     };
+    const handleVisibilityChange = () => { if (document.visibilityState === "hidden") flushPendingSave(); };
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushPendingSave);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushPendingSave);
+    };
   }, [coupleId]);
 
   // Online/offline detection
@@ -1079,11 +1114,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         saveWithRetry(next, coupleId)
-          .then(() => { setSyncError(null); setPendingSave(false); })
-          .catch(e => { setSyncError(e.message); setPendingSave(true); showSyncMsg("⚠ Error al guardar — reintentando…"); });
+          .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
+          .catch(e => { setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
       }, 700);
       return next;
     });
+    setSavingState("saving");
   }, [coupleId]);
 
   // These must be declared before any early return so useSwipe (which calls
@@ -1449,6 +1485,8 @@ ${ms.map(m=>{
         .sc-nav-btn:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: -2px; border-radius: 10px; }
         button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; }
         @keyframes mc-pop { 0%{transform:scale(1)} 50%{transform:scale(1.28)} 100%{transform:scale(1)} }
+        @keyframes sc-dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
+        @keyframes sc-saved-fade { 0%{opacity:1} 100%{opacity:0} }
       `}</style>
 
       {/* Hidden file input for import */}
@@ -1610,6 +1648,15 @@ ${ms.map(m=>{
               </span>
           }
         </div>
+        {/* Saving indicator dot */}
+        {savingState !== "idle" && (
+          <div aria-live="polite" aria-label={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado" : "Error al guardar"}
+            style={{ width:7, height:7, borderRadius:99, flexShrink:0,
+              background: savingState === "saving" ? "#a78bfa" : savingState === "saved" ? "#34d399" : "#f87171",
+              animation: savingState === "saving" ? "sc-dot-pulse 1s ease-in-out infinite" : savingState === "saved" ? "sc-saved-fade 2s ease-out 0.5s forwards" : "none",
+              boxShadow: savingState === "saving" ? "0 0 6px rgba(167,139,250,0.6)" : savingState === "saved" ? "0 0 6px rgba(52,211,153,0.6)" : "0 0 6px rgba(248,113,113,0.6)",
+            }} />
+        )}
         {/* Dark/light toggle */}
         <button onClick={toggleDarkLight} aria-label={_activeTheme.dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
           title={_activeTheme.dark ? "Modo claro" : "Modo oscuro"}
