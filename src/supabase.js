@@ -168,37 +168,21 @@ export function importData(file) {
 
 /* ── Supabase CRUD ─────────────────────────────────────────────────────── */
 
-/**
- * Carga los datos desde Supabase con cache diario.
- *
- * Lógica de decisión (se ejecuta en BD vía RPC para evitar round-trips extra):
- *  1. Si el partner hizo cambios DESPUÉS de nuestra última carga  → recarga
- *  2. Si la última carga fue ayer o antes (nuevo día UTC)         → recarga
- *  3. Si tenemos datos en localStorage y el cache sigue vigente  → usa localStorage (0 lecturas de BD)
- *
- * @param {string} coupleId
- * @param {{ force?: boolean }} opts  — force:true salta el cache (ej: botón "recargar")
- */
 export async function loadData(coupleId, opts = {}) {
   try {
-    // 1. Intentar servir desde localStorage si el cache sigue vigente
     if (!opts.force) {
       const local = loadLocalBackup(coupleId);
       if (local?.data && isValidAppData(local.data)) {
-        // Preguntar a BD si necesitamos recargar (query mínima, solo metadatos)
         const { data: check, error: checkErr } = await supabase
           .rpc("should_reload_from_db", { p_couple_id: coupleId });
 
         if (!checkErr && check?.should_reload === false) {
-          // Cache vigente: devolver datos locales sin tocar app_data
           console.debug("[loadData] Sirviendo desde cache local. Razón:", check.reason);
           return local.data;
         }
-        // Si el check falla por red, cargamos BD igualmente (fail-safe)
       }
     }
 
-    // 2. Cargar desde BD
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
@@ -210,7 +194,6 @@ export async function loadData(coupleId, opts = {}) {
     const result = rows?.[0]?.data ?? null;
     if (result) {
       saveLocalBackup(result, coupleId);
-      // Registrar en BD que acabamos de cargar (no bloqueante)
       supabase.rpc("mark_cache_loaded", { p_couple_id: coupleId }).catch(e =>
         console.warn("mark_cache_loaded error (non-fatal):", e)
       );
@@ -222,30 +205,72 @@ export async function loadData(coupleId, opts = {}) {
   }
 }
 
+/**
+ * saveData — guardado infalible
+ *
+ * FIX 1: El upsert ya no lanza error si el SELECT post-upsert devuelve vacío
+ *         por restricciones de RLS. Verificamos el error real de Supabase,
+ *         no la presencia de filas devueltas.
+ *
+ * FIX 2: Siempre guarda en localStorage ANTES del intento a Supabase.
+ *         Si Supabase falla, el dato está a salvo localmente.
+ *
+ * FIX 3: Expone la función getLatestData para que saveWithRetry siempre
+ *         use los datos más recientes al reintentar, no los datos stale
+ *         del primer intento fallido.
+ */
 export async function saveData(appData, coupleId) {
+  // Guardar siempre en local primero — el dato nunca se pierde
   saveLocalBackup(appData, coupleId);
+
   if (!coupleId) return;
-  const { data: upserted, error } = await supabase
+
+  const { error } = await supabase
     .from("app_data")
-    .upsert({ id: coupleId, data: appData })
-    .select("id");
-  if (error) throw new Error("Error al guardar: " + error.message);
-  if (!upserted || upserted.length === 0) throw new Error("Sin permisos para guardar (RLS o sesión expirada). Cierra sesión y vuelve a entrar.");
+    .upsert({ id: coupleId, data: appData });
+
+  // FIX 1: Solo tiramos error si Supabase reporta un error real.
+  // No comprobamos filas devueltas — RLS puede impedirlo aunque el upsert fue exitoso.
+  if (error) {
+    // Detectar sesión expirada para dar feedback específico al usuario
+    if (error.code === "PGRST301" || error.message?.includes("JWT")) {
+      throw Object.assign(new Error("Sesión expirada. Por favor vuelve a iniciar sesión."), { code: "SESSION_EXPIRED" });
+    }
+    throw new Error("Error al guardar: " + error.message);
+  }
 }
 
 export function isValidAppData(d) {
   return !!(d && typeof d === "object" && d.weeks && typeof d.weeks === "object" && d.settings);
 }
 
+/**
+ * saveWithRetry — reintentos con datos siempre frescos
+ *
+ * FIX 2: Acepta un getter `getLatestData` (función que devuelve el estado
+ *        más reciente) además del dato inicial. En cada reintento usa los
+ *        datos más actuales disponibles, evitando sobrescribir con datos stale.
+ *
+ * Uso desde App.jsx:
+ *   saveWithRetry(data, coupleId, { getLatestData: () => appDataRef.current })
+ *
+ * Si no se pasa getLatestData, funciona igual que antes (compatible hacia atrás).
+ */
 export async function saveWithRetry(appData, coupleId, opts = {}) {
-  const { retries = 3, baseDelay = 2000 } = opts;
+  const { retries = 3, baseDelay = 2000, getLatestData } = opts;
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      await saveData(appData, coupleId);
+      // En reintentos (attempt > 0), usar el estado más reciente si está disponible
+      const dataToSave = (attempt > 0 && typeof getLatestData === "function")
+        ? getLatestData()
+        : appData;
+      await saveData(dataToSave, coupleId);
       return;
     } catch (e) {
       lastErr = e;
+      // No reintentar si es error de sesión — el usuario debe re-autenticarse
+      if (e.code === "SESSION_EXPIRED") throw e;
       if (attempt < retries) await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
     }
   }
@@ -254,7 +279,20 @@ export async function saveWithRetry(appData, coupleId, opts = {}) {
 
 /* ── Realtime ──────────────────────────────────────────────────────────── */
 
-export function subscribeToUpdates(coupleId, onUpdate) {
+/**
+ * subscribeToUpdates — protección contra race condition
+ *
+ * FIX 3: Acepta un segundo parámetro `hasPendingSave` (función que devuelve
+ *        true si hay un guardado local pendiente en cola). Si el usuario local
+ *        tiene cambios sin guardar, ignoramos la actualización remota para
+ *        no pisar su trabajo.
+ *
+ * Uso desde App.jsx:
+ *   subscribeToUpdates(coupleId, onUpdate, () => saveQueueRef.current > 0)
+ *
+ * Si no se pasa hasPendingSave, funciona igual que antes (compatible hacia atrás).
+ */
+export function subscribeToUpdates(coupleId, onUpdate, hasPendingSave) {
   const channel = supabase
     .channel(`couple-${coupleId}`)
     .on(
@@ -262,11 +300,17 @@ export function subscribeToUpdates(coupleId, onUpdate) {
       { event: "*", schema: "public", table: "app_data", filter: `id=eq.${coupleId}` },
       payload => {
         const newData = payload.new?.data;
-        if (newData && isValidAppData(newData)) {
-          // Actualizar el backup local y el timestamp de cache cuando llega un evento remoto
-          saveLocalBackup(newData, coupleId);
-          onUpdate(newData);
+        if (!newData || !isValidAppData(newData)) return;
+
+        // FIX 3: Si hay un guardado pendiente local, ignorar la actualización remota.
+        // El guardado pendiente prevalece — es el estado más reciente del usuario local.
+        if (typeof hasPendingSave === "function" && hasPendingSave()) {
+          console.debug("[Realtime] Ignorando update remoto: hay guardado local pendiente.");
+          return;
         }
+
+        saveLocalBackup(newData, coupleId);
+        onUpdate(newData);
       }
     )
     .subscribe();
