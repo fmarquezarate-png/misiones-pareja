@@ -1047,20 +1047,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => { if (briefingTimer) clearTimeout(briefingTimer); };
   }, [data?.weeks, data?.goals, notifGranted]); // eslint-disable-line
 
-  // Realtime: reload when partner saves
+  // Realtime: reload when partner saves (skipped if we have unsaved local changes)
   useEffect(() => {
     if (!coupleId) return;
     const channel = subscribeToUpdates(coupleId, remoteData => {
-      if (remoteData) {
-        // Cancel any pending debounced save — prevents overwriting partner's changes with stale local state
-        clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-        setSavingState("idle");
-        if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
-          showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
-        }
-        setData(() => remoteData);
+      // hasPendingSave guard in subscribeToUpdates ensures we only reach here when safe
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      setSavingState("idle");
+      if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
+        showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
       }
+      setData(() => remoteData);
+    }, {
+      hasPendingSave: () => pendingSave || !!saveTimerRef.current,
     });
     return () => { supabase.removeChannel(channel); };
   }, [coupleId]);
@@ -1075,8 +1075,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
         if (dataRef.current && coupleId && isValidAppData(dataRef.current)) {
-          // Single fast attempt — page is unloading, no time for retries
-          saveWithRetry(dataRef.current, coupleId, { retries: 1, baseDelay: 300 }).catch(() => {});
+          saveWithRetry(dataRef.current, coupleId, {
+            retries: 1, baseDelay: 300,
+            getLatestData: () => dataRef.current,
+          }).catch(() => {});
         }
       }
     };
@@ -1101,7 +1103,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // Retry pending save when reconnecting
   useEffect(() => {
     if (isOnline && pendingSave && data && coupleId && isValidAppData(data)) {
-      saveWithRetry(data, coupleId)
+      saveWithRetry(data, coupleId, { getLatestData: () => dataRef.current })
         .then(() => { setPendingSave(false); setSyncError(null); showSyncMsg("✓ Cambios sincronizados"); })
         .catch(e => { setSyncError(e.message); showSyncMsg("⚠ Sin conexión — reintentando…"); });
     }
@@ -1114,7 +1116,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
-        saveWithRetry(next, coupleId)
+        saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
           .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
           .catch(e => { setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
       }, 700);

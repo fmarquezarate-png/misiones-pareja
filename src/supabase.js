@@ -246,12 +246,15 @@ export function isValidAppData(d) {
 }
 
 // Retry saveData with exponential backoff (1 s, 2 s, 4 s)
+// opts.getLatestData: () => T — called on each retry to get the freshest snapshot
+// instead of re-saving the stale `appData` captured at call time.
 export async function saveWithRetry(appData, coupleId, opts = {}) {
-  const { retries = 3, baseDelay = 1000 } = opts;
+  const { retries = 3, baseDelay = 1000, getLatestData } = opts;
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      await saveData(appData, coupleId);
+      const dataToSave = attempt > 0 && getLatestData ? (getLatestData() ?? appData) : appData;
+      await saveData(dataToSave, coupleId);
       return;
     } catch (e) {
       lastErr = e;
@@ -268,7 +271,10 @@ export async function saveWithRetry(appData, coupleId, opts = {}) {
 
 /* ── Realtime: notify when partner saves ─────────────────────────── */
 
-export function subscribeToUpdates(coupleId, onUpdate) {
+// opts.hasPendingSave: () => boolean — when true, remote updates are skipped
+// to avoid overwriting local changes that haven't been flushed yet.
+export function subscribeToUpdates(coupleId, onUpdate, opts = {}) {
+  const { hasPendingSave } = opts;
   // Listen to "*" (INSERT + UPDATE + DELETE) so the partner gets notified
   // even on the very first save (INSERT), not only on subsequent saves (UPDATE).
   const channel = supabase
@@ -278,7 +284,12 @@ export function subscribeToUpdates(coupleId, onUpdate) {
       { event: "*", schema: "public", table: "app_data", filter: `id=eq.${coupleId}` },
       payload => {
         const newData = payload.new?.data;
-        if (newData) onUpdate(newData);
+        if (!newData) return;
+        if (hasPendingSave?.()) {
+          console.info("[subscribeToUpdates] skipped remote update — local pending save in progress");
+          return;
+        }
+        onUpdate(newData);
       }
     )
     .subscribe();
