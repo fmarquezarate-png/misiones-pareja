@@ -1075,7 +1075,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
         if (dataRef.current && coupleId && isValidAppData(dataRef.current)) {
-          saveWithRetry(dataRef.current, coupleId).catch(() => {});
+          // Single fast attempt — page is unloading, no time for retries
+          saveWithRetry(dataRef.current, coupleId, { retries: 1, baseDelay: 300 }).catch(() => {});
         }
       }
     };
