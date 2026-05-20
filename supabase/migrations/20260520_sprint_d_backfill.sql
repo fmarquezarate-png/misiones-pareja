@@ -96,7 +96,7 @@ INSERT INTO public.couple_settings (
   couple_id,
   person1_name, person2_name,
   color_person1, color_person2, color_together,
-  theme,
+  theme, language,
   notif_chat, notif_partner, notif_events, notif_goals, notif_daily
 )
 SELECT
@@ -107,10 +107,11 @@ SELECT
   COALESCE(ad.data->'colors'->>'person2',  '#60a5fa')                   AS color_person2,
   COALESCE(ad.data->'colors'->>'together', '#34d399')                   AS color_together,
   COALESCE(ad.data->>'theme', 'galaxy')                                  AS theme,
-  COALESCE((ad.data->'settings'->'notifications'->>'chat')::boolean,        true)  AS notif_chat,
-  COALESCE((ad.data->'settings'->'notifications'->>'partnerChanges')::boolean, true) AS notif_partner,
-  COALESCE((ad.data->'settings'->'notifications'->>'eventReminders')::boolean, true) AS notif_events,
-  COALESCE((ad.data->'settings'->'notifications'->>'goalDeadlines')::boolean,  true) AS notif_goals,
+  COALESCE(ad.data->>'language', ad.data->'settings'->>'language', 'es') AS language,
+  COALESCE((ad.data->'settings'->'notifications'->>'chat')::boolean,           true)  AS notif_chat,
+  COALESCE((ad.data->'settings'->'notifications'->>'partnerChanges')::boolean, true)  AS notif_partner,
+  COALESCE((ad.data->'settings'->'notifications'->>'eventReminders')::boolean, true)  AS notif_events,
+  COALESCE((ad.data->'settings'->'notifications'->>'goalDeadlines')::boolean,  true)  AS notif_goals,
   COALESCE((ad.data->'settings'->'notifications'->>'dailyBriefing')::boolean,  false) AS notif_daily
 FROM public.app_data ad
 ON CONFLICT (couple_id) DO NOTHING;
