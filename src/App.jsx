@@ -13,6 +13,7 @@ import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 import { track, setTrackContext } from "./lib/track.js";
+import PillFilter from "./components/PillFilter.jsx";
 
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
@@ -798,6 +799,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [pendingSave, setPendingSave] = useState(false);
   const [savingState, setSavingState] = useState("idle"); // "idle"|"saving"|"saved"|"error"
   const [pendingTab, setPendingTab] = useState("pending"); // "pending" | "logros"
+  const [logrosPeopleFilter, setLogrosPeopleFilter] = useState([]);
+  const [logrosCatFilter, setLogrosCatFilter] = useState([]);
   const [icsModal, setIcsModal] = useState(false);
   const [icsFrom,  setIcsFrom]  = useState("");
   const [icsTo,    setIcsTo]    = useState("");
@@ -1112,7 +1115,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const update = useCallback(fn => {
     setData(prev => {
       const next = fn(prev);
-      if (!isValidAppData(next)) return next; // guard: skip save if state looks corrupt
+      if (!isValidAppData(next)) {
+        // guard: skip save if state looks corrupt — but notify instead of silently dropping
+        console.error("[save] isValidAppData failed — datos no guardados. Tamaño:", JSON.stringify(next).length);
+        track("save_validation_failed", {
+          size: JSON.stringify(next).length,
+          keys: Object.keys(next || {}).join(",").slice(0, 100),
+        });
+        pushToast({ kind: "error", text: "⚠️ Error de validación — los cambios no se guardaron. Recarga la app si el problema persiste." });
+        return next;
+      }
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
@@ -1197,6 +1209,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const w = d.weeks[wkey]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id);
       const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      if (nx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
       let next = { ...d, weeks: { ...d.weeks, [wkey]: { ...w, missions: w.missions.map(x => x.id===id ? {...x, status:nx, completedAt:nx==="DONE"?Date.now():null} : x) } } };
       if (nx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
@@ -1225,6 +1238,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const w = d.weeks[key]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
       const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      if (nx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
       let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nx,completedAt:nx==="DONE"?Date.now():null}:x) } } };
       if (nx==="DONE" && m.carriedFrom) next = syncCarryDone(next, key, id);
       return next;
@@ -1490,6 +1504,7 @@ ${ms.map(m=>{
         @keyframes mc-pop { 0%{transform:scale(1)} 50%{transform:scale(1.28)} 100%{transform:scale(1)} }
         @keyframes sc-dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
         @keyframes sc-saved-fade { 0%{opacity:1} 100%{opacity:0} }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
       `}</style>
 
       {/* Hidden file input for import */}
@@ -1994,18 +2009,29 @@ ${ms.map(m=>{
             .flatMap(([key,w])=>(w.missions||[])
               .filter(m=>m.status==="DONE" && m.type!=="event")
               .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
-          // Dedup: by seriesId (recurring tasks) then by normalized title+who (manual repeats)
-          const _seenSeries=new Set(), _seenTW=new Set();
-          const logrosDeduped=logrosAll.filter(m=>{
-            if(m.seriesId){if(_seenSeries.has(m.seriesId))return false;_seenSeries.add(m.seriesId);}
-            const tw=`${(m.title||"").toLowerCase().trim()}|${m.who||""}`;
-            if(_seenTW.has(tw))return false;_seenTW.add(tw);
+          // Dedup: by seriesId only (recurring tasks)
+          const _seenSeries = new Set();
+          const logrosDeduped = logrosAll.filter(m => {
+            if (m.seriesId) {
+              if (_seenSeries.has(m.seriesId)) return false;
+              _seenSeries.add(m.seriesId);
+            }
             return true;
           });
-          const logrosFiltered=logrosDeduped.filter(m=>
-            (!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&
-            (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
-          );
+          // Hero stats para Logros
+          const cwKey = `${data.currentYear}-W${String(data.currentWeekNumber).padStart(2,"0")}`;
+          const logrosThisWeek = logrosAll.filter(m => m._wkey === cwKey).length;
+          // Racha: días consecutivos hacia atrás con al menos 1 logro (usa completedAt)
+          const logrosWithDate = logrosAll.filter(m => m.completedAt);
+          const doneByDay = new Set(logrosWithDate.map(m => m.completedAt?.slice(0,10)));
+          let racha = 0;
+          const today = new Date();
+          for (let i = 0; i < 365; i++) {
+            const d = new Date(today); d.setDate(today.getDate() - i);
+            const key = d.toISOString().slice(0,10);
+            if (doneByDay.has(key)) racha++;
+            else if (i > 0) break;
+          }
           const subTabStyle=(active)=>({
             flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit",
             fontSize:12, fontWeight:600,
@@ -2018,7 +2044,7 @@ ${ms.map(m=>{
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <div style={{display:"flex",flex:1,gap:4,background:"rgba(128,128,128,0.06)",borderRadius:10,padding:3}}>
                 <button onClick={()=>setPendingTab("pending")} style={subTabStyle(pendingTab==="pending")}>📋 Pendientes <span style={{fontSize:10,opacity:0.7}}>({pendingFiltered.length})</span></button>
-                <button onClick={()=>setPendingTab("logros")}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosFiltered.length})</span></button>
+                <button onClick={()=>{ setPendingTab("logros"); track("logros_tab_viewed", { count: logrosDeduped.length }); }}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosDeduped.length})</span></button>
               </div>
               <button onClick={()=>forceSync()} title="Bajar datos de Supabase"
                 style={{...S.btnSecondary, padding:"7px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4, flexShrink:0}}>
@@ -2066,32 +2092,108 @@ ${ms.map(m=>{
                 </div>
             )}
             {/* Logros list */}
-            {pendingTab==="logros" && (
-              logrosFiltered.length===0
-                ?<div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
-                  <div style={{fontSize:36,marginBottom:12}}>🏆</div>
-                  <div>Todavía no hay logros registrados.</div>
-                </div>
-                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {logrosFiltered.map(m=>{
-                    const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
-                    return <div key={m.id+m._wkey} style={{...S.card,padding:"10px 14px",borderLeft:`3px solid ${whoColor}`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontSize:22,flexShrink:0}}>{m.emoji}</span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,color:"var(--t-text-dim,#6b5f88)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"line-through"}}>{m.title}</div>
-                          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
-                            <span style={{fontSize:10,color:"#34d399",fontWeight:600}}>✅ Hecho</span>
-                            <span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>S{m.weekNumber} {m._yr}</span>
-                            {m.completedAt&&<span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>📆 {new Date(m.completedAt).toLocaleDateString("es-ES",{day:"numeric",month:"short"})}</span>}
-                            <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
-                          </div>
-                        </div>
+            {pendingTab==="logros" && (()=>{
+              // PillFilter data
+              const peoplePills = [
+                { id:"person1", label:p1, count:logrosDeduped.filter(m=>m.who==="person1").length, color:colors?.person1||DEFAULT_COLORS.person1 },
+                { id:"person2", label:p2, count:logrosDeduped.filter(m=>m.who==="person2").length, color:colors?.person2||DEFAULT_COLORS.person2 },
+                { id:"together", label:"Juntos", count:logrosDeduped.filter(m=>m.who==="together").length, color:colors?.together||DEFAULT_COLORS.together },
+              ].filter(p=>p.count>0);
+              const catCounts = {};
+              logrosDeduped.forEach(m=>getMCats(m).forEach(c=>{ catCounts[c]=(catCounts[c]||0)+1; }));
+              const catPills = Object.entries(catCounts)
+                .filter(([,n])=>n>0)
+                .map(([id,count])=>({ id, count, ...CAT_MAP[id] }))
+                .filter(c=>c.label);
+              // Local filtered
+              const logrosLocalFiltered = logrosDeduped.filter(m =>
+                (!logrosPeopleFilter.length || logrosPeopleFilter.includes(m.who)) &&
+                (!logrosCatFilter.length || getMCats(m).some(c => logrosCatFilter.includes(c)))
+              );
+              // Group by day
+              const byDay = {};
+              logrosLocalFiltered.forEach(m => {
+                const day = m.completedAt?.slice(0,10) || m._wkey;
+                if(!byDay[day]) byDay[day]=[];
+                byDay[day].push(m);
+              });
+              const days = Object.entries(byDay).sort(([a],[b])=>b.localeCompare(a));
+              return (
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {/* Hero stats */}
+                  <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:2}}>
+                    {[
+                      { icon:"🏆", value:logrosDeduped.length, label:"Totales" },
+                      { icon:"📅", value:logrosThisWeek, label:"Esta semana" },
+                      { icon:"🔥", value:racha, label:`Día${racha!==1?"s":""} de racha` },
+                    ].map(s=>(
+                      <div key={s.label} style={{flex:"0 0 auto",background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.18)",borderRadius:12,padding:"10px 16px",textAlign:"center",minWidth:90}}>
+                        <div style={{fontSize:20}}>{s.icon}</div>
+                        <div style={{fontFamily:"'Fraunces',serif",fontSize:22,color:"#f8f4ff",fontWeight:700,lineHeight:1}}>{s.value}</div>
+                        <div style={{fontSize:10,color:"#8b7fa8",marginTop:2}}>{s.label}</div>
                       </div>
-                    </div>;
-                  })}
+                    ))}
+                  </div>
+                  {/* PillFilter local */}
+                  <PillFilter
+                    people={peoplePills}
+                    categories={catPills}
+                    selectedPeople={logrosPeopleFilter}
+                    selectedCats={logrosCatFilter}
+                    onTogglePerson={id=>setLogrosPeopleFilter(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id])}
+                    onToggleCat={id=>setLogrosCatFilter(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id])}
+                  />
+                  {/* Timeline agrupada por día */}
+                  {logrosLocalFiltered.length===0
+                    ? <div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
+                        <div style={{fontSize:36,marginBottom:12}}>🏆</div>
+                        <div>Todavía no hay logros registrados.</div>
+                      </div>
+                    : <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                        {days.map(([day,missions],di)=>{
+                          let dayLabel;
+                          if(day.includes("-W")) {
+                            const [yr,wn]=day.split("-W");
+                            dayLabel=`Semana ${wn} · ${yr}`;
+                          } else {
+                            const d=new Date(day+"T12:00:00");
+                            const todayStr=new Date().toISOString().slice(0,10);
+                            const yesterStr=new Date(Date.now()-86400000).toISOString().slice(0,10);
+                            dayLabel=day===todayStr?"Hoy":day===yesterStr?"Ayer":d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"short"});
+                          }
+                          return (
+                            <div key={day} style={{opacity:0,animation:`fadeInUp 0.3s ease ${di*0.05}s forwards`}}>
+                              <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"var(--t-accent,#a78bfa)",fontWeight:600,marginBottom:6}}>
+                                {dayLabel} · {missions.length} logro{missions.length!==1?"s":""}
+                              </div>
+                              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                                {missions.map(m=>{
+                                  const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
+                                  return (
+                                    <div key={m.id+m._wkey} style={{...S.card,padding:"9px 13px",borderLeft:`3px solid ${whoColor}`,opacity:0,animation:`fadeInUp 0.25s ease ${di*0.05+0.05}s forwards`}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:9}}>
+                                        <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
+                                        <div style={{flex:1,minWidth:0}}>
+                                          <div style={{fontSize:13,color:"var(--t-text,#e2d9ff)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
+                                          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:2}}>
+                                            <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                                            {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
+                                          </div>
+                                        </div>
+                                        <span style={{fontSize:18,flexShrink:0}}>✅</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                  }
                 </div>
-            )}
+              );
+            })()}
           </div>;
         })()}
       </div>
