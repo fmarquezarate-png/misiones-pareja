@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.5.3] — 2026-05-20
+
+### Corregido
+- `constants.js`: `APP_VERSION` estaba en `"3.4.1"` — jamás se actualizó al avanzar sprints
+  — la app mostraba v3.4.1 en UI y en la lógica de "ya tienes la última versión"
+  — corregido a `"3.5.2"` con `LAST_UPDATE = "2026-05-20"` y CHANGELOG interno completo
+  — el prebuild hook (`gen-version.js`) ya lee `constants.js` → ambos ficheros siempre en sync
+
+---
+
 ## [3.5.2] — 2026-05-20
 
 ### Añadido
