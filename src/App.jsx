@@ -16,6 +16,7 @@ import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
+import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
@@ -2234,6 +2235,9 @@ ${ms.map(m=>{
         </div>
       )}
       <Toast toast={appToast} onDismiss={dismissToast} />
+      {import.meta.env.DEV && coupleId && data && (
+        <DevBackfillPanel coupleId={coupleId} blobData={data} />
+      )}
     </div>
   );
 }
