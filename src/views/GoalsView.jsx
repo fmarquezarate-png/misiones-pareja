@@ -3,6 +3,7 @@ import { DEFAULT_COLORS, STATUS_ORDER, STATUS, PERIOD_LABEL, PERIOD_EMOJI } from
 import { computeGoalProgress, computeGoalHistory } from "../utils.js";
 import { S, badgeStyle } from "../styles.js";
 import EmojiSelect from "../components/EmojiSelect.jsx";
+import GoalPeriodDetail from "../components/GoalPeriodDetail.jsx";
 
 // ─── GoalForm ─────────────────────────────────────────────────────────────────
 function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
@@ -92,24 +93,6 @@ function GoalCard({ goal, progress, history, weeks, p1, p2, colors, onEdit, onAr
   const [tick, setTick] = useState(0);
   const [detailIdx, setDetailIdx] = useState(null);
 
-  const getPeriodMissions = (h) => {
-    if (!weeks || h.noData) return [];
-    const allDone = Object.values(weeks).flatMap(w =>
-      (w.missions || []).filter(m => m.goalId === goal.id && m.status === "DONE")
-        .map(m => ({ ...m, _wn: w.weekNumber, _wy: w.year || new Date().getFullYear() }))
-    );
-    if (goal.period === "weekly") return allDone.filter(m => m._wn === h.wn && m._wy === h.wy);
-    if (goal.period === "monthly") return allDone.filter(m => {
-      if (m.date) { const d = new Date(m.date); return d.getMonth() === h.mo && d.getFullYear() === h.yr; }
-      const approx = new Date(m._wy, 0, 1 + (m._wn - 1) * 7);
-      return approx.getMonth() === h.mo && approx.getFullYear() === h.yr;
-    });
-    return allDone.filter(m => {
-      if (m.date) return new Date(m.date).getFullYear() === h.yr;
-      return m._wy === h.yr;
-    });
-  };
-
   useEffect(() => {
     if (!goal.deadline) return;
     const dl = new Date(goal.deadline); dl.setHours(23, 59, 59);
@@ -192,34 +175,17 @@ function GoalCard({ goal, progress, history, weeks, p1, p2, colors, onEdit, onAr
             })}
           </div>
 
-          {detailIdx !== null && (() => {
-            const h = history[detailIdx];
-            const ms = getPeriodMissions(h);
-            return (
-              <div style={{ marginTop:8, background:"rgba(128,128,128,0.05)", border:"1px solid rgba(167,139,250,0.18)", borderRadius:8, padding:"8px 10px" }}>
-                <div style={{ fontSize:10, fontWeight:600, color:"var(--t-accent,#a78bfa)", marginBottom:ms.length ? 6 : 0 }}>
-                  {h.label} · {ms.length} actividad{ms.length !== 1 ? "es" : ""}
-                </div>
-                {ms.length === 0 ? (
-                  <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>Sin actividades registradas</div>
-                ) : (
-                  <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                    {ms.map(m => {
-                      const mc = m.who==="person1"?clr.person1:m.who==="person2"?clr.person2:clr.together;
-                      return (
-                        <div key={m.id} style={{ display:"flex", alignItems:"center", gap:7, padding:"4px 0", borderBottom:"1px solid rgba(128,128,128,0.08)" }}>
-                          <span style={{ fontSize:14, flexShrink:0 }}>{m.emoji||"🎯"}</span>
-                          <span style={{ flex:1, fontSize:12, color:"var(--t-text,#f0e8ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</span>
-                          {m.date && <span style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>{m.date}</span>}
-                          <span style={{ width:8, height:8, borderRadius:99, background:mc, flexShrink:0 }} />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {detailIdx !== null && (
+            <GoalPeriodDetail
+              h={history[detailIdx]}
+              goal={goal}
+              p1={p1}
+              p2={p2}
+              colors={colors}
+              prevH={detailIdx > 0 ? history[detailIdx - 1] : null}
+              onClose={() => setDetailIdx(null)}
+            />
+          )}
         </div>
       )}
     </div>
@@ -255,7 +221,7 @@ export default function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAd
 
       {active.map(g => {
         const prog = computeGoalProgress(g, weeks, cwn, cyr);
-        const hist = computeGoalHistory(g, weeks);
+        const hist = computeGoalHistory(g, weeks, { includeMissions: true });
         return <GoalCard key={g.id} goal={g} progress={prog} history={hist} weeks={weeks} p1={p1} p2={p2} colors={colors}
           onEdit={()=>openEdit(g)} onArchive={()=>onUpdate(g.id, { active:false })} />;
       })}
