@@ -2344,10 +2344,15 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         </div>
       </div>
       {isEvent&&<>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
-          <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
-          <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
+        {/* Inicio — date + time agrupados en card */}
+        <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>📅 Inicio</div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
+            <input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
+          </div>
         </div>
+        {/* Toggle duración / hora fin */}
         <div style={{ display:"flex", gap:4, marginBottom:8 }}>
           {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
             <button key={m.id} onClick={()=>setEndMode(m.id)}
@@ -2364,14 +2369,13 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
             </div>
             {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
           </div>
-          :<div style={{ marginBottom:10 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-              <div><label style={S.label}>📆 Fecha fin</label><input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;// Default endTime to 23:59 when user sets end date without a time
-                const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
-              <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;// Default endDate to start date when user picks a time without an end date
-                const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
+          :<div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>🏁 Fin</div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
+              <input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
             </div>
-            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
+            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:6 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
           </div>
         }
         {newM.time&&<div style={{ marginBottom:8 }}>
