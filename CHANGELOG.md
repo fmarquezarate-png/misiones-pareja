@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.2] — 2026-05-20 · Fix sistémico — Componentes duplicados eliminados
+
+**Causa raíz identificada y solucionada:** App.jsx tenía 5 funciones locales con el mismo nombre que archivos externos en `views/` y `components/`. Los archivos externos eran código muerto — nunca se importaban, por lo que la versión local siempre ganaba. Esto causó que ediciones a los archivos externos no tuvieran efecto (como ocurrió con StatsView en v3.8.0).
+
+### Eliminados (código muerto)
+- `src/views/StatsView.jsx` — la versión local en App.jsx es master (tiene export PNG, insights, Wrapped)
+- `src/views/CalendarView.jsx` — la versión local es master (tiene ResizeObserver, multi-day bars, series)
+- `src/components/WorkHoursCard.jsx` — equivalente a la versión local
+- `src/components/AddMissionForm.jsx` — la versión local es master (tiene endMode, reminder, biweekly)
+- `src/components/MissionCard.jsx` — la versión local es master (tiene theming CSS vars, series, completedLate)
+
+### Mejorado
+- `EmojiSelect`: se importa ahora desde `components/EmojiSelect.jsx` (versión con flechas ‹ › de scroll para móvil). La versión local de 19 líneas en App.jsx fue eliminada. Ahora GoalsView y App.jsx usan exactamente el mismo componente.
+
+### Medida preventiva
+Cualquier componente que tenga su propio archivo debe importarse — nunca duplicarse inline en App.jsx. Ver patrón en `GoalsView.jsx` como referencia.
+
+---
+
 ## [3.8.0] — 2026-05-20 · Hito Sprint H — Stats narrativos Wrapped
 
 **Hito:** la pestaña Stats muestra ahora un resumen narrativo estilo Wrapped con los insights más relevantes de la pareja — generados por `insights.js` y coloreados por sentimiento.
@@ -33,6 +52,26 @@ Cada insight muestra:
 ### Técnico
 - Reemplaza el bloque inline de insights hardcodeados de `StatsView.jsx` (v3.5+)
 - `insights.js` usa `weeks` raw (no filtrado por persona/rango) para cálculos históricos correctos
+
+---
+
+## [3.8.1] — 2026-05-20
+
+### Corregido
+- **Stats — insights no aparecían**: la función `StatsView` estaba definida localmente en
+  App.jsx (versión más completa con export PNG, umbrales altos) y aplastaba el import de
+  `views/StatsView.jsx`. Los cambios de v3.8.0 se aplicaron en el archivo incorrecto.
+- **Umbrales altos sin datos suficientes**: si la pareja tiene <3 semanas completadas o
+  <5 misiones/semana, los insights inline no se generaban y la sección no aparecía.
+  Ahora se usa `generateInsights()` de `insights.js` como fallback (umbrales menores).
+
+### Mejorado
+- **Diseño Wrapped** aplicado ahora sí en el StatsView real: tarjetas con fondo coloreado
+  por sentimiento, valor hero en Fraunces para los insights de `insights.js`, y título +
+  botón de navegación para los insights inline detallados.
+- **Formulario de eventos** (fecha/hora inicio y fin): inputs agrupados en card con fondo
+  sutil, proporción flexible (fecha ocupa más espacio que hora), `minHeight: 40px` y
+  `fontSize: 14` — mejor experiencia táctil en iOS.
 
 ---
 

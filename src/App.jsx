@@ -14,10 +14,12 @@ import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWee
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
+import { generateInsights } from "./lib/insights.js";
 import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
+import EmojiSelect from "./components/EmojiSelect.jsx";
 
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
@@ -2344,10 +2346,15 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
         </div>
       </div>
       {isEvent&&<>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
-          <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
-          <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
+        {/* Inicio — date + time agrupados en card */}
+        <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>📅 Inicio</div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
+            <input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
+          </div>
         </div>
+        {/* Toggle duración / hora fin */}
         <div style={{ display:"flex", gap:4, marginBottom:8 }}>
           {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
             <button key={m.id} onClick={()=>setEndMode(m.id)}
@@ -2364,14 +2371,13 @@ function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
             </div>
             {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
           </div>
-          :<div style={{ marginBottom:10 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-              <div><label style={S.label}>📆 Fecha fin</label><input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;// Default endTime to 23:59 when user sets end date without a time
-                const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
-              <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;// Default endDate to start date when user picks a time without an end date
-                const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", fontSize:12, padding:"4px 6px" }} /></div>
+          :<div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>🏁 Fin</div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
+              <input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
             </div>
-            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
+            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:6 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
           </div>
         }
         {newM.time&&<div style={{ marginBottom:8 }}>
@@ -2974,6 +2980,11 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   // 7. Completion velocity (missions per week)
   if (wc>=4){const avgMpW=(total/wc).toFixed(1);const advice=avgMpW<3?"Poco volumen — podéis añadir más misiones para aprovechar el ritmo":avgMpW>8?"Ritmo intenso — revisad si todas las misiones son realmente necesarias o si podéis simplificar":"Volumen saludable y sostenible";insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana en ${wc} semanas`,desc:`${total} misiones planificadas en total. ${advice}.`});}
 
+  // Fallback: si no hay suficientes datos para los insights detallados, usar generateInsights
+  const wrappedInsights = insights.length > 0
+    ? insights
+    : (isEnabled("stats_insights_enabled") ? generateInsights(weeks, p1, p2) : []);
+
   if(total===0) return <div style={{ textAlign:"center", color:"var(--t-text-dim,#3d3360)", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
 
   // Donut chart for status
@@ -3029,27 +3040,45 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* AI Insights */}
-      {insights.length>0&&<div style={{ ...S.card, borderColor:"rgba(244,114,182,0.25)", background:"linear-gradient(135deg,rgba(167,139,250,0.07),rgba(244,114,182,0.04))" }}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#f472b6", marginBottom:12, fontWeight:600 }}>✨ Análisis inteligente</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {insights.map((ins,i)=>(
-            <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", paddingBottom:i<insights.length-1?10:0, borderBottom:i<insights.length-1?"1px solid rgba(167,139,250,0.1)":"none" }}>
-              <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
-                  <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600 }}>{ins.title}</span>
-                  {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())}
-                    style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"var(--t-accent,#a78bfa)", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
-                    → S{ins.weekNumber}
-                  </button>}
-                </div>
-                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.5 }}>{ins.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>}
+      {/* Insights — diseño Wrapped */}
+      {wrappedInsights.length>0&&(()=>{
+        const SC={
+          positive:{bg:"rgba(52,211,153,0.07)",border:"rgba(52,211,153,0.22)",val:"#34d399"},
+          negative:{bg:"rgba(244,114,182,0.07)",border:"rgba(244,114,182,0.22)",val:"#f472b6"},
+          curious: {bg:"rgba(96,165,250,0.07)", border:"rgba(96,165,250,0.22)", val:"#60a5fa"},
+          neutral: {bg:"rgba(167,139,250,0.07)",border:"rgba(167,139,250,0.22)",val:"#a78bfa"},
+        };
+        // insight.sentiment viene de insights.js; los inline no tienen — derivar del icono
+        const sentimentOf=ins=>ins.sentiment||(ins.icon==="📉"||ins.icon==="⚠️"||ins.icon==="⚖️"?"negative":ins.icon==="🚀"||ins.icon==="🏆"||ins.icon==="🔥"||ins.icon==="🌈"||ins.icon==="🤝"?"positive":ins.icon==="💡"||ins.icon==="📊"?"curious":"neutral");
+        return <div>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:10, paddingLeft:2 }}>✨ Tu resumen</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {wrappedInsights.map((ins,i)=>{
+              const s=sentimentOf(ins);
+              const c=SC[s]||SC.neutral;
+              // inline insights usan {icon,title,desc,weekNumber}; insights.js usa {value,label,detail,sentiment}
+              const headline=ins.title||ins.label||"";
+              const narrative=ins.desc||ins.detail||"";
+              const heroValue=ins.value||ins.icon||"";
+              const isValueCard=!!ins.value; // insights.js card (tiene value grande)
+              return <div key={i} style={{ background:c.bg, border:`1px solid ${c.border}`, borderRadius:14, padding:"14px 16px", opacity:0, animation:`fadeInUp 0.3s ease ${i*0.06}s forwards` }}>
+                {isValueCard
+                  ?<div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:6 }}>
+                    <span style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:700, color:c.val, lineHeight:1 }}>{heroValue}</span>
+                    <span style={{ fontSize:10, color:c.val, textTransform:"uppercase", letterSpacing:1.5, fontWeight:600 }}>{headline}</span>
+                  </div>
+                  :<div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                    <span style={{ fontSize:18, lineHeight:1, flexShrink:0 }}>{heroValue}</span>
+                    <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600, flex:1 }}>{headline}</span>
+                    {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())} style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>→ S{ins.weekNumber}</button>}
+                  </div>
+                }
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.55 }}>{narrative}</div>
+              </div>;
+            })}
+          </div>
+      </div>;
+      })()}
 
       {/* ── Deep Stats v2.0 ────────────────────────────────────────────── */}
       {(()=>{
@@ -3737,25 +3766,6 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloa
   );
 }
 
-function EmojiSelect({ value, onChange }) {
-  const [open,setOpen]=useState(false), [ag,setAg]=useState(0);
-  return (
-    <div style={{ position:"relative", flexShrink:0 }}>
-      <button onClick={()=>setOpen(o=>!o)} style={{ fontSize:22, background:"none", border:"none", cursor:"pointer", padding:"0 2px", lineHeight:1 }}>{value}</button>
-      {open&&<><div onClick={()=>setOpen(false)} style={{ position:"fixed", inset:0, zIndex:9 }}/>
-        <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:10, background:"#1a1330", border:"1px solid rgba(167,139,250,0.25)", borderRadius:14, width:260, boxShadow:"0 12px 40px rgba(0,0,0,0.7)", overflow:"hidden" }}>
-          <div style={{ display:"flex", overflowX:"auto", padding:"8px 8px 0", gap:4, scrollbarWidth:"none" }}>
-            {EMOJI_GROUPS.map((g,i)=><button key={i} onClick={()=>setAg(i)} style={{ background:ag===i?"rgba(167,139,250,0.25)":"none", border:"none", borderRadius:8, padding:"4px 6px", cursor:"pointer", fontSize:14, flexShrink:0 }}>{g.label.split(" ")[0]}</button>)}
-          </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:3, padding:"8px 10px 10px", maxHeight:180, overflowY:"auto", overscrollBehavior:"contain" }}>
-            {EMOJI_GROUPS[ag].emojis.map((e,ei)=><button key={ei} onClick={()=>{onChange(e);setOpen(false);}} style={{ fontSize:20, background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:8 }}
-              onMouseEnter={ev=>ev.currentTarget.style.background="rgba(167,139,250,0.2)"} onMouseLeave={ev=>ev.currentTarget.style.background="none"}>{e}</button>)}
-          </div>
-        </div>
-      </>}
-    </div>
-  );
-}
 
 const PROJECT_EMOJIS = ["🏖️","🗺️","🎉","🏠","🍽️","🎊","✈️","🎸","🏕️","💒","🎭","🎄","🏔️","🚂","🎿","🏄","🎪","🎨","🛳️","🌴","🎠","🚀","💍","🥂"];
 
