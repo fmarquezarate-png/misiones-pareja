@@ -5,7 +5,7 @@ const DEFAULTS = {
   expenses_v2_enabled: false,
   stats_insights_enabled: false,
   goals_drilldown_enabled: true,
-  dual_write_normalized: false,
+  dual_write_normalized: true,
   cas_version_check: false,
   idb_offline_queue: false,
 };

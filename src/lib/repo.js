@@ -1,11 +1,10 @@
 // repo.js — Capa de acceso a datos
 //
-// HOY (v3.5): todas las funciones leen/escriben desde el blob JSON en app_data.data
-// SPRINT D (v3.7): dual_write_normalized activado → escribe blob + tablas; lee de tablas con fallback a blob
-// SPRINT G (v4.0): cas_version_check activado → saveWithCAS reemplaza el save directo
-//
-// El interface de cada función no cambia entre fases — solo la implementación interna.
-// App.jsx llama a repo.js; repo.js decide qué backend usar según los feature flags.
+// HOY (v3.6): dual_write_normalized activado → escribe blob + tablas normalizadas
+// IMPORTANTE: IDs en el blob son nanoids cortos (uid()), NO UUIDs.
+//   Las tablas normalizadas usan UUID como PK y guardan el nanoid en blob_id.
+//   Todas las búsquedas por ID usan .eq("blob_id", id).
+// SPRINT G (v4.0): cas_version_check → saveWithCAS reemplaza el save directo
 
 import supabase from "../supabase.js";
 import { isEnabled } from "./flags.js";
@@ -39,7 +38,7 @@ export async function getMissionsForWeek(coupleId, weekKey, blobData) {
 // Sprint D: hará UPDATE en tabla missions + dual-write al blob
 export async function updateMissionStatus(coupleId, weekKey, missionId, newStatus, blobData, saveFn) {
   if (isEnabled("dual_write_normalized")) {
-    // Escribir en tabla normalizada
+    // blob_id = el nanoid del blob; id en tabla = UUID generado en backfill
     const { error } = await supabase
       .from("missions")
       .update({
@@ -47,16 +46,15 @@ export async function updateMissionStatus(coupleId, weekKey, missionId, newStatu
         completed_at: newStatus === "DONE" ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", missionId)
+      .eq("blob_id", missionId)
       .eq("couple_id", coupleId);
 
     if (error) {
       console.error("[repo] updateMissionStatus error:", error.message);
       track("dual_write_error", { table: "missions", op: "update_status", error: error.message });
     }
-    // Siempre hacer también el save del blob (dual-write)
+    // blob sigue siendo source of truth — siempre guarda también
   }
-  // Hoy: delegar al save de blob existente
   return saveFn();
 }
 
@@ -82,21 +80,31 @@ export async function getGoals(coupleId, blobData) {
 // Crea o actualiza una meta
 export async function upsertGoal(coupleId, goal, blobData, saveFn) {
   if (isEnabled("dual_write_normalized")) {
-    const { error } = await supabase
+    // Buscar fila existente por blob_id (nanoid), luego UPDATE o INSERT
+    const { data: existing } = await supabase
       .from("goals")
-      .upsert({
-        id:        goal.id,
-        couple_id: coupleId,
-        title:     goal.title,
-        emoji:     goal.emoji,
-        who:       goal.who,
-        period:    goal.period,
-        target:    goal.target,
-        goal_type: goal.goalType || "min",
-        active:    goal.active !== false,
-        start_date: goal.startDate || null,
-        deadline:  goal.deadline || null,
-      }, { onConflict: "id" });
+      .select("id")
+      .eq("blob_id", goal.id)
+      .eq("couple_id", coupleId)
+      .limit(1);
+
+    const payload = {
+      blob_id:    goal.id,
+      couple_id:  coupleId,
+      title:      goal.title,
+      emoji:      goal.emoji,
+      who:        goal.who,
+      period:     goal.period,
+      target:     goal.target,
+      goal_type:  goal.goalType || "min",
+      active:     goal.active !== false,
+      start_date: goal.startDate || null,
+      deadline:   goal.deadline || null,
+    };
+
+    const { error } = existing?.length
+      ? await supabase.from("goals").update(payload).eq("blob_id", goal.id).eq("couple_id", coupleId)
+      : await supabase.from("goals").insert(payload);
 
     if (error) {
       console.error("[repo] upsertGoal error:", error.message);

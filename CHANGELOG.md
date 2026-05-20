@@ -7,6 +7,28 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.6.0] — 2026-05-20 · Hito Sprint D completo
+
+**Hito:** dual_write normalizado activo — el blob y las tablas normalizadas se escriben en paralelo.
+
+### Activado
+- `dual_write_normalized: true` en `src/lib/flags.js`
+  — cada save escribe en `app_data` (blob) + `missions`/`goals`/`couple_settings`
+
+### Corregido
+- `repo.js`: búsquedas cambiadas de `.eq("id", nanoid)` a `.eq("blob_id", nanoid)`
+  — los IDs del app son nanoids cortos (`uid()`), no UUIDs; las tablas normalizadas
+    usan UUID como PK y almacenan el nanoid en `blob_id`
+- `upsertGoal`: patrón SELECT→UPDATE/INSERT en lugar de upsert con onConflict:"id"
+  (que fallaba con nanoids al castear a uuid)
+
+### Infraestructura
+- Backfill verificado al 100%: FRANANA 220/220 misiones · 8/8 goals; CRI-COCO 32/32
+- SQL agent resolvió 3 hallazgos críticos: fila legacy 'couple-missions', orphan UUIDs,
+  IDs en formato nanoid → generó UUIDs y guardó nanoid en `blob_id`
+
+---
+
 ## [3.5.5] — 2026-05-20
 
 ### Infraestructura (SQL agent)
