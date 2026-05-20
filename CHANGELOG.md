@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.2] — 2026-05-20 · Fix sistémico — Componentes duplicados eliminados
+
+**Causa raíz identificada y solucionada:** App.jsx tenía 5 funciones locales con el mismo nombre que archivos externos en `views/` y `components/`. Los archivos externos eran código muerto — nunca se importaban, por lo que la versión local siempre ganaba. Esto causó que ediciones a los archivos externos no tuvieran efecto (como ocurrió con StatsView en v3.8.0).
+
+### Eliminados (código muerto)
+- `src/views/StatsView.jsx` — la versión local en App.jsx es master (tiene export PNG, insights, Wrapped)
+- `src/views/CalendarView.jsx` — la versión local es master (tiene ResizeObserver, multi-day bars, series)
+- `src/components/WorkHoursCard.jsx` — equivalente a la versión local
+- `src/components/AddMissionForm.jsx` — la versión local es master (tiene endMode, reminder, biweekly)
+- `src/components/MissionCard.jsx` — la versión local es master (tiene theming CSS vars, series, completedLate)
+
+### Mejorado
+- `EmojiSelect`: se importa ahora desde `components/EmojiSelect.jsx` (versión con flechas ‹ › de scroll para móvil). La versión local de 19 líneas en App.jsx fue eliminada. Ahora GoalsView y App.jsx usan exactamente el mismo componente.
+
+### Medida preventiva
+Cualquier componente que tenga su propio archivo debe importarse — nunca duplicarse inline en App.jsx. Ver patrón en `GoalsView.jsx` como referencia.
+
+---
+
 ## [3.8.0] — 2026-05-20 · Hito Sprint H — Stats narrativos Wrapped
 
 **Hito:** la pestaña Stats muestra ahora un resumen narrativo estilo Wrapped con los insights más relevantes de la pareja — generados por `insights.js` y coloreados por sentimiento.
