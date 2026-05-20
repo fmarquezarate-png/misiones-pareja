@@ -4,6 +4,7 @@ let queue = [];
 let flushTimer = null;
 let coupleId = null;
 let userId = null;
+let _warnedNoTable = false;
 
 export function setTrackContext(ctx) {
   if (ctx.coupleId) coupleId = ctx.coupleId;
@@ -36,13 +37,30 @@ async function flush() {
     }));
     const { error } = await supabase.from("events").insert(rows);
     if (error) {
-      // Table may not exist yet — silently discard
-      if (error.code !== "42P01" && !error.message?.includes("does not exist")) {
+      if (error.code === "42P01" || error.message?.includes("does not exist")) {
+        if (!_warnedNoTable) {
+          _warnedNoTable = true;
+          console.warn("[track] La tabla 'events' no existe en Supabase. Ejecuta la migración SQL en supabase/migrations/20260520_sprint_a.sql");
+        }
+      } else {
         console.debug("[track] flush error:", error.message);
       }
     }
   } catch {
-    // Network error — discard batch silently
+    if (import.meta.env.DEV) {
+      console.debug("[track] network error, batch discarded silently");
+    }
+  }
+}
+
+export async function verifyTelemetry() {
+  const { count, error } = await supabase
+    .from("events")
+    .select("*", { count: "exact", head: true });
+  if (error) {
+    console.warn("[track] verifyTelemetry error:", error.message);
+  } else {
+    console.log(`[track] verifyTelemetry: tabla 'events' accesible, ${count} filas`);
   }
 }
 
