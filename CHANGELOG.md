@@ -36,6 +36,26 @@ Cada insight muestra:
 
 ---
 
+## [3.8.1] — 2026-05-20
+
+### Corregido
+- **Stats — insights no aparecían**: la función `StatsView` estaba definida localmente en
+  App.jsx (versión más completa con export PNG, umbrales altos) y aplastaba el import de
+  `views/StatsView.jsx`. Los cambios de v3.8.0 se aplicaron en el archivo incorrecto.
+- **Umbrales altos sin datos suficientes**: si la pareja tiene <3 semanas completadas o
+  <5 misiones/semana, los insights inline no se generaban y la sección no aparecía.
+  Ahora se usa `generateInsights()` de `insights.js` como fallback (umbrales menores).
+
+### Mejorado
+- **Diseño Wrapped** aplicado ahora sí en el StatsView real: tarjetas con fondo coloreado
+  por sentimiento, valor hero en Fraunces para los insights de `insights.js`, y título +
+  botón de navegación para los insights inline detallados.
+- **Formulario de eventos** (fecha/hora inicio y fin): inputs agrupados en card con fondo
+  sutil, proporción flexible (fecha ocupa más espacio que hora), `minHeight: 40px` y
+  `fontSize: 14` — mejor experiencia táctil en iOS.
+
+---
+
 ## [3.7.0] — 2026-05-20 · Hito Sprint E — Web Push VAPID
 
 **Hito:** infraestructura completa de notificaciones push. Falta únicamente activar las VAPID keys y desplegar la Edge Function para que sea funcional en producción.

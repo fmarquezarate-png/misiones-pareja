@@ -14,6 +14,7 @@ import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWee
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
+import { generateInsights } from "./lib/insights.js";
 import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
@@ -2978,6 +2979,11 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   // 7. Completion velocity (missions per week)
   if (wc>=4){const avgMpW=(total/wc).toFixed(1);const advice=avgMpW<3?"Poco volumen — podéis añadir más misiones para aprovechar el ritmo":avgMpW>8?"Ritmo intenso — revisad si todas las misiones son realmente necesarias o si podéis simplificar":"Volumen saludable y sostenible";insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana en ${wc} semanas`,desc:`${total} misiones planificadas en total. ${advice}.`});}
 
+  // Fallback: si no hay suficientes datos para los insights detallados, usar generateInsights
+  const wrappedInsights = insights.length > 0
+    ? insights
+    : (isEnabled("stats_insights_enabled") ? generateInsights(weeks, p1, p2) : []);
+
   if(total===0) return <div style={{ textAlign:"center", color:"var(--t-text-dim,#3d3360)", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
 
   // Donut chart for status
@@ -3033,27 +3039,45 @@ function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* AI Insights */}
-      {insights.length>0&&<div style={{ ...S.card, borderColor:"rgba(244,114,182,0.25)", background:"linear-gradient(135deg,rgba(167,139,250,0.07),rgba(244,114,182,0.04))" }}>
-        <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#f472b6", marginBottom:12, fontWeight:600 }}>✨ Análisis inteligente</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {insights.map((ins,i)=>(
-            <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", paddingBottom:i<insights.length-1?10:0, borderBottom:i<insights.length-1?"1px solid rgba(167,139,250,0.1)":"none" }}>
-              <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
-                  <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600 }}>{ins.title}</span>
-                  {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())}
-                    style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"var(--t-accent,#a78bfa)", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>
-                    → S{ins.weekNumber}
-                  </button>}
-                </div>
-                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.5 }}>{ins.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>}
+      {/* Insights — diseño Wrapped */}
+      {wrappedInsights.length>0&&(()=>{
+        const SC={
+          positive:{bg:"rgba(52,211,153,0.07)",border:"rgba(52,211,153,0.22)",val:"#34d399"},
+          negative:{bg:"rgba(244,114,182,0.07)",border:"rgba(244,114,182,0.22)",val:"#f472b6"},
+          curious: {bg:"rgba(96,165,250,0.07)", border:"rgba(96,165,250,0.22)", val:"#60a5fa"},
+          neutral: {bg:"rgba(167,139,250,0.07)",border:"rgba(167,139,250,0.22)",val:"#a78bfa"},
+        };
+        // insight.sentiment viene de insights.js; los inline no tienen — derivar del icono
+        const sentimentOf=ins=>ins.sentiment||(ins.icon==="📉"||ins.icon==="⚠️"||ins.icon==="⚖️"?"negative":ins.icon==="🚀"||ins.icon==="🏆"||ins.icon==="🔥"||ins.icon==="🌈"||ins.icon==="🤝"?"positive":ins.icon==="💡"||ins.icon==="📊"?"curious":"neutral");
+        return <div>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:10, paddingLeft:2 }}>✨ Tu resumen</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {wrappedInsights.map((ins,i)=>{
+              const s=sentimentOf(ins);
+              const c=SC[s]||SC.neutral;
+              // inline insights usan {icon,title,desc,weekNumber}; insights.js usa {value,label,detail,sentiment}
+              const headline=ins.title||ins.label||"";
+              const narrative=ins.desc||ins.detail||"";
+              const heroValue=ins.value||ins.icon||"";
+              const isValueCard=!!ins.value; // insights.js card (tiene value grande)
+              return <div key={i} style={{ background:c.bg, border:`1px solid ${c.border}`, borderRadius:14, padding:"14px 16px", opacity:0, animation:`fadeInUp 0.3s ease ${i*0.06}s forwards` }}>
+                {isValueCard
+                  ?<div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:6 }}>
+                    <span style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:700, color:c.val, lineHeight:1 }}>{heroValue}</span>
+                    <span style={{ fontSize:10, color:c.val, textTransform:"uppercase", letterSpacing:1.5, fontWeight:600 }}>{headline}</span>
+                  </div>
+                  :<div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                    <span style={{ fontSize:18, lineHeight:1, flexShrink:0 }}>{heroValue}</span>
+                    <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600, flex:1 }}>{headline}</span>
+                    {ins.weekNumber&&onGoToWeek&&<button onClick={()=>onGoToWeek(ins.weekNumber,ins.year||new Date().getFullYear())} style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit", flexShrink:0 }}>→ S{ins.weekNumber}</button>}
+                  </div>
+                }
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.55 }}>{narrative}</div>
+              </div>;
+            })}
+          </div>
+      </div>;
+      })()}
 
       {/* ── Deep Stats v2.0 ────────────────────────────────────────────── */}
       {(()=>{
