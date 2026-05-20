@@ -1,7 +1,7 @@
 const STORAGE_KEY = "mp_flags";
 
 const DEFAULTS = {
-  push_enabled: false,
+  push_enabled: true,
   expenses_v2_enabled: false,
   stats_insights_enabled: false,
   goals_drilldown_enabled: true,
