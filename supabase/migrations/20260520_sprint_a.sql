@@ -19,10 +19,12 @@ create index if not exists events_name_idx on public.events (name);
 alter table public.events enable row level security;
 
 -- Solo el miembro de la pareja puede insertar/leer sus propios eventos
-create policy if not exists "events_insert_own" on public.events
+drop policy if exists "events_insert_own" on public.events;
+create policy "events_insert_own" on public.events
   for insert to authenticated
   with check (user_id = auth.uid());
 
-create policy if not exists "events_select_own" on public.events
+drop policy if exists "events_select_own" on public.events;
+create policy "events_select_own" on public.events
   for select to authenticated
   using (couple_id in (select couple_id from public.couple_members where user_id = auth.uid()));
