@@ -7,6 +7,33 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.5.2] — 2026-05-20
+
+### Añadido
+- `src/components/DevBackfillPanel.jsx`: panel DEV-only (fixed bottom-right) para ejecutar
+  y verificar el backfill blob → tablas normalizadas (Sprint D)
+  — estados: idle → running → done → verifying → verified → error
+  — botones: "▶ Ejecutar backfill" + "🔍 Verificar consistencia"
+- `src/lib/insights.js`: 6 funciones puras para Sprint H (Stats narrativos tipo Wrapped)
+  — `loadBalance`, `consistencyStreak`, `topCategory`, `completionTrend`,
+    `procrastinationAlert`, `generateInsights`
+  — cada función devuelve `{ value, label, sentiment, detail }`
+  — activadas desde StatsView.jsx detrás del flag `stats_insights_enabled`
+
+### Modificado
+- `src/App.jsx`: import + render de `<DevBackfillPanel>` (solo en DEV, con guard)
+
+---
+
+## [3.5.1] — 2026-05-20
+
+### Corregido
+- `save_app_data_cas`: RPC usaba `WHERE couple_id = p_couple_id` pero la PK de `app_data` es `id`
+  — corregido a `WHERE id = p_couple_id`
+- Backup C-1 confirmado: 5 parejas, 2,1 MB, guardado en 2 sitios
+
+---
+
 ## [3.5.0] — 2026-05-20 · Hito Sprint B + Sprint A completo
 
 **Hito:** telemetría real operativa, Goals drill-down, Logros timeline emocional,
