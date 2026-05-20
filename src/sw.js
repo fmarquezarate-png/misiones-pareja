@@ -6,6 +6,11 @@ import { ExpirationPlugin } from 'workbox-expiration';
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
+// Tomar control inmediato de todos los clientes al activarse
+self.addEventListener('activate', event => {
+  event.waitUntil(clients.claim());
+});
+
 // version.json siempre desde red (nunca desde caché)
 registerRoute(
   ({ url }) => url.pathname === '/version.json',

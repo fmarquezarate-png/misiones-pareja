@@ -7,6 +7,35 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.0] — 2026-05-20 · Hito Sprint H — Stats narrativos Wrapped
+
+**Hito:** la pestaña Stats muestra ahora un resumen narrativo estilo Wrapped con los insights más relevantes de la pareja — generados por `insights.js` y coloreados por sentimiento.
+
+### Activado
+- `stats_insights_enabled: true` en `flags.js`
+- `generateInsights(weeks, p1, p2)` de `src/lib/insights.js` — devuelve hasta 5 insights ordenados por impacto (negativo → positivo → curioso → neutro)
+
+### Nuevo: diseño Wrapped
+Cada insight muestra:
+- **Valor grande** (Fraunces serif): ej. `+12%`, `6 semanas`, `🧘 Bienestar`
+- **Label** en small caps coloreado por sentimiento
+- **Frase narrativa** completa — no solo un número sino el contexto
+- Animación `fadeInUp` escalonada por tarjeta
+
+### Sentimientos y colores
+| Sentimiento | Color | Ejemplo |
+|---|---|---|
+| `positive` | verde `#34d399` | Racha de 4 semanas perfectas |
+| `negative` | rosa `#f472b6` | 3 misiones arrastrando >2 semanas |
+| `curious` | azul `#60a5fa` | Categoría estrella del mes |
+| `neutral`  | púrpura `#a78bfa` | Tendencia estable al 68% |
+
+### Técnico
+- Reemplaza el bloque inline de insights hardcodeados de `StatsView.jsx` (v3.5+)
+- `insights.js` usa `weeks` raw (no filtrado por persona/rango) para cálculos históricos correctos
+
+---
+
 ## [3.7.0] — 2026-05-20 · Hito Sprint E — Web Push VAPID
 
 **Hito:** infraestructura completa de notificaciones push. Falta únicamente activar las VAPID keys y desplegar la Edge Function para que sea funcional en producción.
@@ -28,13 +57,13 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 ### Modificado
 - `vite.config.js`: migrado de `GenerateSW` a `InjectManifest` para permitir push handlers.
 
-### Para activar en producción
-1. `npx web-push generate-vapid-keys` — guardar claves
-2. Añadir `VITE_VAPID_PUBLIC_KEY=...` a `.env.local`
-3. Supabase → Settings → Edge Functions → Secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT`
-4. `supabase functions deploy send-push`
-5. SQL agent → E-1 (trigger en app_data tras deploy)
-6. `flags.js`: `push_enabled: true`
+### Estado en producción
+- ✅ VAPID keys generadas y configuradas en Supabase Secrets
+- ✅ Edge Function `send-push` desplegada y activa
+- ✅ Extensión `pg_net` habilitada
+- ✅ Trigger `trg_push_on_app_data_update` activo en `app_data`
+- ✅ Flag `push_enabled: true`
+- ✅ Clave pública VAPID en `constants.js` (fallback hardcodeado — es pública, no es secreto)
 
 ---
 
