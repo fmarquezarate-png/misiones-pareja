@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.5.4] — 2026-05-20
+
+### Corregido
+- **Crash pestaña Pendientes** (`we.slice is not a function`): `m.completedAt` puede ser un
+  objeto no-string (valor truthy que no tiene `.slice`). La optional chain `?.` no protege contra
+  esto — protege solo contra null/undefined. Fix: `typeof m.completedAt === 'string'` antes de
+  llamar `.slice(0,10)` en los dos lugares de App.jsx donde se usa.
+- **Goal drill-down nunca abría**: App.jsx tenía copias locales antiguas de `GoalForm`, `GoalCard`
+  y `GoalsView` (sin drill-down ni `GoalPeriodDetail`). Estas funciones locales aplastaban el
+  import de `src/views/GoalsView.jsx`. Fix: eliminar el bloque completo (~200 líneas) y añadir
+  el import correcto al top de App.jsx.
+
+---
+
 ## [3.5.3] — 2026-05-20
 
 ### Corregido
