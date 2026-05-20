@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { track } from "../lib/track.js";
 import { DEFAULT_COLORS, STATUS_ORDER, STATUS, PERIOD_LABEL, PERIOD_EMOJI } from "../constants.js";
 import { computeGoalProgress, computeGoalHistory } from "../utils.js";
 import { S, badgeStyle } from "../styles.js";
@@ -162,7 +163,7 @@ function GoalCard({ goal, progress, history, weeks, p1, p2, colors, onEdit, onAr
               const noData  = !!h.noData;
               const selected = detailIdx === i;
               return <div key={i}
-                onClick={() => !noData && setDetailIdx(selected ? null : i)}
+                onClick={() => { if (!noData) { if (!selected) track("goal_drilldown_opened", { period: goal.period, goalId: goal.id }); setDetailIdx(selected ? null : i); } }}
                 title={noData ? `${h.label}: sin datos` : `${h.label}: ${h.count}/${goal.target}`}
                 style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
                   background:selected?"rgba(167,139,250,0.22)":noData?"rgba(128,128,128,0.04)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(128,128,128,0.06)",
