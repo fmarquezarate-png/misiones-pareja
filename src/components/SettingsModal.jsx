@@ -1,13 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DEFAULT_COLORS } from "../constants.js";
 import { exportData, importData, saveWithRetry } from "../supabase.js";
 import { S } from "../styles.js";
+import { isEnabled } from "../lib/flags.js";
+import { isPushSupported, getPermissionStatus, getCurrentSubscription, subscribePush, unsubscribePush } from "../lib/push.js";
 
 export default function SettingsModal({ data, update, onClose, onSignOut, coupleId }) {
   const [p1, setP1]         = useState(data.settings?.person1 || "Pololo");
   const [p2, setP2]         = useState(data.settings?.person2 || "Banana");
   const [colors, setColors] = useState({ ...DEFAULT_COLORS, ...(data.settings?.colors || {}) });
   const [importMsg, setImportMsg] = useState(null);
+  const [pushStatus, setPushStatus] = useState(getPermissionStatus()); // 'unsupported'|'default'|'granted'|'denied'
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushMsg, setPushMsg] = useState(null);
+  const pushEnabled = isEnabled('push_enabled');
+
+  useEffect(() => {
+    if (!pushEnabled || !isPushSupported()) return;
+    getCurrentSubscription().then(sub => setPushSubscribed(!!sub));
+  }, [pushEnabled]);
 
   const setColor = (key, val) => setColors(c => ({ ...c, [key]: val }));
   const save = () => {
@@ -38,6 +50,35 @@ export default function SettingsModal({ data, update, onClose, onSignOut, couple
       setTimeout(() => setImportMsg(null), 3000);
     }
     e.target.value = "";
+  };
+
+  const handlePushSubscribe = async () => {
+    setPushLoading(true); setPushMsg(null);
+    try {
+      await subscribePush(coupleId);
+      setPushSubscribed(true);
+      setPushStatus('granted');
+      setPushMsg('✅ Notificaciones activadas');
+    } catch (err) {
+      setPushMsg('❌ ' + err.message);
+    } finally {
+      setPushLoading(false);
+      setTimeout(() => setPushMsg(null), 4000);
+    }
+  };
+
+  const handlePushUnsubscribe = async () => {
+    setPushLoading(true); setPushMsg(null);
+    try {
+      await unsubscribePush();
+      setPushSubscribed(false);
+      setPushMsg('🔕 Notificaciones desactivadas');
+    } catch (err) {
+      setPushMsg('❌ ' + err.message);
+    } finally {
+      setPushLoading(false);
+      setTimeout(() => setPushMsg(null), 4000);
+    }
   };
 
   return (
@@ -83,6 +124,34 @@ export default function SettingsModal({ data, update, onClose, onSignOut, couple
           </div>
           {importMsg && <div style={{ fontSize:12, marginTop:8, color: importMsg.startsWith("✅") ? "#34d399" : "#fb923c" }}>{importMsg}</div>}
         </div>
+
+        {pushEnabled && (
+          <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:8, paddingTop:16, marginBottom:4 }}>
+            <div style={{ fontSize:11, color:"#6b5f88", marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Notificaciones push</div>
+            {pushStatus === 'unsupported' && (
+              <div style={{ fontSize:12, color:"#6b5f88", fontStyle:"italic" }}>Tu navegador no soporta notificaciones push. En iOS requiere Safari 16.4+ y tener la app añadida a la pantalla de inicio.</div>
+            )}
+            {pushStatus === 'denied' && (
+              <div style={{ fontSize:12, color:"#fb923c" }}>Notificaciones bloqueadas en el navegador. Actívalas desde Ajustes del sistema.</div>
+            )}
+            {(pushStatus === 'default' || pushStatus === 'granted') && (
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                <div>
+                  <div style={{ fontSize:13, color:"#e2d9ff" }}>{pushSubscribed ? '🔔 Activadas' : '🔕 Desactivadas'}</div>
+                  <div style={{ fontSize:11, color:"#6b5f88", marginTop:2 }}>Avisos cuando tu pareja actualiza</div>
+                </div>
+                <button
+                  onClick={pushSubscribed ? handlePushUnsubscribe : handlePushSubscribe}
+                  disabled={pushLoading}
+                  style={{ ...S.btnSecondary, fontSize:11, flexShrink:0, opacity: pushLoading ? 0.6 : 1 }}
+                >
+                  {pushLoading ? '…' : pushSubscribed ? 'Desactivar' : 'Activar'}
+                </button>
+              </div>
+            )}
+            {pushMsg && <div style={{ fontSize:12, marginTop:8, color: pushMsg.startsWith('✅') || pushMsg.startsWith('🔕') ? "#34d399" : "#fb923c" }}>{pushMsg}</div>}
+          </div>
+        )}
 
         <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:8, paddingTop:16, marginBottom:4 }}>
           <button onClick={onSignOut} style={{ width:"100%", background:"rgba(244,114,182,0.08)", border:"1px solid rgba(244,114,182,0.2)", borderRadius:8, color:"#f472b6", padding:"9px", cursor:"pointer", fontSize:13, fontFamily:"inherit" }}>

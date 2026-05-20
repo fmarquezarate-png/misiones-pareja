@@ -6,16 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
-      workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
-        cleanupOutdatedCaches: true,
+      injectManifest: {
         globIgnores: ['**/version.json'],
-        runtimeCaching: [
-          { urlPattern: /\/version\.json/, handler: 'NetworkOnly' },
-          { urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i, handler: 'CacheFirst', options: { cacheName: 'google-fonts', expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*365 } } }
-        ]
       },
       manifest: {
         name: 'Shared Calendar',

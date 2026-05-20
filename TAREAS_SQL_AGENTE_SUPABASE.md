@@ -583,11 +583,13 @@ WHERE table_name = 'push_subscriptions'
 
 ---
 
-## 🔮 SPRINT E — EJECUTAR DESPUÉS DEL 17 DE JUNIO
+## 🔜 SPRINT E-1 — EJECUTAR TRAS DEPLOY DE EDGE FUNCTION
 
-> **Contexto:** El Sprint E implementa las notificaciones push reales. La tabla `push_subscriptions` (C-3) ya existe. Lo que necesitamos aquí son los triggers de Postgres que disparan la Edge Function `send-push` automáticamente cuando ocurren eventos importantes.
+> **Contexto:** El Sprint E-0 y el código de la Edge Function `send-push` están listos (en `supabase/functions/send-push/index.ts`). Lo que falta es el trigger de Postgres que la dispara automáticamente cuando una pareja guarda cambios.
 >
-> **IMPORTANTE:** No ejecutar hasta que la Edge Function `send-push` esté desplegada en Supabase y el equipo de desarrollo confirme su URL.
+> **PREREQUISITO:** El owner debe desplegar la Edge Function con `supabase functions deploy send-push` y confirmar la URL antes de ejecutar este SQL. La URL tiene el formato: `https://TU_PROYECTO_ID.supabase.co/functions/v1/send-push`
+>
+> **NOTA para el agente:** Reemplazar `TU_PROYECTO` con el ID real del proyecto antes de ejecutar.
 
 ### E-1 · Trigger de notificación al partner cuando hay cambios
 
@@ -685,10 +687,10 @@ create policy "app_data_all_own" on public.app_data
 | D-4 — `couple_settings` | Ejecutado 20 mayo | ✅ Verificado |
 | D-5 — `week_photos` | Ejecutado 20 mayo | ✅ Verificado |
 | D-6 — `expenses` | APLAZADO a v4.1 | ❌ Aplazado |
-| E-0a — UNIQUE constraints blob_id | Ahora | 🔜 Pendiente |
-| E-0b — Resolución FKs goal_id/series_id/carried_from | Hoy | 🔜 Pendiente |
-| E-0c — Verificar RLS push_subscriptions | Antes de Sprint E | 🔜 Pendiente |
-| E-1 — Trigger push partner | Tras deploy Edge Function | 🔮 Futuro |
+| E-0a — UNIQUE constraints blob_id | Ejecutado 20 mayo | ✅ Verificado |
+| E-0b — Resolución FKs goal_id/carried_from (100%) + series_id (0/5 legacy) | Ejecutado 20 mayo | ✅ Verificado |
+| E-0c — RLS push_subscriptions verificada, cobertura completa | Ejecutado 20 mayo | ✅ Verificado |
+| E-1 — Trigger push partner | Tras deploy Edge Function send-push | 🔜 Próximo |
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro |
 
 ---
