@@ -205,6 +205,22 @@ export async function loadData(coupleId, opts = {}) {
   }
 }
 
+export async function loadDataWithVersion(coupleId) {
+  try {
+    const { data: rows, error } = await supabase
+      .from("app_data")
+      .select("data, version")
+      .eq("id", coupleId)
+      .limit(1);
+    if (error) { console.error("loadDataWithVersion error:", error.message); return { data: null, version: 0 }; }
+    const row = rows?.[0];
+    return { data: row?.data ?? null, version: row?.version ?? 0 };
+  } catch (e) {
+    console.error("loadDataWithVersion exception:", e);
+    return { data: null, version: 0 };
+  }
+}
+
 /**
  * saveData — guardado infalible
  *
