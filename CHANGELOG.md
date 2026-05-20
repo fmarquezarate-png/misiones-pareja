@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.6.1] — 2026-05-20
+
+### Corregido
+- **Eventos fantasma** (`repairMisplacedMissions` automático): al arrancar la app, si una misión
+  tiene campo `date` que apunta a una semana distinta a donde está almacenada, se mueve
+  automáticamente a la semana correcta. Antes solo ocurría al pulsar "📅 Distribuir eventos".
+  El evento "psico" (y similares) dejará de aparecer en Home pero no en la vista de semana.
+
+### Añadido
+- **Eliminar en Pendientes**: botón `×` en cada card de la pestaña Pendientes, con confirmación.
+- **Eliminar en Logros**: botón `×` en cada card de la pestaña Logros, con confirmación.
+
+---
+
 ## [3.6.0] — 2026-05-20 · Hito Sprint D completo
 
 **Hito:** dual_write normalizado activo — el blob y las tablas normalizadas se escriben en paralelo.

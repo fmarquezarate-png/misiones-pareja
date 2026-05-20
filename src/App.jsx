@@ -959,6 +959,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (!base.settings) base.settings = DEFAULT_SETTINGS;
         if (!base.goals) base.goals = SEED.goals;
         if (isTodayMonday()) base = applyCarryOver(base);
+        const { data: repaired, moved: repairedCount } = repairMisplacedMissions(base);
+        if (repairedCount > 0) { base = repaired; didMigrate = true; }
         setData(base);
 
         if (isRealData && didMigrate) await saveData(base, coupleId);
@@ -2106,9 +2108,10 @@ ${ms.map(m=>{
                             <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                           </div>
                         </div>
-                        <div style={{display:"flex",gap:4,flexShrink:0}}>
+                        <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
                           <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
                           <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
+                          <button onClick={()=>confirm("¿Eliminar esta tarea?",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:18,padding:"0 2px",lineHeight:1,flexShrink:0}} title="Eliminar">×</button>
                         </div>
                       </div>
                     </div>;
@@ -2204,7 +2207,10 @@ ${ms.map(m=>{
                                             {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
                                           </div>
                                         </div>
-                                        <span style={{fontSize:18,flexShrink:0}}>✅</span>
+                                        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
+                                          <span style={{fontSize:18}}>✅</span>
+                                          <button onClick={()=>confirm("¿Eliminar este logro?",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar">×</button>
+                                        </div>
                                       </div>
                                     </div>
                                   );
