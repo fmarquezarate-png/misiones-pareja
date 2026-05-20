@@ -393,6 +393,196 @@ Crear bucket `couple-assets` en Storage → Buckets → New bucket:
 
 ---
 
+## 🔜 SPRINT E-0 — CONSOLIDACIÓN SPRINT D (ejecutar ahora)
+
+> **Contexto:** Tres tareas de deuda técnica detectadas tras verificar el backfill del Sprint D. Son correcciones de schema — no tocan datos, solo añaden constraints y resuelven FKs que quedaron NULL durante el backfill por el incompatibilidad nanoid/uuid.
+>
+> **Prerequisito:** El backfill Sprint D debe estar verificado al 100% (FRANANA 220/220, CRI-COCO 32/32). ✅
+
+---
+
+### E-0a · UNIQUE constraints formales en blob_id (missions + goals)
+
+**Por qué:** El backfill del Sprint D creó índices parciales únicos `WHERE blob_id IS NOT NULL`. Son funcionalmente equivalentes a constraints formales para proteger contra race conditions, pero los constraints son más explícitos, visibles en herramientas y ORMs. Se reemplaza el índice parcial por el constraint formal, eliminando el índice redundante.
+
+**Paso 1 — Verificar duplicados (OBLIGATORIO antes de continuar):**
+
+```sql
+-- Si alguna de estas queries devuelve filas, reportar al owner antes de continuar
+SELECT couple_id, blob_id, COUNT(*) as n
+FROM missions 
+WHERE blob_id IS NOT NULL 
+GROUP BY couple_id, blob_id 
+HAVING COUNT(*) > 1;
+
+SELECT couple_id, blob_id, COUNT(*) as n
+FROM goals 
+WHERE blob_id IS NOT NULL 
+GROUP BY couple_id, blob_id 
+HAVING COUNT(*) > 1;
+
+-- Ver nombres reales de los índices existentes sobre blob_id
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE tablename IN ('missions', 'goals')
+  AND indexdef ILIKE '%blob_id%';
+```
+
+**Paso 2 — Aplicar solo si no hay duplicados:**
+
+```sql
+-- Reemplazar los nombres de índice con los reales del paso 1
+-- Ejemplo típico del backfill Sprint D:
+DROP INDEX IF EXISTS missions_couple_blob_uniq;
+DROP INDEX IF EXISTS goals_couple_blob_uniq;
+
+-- Constraints formales (NULL ≠ NULL en Postgres → múltiples NULLs permitidos, igual que el índice parcial)
+ALTER TABLE missions
+  ADD CONSTRAINT missions_couple_blob_unique
+  UNIQUE (couple_id, blob_id);
+
+ALTER TABLE goals
+  ADD CONSTRAINT goals_couple_blob_unique
+  UNIQUE (couple_id, blob_id);
+```
+
+**Verificación:**
+```sql
+SELECT conname, contype
+FROM pg_constraint
+WHERE conrelid IN ('missions'::regclass, 'goals'::regclass)
+  AND conname LIKE '%blob%';
+-- Debe devolver 2 filas con contype = 'u'
+```
+
+---
+
+### E-0b · Resolución de FKs internas en missions (goal_id, series_id, carried_from)
+
+**Por qué:** Durante el backfill del Sprint D, los campos `goal_id`, `series_id` y `carried_from` quedaron en NULL porque el regex guard excluyó nanoids de columnas uuid. Hoy esos campos son inútiles. Esta migración los resuelve en una sola pasada: añade columnas texto transitorias, las puebla desde el blob, resuelve a UUIDs y borra las columnas transitorias.
+
+**Estrategia (propuesta del owner — resolución en misma migración, sin deuda permanente):**
+- `series_id` y `carried_from`: self-joins en `missions` via `blob_id`
+- `goal_id`: cross-join con `goals` via `blob_id`
+- Las tres columnas `_blob_id` de tránsito se añaden y borran en la misma migración
+
+```sql
+-- E-0b: Resolución de FKs en missions — una sola migración limpia
+
+-- Paso 1: Columnas de tránsito (texto, transitorias)
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS goal_blob_id text;
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS series_blob_id text;
+ALTER TABLE missions ADD COLUMN IF NOT EXISTS carried_from_blob_id text;
+
+-- Paso 2: Poblar columnas de tránsito desde el blob
+-- (re-lee el blob para obtener los nanoids que el backfill no pudo guardar como uuid)
+UPDATE missions m
+SET
+  goal_blob_id         = (raw_mission->>'goalId'),
+  series_blob_id       = (raw_mission->>'seriesId'),
+  carried_from_blob_id = (raw_mission->>'carriedFrom')
+FROM (
+  SELECT
+    ad.id::uuid           AS couple_id,
+    week_entry.key        AS week_key,
+    mission_item.value    AS raw_mission
+  FROM app_data ad,
+    jsonb_each(ad.data->'weeks')            AS week_entry,
+    jsonb_array_elements(week_entry.value->'missions') AS mission_item
+) src
+WHERE m.couple_id = src.couple_id
+  AND m.week_key  = src.week_key
+  AND m.blob_id   = (src.raw_mission->>'id');
+
+-- Paso 3: Resolver goal_id (missions → goals)
+UPDATE missions m
+SET goal_id = g.id
+FROM goals g
+WHERE g.blob_id   = m.goal_blob_id
+  AND g.couple_id = m.couple_id
+  AND m.goal_blob_id IS NOT NULL
+  AND m.goal_id IS NULL;
+
+-- Paso 4: Resolver series_id (self-join missions)
+UPDATE missions m1
+SET series_id = m2.id
+FROM missions m2
+WHERE m2.blob_id   = m1.series_blob_id
+  AND m2.couple_id = m1.couple_id
+  AND m1.series_blob_id IS NOT NULL
+  AND m1.series_id IS NULL;
+
+-- Paso 5: Resolver carried_from (self-join missions)
+UPDATE missions m1
+SET carried_from = m2.id
+FROM missions m2
+WHERE m2.blob_id         = m1.carried_from_blob_id
+  AND m2.couple_id       = m1.couple_id
+  AND m1.carried_from_blob_id IS NOT NULL
+  AND m1.carried_from IS NULL;
+
+-- Paso 6: Verificación — reportar al owner antes de borrar columnas
+SELECT
+  'goal_id'      AS fk,
+  COUNT(*) FILTER (WHERE goal_blob_id IS NOT NULL AND goal_id IS NOT NULL)     AS resueltos,
+  COUNT(*) FILTER (WHERE goal_blob_id IS NOT NULL AND goal_id IS NULL)         AS sin_resolver
+FROM missions
+UNION ALL
+SELECT
+  'series_id',
+  COUNT(*) FILTER (WHERE series_blob_id IS NOT NULL AND series_id IS NOT NULL),
+  COUNT(*) FILTER (WHERE series_blob_id IS NOT NULL AND series_id IS NULL)
+FROM missions
+UNION ALL
+SELECT
+  'carried_from',
+  COUNT(*) FILTER (WHERE carried_from_blob_id IS NOT NULL AND carried_from IS NOT NULL),
+  COUNT(*) FILTER (WHERE carried_from_blob_id IS NOT NULL AND carried_from IS NULL)
+FROM missions;
+```
+
+**Paso 7 — Solo ejecutar si la verificación es satisfactoria:**
+```sql
+-- Borrar columnas de tránsito (schema limpio, sin deuda)
+ALTER TABLE missions DROP COLUMN IF EXISTS goal_blob_id;
+ALTER TABLE missions DROP COLUMN IF EXISTS series_blob_id;
+ALTER TABLE missions DROP COLUMN IF EXISTS carried_from_blob_id;
+```
+
+---
+
+### E-0c · Verificar y reforzar RLS en push_subscriptions
+
+**Por qué:** La tabla `push_subscriptions` tiene políticas existentes (push_select_own, push_insert_own, push_update_own, push_delete_own) creadas en C-3. Hay que verificar que el rol `anon` no puede ejecutar nada y que `service_role` puede acceder para el Edge Function que enviará pushes.
+
+```sql
+-- Ver estado actual de las políticas
+SELECT polname, polcmd, polroles::text
+FROM pg_policy
+WHERE polrelid = 'public.push_subscriptions'::regclass
+ORDER BY polcmd;
+
+-- Verificar que RLS está habilitado
+SELECT relname, relrowsecurity
+FROM pg_class
+WHERE relname = 'push_subscriptions';
+-- relrowsecurity debe ser true
+
+-- Confirmar que anon no tiene ningún permiso
+SELECT grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_name = 'push_subscriptions'
+  AND grantee = 'anon';
+-- Debe devolver 0 filas
+
+-- Si hay grants a anon, revocarlos:
+-- REVOKE ALL ON public.push_subscriptions FROM anon;
+```
+
+**Si las policies existentes son correctas, no hay nada que cambiar.** Reportar el resultado del SELECT de pg_policy al owner para confirmar.
+
+---
+
 ## 🔮 SPRINT E — EJECUTAR DESPUÉS DEL 17 DE JUNIO
 
 > **Contexto:** El Sprint E implementa las notificaciones push reales. La tabla `push_subscriptions` (C-3) ya existe. Lo que necesitamos aquí son los triggers de Postgres que disparan la Edge Function `send-push` automáticamente cuando ocurren eventos importantes.
@@ -495,6 +685,9 @@ create policy "app_data_all_own" on public.app_data
 | D-4 — `couple_settings` | Ejecutado 20 mayo | ✅ Verificado |
 | D-5 — `week_photos` | Ejecutado 20 mayo | ✅ Verificado |
 | D-6 — `expenses` | APLAZADO a v4.1 | ❌ Aplazado |
+| E-0a — UNIQUE constraints blob_id | Ahora | 🔜 Pendiente |
+| E-0b — Resolución FKs goal_id/series_id/carried_from | Hoy | 🔜 Pendiente |
+| E-0c — Verificar RLS push_subscriptions | Antes de Sprint E | 🔜 Pendiente |
 | E-1 — Trigger push partner | Tras deploy Edge Function | 🔮 Futuro |
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro |
 
