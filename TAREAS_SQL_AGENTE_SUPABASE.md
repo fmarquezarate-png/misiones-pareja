@@ -492,8 +492,8 @@ create policy "app_data_all_own" on public.app_data
 | D-1 — Helper `is_couple_member` | Ejecutado 20 mayo | ✅ Verificado |
 | D-2 — `missions` normalizada | Ejecutado 20 mayo | ✅ Verificado |
 | D-3 — `goals` normalizada | Ejecutado 20 mayo | ✅ Verificado |
-| D-4 — `couple_settings` | Tras D-3 ✅ | 🟡 Ejecutar ahora |
-| D-5 — `week_photos` | Tras D-4 | 🟡 Ejecutar en orden |
+| D-4 — `couple_settings` | Ejecutado 20 mayo | ✅ Verificado |
+| D-5 — `week_photos` | Ejecutado 20 mayo | ✅ Verificado |
 | D-6 — `expenses` | APLAZADO a v4.1 | ❌ Aplazado |
 | E-1 — Trigger push partner | Tras deploy Edge Function | 🔮 Futuro |
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro |

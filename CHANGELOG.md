@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.5.5] — 2026-05-20
+
+### Infraestructura (SQL agent)
+- Sprint D SQL 100% completo — 5 tablas normalizadas listas en Supabase:
+  - `public.missions` (D-2): 21 cols, FK cascada, 3 índices, RLS, trigger updated_at
+  - `public.goals` (D-3): índice parcial `active=true`, RLS, trigger updated_at
+  - `public.couple_settings` (D-4): PK = couple_id (1 fila/pareja), RLS, trigger updated_at
+  - `public.week_photos` (D-5): constraint `unique(couple_id, week_key)`, RLS
+  - Helper `is_couple_member()` (D-1): security definer, stable, base de todas las RLS
+- `TAREAS_SQL_AGENTE_SUPABASE.md`: D-4 y D-5 marcados ✅
+
+---
+
 ## [3.5.4] — 2026-05-20
 
 ### Corregido
