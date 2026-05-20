@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
+import { loadData, loadDataWithVersion, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
 import Brand from "./components/Brand.jsx";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -13,6 +13,8 @@ import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 import { track, setTrackContext } from "./lib/track.js";
+import { isEnabled } from "./lib/flags.js";
+import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
@@ -769,8 +771,9 @@ function TutorialOverlay({ step, onNext, onSkip, onFinish }) {
 function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const saveTimerRef = useRef(null);
-  const dataRef      = useRef(null);
+  const saveTimerRef    = useRef(null);
+  const dataRef         = useRef(null);
+  const dataVersionRef  = useRef(0);
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
@@ -925,6 +928,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setData(fast);
         setLoading(false); // show immediately — Supabase will update silently
       }
+
+      // Leer version para CAS — no interrumpe el flujo existente
+      loadDataWithVersion(coupleId).then(({ version }) => {
+        dataVersionRef.current = version;
+        console.debug("[CAS] version cargada:", version);
+      });
 
       // Background: fetch authoritative data from Supabase
       try {
@@ -1128,6 +1137,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
+        // CAS pre-check: si el flag está activo, intentar save atómico primero
+        if (isEnabled("cas_version_check")) {
+          saveWithCAS(coupleId, next, dataVersionRef.current).then(result => {
+            if (result.success) {
+              dataVersionRef.current = result.newVersion;
+              console.debug("[CAS] save exitoso, nueva version:", result.newVersion);
+            } else if (result.conflict) {
+              console.warn("[CAS] conflicto de version — otro cliente se adelantó");
+              track("cas_conflict", { couple_id: coupleId });
+            }
+            // Si casDisabled o error, el saveWithRetry normal ya se encarga
+          });
+        }
         saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
           .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
           .catch(e => { setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
