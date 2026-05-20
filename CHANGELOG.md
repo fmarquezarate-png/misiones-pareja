@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.5.1] — 2026-05-20
+
+### Corregido
+- `save_app_data_cas`: RPC usaba `WHERE couple_id = p_couple_id` pero la PK de `app_data` es `id`
+  — corregido a `WHERE id = p_couple_id`
+- Backup C-1 confirmado: 5 parejas, 2,1 MB, guardado en 2 sitios
+
+---
+
 ## [3.5.0] — 2026-05-20 · Hito Sprint B + Sprint A completo
 
 **Hito:** telemetría real operativa, Goals drill-down, Logros timeline emocional,
