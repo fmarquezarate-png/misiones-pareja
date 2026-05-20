@@ -489,10 +489,10 @@ create policy "app_data_all_own" on public.app_data
 | C-1 — Backup manual | Esta semana | ✅ Confirmado 20 mayo (5 parejas, 2,1 MB) |
 | C-2 — `version` + CAS en `app_data` | Esta semana (tras backup) | ✅ Ejecutado + fix PK aplicado |
 | C-3 — `push_subscriptions` | Esta semana | ✅ Ejecutado y verificado |
-| D-1 — Helper `is_couple_member` | ✅ DESBLOQUEADO 20 mayo | 🟡 Ejecutar ahora |
-| D-2 — `missions` normalizada | Tras D-1 | 🟡 Ejecutar en orden |
-| D-3 — `goals` normalizada | Tras D-2 | 🟡 Ejecutar en orden |
-| D-4 — `couple_settings` | Tras D-3 | 🟡 Ejecutar en orden |
+| D-1 — Helper `is_couple_member` | Ejecutado 20 mayo | ✅ Verificado |
+| D-2 — `missions` normalizada | Ejecutado 20 mayo | ✅ Verificado |
+| D-3 — `goals` normalizada | Ejecutado 20 mayo | ✅ Verificado |
+| D-4 — `couple_settings` | Tras D-3 ✅ | 🟡 Ejecutar ahora |
 | D-5 — `week_photos` | Tras D-4 | 🟡 Ejecutar en orden |
 | D-6 — `expenses` | APLAZADO a v4.1 | ❌ Aplazado |
 | E-1 — Trigger push partner | Tras deploy Edge Function | 🔮 Futuro |
