@@ -690,7 +690,7 @@ create policy "app_data_all_own" on public.app_data
 | E-0a — UNIQUE constraints blob_id | Ejecutado 20 mayo | ✅ Verificado |
 | E-0b — Resolución FKs goal_id/carried_from (100%) + series_id (0/5 legacy) | Ejecutado 20 mayo | ✅ Verificado |
 | E-0c — RLS push_subscriptions verificada, cobertura completa | Ejecutado 20 mayo | ✅ Verificado |
-| E-1 — Trigger push partner | Tras deploy Edge Function send-push | 🔜 Próximo |
+| E-1 — Trigger push partner (trg_push_on_app_data_update) | Ejecutado 20 mayo | ✅ Verificado |
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro |
 
 ---

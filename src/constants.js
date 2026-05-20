@@ -1,6 +1,10 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
 export const APP_VERSION = "3.7.0";
 export const LAST_UPDATE = "2026-05-20";
+
+// Clave pública VAPID — segura en el cliente (no es un secreto)
+export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
+  ?? "hMi4hh1klzaBMcdK3sDbGxWVITQD377C-2jy84dKC6V9jaGYCv-huBTGrdDnJPn5374SYKnmkvcdbtZ8uyaHhQ";
 export const CHANGELOG = [
   { v:"3.7.0", date:"2026-05-20", notes:["HITO Sprint E: Web Push VAPID implementado — service worker con push/notificationclick, UI en Settings, Edge Function send-push lista para deploy","Infraestructura completa: push.js (subscribe/unsubscribe/getSubscription), sw.js con workbox injectManifest, SettingsModal con toggle de notificaciones","Para activar: generar VAPID keys, añadir VITE_VAPID_PUBLIC_KEY al .env, desplegar Edge Function, activar flag push_enabled","Versión 3.7.0"] },
   { v:"3.6.1", date:"2026-05-20", notes:["Fix: eventos fantasma — al cargar datos, repairMisplacedMissions() se ejecuta automáticamente y reubica misiones con 'date' mal asignada a semana incorrecta","Nuevo: botón × para eliminar tareas en pestaña Pendientes","Nuevo: botón × para eliminar logros en pestaña Logros","Versión 3.6.1"] },

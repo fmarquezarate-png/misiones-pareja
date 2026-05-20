@@ -28,13 +28,13 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 ### Modificado
 - `vite.config.js`: migrado de `GenerateSW` a `InjectManifest` para permitir push handlers.
 
-### Para activar en producción
-1. `npx web-push generate-vapid-keys` — guardar claves
-2. Añadir `VITE_VAPID_PUBLIC_KEY=...` a `.env.local`
-3. Supabase → Settings → Edge Functions → Secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT`
-4. `supabase functions deploy send-push`
-5. SQL agent → E-1 (trigger en app_data tras deploy)
-6. `flags.js`: `push_enabled: true`
+### Estado en producción
+- ✅ VAPID keys generadas y configuradas en Supabase Secrets
+- ✅ Edge Function `send-push` desplegada y activa
+- ✅ Extensión `pg_net` habilitada
+- ✅ Trigger `trg_push_on_app_data_update` activo en `app_data`
+- ✅ Flag `push_enabled: true`
+- ✅ Clave pública VAPID en `constants.js` (fallback hardcodeado — es pública, no es secreto)
 
 ---
 

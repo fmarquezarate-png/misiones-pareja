@@ -1,10 +1,9 @@
 // push.js — Web Push subscription management (Sprint E)
-// Requires VITE_VAPID_PUBLIC_KEY env var at build time.
 // All DB writes go to push_subscriptions via Supabase RLS (authenticated user only).
 
 import supabase from '../supabase.js';
+import { VAPID_PUBLIC_KEY } from '../constants.js';
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 function urlBase64ToUint8Array(b64) {
   const padding = '='.repeat((4 - (b64.length % 4)) % 4);
@@ -39,7 +38,7 @@ export async function getCurrentSubscription() {
 }
 
 export async function subscribePush(coupleId) {
-  if (!VAPID_PUBLIC_KEY) throw new Error('VITE_VAPID_PUBLIC_KEY no configurada');
+  if (!VAPID_PUBLIC_KEY) throw new Error('VAPID_PUBLIC_KEY no configurada');
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Permiso denegado por el usuario');
