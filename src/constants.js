@@ -1,7 +1,8 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.5.3";
+export const APP_VERSION = "3.5.4";
 export const LAST_UPDATE = "2026-05-20";
 export const CHANGELOG = [
+  { v:"3.5.4", date:"2026-05-20", notes:["Fix: pestaña Pendientes/Logros crasheaba con 'we.slice is not a function' — completedAt no siempre es string","Fix: Goals drill-down no abría — App.jsx tenía versiones locales antiguas de GoalForm/GoalCard/GoalsView que sobreescribían el import de views/GoalsView.jsx","Versión 3.5.4"] },
   { v:"3.5.3", date:"2026-05-20", notes:["Fix: APP_VERSION en constants.js estaba en 3.4.1 — la app mostraba versión incorrecta en UI y en la lógica de actualización","Versión 3.5.3"] },
   { v:"3.5.2", date:"2026-05-20", notes:["Panel DEV para migración Sprint D: DevBackfillPanel ejecuta y verifica el backfill de datos blob → tablas normalizadas","Funciones puras para Sprint H (Stats narrativos): loadBalance, consistencyStreak, topCategory, completionTrend, procrastinationAlert","Versión 3.5.2"] },
   { v:"3.5.1", date:"2026-05-20", notes:["Fix RPC save_app_data_cas: usaba WHERE couple_id en lugar de WHERE id — corregido","Versión 3.5.1"] },
