@@ -1115,7 +1115,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const update = useCallback(fn => {
     setData(prev => {
       const next = fn(prev);
-      if (!isValidAppData(next)) return next; // guard: skip save if state looks corrupt
+      if (!isValidAppData(next)) {
+        // guard: skip save if state looks corrupt — but notify instead of silently dropping
+        console.error("[save] isValidAppData failed — datos no guardados. Tamaño:", JSON.stringify(next).length);
+        track("save_validation_failed", {
+          size: JSON.stringify(next).length,
+          keys: Object.keys(next || {}).join(",").slice(0, 100),
+        });
+        pushToast({ kind: "error", text: "⚠️ Error de validación — los cambios no se guardaron. Recarga la app si el problema persiste." });
+        return next;
+      }
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
@@ -1200,6 +1209,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const w = d.weeks[wkey]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id);
       const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      if (nx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
       let next = { ...d, weeks: { ...d.weeks, [wkey]: { ...w, missions: w.missions.map(x => x.id===id ? {...x, status:nx, completedAt:nx==="DONE"?Date.now():null} : x) } } };
       if (nx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
@@ -1228,6 +1238,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const w = d.weeks[key]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
       const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      if (nx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
       let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nx,completedAt:nx==="DONE"?Date.now():null}:x) } } };
       if (nx==="DONE" && m.carriedFrom) next = syncCarryDone(next, key, id);
       return next;
@@ -2033,7 +2044,7 @@ ${ms.map(m=>{
             <div style={{display:"flex",gap:8,alignItems:"center"}}>
               <div style={{display:"flex",flex:1,gap:4,background:"rgba(128,128,128,0.06)",borderRadius:10,padding:3}}>
                 <button onClick={()=>setPendingTab("pending")} style={subTabStyle(pendingTab==="pending")}>📋 Pendientes <span style={{fontSize:10,opacity:0.7}}>({pendingFiltered.length})</span></button>
-                <button onClick={()=>setPendingTab("logros")}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosDeduped.length})</span></button>
+                <button onClick={()=>{ setPendingTab("logros"); track("logros_tab_viewed", { count: logrosDeduped.length }); }}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosDeduped.length})</span></button>
               </div>
               <button onClick={()=>forceSync()} title="Bajar datos de Supabase"
                 style={{...S.btnSecondary, padding:"7px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4, flexShrink:0}}>
