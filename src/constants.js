@@ -1,7 +1,9 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.6.0";
+export const APP_VERSION = "3.7.0";
 export const LAST_UPDATE = "2026-05-20";
 export const CHANGELOG = [
+  { v:"3.7.0", date:"2026-05-20", notes:["HITO Sprint E: Web Push VAPID implementado — service worker con push/notificationclick, UI en Settings, Edge Function send-push lista para deploy","Infraestructura completa: push.js (subscribe/unsubscribe/getSubscription), sw.js con workbox injectManifest, SettingsModal con toggle de notificaciones","Para activar: generar VAPID keys, añadir VITE_VAPID_PUBLIC_KEY al .env, desplegar Edge Function, activar flag push_enabled","Versión 3.7.0"] },
+  { v:"3.6.1", date:"2026-05-20", notes:["Fix: eventos fantasma — al cargar datos, repairMisplacedMissions() se ejecuta automáticamente y reubica misiones con 'date' mal asignada a semana incorrecta","Nuevo: botón × para eliminar tareas en pestaña Pendientes","Nuevo: botón × para eliminar logros en pestaña Logros","Versión 3.6.1"] },
   { v:"3.6.0", date:"2026-05-20", notes:["HITO: dual_write_normalized activado — cada save escribe en blob Y en tablas normalizadas simultáneamente","Backfill 100% verificado: 220 misiones + 8 metas (FRANANA), 32 misiones (CRI-COCO) — db=blob en todos los casos","repo.js actualizado para usar blob_id en búsquedas (IDs del app son nanoids, no UUIDs)","Versión 3.6.0"] },
   { v:"3.5.5", date:"2026-05-20", notes:["Sprint D SQL 100% completo: missions, goals, couple_settings, week_photos + helper is_couple_member — todas con RLS y triggers","Versión 3.5.5"] },
   { v:"3.5.4", date:"2026-05-20", notes:["Fix: pestaña Pendientes/Logros crasheaba con 'we.slice is not a function' — completedAt no siempre es string","Fix: Goals drill-down no abría — App.jsx tenía versiones locales antiguas de GoalForm/GoalCard/GoalsView que sobreescribían el import de views/GoalsView.jsx","Versión 3.5.4"] },

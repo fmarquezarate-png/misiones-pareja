@@ -7,6 +7,51 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.7.0] — 2026-05-20 · Hito Sprint E — Web Push VAPID
+
+**Hito:** infraestructura completa de notificaciones push. Falta únicamente activar las VAPID keys y desplegar la Edge Function para que sea funcional en producción.
+
+### Añadido
+- `src/sw.js`: service worker custom con `injectManifest` (workbox). Maneja evento `push`
+  (muestra notificación del sistema) y `notificationclick` (abre/foca la app). Mantiene
+  el caching de Google Fonts y NetworkOnly para version.json.
+- `src/lib/push.js`: librería de cliente — `subscribePush`, `unsubscribePush`,
+  `getCurrentSubscription`, `isPushSupported`, `getPermissionStatus`. Guarda suscripción
+  en `push_subscriptions` vía Supabase con upsert por `endpoint`.
+- `supabase/functions/send-push/index.ts`: Edge Function Deno lista para deploy.
+  Recibe `{ coupleId, title, body, tag, url }`, envía push a todas las suscripciones
+  activas de la pareja, gestiona errores 410 (suscripción expirada → disabled).
+- `src/components/SettingsModal.jsx`: sección "Notificaciones push" detrás del flag
+  `push_enabled`. Muestra estado actual, botón Activar/Desactivar, mensajes de error.
+- `.env.example`: documentación de variables de entorno requeridas.
+
+### Modificado
+- `vite.config.js`: migrado de `GenerateSW` a `InjectManifest` para permitir push handlers.
+
+### Para activar en producción
+1. `npx web-push generate-vapid-keys` — guardar claves
+2. Añadir `VITE_VAPID_PUBLIC_KEY=...` a `.env.local`
+3. Supabase → Settings → Edge Functions → Secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT`
+4. `supabase functions deploy send-push`
+5. SQL agent → E-1 (trigger en app_data tras deploy)
+6. `flags.js`: `push_enabled: true`
+
+---
+
+## [3.6.1] — 2026-05-20
+
+### Corregido
+- **Eventos fantasma** (`repairMisplacedMissions` automático): al arrancar la app, si una misión
+  tiene campo `date` que apunta a una semana distinta a donde está almacenada, se mueve
+  automáticamente a la semana correcta. Antes solo ocurría al pulsar "📅 Distribuir eventos".
+  El evento "psico" (y similares) dejará de aparecer en Home pero no en la vista de semana.
+
+### Añadido
+- **Eliminar en Pendientes**: botón `×` en cada card de la pestaña Pendientes, con confirmación.
+- **Eliminar en Logros**: botón `×` en cada card de la pestaña Logros, con confirmación.
+
+---
+
 ## [3.6.0] — 2026-05-20 · Hito Sprint D completo
 
 **Hito:** dual_write normalizado activo — el blob y las tablas normalizadas se escriben en paralelo.
