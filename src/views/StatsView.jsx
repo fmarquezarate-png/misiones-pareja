@@ -3,6 +3,8 @@ import { CATEGORIES, STATUS, STATUS_ORDER, DEFAULT_COLORS } from "../constants.j
 import { getMCats } from "../constants.js";
 import { getWeekAndYear, isoWeekKey } from "../utils.js";
 import { S } from "../styles.js";
+import { isEnabled } from "../lib/flags.js";
+import { generateInsights } from "../lib/insights.js";
 
 // ─── CatStatsCard ─────────────────────────────────────────────────────────────
 function CatStatsCard({ catStats }) {
@@ -170,47 +172,10 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
   const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
   const filterLabel   = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
 
-  // ── AI Insights ──────────────────────────────────────────────────────────────
-  const insights = [];
-  if (series.length >= 3) {
-    const last3 = series.slice(-3), prev3 = series.slice(-6, -3);
-    const avgL = last3.reduce((s,w)=>s+w.pct,0)/last3.length;
-    const avgP = prev3.length>0?prev3.reduce((s,w)=>s+w.pct,0)/prev3.length:avgL;
-    const lastW = last3[last3.length-1];
-    if (avgL > avgP+12) insights.push({icon:"🚀",title:`Momento imparable: +${Math.round(avgL-avgP)}pts en 3 semanas`,desc:`De ${Math.round(avgP)}% a ${Math.round(avgL)}% de media. ¡Seguid así!`,weekNumber:lastW?.weekNumber,year:lastW?.year});
-    else if (avgL < avgP-12) insights.push({icon:"📉",title:"Bajada de ritmo detectada",desc:`De ${Math.round(avgP)}% bajasteis a ${Math.round(avgL)}%. Esta semana es la oportunidad de remontar.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
-    else insights.push({icon:"➡️",title:`Consistencia sólida al ${Math.round(avgL)}%`,desc:`Lleváis 3 semanas sin grandes altibajos. Consistencia = progreso real 💪`});
-  }
-  const weekScores = allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d2=w.missions?.filter(m=>m.status==="DONE").length||0,t2=w.missions?.length||0;return{p:t2>0?d2/t2:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t:t2,d:d2};}).filter(w=>w.p!==null&&w.t>=3);
-  if (weekScores.length >= 2) {
-    const bW = weekScores.reduce((a,b)=>b.p>a.p?b:a);
-    const wW = weekScores.reduce((a,b)=>b.p<a.p?b:a);
-    insights.push({icon:"🏆",title:`Mejor semana: S${bW.wn}${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d}/${bW.t} completadas (${Math.round(bW.p*100)}%). ¡Vuestra semana récord!`,weekNumber:bW.wn,year:bW.yr});
-    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana floja: S${wW.wn} (${Math.round(wW.p*100)}%)`,desc:`Solo ${wW.d}/${wW.t} completadas. Explorad qué pasó para no repetirlo.`,weekNumber:wW.wn,year:wW.yr});
-  }
-  if (catStats.length > 1) {
-    const sorted = [...catStats].sort((a,b)=>(b.done/Math.max(b.count,1))-(a.done/Math.max(a.count,1)));
-    const best = sorted[0], weak = sorted[sorted.length-1];
-    if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: vuestra categoría estrella`,desc:`${Math.round((best.done/best.count)*100)}% de completitud en ${best.count} misiones.`});
-    if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría con margen de mejora`,desc:`Solo ${Math.round((weak.done/weak.count)*100)}% completadas.`});
-  }
-  const p1c = ph("person1").count, p2c = ph("person2").count;
-  if (p1c+p2c > 0) {
-    const diff = Math.abs(p1c-p2c);
-    if (diff>3) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} lleva ${diff} misiones más`,desc:`${p1}: ${p1c} propias · ${p2}: ${p2c} propias.`});
-    else insights.push({icon:"🤝",title:"Reparto equilibrado del trabajo",desc:`${p1}: ${p1c} · ${p2}: ${p2c}.`});
-  }
-  if (catStats.length>0) {
-    const workC = catStats.find(c=>c.id==="trabajo");
-    const lifeTotal = catStats.filter(c=>c.id!=="trabajo").reduce((s,c)=>s+c.count,0);
-    if (workC&&lifeTotal>0) {
-      const ratio = workC.count/(workC.count+lifeTotal)*100;
-      if (ratio>60) insights.push({icon:"💼",title:`Trabajo ocupa el ${Math.round(ratio)}% de las misiones`,desc:`¿Estáis dedicando suficiente tiempo a pareja y ocio?`});
-      else if (ratio<20&&workC.count>0) insights.push({icon:"🌈",title:"Gran equilibrio vida-trabajo",desc:`Solo ${Math.round(ratio)}% de misiones son de trabajo.`});
-    }
-  }
-  if (currStreakNow>=2) insights.push({icon:"🔥",title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} perfectas`,desc:`Lleváis ${currStreakNow} semanas al 100%.`});
-  if (wc>=4) { const avgMpW=(total/wc).toFixed(1); insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana`,desc:`Con ${total} misiones en ${wc} semanas.`}); }
+  // ── Insights narrativos (Sprint H) ───────────────────────────────────────────
+  const narrativeInsights = isEnabled("stats_insights_enabled")
+    ? generateInsights(weeks, p1, p2)
+    : null;
 
   if (total === 0) return (
     <div style={{ textAlign:"center", color:"#3d3360", padding:50 }}>
@@ -252,27 +217,34 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>
       </div>
 
-      {/* AI Insights */}
-      {insights.length > 0 && (
-        <div style={{ ...S.card, borderColor:"rgba(244,114,182,0.25)", background:"linear-gradient(135deg,rgba(167,139,250,0.07),rgba(244,114,182,0.04))" }}>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"#f472b6", marginBottom:12, fontWeight:600 }}>✨ Análisis inteligente</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {insights.map((ins, i) => (
-              <div key={i} style={{ display:"flex", gap:10, alignItems:"flex-start", paddingBottom:i<insights.length-1?10:0, borderBottom:i<insights.length-1?"1px solid rgba(167,139,250,0.1)":"none" }}>
-                <span style={{ fontSize:18, lineHeight:1, flexShrink:0, marginTop:1 }}>{ins.icon}</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:2 }}>
-                    <span style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", fontWeight:600 }}>{ins.title}</span>
-                    {ins.weekNumber && onGoToWeek && <button onClick={()=>onGoToWeek(ins.weekNumber, ins.year||new Date().getFullYear())}
-                      style={{ background:"rgba(167,139,250,0.15)", border:"1px solid rgba(167,139,250,0.3)", borderRadius:99, color:"#a78bfa", fontSize:10, padding:"2px 9px", cursor:"pointer", fontFamily:"inherit" }}>→ S{ins.weekNumber}</button>}
+      {/* Insights narrativos — Sprint H Wrapped */}
+      {narrativeInsights?.length > 0 && (() => {
+        const SC = {
+          positive: { bg:"rgba(52,211,153,0.07)",  border:"rgba(52,211,153,0.22)",  val:"#34d399", dot:"#34d399" },
+          negative: { bg:"rgba(244,114,182,0.07)", border:"rgba(244,114,182,0.22)", val:"#f472b6", dot:"#f472b6" },
+          curious:  { bg:"rgba(96,165,250,0.07)",  border:"rgba(96,165,250,0.22)",  val:"#60a5fa", dot:"#60a5fa" },
+          neutral:  { bg:"rgba(167,139,250,0.07)", border:"rgba(167,139,250,0.22)", val:"#a78bfa", dot:"#a78bfa" },
+        };
+        return (
+          <div>
+            <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-muted,#6b5f88)", fontWeight:600, marginBottom:10, paddingLeft:2 }}>✨ Tu resumen narrativo</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {narrativeInsights.map((ins, i) => {
+                const c = SC[ins.sentiment] || SC.neutral;
+                return (
+                  <div key={i} style={{ background:c.bg, border:`1px solid ${c.border}`, borderRadius:14, padding:"16px 18px", opacity:0, animation:`fadeInUp 0.3s ease ${i*0.07}s forwards` }}>
+                    <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:4 }}>
+                      <span style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color:c.val, lineHeight:1 }}>{ins.value}</span>
+                      <span style={{ fontSize:10, color:c.dot, textTransform:"uppercase", letterSpacing:1.5, fontWeight:600 }}>{ins.label}</span>
+                    </div>
+                    <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.6 }}>{ins.detail}</div>
                   </div>
-                  <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.5 }}>{ins.desc}</div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* KPIs */}
       <div>
