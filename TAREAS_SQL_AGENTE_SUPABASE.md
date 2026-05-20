@@ -73,7 +73,7 @@ declare
 begin
   update public.app_data
   set data = p_data, updated_at = now()
-  where couple_id = p_couple_id
+  where id = p_couple_id
     and version = p_version
   returning * into v_row;
 
