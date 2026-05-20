@@ -1,0 +1,135 @@
+# Changelog — Misiones de Pareja
+
+Todas las versiones notables de este proyecto están documentadas aquí.
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
+Cada merge a la rama principal incrementa la versión de parche (x.y.**z**).
+Los hitos de sprint incrementan la versión menor (x.**y**.0).
+
+---
+
+## [3.5.0] — 2026-05-20 · Hito Sprint B + Sprint A completo
+
+**Hito:** telemetría real operativa, Goals drill-down, Logros timeline emocional,
+feature flags, CAS wiring y base de Sprint D lista.
+
+### Añadido
+- `src/lib/backfill.js`: script de migración one-shot blob → tablas normalizadas (Sprint D)
+- `src/lib/repo.js`: dual-write real para missions, goals y settings detrás de `dual_write_normalized`
+- `src/lib/flags.js`: sistema de feature flags con 7 flags del roadmap v4.0
+
+### Infraestructura
+- CAS plumbing: `loadDataWithVersion()` + `dataVersionRef` + pre-check en save
+- `saveWithCAS()` en repo.js conectado al RPC `save_app_data_cas` de Supabase
+- Documento `TAREAS_SQL_AGENTE_SUPABASE.md` con todas las migraciones del roadmap
+
+---
+
+## [3.4.11] — 2026-05-20
+
+### Añadido
+- Sprint D prep: `loadDataWithVersion()` en supabase.js lee `data + version` en paralelo
+- `dataVersionRef` en App.jsx almacena versión durante la sesión
+- CAS pre-check en debounced save (no-op con `cas_version_check=false`)
+- Imports de `isEnabled` y `saveWithCAS` en App.jsx
+
+---
+
+## [3.4.10] — 2026-05-20
+
+### Añadido
+- Telemetría `goal_drilldown_opened` en GoalsView.jsx al abrir bottom sheet
+- Telemetría `logros_tab_viewed` en App.jsx al entrar a sub-tab Logros
+- Import de `track` en GoalsView.jsx
+
+---
+
+## [3.4.9] — 2026-05-20
+
+### Añadido
+- `src/lib/repo.js` stub: capa de acceso a datos con interface preparado para dual-write
+- `src/lib/track.js` mejorado: warn claro cuando tabla `events` no existe, verifyTelemetry()
+- Telemetría `mission_completed` en cycleStatus y cycleStatusGlobal (con who, hasGoal, week)
+- Telemetría `logros_tab_viewed` en botón de sub-tab
+
+### Corregido
+- `isValidAppData`: ya no falla silenciosamente — console.error + track + toast visible
+
+---
+
+## [3.4.8] — 2026-05-20
+
+### Añadido
+- `supabase/migrations/20260520_sprint_a.sql`: DDL tabla `events` con RLS, idempotente
+- Documento SQL completo `TAREAS_SQL_AGENTE_SUPABASE.md` para agente Supabase (sprints C→G)
+
+---
+
+## [3.4.7] — 2026-05-20
+
+### Añadido
+- `src/components/PillFilter.jsx`: filtro por pills reutilizable (personas + categorías con contadores)
+- Logros reframe como timeline emocional: hero cards (Totales / Esta semana / Racha)
+- Agrupación de logros por día con animación `fadeInUp` escalonada
+- Filtro local de Logros con `logrosPeopleFilter` + `logrosCatFilter` (independiente del filtro global)
+- `@keyframes fadeInUp` añadido al bloque `<style>` global
+
+### Corregido
+- Dedup de logros: eliminado el colapso por `title+who` que eliminaba logros legítimos distintos
+- Solo se deduplicó por `seriesId` (misiones recurrentes)
+
+---
+
+## [3.4.6] — 2026-05-20
+
+### Añadido
+- `src/components/GoalPeriodDetail.jsx`: bottom sheet (móvil) / modal (desktop) para drill-down de metas
+- Microcopy comparativo: "↑ 3 más que el período anterior" / "↓ 1 menos" / "Igual" / "Período en curso"
+- Animación de entrada con `requestAnimationFrame` + `useState(false)` → `setVisible(true)`
+- Lista readonly de misiones DONE del período seleccionado
+
+### Modificado
+- `src/utils.js`: `computeGoalHistory` acepta segundo parámetro `{ includeMissions: true }`
+  — embebe misiones DONE de cada período en el objeto de history (retrocompatible)
+- `src/views/GoalsView.jsx`: wiring de `GoalPeriodDetail`, elimina `getPeriodMissions` (ya innecesaria)
+
+---
+
+## [3.4.5] — 2026-05-20
+
+### Añadido
+- `src/lib/track.js`: warn visible cuando tabla `events` no existe (42P01), solo una vez
+- `src/lib/flags.js`: sistema de feature flags con localStorage + 7 flags del roadmap
+  - `goals_drilldown_enabled: true` activado
+  - Resto en `false` hasta cada sprint correspondiente
+  - `window.__mpFlags` expuesto para debugging en consola
+
+---
+
+## [3.4.4] — 2026-05-20
+
+### Corregido
+- Migración SQL: `CREATE POLICY IF NOT EXISTS` no es sintaxis válida en PostgreSQL
+  — reemplazado por `DROP POLICY IF EXISTS` + `CREATE POLICY`
+
+---
+
+## [3.4.3] — 2026-05-20
+
+### Añadido
+- `WORKSHOP_v4_INFORME_EJECUTIVO.md`: informe ejecutivo completo del Workshop v4.0.0
+  — 10 secciones, 5 expertos, roadmap v3.5→v4.0, 7 garantías irrompibles
+
+---
+
+## [3.4.2] — 2026-05-20
+
+### Corregido
+- iOS PWA: la página se recarga automáticamente cuando el Service Worker actualiza y toma control
+  — evita que módulos JS eliminados causen fallos de carga en PWA instaladas en iOS
+
+---
+
+## [3.4.1] — 2026-05-14 · Línea base
+
+Versión de producción antes del Workshop v4.0.0.
+Ver historial de git para cambios anteriores.
