@@ -7,7 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [3.8.2] — 2026-05-20 · Fix sistémico — Componentes duplicados eliminados
+## [3.8.3] — 2026-05-21 · Sprint E — Push completo en producción
+
+### Corregido
+- **Self-notify bug** (detectado por Analista): `send-push` notificaba a toda la pareja incluyendo quien guardó. Fix: `send-push` acepta `excludeUserId` y filtra `.neq('user_id', excludeUserId)`; `push.js` guarda `user_id` al suscribir.
+- **React caller en lado incorrecto**: el invoke a `send-push` estaba en `subscribeToUpdates` (receptor), causaba doble notificación con el trigger de Postgres. Retirado — el trigger E-1 es el mecanismo correcto.
+- **JWT bloqueaba trigger E-1**: 23 errores 401 en producción. Resuelto con redeploy `verify_jwt: false` (el trigger usa `SUPABASE_SERVICE_ROLE_KEY` internamente).
+
+### Estado producción tras este sprint
+- Edge Function `send-push` v2 · ACTIVE · `verify_jwt: false` ✅
+- Trigger `trg_push_on_app_data_update` operativo ✅
+- `push_subscriptions` con columna `user_id` + RLS ✅
+- Pendiente: primer dispositivo que active notificaciones en ⚙️
+
+---
+
+## [3.8.2] — 2026-05-21 · Fix sistémico — Componentes duplicados eliminados
 
 **Causa raíz identificada y solucionada:** App.jsx tenía 5 funciones locales con el mismo nombre que archivos externos en `views/` y `components/`. Los archivos externos eran código muerto — nunca se importaban, por lo que la versión local siempre ganaba. Esto causó que ediciones a los archivos externos no tuvieran efecto (como ocurrió con StatsView en v3.8.0).
 
@@ -20,6 +35,9 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ### Mejorado
 - `EmojiSelect`: se importa ahora desde `components/EmojiSelect.jsx` (versión con flechas ‹ › de scroll para móvil). La versión local de 19 líneas en App.jsx fue eliminada. Ahora GoalsView y App.jsx usan exactamente el mismo componente.
+
+### Sprint E — Bloqueante #2 resuelto (2026-05-21)
+- **Push caller activo**: `supabase.js → subscribeToUpdates()` ahora invoca `send-push` (fire-and-forget) cuando llega una actualización del partner via Realtime. Sprint E **100% operativo**.
 
 ### Medida preventiva
 Cualquier componente que tenga su propio archivo debe importarse — nunca duplicarse inline en App.jsx. Ver patrón en `GoalsView.jsx` como referencia.

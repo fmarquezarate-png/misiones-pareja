@@ -49,12 +49,14 @@ export async function subscribePush(coupleId) {
     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
   });
 
+  const { data: { user } } = await supabase.auth.getUser();
   const json = sub.toJSON();
   const { error } = await supabase.from('push_subscriptions').upsert({
     endpoint:     json.endpoint,
     p256dh:       json.keys.p256dh,
     auth:         json.keys.auth,
     couple_id:    coupleId,
+    user_id:      user?.id ?? null,
     platform:     detectPlatform(),
     enabled:      true,
     failure_count: 0,
