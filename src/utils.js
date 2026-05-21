@@ -114,6 +114,10 @@ export function computeGoalHistory(goal, weeks, { includeMissions = false } = {}
   }
 }
 
+export const dlBlob = (blob, name) => {
+  const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(u), 3000);
+};
+
 // ─── Data repair & carry-over ─────────────────────────────────────────────────
 export function repairMisplacedMissions(data) {
   let weeks = { ...data.weeks };
