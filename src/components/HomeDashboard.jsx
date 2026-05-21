@@ -197,6 +197,7 @@ export default function HomeDashboard({
   onMissionPatch, onCycleStatus, onDeleteMission,
   onOpenWrapped, hasWrappedAvailable,
   weeksData,
+  pushSupported, pushSubscribed, onActivatePush,
 }) {
   const clr = colors || DEFAULT_COLORS;
   const [daySheet, setDaySheet]     = useState(null);
@@ -450,6 +451,26 @@ export default function HomeDashboard({
           lineHeight:1.5, letterSpacing:0.2,
         }}>"{PHRASES[parseInt(todayStr.replace(/-/g,"")) % PHRASES.length]}"</span>
       </div>
+
+      {/* Push nudge widget — visible si push soportado, no suscrito y no descartado 3 veces */}
+      {pushSupported && !pushSubscribed && (() => {
+        const NUDGE_KEY = "mp_push_nudge_dismissed";
+        const count = parseInt(localStorage.getItem(NUDGE_KEY) || "0", 10);
+        if (count >= 3) return null;
+        return (
+          <div style={{ margin:"12px 16px 4px", background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
+            <span style={{ fontSize:22, flexShrink:0 }}>🔔</span>
+            <div style={{ flex:1 }}>
+              <div style={{ color:"var(--t-text,#f8f4ff)", fontSize:13, fontWeight:600, marginBottom:2 }}>Notificaciones en segundo plano</div>
+              <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:12, lineHeight:1.4 }}>Entérate cuando tu pareja actualice algo</div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
+              <button onClick={onActivatePush} style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:7, color:"#fff", padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, fontFamily:"inherit", whiteSpace:"nowrap" }}>Activar →</button>
+              <button onClick={() => { localStorage.setItem(NUDGE_KEY, String(count + 1)); const el = document.activeElement; el?.blur(); }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0", textAlign:"center" }}>Ahora no</button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Day detail sheet */}
       {daySheet && (

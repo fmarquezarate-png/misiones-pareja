@@ -804,7 +804,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
   const [notifGranted, setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
-  const notifSettingsRef = useRef(null);
+  const notifSettingsRef    = useRef(null);
+  const pushSubscribedRef   = useRef(false);
+  const pushNudgeDismissRef = useRef(false);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
   const [savingState, setSavingState] = useState("idle"); // "idle"|"saving"|"saved"|"error"
@@ -1078,6 +1080,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       setSavingState("idle");
       if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
         showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
+      }
+      if (isPushSupported() && !pushSubscribedRef.current && !pushNudgeDismissRef.current) {
+        setPushNudgeVisible(true);
+        setTimeout(() => setPushNudgeVisible(false), 8000);
       }
       setData(() => remoteData);
     }, {
@@ -1551,6 +1557,19 @@ ${ms.map(m=>{
       </div>}
 
       {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
+      {pushNudgeVisible && pushSupported && !pushSubscribed && (
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(167,139,250,0.35)", borderRadius:14, padding:"12px 16px", zIndex:401, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:20, flexShrink:0 }}>🔔</span>
+          <div style={{ flex:1, lineHeight:1.4 }}>
+            <div style={{ color:"var(--t-text,#f8f4ff)", fontWeight:600, marginBottom:2 }}>Tu pareja acaba de actualizar algo</div>
+            <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:12 }}>Activa notificaciones para enterarte aunque no estés en la app</div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
+            <button onClick={async () => { setPushNudgeVisible(false); await handlePushToggle(); }} style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, fontFamily:"inherit", whiteSpace:"nowrap" }}>Activar</button>
+            <button onClick={() => { setPushNudgeVisible(false); pushNudgeDismissRef.current = true; }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0" }}>Ahora no</button>
+          </div>
+        </div>
+      )}
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && (
         <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(20,8,6,0.97)", border:"1px solid rgba(251,146,60,0.5)", borderRadius:12, padding:"10px 16px 10px 14px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:340, textAlign:"left", backdropFilter:"blur(8px)", display:"flex", alignItems:"flex-start", gap:8, boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
@@ -1815,6 +1834,9 @@ ${ms.map(m=>{
               onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
               onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
               weeksData={data.weeks}
+              pushSupported={pushSupported}
+              pushSubscribed={pushSubscribed}
+              onActivatePush={handlePushToggle}
             />
           );
         })()}
@@ -2570,11 +2592,13 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
   const [pushSubscribed,   setPushSubscribed]   = useState(false);
   const [pushLoading,      setPushLoading]      = useState(false);
   const [pushError,        setPushError]        = useState(null);
+  const [pushNudgeVisible, setPushNudgeVisible] = useState(false);
   const pushSupported = isPushSupported();
   useEffect(() => {
     if (!pushSupported) return;
     getCurrentSubscription().then(sub => setPushSubscribed(!!sub));
   }, [pushSupported]);
+  useEffect(() => { pushSubscribedRef.current = pushSubscribed; }, [pushSubscribed]);
   const handlePushToggle = async () => {
     setPushLoading(true);
     setPushError(null);
@@ -2737,7 +2761,9 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
                     {pushSubscribed ? "🔔 Activadas en este dispositivo" : "🔕 No activas en este dispositivo"}
                   </div>
                   <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:3 }}>
-                    {pushSubscribed ? "Recibirás avisos cuando tu pareja actualice" : "Actívalas para recibir avisos aunque cierres la app"}
+                    {pushSubscribed
+                      ? "Recibirás avisos cuando tu pareja actualice"
+                      : "Tu pareja puede estar recibiendo notificaciones — vos no"}
                   </div>
                   {pushError && <div style={{ fontSize:11, color:"#f87171", marginTop:6 }}>⚠️ {pushError}</div>}
                 </div>
