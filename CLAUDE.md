@@ -1,97 +1,125 @@
-# CLAUDE.md — Reglas de oro para agentes en este repositorio
+# CLAUDE.md — Contexto y reglas del proyecto
 
-## Regla de oro: Todo error → medida preventiva permanente
-
-Cada vez que ocurre un bug o error en producción, se añade aquí una regla
-que impide que vuelva a suceder. Las reglas son técnicas (linters, hooks,
-validaciones) o arquitectónicas (dónde vive cada cosa).
+> Documento maestro. Lo lee Claude al iniciar cualquier sesión.
+> Mantenerlo corto y enlazar al detalle en `docs/`.
 
 ---
 
-## Lint obligatorio — no saltarse jamás
+## 1. Qué es el proyecto
 
-```
-npm run lint        # 0 errores requeridos
-npm run build       # llama a lint antes de compilar
-```
+**Misiones de Pareja** — PWA de planificación semanal para parejas (React 18 + Vite 5 + Supabase + Netlify). Single page, sin router, datos compartidos por `coupleId`. Persistencia: blob JSON en `app_data.data` + dual-write a tablas normalizadas (Sprint G en curso).
 
-El build falla si hay errores de linting. Nunca usar `--no-verify` ni
-`--max-errors` para bypass. Si el lint falla, arreglar el código.
-
-**Reglas clave:**
-- `no-undef: error` — variables indefinidas = bug de scope garantizado
-- `react-hooks/rules-of-hooks: error` — hooks condicionales = crash en runtime
-- `react-hooks/exhaustive-deps: warn` — deps faltantes en useEffect
+- **Versión actual:** ver `src/constants.js → APP_VERSION`
+- **Branch activo:** `claude/debug-app-issues-rVPzI`
+- **Doc detallado:** [`README.md`](./README.md), [`CHANGELOG.md`](./CHANGELOG.md)
 
 ---
 
-## Arquitectura de componentes — dónde vive el estado
+## 2. Arquitectura crítica (no romper)
 
-### Regla de scope de React (origen: bug "Can't find variable: pushNudgeVisible")
-
-**EL ESTADO VIVE EN EL COMPONENTE QUE LO RENDERIZA O EN SU PADRE.**
-Nunca declarar estado en un componente hijo si el padre también lo necesita.
-
-Árbol de componentes principales:
-
+### Dónde vive el estado
+Árbol de componentes:
 ```
 AppWithAuth
-└── CoupleMissions          ← estado global de la sesión
-    ├── HomeDashboard        ← recibe props, no declara estado de negocio
-    ├── ProfileModal         ← recibe props push*, no los declara internamente
-    ├── StatsView
-    ├── CalendarView
-    ├── ChatView
-    └── GastosView
+└── CoupleMissions          ← TODO el estado de negocio vive aquí
+    ├── HomeDashboard        ← solo props
+    ├── ProfileModal         ← solo props
+    ├── StatsView, CalendarView, ChatView, GastosView
 ```
 
-**Estado que vive en `CoupleMissions` (no en hijos):**
-- `pushSubscribed`, `pushLoading`, `pushError`, `pushNudgeVisible`
-- `pushSupported`, `handlePushToggle`
-- `pushSubscribedRef`, `pushNudgeDismissRef`
-- `data`, `coupleId`, `savingState`, `syncError`
+**Regla de oro** (origen: bug `pushNudgeVisible` v3.8.8): si más de un componente toca un estado, vive en el ancestro común. `ProfileModal` NUNCA declara estado push — recibe `pushSupported`, `pushSubscribed`, `pushLoading`, `pushError`, `onPushToggle` como props desde `CoupleMissions`.
 
-`ProfileModal` recibe push state como props:
-`pushSupported`, `pushSubscribed`, `pushLoading`, `pushError`, `onPushToggle`
+### Save model
+- Blob completo en `app_data.data` con CAS (`save_app_data_cas` RPC, flag `cas_version_check`)
+- Dual-write activo a `missions`, `goals`, `couple_settings`, `week_photos` (flag `dual_write_normalized`)
+- Source-of-truth = blob hasta Sprint G-2 (flip de read)
 
-**Si necesitás añadir estado nuevo:** preguntate primero si más de un
-componente lo necesita. Si sí → va en el ancestro común más cercano.
+### Realtime + race conditions
+- `subscribeToUpdates` ignora updates remotos si `hasPendingSave()` devuelve true
+- Si rompés este contrato, el partner pisa cambios sin guardar
+
+### Tipos sutiles
+- `completedAt`: puede ser `number` (Date.now()) o `string` (ISO). Manejar ambos siempre:
+  ```js
+  if (typeof m.completedAt === 'string') return m.completedAt.slice(0,10);
+  if (typeof m.completedAt === 'number') return new Date(m.completedAt).toISOString().slice(0,10);
+  ```
+
+### Validación en bordes
+- `importData` (supabase.js): valida `weeks` objeto + `missions` array
+- `isValidAppData`: gate antes de cada save — no quitar
 
 ---
 
-## Validaciones obligatorias
+## 3. Reglas técnicas obligatorias
 
-### importData (supabase.js)
-Siempre validar estructura interna antes de resolver:
-- `typeof parsed.weeks === "object"`
-- Cada semana con `missions` debe tener `Array.isArray(missions) === true`
-
-### completedAt (App.jsx)
-`completedAt` puede ser `number` (Date.now()) o `string` (ISO). Al procesar
-fechas, siempre manejar ambos:
-```js
-// ✅ correcto
-if (typeof m.completedAt === 'string') return m.completedAt.slice(0,10);
-if (typeof m.completedAt === 'number') return new Date(m.completedAt).toISOString().slice(0,10);
-
-// ❌ incorrecto — rompe la racha de logros con timestamps numéricos
-typeof m.completedAt === 'string' ? m.completedAt.slice(0,10) : null
+### Lint (no bypass)
+```bash
+npm run lint        # 0 errores requeridos
+npm run build       # llama a eslint antes de vite build
 ```
+Reglas activas en `eslint.config.js`:
+- `no-undef: error` → atrapa variables fuera de scope (origen: bug push)
+- `react-hooks/rules-of-hooks: error` → hooks deben estar antes de cualquier early return
+- `react-hooks/exhaustive-deps: warn`
+
+### Versionado
+- Bump `APP_VERSION` en `src/constants.js` por cada lote
+- Entrada en `CHANGELOG` con notas claras
+- Patch para fixes, minor para features
+
+### Commits
+- Prefijo: `fix:`, `feat:`, `refactor:`, `docs:`
+- Incluir session ID al final
+- Branch: `claude/<descripcion>-<sessionId>`
 
 ---
 
-## Versionado
+## 4. Equipo de agentes
 
-- Cada lote de cambios bump a `APP_VERSION` en `src/constants.js`
-- Añadir entrada en `CHANGELOG` con notas claras
-- Formato: `MAJOR.MINOR.PATCH` — patch para fixes, minor para features
+El proyecto se trabaja por roles que dialogan en cada sesión. Cada agente tiene su propio `.md` con personalidad, conocimiento y forma de trabajo:
 
-Versión actual: ver `src/constants.js`
+| Agente | Rol en una frase | Doc |
+|--------|------------------|-----|
+| **Coordinador** | Guardián del scope, dice NO temprano | [`docs/agents/coordinador.md`](./docs/agents/coordinador.md) |
+| **Programador** | Pragmatismo con código real | [`docs/agents/programador.md`](./docs/agents/programador.md) |
+| **Analista** | Voz incómoda, señala lo que nadie mira | [`docs/agents/analista.md`](./docs/agents/analista.md) |
+| **Experto en Datos** | Guardián de la integridad SQL/RLS | [`docs/agents/experto-en-datos.md`](./docs/agents/experto-en-datos.md) |
+| **UI/UX** | Filtro de "Marta en la línea 5" | [`docs/agents/ui-ux.md`](./docs/agents/ui-ux.md) |
+| **Redactor** | Documenta cada cambio en CHANGELOG | [`docs/agents/redactor.md`](./docs/agents/redactor.md) |
+| **Externo (Supabase)** | Operario SQL/RLS/Edge Functions en consola Supabase | [`docs/agents/externo-supabase.md`](./docs/agents/externo-supabase.md) |
+
+### Distribución de trabajo (regla de oro del Coordinador)
+- **Equipo** (agentes Claude) resuelve la mayor cantidad posible
+- **Externo** recibe solo lo que requiere consola Supabase (SQL, Edge Functions, logs)
+- **Usuario** hace el mínimo, siempre no-técnico, siempre con instrucciones al detalle
+
+### Cómo añadir un agente nuevo
+1. Crear `docs/agents/<nombre>.md` siguiendo el template de [`docs/agents/README.md`](./docs/agents/README.md)
+2. Añadir fila a la tabla de arriba
+3. Si introduce nueva habilidad (skill), añadir bullet a su `.md` en sección "Habilidades"
+4. Commit con `docs: add agent <nombre>` y mención en CHANGELOG
 
 ---
 
-## Commits
+## 5. Regla de oro: todo error → medida preventiva permanente
 
-- Mensajes en inglés con prefijo: `fix:`, `feat:`, `refactor:`, `docs:`
-- Incluir el ID de sesión de Claude al final del commit message
-- Branch activo: `claude/debug-app-issues-rVPzI`
+Cada bug en producción se convierte en regla técnica o arquitectónica aquí. Lista histórica:
+
+| Bug | Medida añadida |
+|-----|----------------|
+| `Can't find variable: pushNudgeVisible` | ESLint `no-undef: error` + regla de scope en sección 2 |
+| Hooks tras early return en `DevBackfillPanel` | ESLint `react-hooks/rules-of-hooks: error` |
+| `completedAt` rompía racha con timestamps | Manejo dual en sección 2 + ejemplo |
+| `importData` aceptaba estructura corrupta | Validación de `missions` array en `supabase.js` |
+
+---
+
+## 6. Documentos referenciados
+
+- [`README.md`](./README.md) — overview público, tech stack
+- [`CHANGELOG.md`](./CHANGELOG.md) — historia versión por versión
+- [`TAREAS_SQL_AGENTE_SUPABASE.md`](./TAREAS_SQL_AGENTE_SUPABASE.md) — backlog del Externo
+- [`WORKSHOP_v4_INFORME_EJECUTIVO.md`](./WORKSHOP_v4_INFORME_EJECUTIVO.md) — visión de los 5 expertos (origen de los perfiles de agente)
+- [`ANALISIS_TECNICO_2026-05-14.md`](./ANALISIS_TECNICO_2026-05-14.md) — auditoría técnica
+- `docs/agents/*.md` — perfil por agente
