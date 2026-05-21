@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.12] — 2026-05-21 · Monolito Fase 1b + Fix push unicode
+
+**Hito:** App.jsx pasa de ~4050 a ~2967 líneas (−1023). Se extraen 4 componentes a `src/components/`. El fix push unicode asegura que emojis y tildes lleguen correctamente al dispositivo.
+
+### Añadido
+- **`src/components/StatsView.jsx`** (509 líneas): vista completa de estadísticas con filtros, insights Wrapped, Deep Stats v2.0, donut, barras semanales, participación por persona, exportación PNG
+- **`src/components/GastosView.jsx`** (~450 líneas): gestor de gastos con proyectos, balance mensual, stats de 6 meses, formularios de gasto y proyecto
+- **`src/components/CatStatsCard.jsx`**: tarjeta de categorías (actividades / horas), extraída de App.jsx
+- **`src/components/WeekDetailList.jsx`**: acordeón de detalle por semana, extraído de App.jsx
+- **`utils.js → dlBlob`**: función de descarga de blobs ahora exportada desde utils.js en lugar de vivir solo en App.jsx
+
+### Corregido
+- **Push unicode**: `send-push` Edge Function post-procesa el JSON para convertir `\uXXXX` → UTF-8. Los emojis (✨) y caracteres acentuados (ó) ya llegan correctos al dispositivo (antes aparecían como `✨ Tu pareja actualizó algo`)
+
+### Refactorización
+- App.jsx: −1023 líneas. Solo importa los 4 componentes, no los define inline
+- `PROJECT_EMOJIS` y `_SM` movidos a sus archivos de componente correspondientes
+
+---
+
 ## [3.8.11] — 2026-05-21 · Forense + send-push autodiagnóstico
 
 **Hito:** se detiene el ciclo de fixes ciegos. Tras 4 versiones (3.8.7→3.8.10) intentando arreglar push sin ver el error real, se introduce el agente Forense y las herramientas de diagnóstico en la Edge Function.

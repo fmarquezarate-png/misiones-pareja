@@ -123,7 +123,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ sent: 0, total: 0 }), { headers: corsHeaders });
     }
 
-    const payload = JSON.stringify({ title, body, tag, url: clickUrl });
+    const payload = JSON.stringify({ title, body, tag, url: clickUrl }, null, 0)
+      .replace(/\\u([\dA-Fa-f]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
     let sent = 0;
     const failures: { endpoint: string; status?: number; message: string }[] = [];
 
