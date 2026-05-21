@@ -807,6 +807,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const notifSettingsRef    = useRef(null);
   const pushSubscribedRef   = useRef(false);
   const pushNudgeDismissRef = useRef(false);
+  const [pushSubscribed,   setPushSubscribed]   = useState(false);
+  const [pushLoading,      setPushLoading]      = useState(false);
+  const [pushError,        setPushError]        = useState(null);
+  const [pushNudgeVisible, setPushNudgeVisible] = useState(false);
+  const pushSupported = isPushSupported();
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
   const [savingState, setSavingState] = useState("idle"); // "idle"|"saving"|"saved"|"error"
@@ -1135,6 +1140,29 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         .catch(e => { setSyncError(e.message); showSyncMsg("⚠ Sin conexión — reintentando…"); });
     }
   }, [isOnline]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!pushSupported) return;
+    getCurrentSubscription().then(sub => setPushSubscribed(!!sub));
+  }, [pushSupported]);
+  useEffect(() => { pushSubscribedRef.current = pushSubscribed; }, [pushSubscribed]);
+  const handlePushToggle = async () => {
+    setPushLoading(true);
+    setPushError(null);
+    try {
+      if (pushSubscribed) {
+        await unsubscribePush();
+        setPushSubscribed(false);
+      } else {
+        await subscribePush(coupleId);
+        setPushSubscribed(true);
+      }
+    } catch (e) {
+      setPushError(e.message);
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   const update = useCallback(fn => {
     setData(prev => {
@@ -1587,7 +1615,7 @@ ${ms.map(m=>{
         </div>
       )}
 
-      {showProfile && <ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} />}
+      {showProfile && <ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -2581,7 +2609,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange }) {
+function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -2601,33 +2629,6 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
   const [notifBriefing,    setNotifBriefing]    = useState(defNotif.dailyBriefing === true);
   const [notifBriefTime,   setNotifBriefTime]   = useState(defNotif.briefingTime || "08:00");
   const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
-  const [pushSubscribed,   setPushSubscribed]   = useState(false);
-  const [pushLoading,      setPushLoading]      = useState(false);
-  const [pushError,        setPushError]        = useState(null);
-  const [pushNudgeVisible, setPushNudgeVisible] = useState(false);
-  const pushSupported = isPushSupported();
-  useEffect(() => {
-    if (!pushSupported) return;
-    getCurrentSubscription().then(sub => setPushSubscribed(!!sub));
-  }, [pushSupported]);
-  useEffect(() => { pushSubscribedRef.current = pushSubscribed; }, [pushSubscribed]);
-  const handlePushToggle = async () => {
-    setPushLoading(true);
-    setPushError(null);
-    try {
-      if (pushSubscribed) {
-        await unsubscribePush();
-        setPushSubscribed(false);
-      } else {
-        await subscribePush(coupleId);
-        setPushSubscribed(true);
-      }
-    } catch (e) {
-      setPushError(e.message);
-    } finally {
-      setPushLoading(false);
-    }
-  };
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
@@ -2779,7 +2780,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
                   </div>
                   {pushError && <div style={{ fontSize:11, color:"#f87171", marginTop:6 }}>⚠️ {pushError}</div>}
                 </div>
-                <button onClick={handlePushToggle} disabled={pushLoading}
+                <button onClick={onPushToggle} disabled={pushLoading}
                   style={{ ...S.btnPrimary, fontSize:11, padding:"7px 14px", flexShrink:0, opacity:pushLoading?0.6:1,
                     background: pushSubscribed ? "rgba(244,114,182,0.15)" : undefined,
                     border: pushSubscribed ? "1px solid rgba(244,114,182,0.4)" : undefined,
