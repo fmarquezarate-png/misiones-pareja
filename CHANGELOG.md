@@ -7,6 +7,90 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.11] — 2026-05-21 · Forense + send-push autodiagnóstico
+
+**Hito:** se detiene el ciclo de fixes ciegos. Tras 4 versiones (3.8.7→3.8.10) intentando arreglar push sin ver el error real, se introduce el agente Forense y las herramientas de diagnóstico en la Edge Function.
+
+### Añadido
+- **send-push v2.0 — modos de autodiagnóstico**:
+  - `GET ?probe=1` → ping de vida sin secrets ni DB, confirma que la función está desplegada
+  - `GET ?diagnose=1` → metadata estructural de cada secret (length/prefix/suffix/hasWhitespace/hasNewline) + ejecuta `setVapidDetails` y reporta OK o FAILED con nombre y mensaje del error; **nunca devuelve el valor crudo**
+  - `setVapidDetails` movido dentro del handler con try/catch propio → el error real aparece en el body JSON `{stage, error, name}` en lugar de perderse en logs internos de Deno
+- **Agente Forense** (`docs/agents/forense.md`): exige datos crudos antes de deployar cualquier fix. Activado cuando un bug persiste tras 2 intentos sin evidencia real del error.
+
+### Medida preventiva añadida a CLAUDE.md
+> Si un bug persiste tras 2 intentos de fix, llamar al Forense antes de deployar otro cambio. El Forense pausa el ciclo hasta confirmar el diagnóstico con evidencia.
+
+### Diagnóstico definitivo (obtenido vía `?diagnose=1`)
+Causas raíz reales del fallo push en producción:
+1. **Trigger ausente en producción** — `trg_notify_push_on_app_data_update` no se había aplicado en la base de datos real (solo existía en el roadmap SQL)
+2. **`VAPID_CONTACT` sin prefijo `mailto:`** — el secret estaba configurado sin el esquema requerido por `web-push`; `setVapidDetails` lanzaba excepción silenciosa que los logs no exponían
+
+Corrección: ambos son fixes externos (Supabase SQL + Supabase Secrets). El código ya tenía el fallback correcto `'mailto:admin@misiones-pareja.app'`.
+
+---
+
+## [3.8.10] — 2026-05-21 · Fix push — re-subscribe y errores silenciosos
+
+### Corregido
+- **Re-subscribe silencioso en iOS/Android**: `requestPermission()` ya no se llama si el permiso ya está `'granted'` — en móvil esto abortaba silenciosamente la suscripción al volver a activar push desde Settings
+- **DOMException con message vacío**: errores de push con `message` vacío ya no pasan invisibles — fallback a `err.name` + toast visible con el mensaje real
+- **Diseño de error push en Settings**: el bloque de error pasaba desapercibido (11px, color tenue); ahora tiene diseño prominente legible
+
+---
+
+## [3.8.9] — 2026-05-21 · Fix E-3 — nuevas VAPID keys
+
+### Corregido
+- **HTTP 500 en send-push**: la clave privada VAPID faltaba en Supabase Secrets — `web-push` fallaba en cada invocación con error interno sin body visible
+- **VAPID_PUBLIC_KEY actualizada** en `constants.js` — el par anterior (pública sin privada) era inválido; las suscripciones previas fueron eliminadas de Supabase (creadas con clave huérfana) y se recrean automáticamente al abrir la app
+
+---
+
+## [3.8.8] — 2026-05-21 · Fixes M-1/M-4/M-5/UX-1
+
+### Corregido
+- **M-1 — Racha de logros**: `completedAt` numérico (timestamp ms) ya no rompe la racha — se convierte a ISO string antes de comparar fechas
+- **M-4 — importData**: valida que `missions` dentro de cada semana sea un array — rechaza archivos con estructura corrupta en lugar de aceptarlos silenciosamente
+- **M-5 — Toast de éxito**: duración aumentada de 2.5s a 4s — tiempo suficiente para leer el mensaje antes de que desaparezca
+
+### Mejorado
+- **UX-1 — Feedback al ciclar estado**: toast breve muestra el nuevo estado al pulsar el badge de una misión (TBC → ASAP → EN CURSO → HECHO)
+
+---
+
+## [3.8.7] — 2026-05-21 · UX Push — nudge contextual + widget Home
+
+### Añadido
+- **Nudge contextual post-Realtime**: aparece 8 segundos cuando el partner actualiza datos y el usuario no tiene push activo; se descarta por sesión (no vuelve a aparecer hasta recargar)
+- **Widget silencioso en Home**: último elemento de la pantalla principal, descartable hasta 3 veces con memoria en `localStorage`
+- **Copy asimétrico en Settings**: el texto ahora dice "Tu pareja puede estar recibiendo notificaciones — vos no" para crear la motivación correcta
+
+---
+
+## [3.8.6] — 2026-05-21 · Sprint G-1 — CAS activado
+
+### Activado
+- `cas_version_check: true` en `flags.js` — saves atómicos via RPC `save_app_data_cas`; conflictos de versión se detectan y loguean en lugar de pisarse silenciosamente
+
+---
+
+## [3.8.5] — 2026-05-21 · Fixes C-1/C-2 — anillos y series
+
+### Corregido
+- **C-1 — Anillos en Home**: excluyen `completedLate` igual que Stats — mismo criterio, mismo número en ambas vistas (antes el anillo inflaba el % contando tareas tardías)
+- **C-2 — Series bisemanales legacy**: series sin `seriesStartWeek` usaban `pwn` como fallback, dando `weeksDiff=1` siempre; corregido con `prevSeriesIds` para distinguir origen `prevW` vs `prev2W`
+
+---
+
+## [3.8.4] — 2026-05-21 · Fix crítico — VAPID public key inválida
+
+### Corregido
+- **`applicationServerKey is not valid`**: la clave VAPID pública anterior tenía 86 caracteres (inválida como punto EC P-256 en base64url); la nueva tiene 87 chars y pasa la validación de `PushManager`
+- Suscripción push operativa — el error bloqueaba la llamada a `pushManager.subscribe()` antes de llegar al servidor
+
+---
+
 ## [3.8.3] — 2026-05-21 · Sprint E — Push completo en producción
 
 ### Corregido
