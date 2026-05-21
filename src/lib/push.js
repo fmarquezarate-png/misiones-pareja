@@ -40,16 +40,33 @@ export async function getCurrentSubscription() {
 export async function subscribePush(coupleId) {
   if (!VAPID_PUBLIC_KEY) throw new Error('VAPID_PUBLIC_KEY no configurada');
 
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('Permiso denegado por el usuario');
+  // Solo pedir permiso si aún no fue concedido — preserva el contexto de gesto
+  // de usuario para la llamada a pushManager.subscribe() que viene después.
+  if (Notification.permission !== 'granted') {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      if (Notification.permission === 'denied') {
+        throw new Error('Las notificaciones están bloqueadas. Ve a Configuración del navegador para habilitarlas.');
+      }
+      throw new Error('Permiso de notificaciones denegado');
+    }
+  }
 
   const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-  });
+  let sub;
+  try {
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+  } catch (err) {
+    if (err.name === 'NotAllowedError') throw new Error('El navegador denegó la suscripción. Revisa los permisos del sitio.', { cause: err });
+    if (err.name === 'AbortError')      throw new Error('Suscripción interrumpida. Intenta recargar la app e intentarlo de nuevo.', { cause: err });
+    throw new Error(`Error al suscribir push: ${err.message || err.name || 'error desconocido'}`, { cause: err });
+  }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser();
+  const user = data?.user;
   const json = sub.toJSON();
   const { error } = await supabase.from('push_subscriptions').upsert({
     endpoint:     json.endpoint,

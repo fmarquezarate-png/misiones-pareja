@@ -1158,7 +1158,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setPushSubscribed(true);
       }
     } catch (e) {
-      setPushError(e.message);
+      const msg = e.message || 'Error al cambiar estado de notificaciones';
+      setPushError(msg);
+      pushToast({ kind: "error", text: msg });
     } finally {
       setPushLoading(false);
     }
@@ -2778,7 +2780,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
                       ? "Recibirás avisos cuando tu pareja actualice"
                       : "Tu pareja puede estar recibiendo notificaciones — vos no"}
                   </div>
-                  {pushError && <div style={{ fontSize:11, color:"#f87171", marginTop:6 }}>⚠️ {pushError}</div>}
+                  {pushError && <div style={{ fontSize:12, color:"#f87171", marginTop:8, padding:"8px 10px", background:"rgba(248,113,113,0.08)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:8, lineHeight:1.5 }}>⚠️ {pushError}</div>}
                 </div>
                 <button onClick={onPushToggle} disabled={pushLoading}
                   style={{ ...S.btnPrimary, fontSize:11, padding:"7px 14px", flexShrink:0, opacity:pushLoading?0.6:1,
