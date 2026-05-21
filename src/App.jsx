@@ -20,6 +20,7 @@ import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
 import EmojiSelect from "./components/EmojiSelect.jsx";
+import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported } from "./lib/push.js";
 
 const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
@@ -1557,7 +1558,7 @@ ${ms.map(m=>{
         </div>
       )}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} />}
+      {showProfile && <ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -2544,7 +2545,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange }) {
+function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -2564,6 +2565,29 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
   const [notifBriefing,    setNotifBriefing]    = useState(defNotif.dailyBriefing === true);
   const [notifBriefTime,   setNotifBriefTime]   = useState(defNotif.briefingTime || "08:00");
   const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
+  const [pushSubscribed,   setPushSubscribed]   = useState(false);
+  const [pushLoading,      setPushLoading]      = useState(false);
+  const pushSupported = isPushSupported();
+  useEffect(() => {
+    if (!pushSupported) return;
+    getCurrentSubscription().then(sub => setPushSubscribed(!!sub));
+  }, [pushSupported]);
+  const handlePushToggle = async () => {
+    setPushLoading(true);
+    try {
+      if (pushSubscribed) {
+        await unsubscribePush();
+        setPushSubscribed(false);
+      } else {
+        await subscribePush(coupleId);
+        setPushSubscribed(true);
+      }
+    } catch (e) {
+      console.warn("[push]", e.message);
+    } finally {
+      setPushLoading(false);
+    }
+  };
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
@@ -2697,8 +2721,34 @@ function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, o
           </div>
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
 
+          {/* Push en segundo plano */}
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Push en segundo plano</div>
+          <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
+            {!pushSupported ? (
+              <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>⚠️ Tu navegador no soporta notificaciones push</div>
+            ) : (
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+                <div>
+                  <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>
+                    {pushSubscribed ? "🔔 Activadas en este dispositivo" : "🔕 No activas en este dispositivo"}
+                  </div>
+                  <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:3 }}>
+                    {pushSubscribed ? "Recibirás avisos cuando tu pareja actualice" : "Actívalas para recibir avisos aunque cierres la app"}
+                  </div>
+                </div>
+                <button onClick={handlePushToggle} disabled={pushLoading}
+                  style={{ ...S.btnPrimary, fontSize:11, padding:"7px 14px", flexShrink:0, opacity:pushLoading?0.6:1,
+                    background: pushSubscribed ? "rgba(244,114,182,0.15)" : undefined,
+                    border: pushSubscribed ? "1px solid rgba(244,114,182,0.4)" : undefined,
+                    color: pushSubscribed ? "#f472b6" : undefined }}>
+                  {pushLoading ? "…" : pushSubscribed ? "Desactivar" : "Activar"}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Notificaciones */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones en app</div>
           <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
             {notifPermission !== "granted" ? (
               <div style={{ textAlign:"center", padding:"8px 0 12px" }}>
