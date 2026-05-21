@@ -7,7 +7,7 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [3.8.2] — 2026-05-20 · Fix sistémico — Componentes duplicados eliminados
+## [3.8.2] — 2026-05-21 · Fix sistémico — Componentes duplicados eliminados
 
 **Causa raíz identificada y solucionada:** App.jsx tenía 5 funciones locales con el mismo nombre que archivos externos en `views/` y `components/`. Los archivos externos eran código muerto — nunca se importaban, por lo que la versión local siempre ganaba. Esto causó que ediciones a los archivos externos no tuvieran efecto (como ocurrió con StatsView en v3.8.0).
 
@@ -20,6 +20,9 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ### Mejorado
 - `EmojiSelect`: se importa ahora desde `components/EmojiSelect.jsx` (versión con flechas ‹ › de scroll para móvil). La versión local de 19 líneas en App.jsx fue eliminada. Ahora GoalsView y App.jsx usan exactamente el mismo componente.
+
+### Sprint E — Bloqueante #2 resuelto (2026-05-21)
+- **Push caller activo**: `supabase.js → subscribeToUpdates()` ahora invoca `send-push` (fire-and-forget) cuando llega una actualización del partner via Realtime. Sprint E **100% operativo**.
 
 ### Medida preventiva
 Cualquier componente que tenga su propio archivo debe importarse — nunca duplicarse inline en App.jsx. Ver patrón en `GoalsView.jsx` como referencia.
