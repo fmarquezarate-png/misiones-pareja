@@ -157,8 +157,15 @@ export function importData(file) {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result);
-        if (!parsed.weeks || !parsed.settings) reject(new Error("Formato inválido"));
-        else resolve(parsed);
+        if (!parsed.weeks || typeof parsed.weeks !== "object" || !parsed.settings) {
+          reject(new Error("Formato inválido: falta weeks o settings"));
+          return;
+        }
+        const badWeek = Object.values(parsed.weeks).find(
+          w => w && w.missions !== undefined && !Array.isArray(w.missions)
+        );
+        if (badWeek) { reject(new Error("Formato inválido: missions debe ser un array")); return; }
+        resolve(parsed);
       } catch { reject(new Error("JSON inválido")); }
     };
     reader.onerror = () => reject(reader.error);
