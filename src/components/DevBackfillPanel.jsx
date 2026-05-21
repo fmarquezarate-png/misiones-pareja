@@ -2,11 +2,11 @@ import { useState } from "react";
 import { runFullBackfill, verifyBackfill } from "../lib/backfill.js";
 
 export default function DevBackfillPanel({ coupleId, blobData }) {
-  if (!import.meta.env.DEV) return null;
-
   const [status, setStatus] = useState("idle");
   const [result, setResult] = useState(null);
   const [step, setStep] = useState("");
+
+  if (!import.meta.env.DEV) return null;
 
   // Contar misiones en blob
   const blobMissions = Object.values(blobData?.weeks || {})

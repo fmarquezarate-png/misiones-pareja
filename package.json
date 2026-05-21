@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/gen-version.js",
+    "lint": "eslint src/",
+    "prebuild": "node scripts/gen-version.js && eslint src/ --max-warnings 9999",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -15,7 +16,11 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "vite": "^5.0.0",
     "vite-plugin-pwa": "^0.17.0"
   }
