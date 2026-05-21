@@ -1,11 +1,12 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.3";
+export const APP_VERSION = "3.8.4";
 export const LAST_UPDATE = "2026-05-21";
 
 // Clave pública VAPID — segura en el cliente (no es un secreto)
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
-  ?? "hMi4hh1klzaBMcdK3sDbGxWVITQD377C-2jy84dKC6V9jaGYCv-huBTGrdDnJPn5374SYKnmkvcdbtZ8uyaHhQ";
+  ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"3.8.4", date:"2026-05-21", notes:["Fix crítico push: clave VAPID pública reemplazada — la anterior tenía 86 chars (inválida como punto EC P-256); la nueva tiene 87 chars y pasa validación de PushManager","applicationServerKey is not valid resuelto — subscripción push operativa"] },
   { v:"3.8.3", date:"2026-05-21", notes:["Fix self-notify: send-push excluye al emisor con excludeUserId + user_id en push_subscriptions","React caller retirado de subscribeToUpdates — arquitectura correcta: solo el trigger pg_net notifica","JWT desactivado en Edge Function — trigger E-1 operativo sin errores 401","Sprint E 100% completo en producción"] },
   { v:"3.8.2", date:"2026-05-21", notes:["Fix sistémico: eliminados 5 archivos de componentes huérfanos (StatsView, CalendarView, WorkHoursCard, AddMissionForm, MissionCard) que nunca se importaban — las versiones locales de App.jsx son las maestras","EmojiSelect migrado al archivo externo (con flechas de scroll en móvil) — ahora GoalsView y App.jsx usan la misma implementación","Versión 3.8.2"] },
   { v:"3.8.0", date:"2026-05-20", notes:["HITO Sprint H: Stats narrativos Wrapped activados — 5 insights generados por insights.js (racha, reparto de carga, tendencia, categoría estrella, alerta procrastinación)","Diseño Wrapped: valor grande en Fraunces, coloreado por sentimiento (positive/negative/curious/neutral), frase narrativa completa","Reemplaza el bloque de insights inline de v3.5+ por el sistema estructurado de insights.js","Flag stats_insights_enabled activado","Versión 3.8.0"] },
