@@ -691,7 +691,11 @@ create policy "app_data_all_own" on public.app_data
 | E-0b — Resolución FKs goal_id/carried_from (100%) + series_id (0/5 legacy) | Ejecutado 20 mayo | ✅ Verificado |
 | E-0c — RLS push_subscriptions verificada, cobertura completa | Ejecutado 20 mayo | ✅ Verificado |
 | E-1 — Trigger push partner (trg_push_on_app_data_update) | Ejecutado 20 mayo | ✅ Verificado |
-| G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro |
+| SEC-1 — Revocar anon en `save_app_data_cas` | Ejecutado 21 mayo | ✅ `anon_can_execute = false` confirmado |
+| SEC-2 — Vistas SECURITY DEFINER | 21 mayo | ✅ No existen en producción — sin riesgo activo |
+| PERF-1 — 16 políticas RLS optimizadas `(SELECT auth.uid())` | Ejecutado 21 mayo | ✅ app_data, app_data_backups, couple_members, daily_load_cache, events, messages, push_subscriptions |
+| PERF-2 — 5 índices FK creados | Ejecutado 21 mayo | ✅ app_data_backups, couple_members, events, messages, push_subscriptions |
+| G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro (julio) |
 
 ---
 
