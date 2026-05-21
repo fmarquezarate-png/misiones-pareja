@@ -1,11 +1,12 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.5";
+export const APP_VERSION = "3.8.6";
 export const LAST_UPDATE = "2026-05-21";
 
 // Clave pública VAPID — segura en el cliente (no es un secreto)
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"3.8.6", date:"2026-05-21", notes:["Sprint G-1: cas_version_check activado — saves atómicos con Compare-And-Swap via RPC save_app_data_cas; conflictos de versión detectados y logueados en lugar de pisarse silenciosamente"] },
   { v:"3.8.5", date:"2026-05-21", notes:["Fix C-1: anillos Home ahora excluyen completedLate igual que Stats — mismo criterio, mismo número en ambas vistas","Fix C-2: series bisemanal legacy (sin seriesStartWeek) usaba pwn como fallback dando weeksDiff=1 siempre — corregido con prevSeriesIds para distinguir origen prevW vs prev2W"] },
   { v:"3.8.4", date:"2026-05-21", notes:["Fix crítico push: clave VAPID pública reemplazada — la anterior tenía 86 chars (inválida como punto EC P-256); la nueva tiene 87 chars y pasa validación de PushManager","applicationServerKey is not valid resuelto — subscripción push operativa"] },
   { v:"3.8.3", date:"2026-05-21", notes:["Fix self-notify: send-push excluye al emisor con excludeUserId + user_id en push_subscriptions","React caller retirado de subscribeToUpdates — arquitectura correcta: solo el trigger pg_net notifica","JWT desactivado en Edge Function — trigger E-1 operativo sin errores 401","Sprint E 100% completo en producción"] },
