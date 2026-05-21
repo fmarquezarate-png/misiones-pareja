@@ -327,9 +327,6 @@ export function subscribeToUpdates(coupleId, onUpdate, hasPendingSave) {
         }
 
         saveLocalBackup(newData, coupleId);
-        supabase.functions.invoke('send-push', {
-          body: { coupleId, title: 'Misiones de Pareja', body: '✨ Tu pareja actualizó algo', tag: 'mp-push', url: '/' }
-        }).catch(() => {});
         onUpdate(newData);
       }
     )
