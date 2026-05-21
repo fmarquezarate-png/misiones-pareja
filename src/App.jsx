@@ -2567,6 +2567,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
   const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [pushSubscribed,   setPushSubscribed]   = useState(false);
   const [pushLoading,      setPushLoading]      = useState(false);
+  const [pushError,        setPushError]        = useState(null);
   const pushSupported = isPushSupported();
   useEffect(() => {
     if (!pushSupported) return;
@@ -2574,6 +2575,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
   }, [pushSupported]);
   const handlePushToggle = async () => {
     setPushLoading(true);
+    setPushError(null);
     try {
       if (pushSubscribed) {
         await unsubscribePush();
@@ -2583,7 +2585,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
         setPushSubscribed(true);
       }
     } catch (e) {
-      console.warn("[push]", e.message);
+      setPushError(e.message);
     } finally {
       setPushLoading(false);
     }
@@ -2735,6 +2737,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
                   <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:3 }}>
                     {pushSubscribed ? "Recibirás avisos cuando tu pareja actualice" : "Actívalas para recibir avisos aunque cierres la app"}
                   </div>
+                  {pushError && <div style={{ fontSize:11, color:"#f87171", marginTop:6 }}>⚠️ {pushError}</div>}
                 </div>
                 <button onClick={handlePushToggle} disabled={pushLoading}
                   style={{ ...S.btnPrimary, fontSize:11, padding:"7px 14px", flexShrink:0, opacity:pushLoading?0.6:1,
