@@ -30,15 +30,20 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { coupleId, title = 'Misiones de Pareja', body = '✨ Tu pareja actualizó algo', tag = 'mp-push', url = '/' } = await req.json();
+    const { coupleId, excludeUserId, title = 'Misiones de Pareja', body = '✨ Tu pareja actualizó algo', tag = 'mp-push', url = '/' } = await req.json();
     if (!coupleId) return new Response('coupleId requerido', { status: 400, headers: corsHeaders });
 
     const db = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data: subs, error } = await db
+    let query = db
       .from('push_subscriptions')
       .select('id, endpoint, p256dh, auth')
       .eq('couple_id', coupleId)
       .eq('enabled', true);
+
+    // Excluir al usuario que hizo el cambio — no notificarse a uno mismo
+    if (excludeUserId) query = query.neq('user_id', excludeUserId);
+
+    const { data: subs, error } = await query;
 
     if (error) return new Response(error.message, { status: 500, headers: corsHeaders });
     if (!subs?.length) return new Response(JSON.stringify({ sent: 0, total: 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
