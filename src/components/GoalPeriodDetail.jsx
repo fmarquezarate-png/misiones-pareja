@@ -5,7 +5,7 @@ import { DEFAULT_COLORS } from "../constants.js";
 // ─── GoalPeriodDetail ─────────────────────────────────────────────────────────
 // Bottom sheet en móvil / modal centrado en desktop
 // Props: { h, goal, p1, p2, colors, prevH, onClose }
-export default function GoalPeriodDetail({ h, goal, p1, p2, colors, prevH, onClose }) {
+export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
   const [visible, setVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 

@@ -6,7 +6,6 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 
 const EYEBROW = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:8, display:"block" };
 const CARD = { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderRadius:12, overflow:"hidden" };
-const ROW_BG = { background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.14)" };
 
 function LinkForm({ initial = {}, allFolders = [], onSave, onCancel }) {
   const [name,   setName]   = useState(initial.name   || "");

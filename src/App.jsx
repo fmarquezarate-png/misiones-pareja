@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, loadDataWithVersion, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signInWithGoogle, signOut, getSession, onAuthChange, getMyCoupleId, createCouple, joinCouple, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
+import { loadData, loadDataWithVersion, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
 import Brand from "./components/Brand.jsx";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -14,7 +14,6 @@ import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWee
 import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
-import { generateInsights } from "./lib/insights.js";
 import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
@@ -45,41 +44,10 @@ const CATEGORIES = [
   { id:"social",  label:"Social",  icon:"🥂", color:"#e879f9" },
   { id:"viaje",   label:"Viaje",   icon:"✈️", color:"#38bdf8" },
 ];
-const GASTO_CATS = [
-  { id:"comida",      label:"Comida",       icon:"🍽️",  color:"#f97316" },
-  { id:"super",       label:"Supermercado", icon:"🛒",  color:"#fb923c" },
-  { id:"casa",        label:"Casa",         icon:"🏠",  color:"var(--t-accent,#a78bfa)" },
-  { id:"ocio",        label:"Ocio",         icon:"🎉",  color:"#e879f9" },
-  { id:"transporte",  label:"Transporte",   icon:"🚗",  color:"#60a5fa" },
-  { id:"salud",       label:"Salud",        icon:"💊",  color:"#34d399" },
-  { id:"viaje",       label:"Viaje",        icon:"✈️",  color:"#38bdf8" },
-  { id:"ropa",        label:"Ropa",         icon:"👕",  color:"#fbbf24" },
-  { id:"tech",        label:"Tecnología",   icon:"💻",  color:"#818cf8" },
-  { id:"cultura",     label:"Cultura",      icon:"🎭",  color:"#c084fc" },
-  { id:"deporte",     label:"Deporte",      icon:"🏅",  color:"#4ade80" },
-  { id:"mascotas",    label:"Mascotas",     icon:"🐾",  color:"#f472b6" },
-  { id:"regalo",      label:"Regalos",      icon:"🎁",  color:"#f43f5e" },
-  { id:"suscripcion", label:"Suscripciones",icon:"📺",  color:"#94a3b8" },
-  { id:"otro",        label:"Otro",         icon:"📦",  color:"var(--t-text-muted,#8b7fa8)" },
-];
 const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
 const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
-const EMOJI_GROUPS = [
-  { label:"🏅 Deporte", emojis:["🎾","🏓","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂","⛳","🎱","🏒","🤺","🏹","🤾","🏃","🫀"] },
-  { label:"🏠 Casa",    emojis:["🛒","🖼️","🔧","💡","🛁","🪴","🧹","🛋️","🪟","🏠","🔑","📦","🧺","🪣","🫧","🔩","🪑","🛏️","🚿","🧼","🧽","🪠","🔋","💻","🖨️"] },
-  { label:"💆 Bienestar",emojis:["🧖","💆","🧴","💅","😴","🌿","🧠","❤️","💊","🩺","🛁","🫁","🦷","👁️","🩻","🧘","🫶","🌞","🌙","🍃","🌺","💐","🫧","🩹","🏃"] },
-  { label:"✈️ Viajes",  emojis:["🚢","✈️","🏖️","🗺️","🧳","🌊","🏔️","🌍","🏛️","📸","🚂","🛵","🚗","⛺","🏕️","🗼","🗽","🎡","🏝️","🌄","🌅","🧭","🎫","🪪","🚀"] },
-  { label:"🍕 Comida",  emojis:["🍕","🌮","🥗","🍷","🧁","🎂","🍣","☕","🥘","🍜","🫕","🥂","🍝","🥩","🍱","🥡","🍰","🫙","🧆","🥙","🍛","🥐","🧇","🍳","🫖","🍹"] },
-  { label:"💌 Pareja",  emojis:["💞","💌","🫀","💍","🌹","🙊","🐼","🦋","🌸","🎁","🕯️","💫","🥰","😍","🫦","💋","🌷","💐","🎀","🩷","🧸","🫂","🌙","✨","🪷","💝"] },
-  { label:"💻 Trabajo", emojis:["🤖","💸","📚","📝","💡","🔧","📊","🎯","🗂️","✉️","📱","🖥️","💼","🗃️","📋","🔍","📈","📉","🖊️","📌","📎","🗓️","⌚","💬","🤝","🏦"] },
-  { label:"🎉 Ocio",    emojis:["🎉","🎬","🎸","🎮","🧩","🎲","🎨","🎵","🎤","🎪","🪄","🎭","🎠","🎯","🎳","🎻","🥁","🎹","🎺","🪗","🎷","📺","📷","🎧","🕹️","🃏"] },
-  { label:"🌱 Natura",  emojis:["🌱","🌳","🌻","🍄","🦁","🐶","🐱","🐠","🦜","🦋","🐝","🐢","🌈","🌊","⛰️","🌋","🦅","🌿","🍀","🌺","🐉","🦊","🐧","🦔","🌙","⭐"] },
-  { label:"🎓 Cultura", emojis:["🎓","📖","🖼️","🏛️","🎭","🎨","🎬","📽️","🎼","🎤","📰","✍️","🖋️","📜","🏺","🗿","🎑","🌐","🔭","🔬","🧪","🧬","💎","🪬","🎋","🪁"] },
-];
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const TABS = ["home","current","calendar","pending","goals","stats","gastos","chat"];
 
 // ─── Swipe hook (used for week navigation and tab switching on touch) ─────────
 function useSwipe(onLeft, onRight, minDist = 110) {
@@ -177,86 +145,6 @@ const SEED = {
   weeks: {},
 };
 
-// ─── Goal helpers ─────────────────────────────────────────────────────────────
-const PERIOD_LABEL = { weekly:"Semanal", monthly:"Mensual", annual:"Anual" };
-const PERIOD_EMOJI = { weekly:"📅", monthly:"🗓️", annual:"🎊" };
-
-function computeGoalProgress(goal, weeks, cwn, cyr) {
-  const now = new Date();
-  const allDone = Object.values(weeks).flatMap(w =>
-    (w.missions||[]).filter(m => m.goalId===goal.id && m.status==="DONE")
-      .map(m => ({ ...m, wn:w.weekNumber, wy:w.year||cyr }))
-  );
-  let current = 0;
-  if (goal.period==="weekly") {
-    current = allDone.filter(m => m.wn===cwn && m.wy===cyr).length;
-  } else if (goal.period==="monthly") {
-    current = allDone.filter(m => {
-      if (m.date) { const d=new Date(m.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); }
-      const approx = new Date(m.wy, 0, 1+(m.wn-1)*7);
-      return approx.getMonth()===now.getMonth()&&approx.getFullYear()===now.getFullYear();
-    }).length;
-  } else {
-    current = allDone.filter(m => {
-      if (m.date) return new Date(m.date).getFullYear()===now.getFullYear();
-      return m.wy===now.getFullYear();
-    }).length;
-  }
-  const isMax = goal.goalType==="max";
-  // For max: met if current <= target; pct fills as you approach target (inverse)
-  const pct = goal.target>0 ? (isMax ? Math.min((current/goal.target)*100,100) : Math.min((current/goal.target)*100,100)) : 0;
-  return { current, target:goal.target, pct, isMax, met: isMax ? current<=goal.target : current>=goal.target };
-}
-
-function computeGoalHistory(goal, weeks) {
-  const now = new Date();
-  const allDone = Object.values(weeks).flatMap(w =>
-    (w.missions||[]).filter(m => m.goalId===goal.id && m.status==="DONE")
-      .map(m => ({ ...m, wn:w.weekNumber, wy:w.year||now.getFullYear() }))
-  );
-  const isMax = goal.goalType==="max";
-  const startDate = goal.startDate ? new Date(goal.startDate) : null;
-  const beforeStart = d => startDate && d < startDate;
-  const MONTHS_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  if (goal.period==="weekly") {
-    return Array.from({length:8},(_,i)=>{
-      const d = new Date(now); d.setDate(d.getDate()-(7-i)*7);
-      const { week:wn, year:wy } = getWeekAndYear(d);
-      if (beforeStart(d)) return { label:`S${wn}`, count:0, met:false, isPast:i<7, noData:true };
-      const isPast = i < 7;
-      const count = allDone.filter(m=>m.wn===wn&&m.wy===wy).length;
-      const met = isMax ? count<=goal.target : count>=goal.target;
-      return { label:`S${wn}`, count, met, isPast };
-    });
-  } else if (goal.period==="monthly") {
-    return Array.from({length:6},(_,i)=>{
-      const d = new Date(now.getFullYear(), now.getMonth()-(5-i), 1);
-      const mo=d.getMonth(), yr=d.getFullYear();
-      if (beforeStart(d)) return { label:MONTHS_SHORT[mo], count:0, met:false, isPast:i<5, noData:true };
-      const isPast = i < 5;
-      const count = allDone.filter(m=>{
-        if (m.date){const md=new Date(m.date);return md.getMonth()===mo&&md.getFullYear()===yr;}
-        const approx=new Date(m.wy,0,1+(m.wn-1)*7);
-        return approx.getMonth()===mo&&approx.getFullYear()===yr;
-      }).length;
-      const met = isMax ? count<=goal.target : count>=goal.target;
-      return { label:MONTHS_SHORT[mo], count, met, isPast };
-    });
-  } else {
-    return Array.from({length:4},(_,i)=>{
-      const yr = now.getFullYear()-(3-i);
-      const d = new Date(yr, 0, 1);
-      if (beforeStart(d)) return { label:String(yr), count:0, met:false, isPast:i<3, noData:true };
-      const isPast = i < 3;
-      const count = allDone.filter(m=>{
-        if(m.date)return new Date(m.date).getFullYear()===yr;
-        return m.wy===yr;
-      }).length;
-      const met = isMax ? count<=goal.target : count>=goal.target;
-      return { label:String(yr), count, met, isPast };
-    });
-  }
-}
 
 // ─── Carry-over ───────────────────────────────────────────────────────────────
 function repairMisplacedMissions(data) {
@@ -534,7 +422,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [syncError, setSyncError]   = useState(null);   // string | null
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
-  const [notifGranted, setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
+  const [notifGranted, _setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
   const notifSettingsRef    = useRef(null);
   const pushSubscribedRef   = useRef(false);
   const pushNudgeDismissRef = useRef(false);
@@ -707,7 +595,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setData(base);
 
         if (isRealData && didMigrate) await saveData(base, coupleId);
-      } catch(e) {
+      } catch {
         // Only surface error if we have nothing to show (no local backup)
         if (!local?.data) {
           setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
@@ -716,6 +604,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-launch tutorial on first visit
@@ -752,7 +641,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   useEffect(() => {
     if (!coupleId) return;
     track("view_changed", { view: activeTab });
-  }, [activeTab, coupleId]); // eslint-disable-line
+  }, [activeTab, coupleId]);
 
   // Schedule event reminders whenever data changes
   useEffect(() => {
@@ -826,6 +715,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       hasPendingSave: () => pendingSave || !!saveTimerRef.current,
     });
     return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
 
   // Keep dataRef in sync so visibilitychange handler always has fresh data
@@ -933,6 +823,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       return next;
     });
     setSavingState("saving");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
 
   // These must be declared before any early return so useSwipe (which calls
@@ -1227,76 +1118,12 @@ ${sorted.map(m=>{
     setTimeout(()=>{ win.print(); win.onafterprint = () => win.close(); }, 600);
   };
 
-  const downloadFilteredPDF = (weekEntries, personFilter, name1, name2) => {
-    const personLabel = !personFilter.length ? `${name1} & ${name2}` : personFilter.map(f=>f==="person1"?name1:f==="person2"?name2:"Juntos").join(" + ");
-    const allMissions = weekEntries.flatMap(([,w]) => {
-      const ms = !personFilter.length ? (w.missions||[]) : (w.missions||[]).filter(m=>personFilter.includes(m.who));
-      return ms.map(m=>({...m, weekNumber:w.weekNumber, _year:w.year, _obj:w.epicObjective}));
-    });
-    if (!allMissions.length) { alert("No hay misiones para los filtros seleccionados."); return; }
-    const sorted = [...allMissions].sort((a,b)=>{
-      if(a.weekNumber!==b.weekNumber) return a.weekNumber-b.weekNumber;
-      if(a.date&&b.date) return (a.date+(a.time||""))>(b.date+(b.time||""))?1:-1;
-      if(a.date)return -1; if(b.date)return 1; return 0;
-    });
-    const doneCount = allMissions.filter(m=>m.status==="DONE").length;
-    const total = allMissions.length;
-    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Shared Calendar - ${personLabel}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#1a1a2e;max-width:720px;margin:0 auto;padding:40px 32px}
-h1{font-size:28px;font-weight:700;color:#6d28d9;margin-bottom:4px}
-.meta{color:#888;font-size:13px;margin-bottom:20px}
-.kpis{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.kpi{background:#f8f4ff;padding:12px 18px;border-radius:12px;text-align:center;flex:1;min-width:70px}
-.kpi-n{font-size:22px;font-weight:700;color:#7c3aed}
-.kpi-l{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
-.week-header{background:#f5f0ff;border-left:4px solid #a78bfa;padding:8px 14px;border-radius:6px;margin:18px 0 10px;font-weight:600;color:#4c1d95;font-size:14px}
-table{width:100%;border-collapse:collapse;margin-bottom:8px}
-th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#999;padding:6px 8px;border-bottom:2px solid #f0e8ff}
-td{padding:10px 8px;border-bottom:1px solid #f8f4ff;vertical-align:top}
-.badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
-.DONE{background:#d1fae5;color:#065f46}.ASAP{background:#ffedd5;color:#9a3412}.IN_PROGRESS{background:#dbeafe;color:#1e40af}.TBC{background:#f1f5f9;color:#475569}
-.footer{margin-top:28px;text-align:center;font-size:11px;color:#ccc;border-top:1px solid #f0e8ff;padding-top:14px}
-@media print{body{padding:20px}}
-</style></head><body>
-<h1>📅 Shared Calendar — ${personLabel}</h1>
-<div class="meta">${weekEntries.length} semana${weekEntries.length!==1?"s":""} · Generado el ${new Date().toLocaleDateString("es-ES",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
-<div class="kpis">
-  <div class="kpi"><div class="kpi-n">${total}</div><div class="kpi-l">Misiones</div></div>
-  <div class="kpi"><div class="kpi-n">${doneCount}</div><div class="kpi-l">Hechas</div></div>
-  <div class="kpi"><div class="kpi-n">${total>0?Math.round((doneCount/total)*100):0}%</div><div class="kpi-l">Progreso</div></div>
-</div>
-${weekEntries.map(([,w])=>{
-  const ms = personFilter==="all"?(w.missions||[]):(w.missions||[]).filter(m=>m.who===personFilter);
-  if(!ms.length) return "";
-  const who2=m2=>m2.who==="person1"?name1:m2.who==="person2"?name2:"Juntos";
-  return `<div class="week-header">Semana ${w.weekNumber}${w.epicObjective?` · "${w.epicObjective}"`:""}  — ${ms.filter(m=>m.status==="DONE").length}/${ms.length}</div>
-<table><thead><tr><th></th><th>Misión</th><th>Cuándo</th><th>Quién</th><th>Estado</th></tr></thead><tbody>
-${ms.map(m=>{
-  const whenStr=m.date?(m.time?`${m.date} ${m.time}`:m.date):"Sin fecha";
-  return `<tr><td style="font-size:18px">${m.emoji}</td><td style="font-size:13px;font-weight:600;color:${m.status==="DONE"?"#aaa":"#1a1a2e"};text-decoration:${m.status==="DONE"?"line-through":"none"}">${m.title}</td><td style="font-size:12px;color:#666">${whenStr}</td><td style="font-size:12px;color:#666">${who2(m)}</td><td><span class="badge ${m.status}">${STATUS[m.status]?.icon||""} ${STATUS[m.status]?.label||m.status}</span></td></tr>`;
-}).join("")}
-</tbody></table>`;
-}).join("")}
-<div class="footer">📅 Shared Calendar</div>
-</body></html>`;
-    const win = window.open("","_blank");
-    win.document.write(html);
-    win.document.close();
-    setTimeout(()=>{ win.print(); win.onafterprint = () => win.close(); }, 600);
-  };
-
   const done = week.missions?.filter(m=>m.status==="DONE").length||0;
   const total = week.missions?.length||0;
   const carriedCount = week.missions?.filter(m=>m.carriedFrom).length||0;
 
   const pct = total>0?(done/total)*100:0;
-  const carried = week.missions?.filter(m=>m.carriedFrom)||[];
-  const sortedWeeks = Object.entries(data.weeks).sort((a,b)=>b[0].localeCompare(a[0]));
   const allDated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
-  const allUndated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>!m.date&&m.status!=="DONE").map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear(),_key:key})));
 
   return (
     <div style={{ minHeight:"100vh", overflowX:"hidden", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
@@ -2045,6 +1872,7 @@ ${ms.map(m=>{
       {import.meta.env.DEV && coupleId && data && (
         <DevBackfillPanel coupleId={coupleId} blobData={data} />
       )}
+      <ConfirmDialog />
     </div>
   );
 }
@@ -2342,7 +2170,7 @@ function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors
   );
 }
 
-function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle }) {
+function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -2645,7 +2473,7 @@ function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessio
   );
 }
 
-function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
+function ChatView({ coupleId, personName, chatNotifEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2661,6 +2489,7 @@ function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
       }
     });
     return () => supabase.removeChannel(ch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
 
   useEffect(() => {
@@ -2725,7 +2554,7 @@ function ChatView({ coupleId, personName, p1, p2, chatNotifEnabled }) {
   );
 }
 
-function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onDownloadICS, onDownloadPDF, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter=[], catFilter=[], goals=[], settings }) {
+function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter=[], catFilter=[], goals=[] }) {
   const today=new Date();
   const [calYear,setCalYear]=useState(today.getFullYear());
   const [calMonth,setCalMonth]=useState(today.getMonth());
