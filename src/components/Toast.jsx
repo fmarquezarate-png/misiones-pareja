@@ -12,7 +12,7 @@ export function useToast() {
   useEffect(() => {
     if (!toast) return;
     if (toast.kind === "success") {
-      const id = setTimeout(() => setToast(null), 2500);
+      const id = setTimeout(() => setToast(null), 4000);
       return () => clearTimeout(id);
     }
   }, [toast]);

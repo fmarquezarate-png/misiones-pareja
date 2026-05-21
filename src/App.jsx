@@ -1242,15 +1242,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   };
 
   const cycleStatus = id => {
+    const wCur = data.weeks[wkey];
+    const mCur = wCur?.missions?.find(x => x.id === id);
+    const nx = mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null;
     update(d => {
       const w = d.weeks[wkey]; if (!w) return d;
-      const m = w.missions.find(x=>x.id===id);
-      const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
-      if (nx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
-      let next = { ...d, weeks: { ...d.weeks, [wkey]: { ...w, missions: w.missions.map(x => x.id===id ? {...x, status:nx, completedAt:nx==="DONE"?Date.now():null} : x) } } };
-      if (nx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
+      const m = w.missions.find(x=>x.id===id); if (!m) return d;
+      const nxx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      if (nxx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
+      let next = { ...d, weeks: { ...d.weeks, [wkey]: { ...w, missions: w.missions.map(x => x.id===id ? {...x, status:nxx, completedAt:nxx==="DONE"?Date.now():null} : x) } } };
+      if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
+    if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
   };
 
   const delMission = id => patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
@@ -1271,15 +1275,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   };
   const cycleStatusGlobal = (wn, yr, id) => {
     const key = isoWeekKey(wn, yr);
+    const wCur = data.weeks[key];
+    const mCur = wCur?.missions?.find(x => x.id === id);
+    const nx = mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null;
     update(d => {
       const w = d.weeks[key]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
-      const nx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
-      if (nx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
-      let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nx,completedAt:nx==="DONE"?Date.now():null}:x) } } };
-      if (nx==="DONE" && m.carriedFrom) next = syncCarryDone(next, key, id);
+      const nxx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      if (nxx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
+      let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nxx,completedAt:nxx==="DONE"?Date.now():null}:x) } } };
+      if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, key, id);
       return next;
     });
+    if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const key = isoWeekKey(wn, yr);
@@ -2076,7 +2084,11 @@ ${ms.map(m=>{
           const logrosThisWeek = logrosAll.filter(m => m._wkey === cwKey).length;
           // Racha: días consecutivos hacia atrás con al menos 1 logro (usa completedAt)
           const logrosWithDate = logrosAll.filter(m => m.completedAt);
-          const doneByDay = new Set(logrosWithDate.map(m => typeof m.completedAt === 'string' ? m.completedAt.slice(0,10) : null));
+          const doneByDay = new Set(logrosWithDate.map(m => {
+            if (typeof m.completedAt === 'string') return m.completedAt.slice(0,10);
+            if (typeof m.completedAt === 'number') return new Date(m.completedAt).toISOString().slice(0,10);
+            return null;
+          }).filter(Boolean));
           let racha = 0;
           const today = new Date();
           for (let i = 0; i < 365; i++) {
