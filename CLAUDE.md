@@ -65,7 +65,8 @@ Reglas activas en `eslint.config.js`:
 
 ### Versionado
 - Bump `APP_VERSION` en `src/constants.js` por cada lote
-- Entrada en `CHANGELOG` con notas claras
+- **Entrada en `CHANGELOG.md` OBLIGATORIA** al mismo tiempo que el bump — no en sesión posterior
+- El array `CHANGELOG` en `constants.js` y el archivo `CHANGELOG.md` deben estar sincronizados antes de cada `git push`
 - Patch para fixes, minor para features
 
 ### Commits
@@ -114,6 +115,7 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 | `completedAt` rompía racha con timestamps | Manejo dual en sección 2 + ejemplo |
 | `importData` aceptaba estructura corrupta | Validación de `missions` array en `supabase.js` |
 | 4 versiones intentando fix push sin ver el error real | Agente Forense + Edge Functions con `?probe=1` y `?diagnose=1` que devuelven `{stage, error, name}` en JSON. Regla: si un bug persiste tras 2 intentos, llamar al Forense antes de deployar otro fix. |
+| `CHANGELOG.md` desincronizado 8 versiones respecto a `constants.js` | Regla de versionado en sección 3: `CHANGELOG.md` es obligatorio en el mismo commit que el bump de `APP_VERSION`. El Redactor verifica antes de cada push. |
 
 ---
 
