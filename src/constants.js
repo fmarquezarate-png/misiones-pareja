@@ -1,11 +1,12 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.10";
+export const APP_VERSION = "3.8.11";
 export const LAST_UPDATE = "2026-05-21";
 
 // Clave pública VAPID — segura en el cliente (no es un secreto)
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.11", date:"2026-05-21", notes:["Send-push v2.0 autodiagnóstico: modos ?probe=1 (ping) y ?diagnose=1 (metadata de secrets sin exponer valores). setVapidDetails movido dentro del handler con try/catch — el error real ahora aparece en el body JSON con {stage, error, name}, no en logs perdidos","Nuevo agente: Forense — exige datos crudos antes de deployar fixes. Activado tras 4 versiones (3.8.7→3.8.10) buscando bug push a ciegas","Regla preventiva: si bug persiste tras 2 intentos, Forense pausa el ciclo hasta confirmar diagnóstico con evidencia"] },
   { v:"3.8.10", date:"2026-05-21", notes:["Fix push re-subscribe: requestPermission() ya no se llama si el permiso ya está 'granted' — en iOS/Android esto abortaba silenciosamente la suscripción","Fix push error silencioso: DOMException con message vacío ya no pasa invisible — fallback a nombre del error + toast visible","Error de push en Settings ahora tiene diseño prominente (antes 11px invisible)"] },
   { v:"3.8.9", date:"2026-05-21", notes:["Fix E-3: nuevas VAPID keys generadas (par completo público+privado) — la private key faltaba en Supabase Secrets, causando HTTP 500 en send-push en cada invocación","VAPID_PUBLIC_KEY actualizada en constants.js — suscripciones previas inválidas limpiadas en Supabase","Las 3 suscripciones previas fueron eliminadas (creadas con clave pública sin par privado) — se recrean automáticamente al abrir la app"] },
   { v:"3.8.8", date:"2026-05-21", notes:["Fix M-1: racha de logros ya no se rompe cuando completedAt es número (timestamp) — convierte a ISO string antes de comparar","Fix M-4: importData valida estructura interna de missions — rechaza archivos con missions que no sean array","Fix M-5: toast de éxito ahora dura 4s (antes 2.5s) para dar tiempo a leer el mensaje","UX-1: feedback visual al ciclar estado de misión — toast breve muestra el nuevo estado"] },

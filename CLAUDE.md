@@ -84,6 +84,7 @@ El proyecto se trabaja por roles que dialogan en cada sesión. Cada agente tiene
 | **Coordinador** | Guardián del scope, dice NO temprano | [`docs/agents/coordinador.md`](./docs/agents/coordinador.md) |
 | **Programador** | Pragmatismo con código real | [`docs/agents/programador.md`](./docs/agents/programador.md) |
 | **Analista** | Voz incómoda, señala lo que nadie mira | [`docs/agents/analista.md`](./docs/agents/analista.md) |
+| **Forense** | Detiene el ciclo "fix → deploy → no funciona" exigiendo datos crudos antes de actuar | [`docs/agents/forense.md`](./docs/agents/forense.md) |
 | **Experto en Datos** | Guardián de la integridad SQL/RLS | [`docs/agents/experto-en-datos.md`](./docs/agents/experto-en-datos.md) |
 | **UI/UX** | Filtro de "Marta en la línea 5" | [`docs/agents/ui-ux.md`](./docs/agents/ui-ux.md) |
 | **Redactor** | Documenta cada cambio en CHANGELOG | [`docs/agents/redactor.md`](./docs/agents/redactor.md) |
@@ -112,6 +113,7 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 | Hooks tras early return en `DevBackfillPanel` | ESLint `react-hooks/rules-of-hooks: error` |
 | `completedAt` rompía racha con timestamps | Manejo dual en sección 2 + ejemplo |
 | `importData` aceptaba estructura corrupta | Validación de `missions` array en `supabase.js` |
+| 4 versiones intentando fix push sin ver el error real | Agente Forense + Edge Functions con `?probe=1` y `?diagnose=1` que devuelven `{stage, error, name}` en JSON. Regla: si un bug persiste tras 2 intentos, llamar al Forense antes de deployar otro fix. |
 
 ---
 
