@@ -230,14 +230,18 @@ export default function HomeDashboard({
   const p1Ms = last15Ms.filter(m => m.who === "person1" || m.who === "together");
   const p2Ms = last15Ms.filter(m => m.who === "person2" || m.who === "together");
 
-  const buildStats = ms => ({
-    total:      ms.length,
-    done:       ms.filter(m => m.status === "DONE").length,
-    inProgress: ms.filter(m => m.status === "IN_PROGRESS").length,
-    asap:       ms.filter(m => m.status === "ASAP").length,
-    tbc:        ms.filter(m => m.status === "TBC").length,
-    pct:        ms.length ? Math.round(ms.filter(m => m.status === "DONE").length / ms.length * 100) : 0,
-  });
+  const buildStats = ms => {
+    const active = ms.filter(m => !m.completedLate);
+    const done   = active.filter(m => m.status === "DONE").length;
+    return {
+      total:      active.length,
+      done,
+      inProgress: active.filter(m => m.status === "IN_PROGRESS").length,
+      asap:       active.filter(m => m.status === "ASAP").length,
+      tbc:        active.filter(m => m.status === "TBC").length,
+      pct:        active.length ? Math.round(done / active.length * 100) : 0,
+    };
+  };
 
   const p1Stats = buildStats(p1Ms);
   const p2Stats = buildStats(p2Ms);

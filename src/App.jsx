@@ -347,10 +347,12 @@ function applyCarryOver(data) {
     if (m.seriesPattern === "weekly") return true;
     if (m.seriesPattern === "monthly") return isFirstWeekOfMonth;
     if (m.seriesPattern === "biweekly") {
-      const sWn = m.seriesStartWeek || pwn;
-      const sYr = m.seriesStartYear || pyr;
-      const weeksDiff = (cyr - sYr) * 52 + (cwn - sWn);
-      return weeksDiff % 2 === 0;
+      if (m.seriesStartWeek != null && m.seriesStartYear != null) {
+        const weeksDiff = (cyr - m.seriesStartYear) * 52 + (cwn - m.seriesStartWeek);
+        return weeksDiff % 2 === 0;
+      }
+      // Legacy sin seriesStartWeek: crear solo si viene de prev2W (no de prevW)
+      return !prevSeriesIds.has(m.seriesId);
     }
     return false;
   }).map(m => ({ ...m, id:uid(), carriedFrom:null, carriedFromWeek:null, date:null, createdAt:Date.now(), completedAt:null, status:"TBC" }));
