@@ -7,20 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [3.8.17] — [PENDING] · Sprint G-2: Flip lectura blob → tablas normalizadas
+## [3.8.17] — 2026-05-22 · Sprint G-2: loadFromNormalized implementado
 
-> 🟡 Infraestructura lista — bloqueado por 3 gaps de schema. Consistencia de datos confirmada ✅ por Externo (2026-05-22).
+### Añadido
+- **`loadFromNormalized(coupleId)`** en `supabase.js`: lee `missions` + `goals` de tablas normalizadas y reconstruye el objeto `data` que espera la app. Settings y metadatos de semana (`label`, `epicGoal`) siguen del blob como fuente.
+- **Estrategia híbrida con fallback automático**: si las tablas fallan (error de red o schema incompleto), se devuelve el blob sin interrumpir la app.
+- **Activación condicional en App.jsx**: tanto la carga inicial como `forceSync` usan `isEnabled("read_from_normalized")` para decidir entre `loadFromNormalized` y `loadData`.
 
-### Bloqueadores
-- Columnas faltantes en `missions`: `time`, `reminder`, `series_pattern`, `series_end_date`
-- Tabla `week_metadata` inexistente (label + epicGoal por semana)
-- `loadFromNormalized()` no implementado en `supabase.js`
+### Estado del flag
+`read_from_normalized: false` (default seguro). Para activar el flip, el Externo debe primero ejecutar el DDL de columnas faltantes en `missions` (ver `TAREAS_SQL_AGENTE_SUPABASE.md` sección G-2).
 
-### Cuando los bloqueadores estén cerrados
-- Flag `read_from_normalized: true` en `src/lib/flags.js`
-- Lectura desde tablas `missions`, `goals`, `couple_settings`, `week_metadata`
-- Source-of-truth cambia de blob a tablas normalizadas
-- Rollback: `window.__mpFlags.setFlag('read_from_normalized', false)` en cada dispositivo
+### Rollback
+```js
+window.__mpFlags.setFlag('read_from_normalized', false); location.reload();
+```
+(ejecutar en cada dispositivo de la pareja)
 
 ---
 
