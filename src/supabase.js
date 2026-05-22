@@ -228,6 +228,87 @@ export async function loadDataWithVersion(coupleId) {
   }
 }
 
+// ── Sprint G-2: helpers de conversión fila → formato blob ──────────────────
+
+function missionRowToBlob(row) {
+  return {
+    id:             row.blob_id ?? row.id,
+    title:          row.title,
+    emoji:          row.emoji ?? null,
+    who:            row.who,
+    status:         row.status,
+    type:           row.type ?? null,
+    categories:     row.categories ?? [],
+    duration:       row.duration ?? null,
+    date:           row.date ? String(row.date) : null,
+    time:           row.time ?? null,
+    reminder:       row.reminder ?? null,
+    goalId:         row.goal_id ?? null,
+    seriesId:       row.series_id ?? null,
+    seriesPattern:  row.series_pattern ?? null,
+    seriesEndDate:  row.series_end_date ? String(row.series_end_date) : null,
+    carriedFrom:    row.carried_from ?? null,
+    carriedFromWeek: row.carried_from_week ?? null,
+    completedAt:    row.completed_at ?? null,
+    completedLate:  row.completed_late ?? false,
+    notes:          row.notes ?? null,
+  };
+}
+
+function goalRowToBlob(row) {
+  return {
+    id:        row.id,
+    title:     row.title,
+    emoji:     row.emoji ?? null,
+    who:       row.who,
+    period:    row.period,
+    target:    row.target,
+    goalType:  row.goal_type,
+    active:    row.active,
+    startDate: row.start_date ? String(row.start_date) : null,
+    deadline:  row.deadline ? String(row.deadline) : null,
+  };
+}
+
+// Lee missions + goals de tablas normalizadas; settings y metadatos de semana
+// (label, epicGoal) siguen viniendo del blob. Fallback a blob si las tablas fallan.
+export async function loadFromNormalized(coupleId) {
+  const blob = await loadData(coupleId);
+  if (!blob) return null;
+
+  const [{ data: missionRows, error: mErr }, { data: goalRows, error: gErr }] = await Promise.all([
+    supabase.from("missions").select("*").eq("couple_id", coupleId),
+    supabase.from("goals").select("*").eq("couple_id", coupleId),
+  ]);
+
+  if (mErr) {
+    console.error("[loadFromNormalized] missions error:", mErr.message);
+    return blob;
+  }
+  if (gErr) {
+    console.error("[loadFromNormalized] goals error:", gErr.message);
+    return blob;
+  }
+
+  // Reconstruir weeks: esqueleto del blob preserva label/epicGoal/weekNumber/year,
+  // missions[] se reemplaza con los datos normalizados
+  const weeks = {};
+  for (const [wkey, wdata] of Object.entries(blob.weeks ?? {})) {
+    weeks[wkey] = { ...wdata, missions: [] };
+  }
+  for (const row of missionRows) {
+    const wkey = row.week_key;
+    if (!weeks[wkey]) {
+      weeks[wkey] = { weekNumber: row.week_number, year: row.year, missions: [] };
+    }
+    weeks[wkey].missions.push(missionRowToBlob(row));
+  }
+
+  const goals = goalRows.map(goalRowToBlob);
+  console.debug(`[loadFromNormalized] ${missionRows.length} misiones, ${goals.length} metas desde tablas`);
+  return { ...blob, weeks, goals };
+}
+
 /**
  * saveData — guardado infalible
  *

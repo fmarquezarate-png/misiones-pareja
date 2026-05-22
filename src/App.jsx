@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, loadDataWithVersion, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
+import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, loadMessages, sendMessage, subscribeToMessages } from "./supabase.js";
 import supabase from "./supabase.js";
 import Brand from "./components/Brand.jsx";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -37,7 +37,7 @@ const STATUS = {
 const CATEGORIES = [
   { id:"pareja",  label:"Pareja",  icon:"💞", color:"#f472b6" },
   { id:"deporte", label:"Deporte", icon:"🏅", color:"#60a5fa" },
-  { id:"casa",    label:"Casa",    icon:"🏠", color:"var(--t-accent,#a78bfa)" },
+  { id:"casa",    label:"Casa",    icon:"🏠", color:"#a78bfa" },
   { id:"salud",   label:"Salud",   icon:"💊", color:"#34d399" },
   { id:"trabajo", label:"Trabajo", icon:"💼", color:"#fbbf24" },
   { id:"ocio",    label:"Ocio",    icon:"🎉", color:"#f97316" },
@@ -533,7 +533,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(true);
     setSyncError(null);
     try {
-      const remote = await loadData(coupleId);
+      const remote = await (isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId));
       if (remote) {
         setData(prev => {
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
@@ -607,8 +607,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       });
 
       // Background: fetch authoritative data from Supabase
+      // Sprint G-2: si read_from_normalized está activo, lee missions+goals de tablas
       try {
-        let base = await loadData(coupleId);
+        let base = await (isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId));
         let isRealData = !!base;
         let didMigrate = false;
 

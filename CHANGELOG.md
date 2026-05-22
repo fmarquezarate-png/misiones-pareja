@@ -7,15 +7,59 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [3.8.16] — [PENDING] · Sprint G-2: Flip lectura blob → tablas normalizadas
+## [3.8.19] — 2026-05-22 · Sprint G-2 ACTIVADO: lectura desde tablas normalizadas
 
-> ⏳ Pendiente confirmación de consistencia por el Externo (3 queries de verificación).
+### Cambiado
+- **`read_from_normalized: true`** — la app ya lee `missions` y `goals` desde las tablas normalizadas de Supabase en lugar del blob JSON.
+- Settings de pareja y metadatos de semana (`label`, `epicGoal`) siguen leyendo del blob (fuente híbrida).
+- Fallback automático a blob completo si cualquier query a tablas falla.
 
-### Cambios previstos
-- Flag `read_from_normalized` activado en `src/lib/flags.js`
-- Lectura desde tablas `missions`, `goals`, `couple_settings` en lugar del blob JSONB
-- Source-of-truth cambia de blob a tablas normalizadas
-- Rollback: desactivar flag sin redesploy
+### Verificación previa (Externo)
+| Pareja | Misiones blob/db | Metas blob/db |
+|--------|-----------------|---------------|
+| FRANANA | 220 / 220 ✅ | 8 / 8 ✅ |
+| CRI-COCO | 32 / 32 ✅ | 0 / 0 ✅ |
+
+---
+
+## [3.8.18] — 2026-05-22 · Fix borde oscuro tarjetas Casa en temas claros
+
+### Corregido
+- **Borde oscuro en tarjetas con categoría "Casa" en temas claros** (Lavanda, Blush, Cielo, etc.): el color de la categoría Casa usaba `"var(--t-accent,#a78bfa)"` como string literal. Al interpolarse en la expresión `${firstCat.color}30` para calcular `cardBorder`, generaba `"var(--t-accent,#a78bfa)30"` — un valor CSS inválido. El browser resolvía `border-color` como `currentColor` (el color de texto del tema, ej. `#1e0b4b`), produciendo un borde negro/navy prominente. Corregido a `"#a78bfa"` fijo.
+- Misma corrección en `GASTO_CATS` (`constants.js`) donde "Casa" tenía el mismo problema.
+
+### Alcance
+Solo afectaba a tarjetas con "Casa" como primera (o única) categoría, en estado distinto de DONE/arrastrada/evento, y únicamente en temas claros donde `currentColor` es oscuro.
+
+---
+
+## [3.8.17] — 2026-05-22 · Sprint G-2: loadFromNormalized implementado
+
+### Añadido
+- **`loadFromNormalized(coupleId)`** en `supabase.js`: lee `missions` + `goals` de tablas normalizadas y reconstruye el objeto `data` que espera la app. Settings y metadatos de semana (`label`, `epicGoal`) siguen del blob como fuente.
+- **Estrategia híbrida con fallback automático**: si las tablas fallan (error de red o schema incompleto), se devuelve el blob sin interrumpir la app.
+- **Activación condicional en App.jsx**: tanto la carga inicial como `forceSync` usan `isEnabled("read_from_normalized")` para decidir entre `loadFromNormalized` y `loadData`.
+
+### Estado del flag
+`read_from_normalized: false` (default seguro). Para activar el flip, el Externo debe primero ejecutar el DDL de columnas faltantes en `missions` (ver `TAREAS_SQL_AGENTE_SUPABASE.md` sección G-2).
+
+### Rollback
+```js
+window.__mpFlags.setFlag('read_from_normalized', false); location.reload();
+```
+(ejecutar en cada dispositivo de la pareja)
+
+---
+
+## [3.8.16] — 2026-05-22 · Sprint G-2 infraestructura + análisis de gaps
+
+### Añadido
+- **Flag `read_from_normalized: false`** en `src/lib/flags.js` DEFAULTS — infraestructura Sprint G-2 creada con default seguro. No activa ningún cambio de comportamiento hasta que la implementación esté completa.
+
+### Documentado
+- **3 gaps que bloquean el flip** identificados: columnas faltantes en `missions` (`time`, `reminder`, `seriesPattern`, `seriesEndDate`), tabla `week_metadata` inexistente, `loadFromNormalized()` por implementar en `supabase.js`
+- DDL para cerrar los gaps añadido a `TAREAS_SQL_AGENTE_SUPABASE.md` (sección G-2)
+- Corrección de 2 bugs en queries de consistencia: cross join sin agrupación correcta + filtro regex nanoid incorrecto
 
 ---
 
