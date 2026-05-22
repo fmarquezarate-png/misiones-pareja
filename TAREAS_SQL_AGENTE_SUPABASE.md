@@ -683,6 +683,80 @@ create policy "app_data_all_own" on public.app_data
 
 **IMPORTANTE:** Antes de ejecutar el DROP de policies, ejecutar primero el SELECT para ver los nombres reales de las policies actuales y ajustar los DROP según corresponda.
 
+### G-2 · Flip lectura blob → tablas normalizadas (Sprint G-2)
+
+> **Estado:** 🟡 Infraestructura lista — implementación de lectura pendiente.
+> **Flag creado:** `read_from_normalized: false` en `src/lib/flags.js` DEFAULTS (2026-05-22).
+> **Consistencia verificada:** ✅ FRANANA (225/220 — +5 post-backfill real) y CRI-COCO (32/32) están OK. Luz verde dada por Externo el 2026-05-22.
+
+#### Qué falta antes de activar el flip
+
+**Gap 1 — Campos de misión faltantes en tabla `missions`:**
+La tabla `missions` no tiene: `time`, `reminder`, `series_pattern`, `series_end_date`. Estos campos viven en el blob y se usan en la app. El flip no puede ser completo sin agregarlos.
+
+```sql
+-- Verificar columnas actuales de missions:
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_name = 'missions' ORDER BY ordinal_position;
+```
+
+DDL a ejecutar para completar el esquema:
+```sql
+ALTER TABLE public.missions
+  ADD COLUMN IF NOT EXISTS time           text,
+  ADD COLUMN IF NOT EXISTS reminder       text,
+  ADD COLUMN IF NOT EXISTS series_pattern text,
+  ADD COLUMN IF NOT EXISTS series_end_date date;
+```
+
+**Gap 2 — Metadatos de semana no normalizados:**
+`data.weeks["YYYY-WNN"].label` y `data.weeks["YYYY-WNN"].epicGoal` NO están en ninguna tabla normalizada. La app los usa en HomeDashboard (`week.epicGoal`) y en la navegación de semanas. Requiere una nueva tabla `week_metadata`.
+
+```sql
+-- Tabla propuesta:
+CREATE TABLE IF NOT EXISTS public.week_metadata (
+  couple_id   uuid NOT NULL REFERENCES public.couples(id) ON DELETE CASCADE,
+  week_key    text NOT NULL,
+  label       text,
+  epic_goal   text,
+  PRIMARY KEY (couple_id, week_key)
+);
+ALTER TABLE public.week_metadata ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "week_metadata_own" ON public.week_metadata
+  FOR ALL TO authenticated USING (is_couple_member(couple_id)) WITH CHECK (is_couple_member(couple_id));
+```
+
+Luego backfill:
+```sql
+INSERT INTO public.week_metadata (couple_id, week_key, label, epic_goal)
+SELECT
+  ad.id,
+  wk.key,
+  wk.val->>'label',
+  wk.val->>'epicGoal'
+FROM public.app_data ad, jsonb_each(ad.data->'weeks') AS wk(key, val)
+WHERE wk.val->>'label' IS NOT NULL OR wk.val->>'epicGoal' IS NOT NULL
+ON CONFLICT (couple_id, week_key) DO NOTHING;
+```
+
+**Gap 3 — Código de lectura en supabase.js:**
+No existe `loadFromNormalized(coupleId)` — está por implementar. Mientras tanto, `read_from_normalized: false` en DEFAULTS mantiene el comportamiento actual (leer del blob).
+
+#### Correcciones a las queries de consistencia (para referencia futura)
+
+Las queries enviadas al Externo el 2026-05-22 tenían 2 bugs confirmados por el Externo:
+1. **Cross join sin agrupación**: `LEFT JOIN LATERAL` sin `GROUP BY` correcto produce producto cartesiano (conteos inflados: 49500, 1024)
+2. **Filtro nanoid incorrecto**: `AND (m2->>'id') ~ '^[0-9a-f-]{36}$'` excluye IDs del blob más recientes (nanoids válidos post-backfill) causando diferencia falsa
+
+**Queries correctas que funcionaron (probadas por Externo):** usar las queries originales simples con `COUNT(*)` agrupado por `couple_id` sin el regex guard.
+
+#### Activación del flip (cuando los gaps estén cerrados)
+
+1. Confirmar que `missions` tiene `time`, `reminder`, `series_pattern`, `series_end_date` con datos
+2. Confirmar que `week_metadata` existe y está backfilled
+3. El equipo implementa `loadFromNormalized(coupleId)` en `supabase.js`
+4. PR con el flag en `false` → test → cambiar a `true` → redesploy
+
 ---
 
 ## 📋 Resumen de ejecución
@@ -708,6 +782,7 @@ create policy "app_data_all_own" on public.app_data
 | PERF-1 — 16 políticas RLS optimizadas `(SELECT auth.uid())` | Ejecutado 21 mayo | ✅ app_data, app_data_backups, couple_members, daily_load_cache, events, messages, push_subscriptions |
 | PERF-2 — 5 índices FK creados | Ejecutado 21 mayo | ✅ app_data_backups, couple_members, events, messages, push_subscriptions |
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro (julio) |
+| G-2 — Flip lectura blob → tablas | Bloqueado: 3 gaps de schema + código | 🟡 Infraestructura lista, implementación pendiente |
 
 ---
 

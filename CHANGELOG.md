@@ -7,15 +7,32 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [3.8.16] — [PENDING] · Sprint G-2: Flip lectura blob → tablas normalizadas
+## [3.8.17] — [PENDING] · Sprint G-2: Flip lectura blob → tablas normalizadas
 
-> ⏳ Pendiente confirmación de consistencia por el Externo (3 queries de verificación).
+> 🟡 Infraestructura lista — bloqueado por 3 gaps de schema. Consistencia de datos confirmada ✅ por Externo (2026-05-22).
 
-### Cambios previstos
-- Flag `read_from_normalized` activado en `src/lib/flags.js`
-- Lectura desde tablas `missions`, `goals`, `couple_settings` en lugar del blob JSONB
+### Bloqueadores
+- Columnas faltantes en `missions`: `time`, `reminder`, `series_pattern`, `series_end_date`
+- Tabla `week_metadata` inexistente (label + epicGoal por semana)
+- `loadFromNormalized()` no implementado en `supabase.js`
+
+### Cuando los bloqueadores estén cerrados
+- Flag `read_from_normalized: true` en `src/lib/flags.js`
+- Lectura desde tablas `missions`, `goals`, `couple_settings`, `week_metadata`
 - Source-of-truth cambia de blob a tablas normalizadas
-- Rollback: desactivar flag sin redesploy
+- Rollback: `window.__mpFlags.setFlag('read_from_normalized', false)` en cada dispositivo
+
+---
+
+## [3.8.16] — 2026-05-22 · Sprint G-2 infraestructura + análisis de gaps
+
+### Añadido
+- **Flag `read_from_normalized: false`** en `src/lib/flags.js` DEFAULTS — infraestructura Sprint G-2 creada con default seguro. No activa ningún cambio de comportamiento hasta que la implementación esté completa.
+
+### Documentado
+- **3 gaps que bloquean el flip** identificados: columnas faltantes en `missions` (`time`, `reminder`, `seriesPattern`, `seriesEndDate`), tabla `week_metadata` inexistente, `loadFromNormalized()` por implementar en `supabase.js`
+- DDL para cerrar los gaps añadido a `TAREAS_SQL_AGENTE_SUPABASE.md` (sección G-2)
+- Corrección de 2 bugs en queries de consistencia: cross join sin agrupación correcta + filtro regex nanoid incorrecto
 
 ---
 

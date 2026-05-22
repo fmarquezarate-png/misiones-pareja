@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.15";
+export const APP_VERSION = "3.8.16";
 export const LAST_UPDATE = "2026-05-22";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.16", date:"2026-05-22", notes:["Flag read_from_normalized:false añadido a DEFAULTS en flags.js — infraestructura Sprint G-2 lista, default seguro hasta que la implementación esté completa","Documentados 3 gaps que bloquean el flip: columnas faltantes en missions (time/reminder/seriesPattern/seriesEndDate), tabla week_metadata inexistente, loadFromNormalized() por implementar en supabase.js","TAREAS_SQL actualizado con DDL para cerrar los gaps y corrección de los 2 bugs en las queries de consistencia (cross join + filtro nanoid)"] },
   { v:"3.8.15", date:"2026-05-22", notes:["Props muertos eliminados: coupleId de ProfileModal, p1/p2 de ChatView (nunca se usaban en la firma del componente)","Copy de confirmación de borrado mejorado: diálogos ahora dicen 'Vas a eliminar esta tarea/logro/actividad' con descripción de irreversibilidad y botones 'Sí, eliminar' / 'Mejor no'","ConfirmModal API extendida: acepta confirmLabel y cancelLabel en el objeto de opciones — retrocompatible (los valores por defecto son los anteriores)"] },
   { v:"3.8.14", date:"2026-05-22", notes:["Banner de mantenimiento: MAINTENANCE_WARNING en constants.js activa MaintenanceBanner cuando se hacen cambios de riesgo — null=off, {title,body}=on. Deploy activa el aviso, revert lo apaga. position:fixed, amber, descartable por sesión","Props muertos eliminados del call site de CalendarView: settings, onDownloadICS, onDownloadPDF ya no se pasan (limpieza de Fase 1b incompleta)"] },
   { v:"3.8.13", date:"2026-05-21", notes:["Limpieza ESLint: 49 warnings → 0. Eliminadas importaciones muertas (signInWithGoogle, createCouple, joinCouple, generateInsights), constantes duplicadas post-extracción (GASTO_CATS, EMOJI_GROUPS, TABS, PERIOD_LABEL, PERIOD_EMOJI) y funciones locales redundantes (computeGoalProgress, computeGoalHistory, downloadFilteredPDF) de App.jsx","Fix bug silencioso: <ConfirmDialog /> ahora se renderiza en CoupleMissions — los diálogos '¿Eliminar esta tarea?' y '¿Eliminar este logro?' ya muestran UI (antes confirm() invocaba un hook sin render)","Deps de hooks intencionalmente acotados: eslint-disable-next-line añadido con justificación en subscribeToUpdates, useCallback update, ChatView useEffect","Destructurings limpiados: p1/p2 en DayDetailSheet y GoalPeriodDetail, coupleId en ProfileModal, p1/p2 en ChatView, onDownloadICS/onDownloadPDF/settings en CalendarView"] },
