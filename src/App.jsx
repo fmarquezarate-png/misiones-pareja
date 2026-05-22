@@ -11,7 +11,7 @@ import LinksView from "./components/LinksView.jsx";
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
-import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS } from "./constants.js";
+import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS, MAINTENANCE_WARNING } from "./constants.js";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS } from "./lib/repo.js";
@@ -347,6 +347,39 @@ const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; re
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
 const AUTH_CACHE_KEY = "shared-cal-auth-v1";
 
+function MaintenanceBanner({ warning }) {
+  const [dismissed, setDismissed] = useState(
+    sessionStorage.getItem("mp_maint_dismissed") === "1"
+  );
+  if (!warning || dismissed) return null;
+  const dismiss = () => { sessionStorage.setItem("mp_maint_dismissed","1"); setDismissed(true); };
+  return (
+    <div style={{
+      position:"fixed", top:0, left:0, right:0, zIndex:600,
+      background:"linear-gradient(90deg,#78350f,#92400e)",
+      borderBottom:"1px solid rgba(251,191,36,0.35)",
+      paddingTop:"calc(10px + env(safe-area-inset-top))", paddingBottom:10,
+      paddingLeft:16, paddingRight:12,
+      display:"flex", alignItems:"flex-start", gap:10,
+      fontFamily:"var(--t-font-body,system-ui)", boxShadow:"0 2px 12px rgba(0,0,0,0.4)",
+    }}>
+      <span style={{ fontSize:20, flexShrink:0, marginTop:1 }}>🔧</span>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontWeight:700, fontSize:13, color:"#fef3c7", marginBottom:3 }}>
+          {warning.title}
+        </div>
+        <div style={{ fontSize:12, color:"rgba(254,243,199,0.8)", lineHeight:1.5 }}>
+          {warning.body}
+        </div>
+      </div>
+      <button onClick={dismiss} aria-label="Cerrar aviso"
+        style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:99, cursor:"pointer", color:"#fef3c7", fontSize:16, width:28, height:28, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", marginTop:1 }}>
+        ×
+      </button>
+    </div>
+  );
+}
+
 export default function AppWithAuth() {
   // Instant startup: read cached couple synchronously (set on previous login, no network needed)
   const authCache = (() => { try { return JSON.parse(localStorage.getItem(AUTH_CACHE_KEY)||"null"); } catch { return null; } })();
@@ -391,7 +424,12 @@ export default function AppWithAuth() {
   if (authStep === "login") return <LoginScreen />;
   if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cd)); setCoupleData(cd); setAuthStep("app"); }} />;
   // key={coupleData?.couple_id} forces full remount if couple changes (data isolation)
-  return <CoupleMissions key={coupleData?.couple_id} coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={handleSignOut} sessionUserId={session?.user?.id} />;
+  return (
+    <>
+      <MaintenanceBanner warning={MAINTENANCE_WARNING} />
+      <CoupleMissions key={coupleData?.couple_id} coupleId={coupleData?.couple_id} personName={coupleData?.person_name} onSignOut={handleSignOut} sessionUserId={session?.user?.id} />
+    </>
+  );
 }
 
 function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
@@ -1175,7 +1213,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -1531,7 +1569,7 @@ ${sorted.map(m=>{
         </div>}
 
         {activeTab==="calendar" && <CalendarView
-          allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} settings={data.settings} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
+          allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
           onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal} onPatchAllFutureSeries={patchAllFutureSeries}
           onAddForDay={(date) => {
             const { week:wn, year:yr } = getWeekAndYear(new Date(date));
@@ -1539,8 +1577,6 @@ ${sorted.map(m=>{
             setNewM(p=>({...p, date, type:"event", emoji:"📅"}));
             setShowAddForm(true); setActiveTab("current");
           }}
-          onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
-          onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
           onCycleStatus={cycleStatusGlobal}
         />}
 
@@ -1629,7 +1665,7 @@ ${sorted.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
@@ -1738,7 +1774,7 @@ ${sorted.map(m=>{
                         <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
                           <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
                           <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
-                          <button onClick={()=>confirm("¿Eliminar esta tarea?",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:18,padding:"0 2px",lineHeight:1,flexShrink:0}} title="Eliminar">×</button>
+                          <button onClick={()=>confirm("Vas a eliminar esta tarea\n\nEsta acción no se puede deshacer. Desaparecerá para los dos.",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id),{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:18,padding:"0 2px",lineHeight:1,flexShrink:0}} title="Eliminar">×</button>
                         </div>
                       </div>
                     </div>;
@@ -1836,7 +1872,7 @@ ${sorted.map(m=>{
                                         </div>
                                         <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
                                           <span style={{fontSize:18}}>✅</span>
-                                          <button onClick={()=>confirm("¿Eliminar este logro?",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar">×</button>
+                                          <button onClick={()=>confirm("Vas a eliminar este logro\n\nEsta acción no se puede deshacer. Desaparecerá del historial de los dos.",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id),{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar">×</button>
                                         </div>
                                       </div>
                                     </div>
@@ -2784,7 +2820,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleSt
             </div>
           )}
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:14}}>
-            <button onClick={()=>confirm("¿Eliminar esta actividad?", ()=>{onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();})} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
+            <button onClick={()=>confirm("Vas a eliminar esta actividad\n\nEsta acción no se puede deshacer.", ()=>{onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();},{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
             <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
           </div>
         </div>

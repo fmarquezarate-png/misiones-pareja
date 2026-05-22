@@ -7,6 +7,38 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.16] — [PENDING] · Sprint G-2: Flip lectura blob → tablas normalizadas
+
+> ⏳ Pendiente confirmación de consistencia por el Externo (3 queries de verificación).
+
+### Cambios previstos
+- Flag `read_from_normalized` activado en `src/lib/flags.js`
+- Lectura desde tablas `missions`, `goals`, `couple_settings` en lugar del blob JSONB
+- Source-of-truth cambia de blob a tablas normalizadas
+- Rollback: desactivar flag sin redesploy
+
+---
+
+## [3.8.15] — 2026-05-22 · Props muertos + copy de confirmación de borrado
+
+### Corregido
+- **Props muertos eliminados**: `coupleId` de `ProfileModal` y `p1`/`p2` de `ChatView` ya no se pasan desde el call site — la firma de ambos componentes nunca los usaba
+- **Copy de confirmación de borrado mejorado**: los diálogos de eliminar tarea, logro y actividad ahora muestran "Vas a eliminar esta tarea/logro/actividad" con descripción de irreversibilidad ("Esta acción no se puede deshacer") en lugar del genérico "¿Eliminar...?"
+- **Botones de confirmación mejorados**: `ConfirmModal` ahora acepta `confirmLabel` y `cancelLabel` en las opciones — los diálogos de borrado usan "Sí, eliminar" / "Mejor no". La API es retrocompatible (valores por defecto: "Confirmar" / "Cancelar")
+
+---
+
+## [3.8.14] — 2026-05-22 · Banner de mantenimiento + limpieza CalendarView
+
+### Añadido
+- **`MAINTENANCE_WARNING`** en `constants.js`: constante que activa un banner de aviso cuando se hacen cambios de riesgo. `null` = desactivado (por defecto). Para activar durante mantenimientos, cambiar a `{ title, body }` y redesplegar — se revierte a `null` al terminar. El banner es `position:fixed`, ambar/marrón, descartable por sesión (sessionStorage).
+- **`MaintenanceBanner`** componente en `App.jsx`: se renderiza encima de `CoupleMissions` con safe-area-inset-top y botón ×
+
+### Corregido
+- **Props muertos en `CalendarView`**: el call site seguía pasando `settings={data.settings}`, `onDownloadICS={...}` y `onDownloadPDF={...}` aunque la firma del componente ya no los aceptaba (limpieza de Fase 1b incompleta). Eliminados.
+
+---
+
 ## [3.8.13] — 2026-05-21 · Limpieza ESLint: 49 warnings → 0
 
 ### Corregido

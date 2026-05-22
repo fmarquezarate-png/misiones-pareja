@@ -8,7 +8,8 @@
     "lint": "eslint src/",
     "prebuild": "node scripts/gen-version.js && eslint src/ --max-warnings 9999",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -22,6 +23,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "vite": "^5.0.0",
-    "vite-plugin-pwa": "^0.17.0"
+    "vite-plugin-pwa": "^0.17.0",
+    "vitest": "^4.1.7"
   }
 }
