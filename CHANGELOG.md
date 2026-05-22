@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.19] — 2026-05-22 · Sprint G-2 ACTIVADO: lectura desde tablas normalizadas
+
+### Cambiado
+- **`read_from_normalized: true`** — la app ya lee `missions` y `goals` desde las tablas normalizadas de Supabase en lugar del blob JSON.
+- Settings de pareja y metadatos de semana (`label`, `epicGoal`) siguen leyendo del blob (fuente híbrida).
+- Fallback automático a blob completo si cualquier query a tablas falla.
+
+### Verificación previa (Externo)
+| Pareja | Misiones blob/db | Metas blob/db |
+|--------|-----------------|---------------|
+| FRANANA | 220 / 220 ✅ | 8 / 8 ✅ |
+| CRI-COCO | 32 / 32 ✅ | 0 / 0 ✅ |
+
+---
+
 ## [3.8.18] — 2026-05-22 · Fix borde oscuro tarjetas Casa en temas claros
 
 ### Corregido

@@ -8,7 +8,7 @@ const DEFAULTS = {
   dual_write_normalized: true,
   cas_version_check: true,
   idb_offline_queue: false,
-  read_from_normalized: false, // Sprint G-2: flip lectura blob → tablas normalizadas (pendiente implementación)
+  read_from_normalized: true, // Sprint G-2: lectura desde tablas normalizadas (missions+goals) activa
 };
 
 function loadOverrides() {
