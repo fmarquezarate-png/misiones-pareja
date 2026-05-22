@@ -15,7 +15,7 @@ const W = {
 
 const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
-function DayDetailSheet({ dateStr, missions, onClose, p1, p2, colors, onCycleStatus }) {
+function DayDetailSheet({ dateStr, missions, onClose, colors, onCycleStatus }) {
   const clr = colors || DEFAULT_COLORS;
   const items = missions.filter(m => m.date === dateStr);
   const [d] = [
@@ -193,8 +193,8 @@ function PersonRing({ name, photo, pct, clrAccent, onClick }) {
 }
 
 export default function HomeDashboard({
-  week, missions, goals = [], colors, p1, p2, photo, p1Photo, p2Photo,
-  onMissionPatch, onCycleStatus, onDeleteMission,
+  week, missions, goals: _goals = [], colors, p1, p2, photo, p1Photo, p2Photo,
+  onMissionPatch: _onMissionPatch, onCycleStatus, onDeleteMission: _onDeleteMission,
   onOpenWrapped, hasWrappedAvailable,
   weeksData,
   pushSupported, pushSubscribed, onActivatePush,
@@ -277,7 +277,6 @@ export default function HomeDashboard({
     return result.sort((a,b) => (a.date||"0") < (b.date||"0") ? -1 : 1).slice(0, 3);
   })();
 
-  const activeGoal = goals.filter(g => g.active !== false)[0];
 
   const dayMissions = weeksData
     ? Object.values(weeksData).flatMap(w => (w.missions || []).map(m => ({ ...m })))

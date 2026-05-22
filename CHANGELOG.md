@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.13] — 2026-05-21 · Limpieza ESLint: 49 warnings → 0
+
+### Corregido
+- **Bug silencioso `<ConfirmDialog />`**: el hook `useConfirm()` en `CoupleMissions` declaraba `ConfirmDialog` pero nunca lo renderizaba. Los diálogos "¿Eliminar esta tarea?" y "¿Eliminar este logro?" invocaban la función pero no mostraban UI. Fijado añadiendo `<ConfirmDialog />` al JSX de `CoupleMissions`.
+
+### Refactorización
+- **App.jsx**: eliminadas importaciones muertas post-extracción de Fase 1b (`signInWithGoogle`, `createCouple`, `joinCouple`, `generateInsights`), constantes duplicadas (`GASTO_CATS`, `EMOJI_GROUPS`, `TABS`, `PERIOD_LABEL`, `PERIOD_EMOJI`), funciones locales redundantes (`computeGoalProgress`, `computeGoalHistory`, `downloadFilteredPDF`) y variables no usadas (`carried`, `sortedWeeks`, `allUndated`)
+- **Destructurings limpiados**: `p1`/`p2` en `DayDetailSheet` y `GoalPeriodDetail`; `coupleId` en `ProfileModal`; `p1`/`p2` en `ChatView`; `onDownloadICS`/`onDownloadPDF`/`settings` en `CalendarView`
+- **Otros archivos**: `CATEGORIES` en `insights.js`, `ROW_BG` en `LinksView.jsx`, `STATUS_ORDER`/`STATUS`/`badgeStyle` en `GoalsView.jsx`, `totalDuration`/`maxH` en `StatsView.jsx`, `goals` en `HomeDashboard.jsx`
+- **Deps de hooks**: `eslint-disable-next-line react-hooks/exhaustive-deps` añadido con justificación en los efectos que son intencionalmente acotados (subscribeToUpdates, update useCallback, ChatView subscribeToMessages)
+- **`no-useless-assignment`**: `let current = 0` → `let current` en `goalHelpers.js` y `utils.js`
+- **ESLint resultado**: 0 errores, 0 warnings
+
+---
+
 ## [3.8.12] — 2026-05-21 · Monolito Fase 1b + Fix push unicode
 
 **Hito:** App.jsx pasa de ~4050 a ~2967 líneas (−1023). Se extraen 4 componentes a `src/components/`. El fix push unicode asegura que emojis y tildes lleguen correctamente al dispositivo.

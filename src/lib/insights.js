@@ -8,7 +8,7 @@
 //
 // Se activan en StatsView.jsx cuando stats_insights_enabled = true (Sprint H)
 
-import { getMCats, CATEGORIES, CAT_MAP } from "../constants.js";
+import { getMCats, CAT_MAP } from "../constants.js";
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 

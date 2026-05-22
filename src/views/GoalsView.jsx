@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { track } from "../lib/track.js";
-import { DEFAULT_COLORS, STATUS_ORDER, STATUS, PERIOD_LABEL, PERIOD_EMOJI } from "../constants.js";
+import { DEFAULT_COLORS, PERIOD_LABEL, PERIOD_EMOJI } from "../constants.js";
 import { computeGoalProgress, computeGoalHistory } from "../utils.js";
-import { S, badgeStyle } from "../styles.js";
+import { S } from "../styles.js";
 import EmojiSelect from "../components/EmojiSelect.jsx";
 import GoalPeriodDetail from "../components/GoalPeriodDetail.jsx";
 
@@ -84,14 +84,14 @@ function GoalForm({ form, setForm, onSave, onCancel, isEdit, p1, p2 }) {
 }
 
 // ─── GoalCard ─────────────────────────────────────────────────────────────────
-function GoalCard({ goal, progress, history, weeks, p1, p2, colors, onEdit, onArchive }) {
+function GoalCard({ goal, progress, history, weeks: _weeks, p1, p2, colors, onEdit, onArchive }) {
   const clr      = colors || DEFAULT_COLORS;
   const whoColor = goal.who === "person1" ? clr.person1 : goal.who === "person2" ? clr.person2 : clr.together;
   const whoLabel = goal.who === "person1" ? p1 : goal.who === "person2" ? p2 : "Juntos";
   const whoIcon  = goal.who === "together" ? "👫" : "🙋";
   const isMax    = goal.goalType === "max";
   const met      = isMax ? progress.current <= progress.target : progress.current >= progress.target;
-  const [tick, setTick] = useState(0);
+  const [_tick, setTick] = useState(0);
   const [detailIdx, setDetailIdx] = useState(null);
 
   useEffect(() => {

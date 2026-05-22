@@ -7,7 +7,7 @@ export function computeGoalProgress(goal, weeks, cwn, cyr) {
     (w.missions || []).filter(m => m.goalId === goal.id && m.status === "DONE")
       .map(m => ({ ...m, wn: w.weekNumber, wy: w.year || cyr }))
   );
-  let current = 0;
+  let current;
   if (goal.period === "weekly") {
     current = allDone.filter(m => m.wn === cwn && m.wy === cyr).length;
   } else if (goal.period === "monthly") {
