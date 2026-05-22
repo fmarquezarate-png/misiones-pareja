@@ -11,14 +11,17 @@ import LinksView from "./components/LinksView.jsx";
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
-import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS, MAINTENANCE_WARNING } from "./constants.js";
+import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS } from "./constants.js";
+import { S, badgeStyle, catBadgeStyle } from "./styles.js";
+import WorkHoursCard from "./components/WorkHoursCard.jsx";
+import AddMissionForm from "./components/AddMissionForm.jsx";
+import MissionCard from "./components/MissionCard.jsx";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
-import EmojiSelect from "./components/EmojiSelect.jsx";
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported } from "./lib/push.js";
 import LoginScreen from "./components/LoginScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
@@ -26,26 +29,6 @@ import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.js
 import StatsView from "./components/StatsView.jsx";
 import GastosView from "./components/GastosView.jsx";
 
-const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
-const STATUS = {
-  TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
-  ASAP:        { label:"ASAP",     icon:"🔥", color:"#fb923c", bg:"rgba(251,146,60,0.12)",  border:"rgba(251,146,60,0.3)"  },
-  IN_PROGRESS: { label:"En curso", icon:"⚡", color:"#60a5fa", bg:"rgba(96,165,250,0.12)",  border:"rgba(96,165,250,0.3)"  },
-  DONE:        { label:"Hecho",    icon:"✅", color:"#34d399", bg:"rgba(52,211,153,0.12)",  border:"rgba(52,211,153,0.3)"  },
-};
-
-const CATEGORIES = [
-  { id:"pareja",  label:"Pareja",  icon:"💞", color:"#f472b6" },
-  { id:"deporte", label:"Deporte", icon:"🏅", color:"#60a5fa" },
-  { id:"casa",    label:"Casa",    icon:"🏠", color:"#a78bfa" },
-  { id:"salud",   label:"Salud",   icon:"💊", color:"#34d399" },
-  { id:"trabajo", label:"Trabajo", icon:"💼", color:"#fbbf24" },
-  { id:"ocio",    label:"Ocio",    icon:"🎉", color:"#f97316" },
-  { id:"social",  label:"Social",  icon:"🥂", color:"#e879f9" },
-  { id:"viaje",   label:"Viaje",   icon:"✈️", color:"#38bdf8" },
-];
-const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
-const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 
 
@@ -69,7 +52,6 @@ function useSwipe(onLeft, onRight, minDist = 110) {
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
-const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
 
 // ─── Notification helpers ─────────────────────────────────────────────────────
 const showNotif = (title, body, opts={}) => {
@@ -116,24 +98,6 @@ const fmtWeekRange = (wn, yr) => {
   return mon.getMonth()===sun.getMonth() ? `${mon.getDate()}–${sun.getDate()} ${_SM[mon.getMonth()]}` : `${from} – ${to}`;
 };
 
-const googleCalendarUrl = (mission, name1, name2) => {
-  if (!mission.date) return null;
-  const ds = mission.date.replace(/-/g, "");
-  const who = mission.who==="person1"?name1:mission.who==="person2"?name2:`${name1} & ${name2}`;
-  let dates;
-  if (mission.time) {
-    const [hh, mm] = mission.time.split(":").map(Number);
-    const tot = hh*60 + mm + (mission.duration || 60);
-    const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
-    dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
-  } else {
-    const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
-    dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
-  }
-  const dur = mission.duration;
-  const details = `Quién: ${who}${dur?` · ${Math.round(dur/60*10)/10}h`:""}`;
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
-};
 
 
 const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
@@ -229,16 +193,6 @@ function syncCarryDone(data, weekKey, missionId) {
   return { ...data, weeks: { ...data.weeks, [mission.carriedFromWeek]: { ...origWeek, missions: origWeek.missions.map(m => m.id===mission.carriedFrom ? {...m, status:"DONE", completedAt:Date.now(), completedLate:true} : m) } } };
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const S = {
-  card:        { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.12))", borderRadius:14, padding:"14px 16px" },
-  input:       { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.25))", borderRadius:8, padding:"8px 12px", color:"var(--t-text,#f8f4ff)", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  inputSm:     { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:7, padding:"5px 8px", color:"var(--t-text,#f8f4ff)", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  btnNav:      { background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:8, color:"var(--t-accent,#a78bfa)", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
-  btnPrimary:  { background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
-  btnSecondary:{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
-  label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6, display:"block" },
-};
 
 const dlBlob=(blob,name)=>{
   const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
@@ -340,8 +294,6 @@ function ThemeInjector({ themeId, fontId }) {
   }, [themeId, fontId]);
   return null;
 }
-const badgeStyle = s => ({ background:STATUS[s].bg, color:STATUS[s].color, border:`1px solid ${STATUS[s].border}`, padding:"3px 8px", borderRadius:99, fontSize:11, fontWeight:600, fontFamily:"inherit", letterSpacing:0.3, cursor:"pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 });
-const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; return { background:`${c.color}18`, color:c.color, border:`1px solid ${c.color}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" }; };
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
@@ -1910,299 +1862,6 @@ ${sorted.map(m=>{
         <DevBackfillPanel coupleId={coupleId} blobData={data} />
       )}
       <ConfirmDialog />
-    </div>
-  );
-}
-
-function WorkHoursCard({ week, patchWeek, p1, p2 }) {
-  const [open, setOpen] = useState(false);
-  const wh = week.workHours || { person1:0, person2:0 };
-  return (
-    <div style={{ ...S.card, marginBottom:14, borderColor:"rgba(251,191,36,0.18)" }}>
-      <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
-        <div style={{ fontSize:10, letterSpacing:2.5, textTransform:"uppercase", color:"#fbbf24", fontWeight:600 }}>💼 Horas laborales</div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          {(wh.person1||wh.person2)>0
-            ? <div style={{ display:"flex", gap:8 }}>
-                {wh.person1>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p1}: <strong style={{ color:"#f8f4ff" }}>{wh.person1}h</strong></span>}
-                {wh.person2>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p2}: <strong style={{ color:"#f8f4ff" }}>{wh.person2}h</strong></span>}
-              </div>
-            : <span style={{ fontSize:12, color:"var(--t-text-dim,#3d3360)", fontStyle:"italic" }}>sin registrar</span>
-          }
-          <span style={{ color:"var(--t-text-dim,#4a4166)", fontSize:14 }}>{open?"▲":"▼"}</span>
-        </div>
-      </div>
-      {open && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:12 }}>
-          {[{key:"person1",label:p1},{key:"person2",label:p2}].map(({key,label})=>(
-            <div key={key}>
-              <label style={S.label}>{label}</label>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <input type="number" min="0" max="80" step="0.5" value={wh[key]||""} onChange={e=>patchWeek(w=>({...w, workHours:{...w.workHours,[key]:parseFloat(e.target.value)||0}}))} placeholder="0" style={{ ...S.inputSm, width:"70px" }} />
-                <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>horas</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
-  const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
-  const goalMatchesWho = (g, who) => who === "together" || g.who === "together" || !g.who || g.who === who;
-  const activeGoals = (goals||[]).filter(g => g.active!==false && goalMatchesWho(g, newM.who));
-  const isEvent = newM.type==="event";
-  const [endMode, setEndMode] = useState("duration");
-
-  const computeEnd = (date, time, durMin) => {
-    if (!date || !time || !durMin || durMin<=0) return { endDate:"", endTime:"" };
-    const e = new Date(new Date(date+"T"+time).getTime() + durMin*60000);
-    return { endDate:`${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-${String(e.getDate()).padStart(2,"0")}`, endTime:`${String(e.getHours()).padStart(2,"0")}:${String(e.getMinutes()).padStart(2,"0")}` };
-  };
-  const computeDur = (d, t, ed, et) => {
-    if (!d||!t||!ed||!et) return null;
-    const diff = Math.round((new Date(ed+"T"+et) - new Date(d+"T"+t)) / 60000);
-    return diff > 0 ? diff : null;
-  };
-  const durLabel = min => !min ? "" : min>=60 ? `${Math.floor(min/60)}h${min%60?` ${min%60}m`:""}` : `${min}m`;
-
-  const { endDate:calcEndDate, endTime:calcEndTime } = computeEnd(newM.date, newM.time, newM.duration);
-  const calcDurMin = computeDur(newM.date, newM.time, newM.endDate, newM.endTime);
-
-  return (
-    <div style={{ ...S.card, borderColor:isEvent?"rgba(96,165,250,0.35)":"rgba(167,139,250,0.3)" }}>
-      <div style={{ display:"flex", gap:4, marginBottom:10 }}>
-        {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>(
-          <button key={t.id} onClick={()=>setNewM(p=>({...p,type:t.id}))}
-            style={{ flex:1, background:newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.18)":"rgba(167,139,250,0.18)"):"rgba(128,128,128,0.05)", border:`1px solid ${newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)"):"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.type===t.id?(t.id==="event"?"#60a5fa":"#c4b8ff"):"#4a4166", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:newM.type===t.id?600:400 }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-        <EmojiSelect value={newM.emoji} onChange={e=>setNewM(p=>({...p,emoji:e}))} />
-        <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder={isEvent?"Nombre del evento...":"Nombre de la misión..."} style={S.input} />
-      </div>
-      <div style={{ marginBottom:10 }}>
-        <label style={S.label}>Categoría (multi)</label>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-          {CATEGORIES.map(c=>{
-            const sel=(newM.categories||[]).includes(c.id);
-            return <button key={c.id} onClick={()=>setNewM(p=>{const cats=p.categories||[];return {...p,categories:sel?cats.filter(x=>x!==c.id):[...cats,c.id]};})}
-              style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!(newM.categories||[]).length?1:0.4 }}>
-              {c.icon} {c.label}
-            </button>;
-          })}
-        </div>
-      </div>
-      <div style={{ marginBottom:10 }}>
-        <label style={S.label}>¿Quién?</label>
-        <div style={{ display:"flex", gap:5 }}>
-          {WHO.map(w=>(
-            <button key={w.id} onClick={()=>setNewM(p=>({...p,who:w.id}))}
-              style={{ background:newM.who===w.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
-              {w.icon} {w.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {isEvent&&<>
-        {/* Inicio — date + time agrupados en card */}
-        <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>📅 Inicio</div>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
-            <input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
-          </div>
-        </div>
-        {/* Toggle duración / hora fin */}
-        <div style={{ display:"flex", gap:4, marginBottom:8 }}>
-          {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
-            <button key={m.id} onClick={()=>setEndMode(m.id)}
-              style={{ flex:1, background:endMode===m.id?"rgba(96,165,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${endMode===m.id?"rgba(96,165,250,0.45)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:endMode===m.id?"#60a5fa":"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:endMode===m.id?600:400 }}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-        {endMode==="duration"
-          ?<div style={{ marginBottom:10 }}>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <input type="number" min="0" step="15" value={newM.duration||""} onChange={e=>{const dur=parseInt(e.target.value)||0;const {endDate,endTime}=computeEnd(newM.date,newM.time,dur);setNewM(p=>({...p,duration:dur,endDate,endTime}));}} placeholder="90" style={{ ...S.inputSm, flex:1 }} />
-              <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
-            </div>
-            {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
-          </div>
-          :<div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>🏁 Fin</div>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
-              <input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
-            </div>
-            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:6 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
-          </div>
-        }
-        {newM.time&&<div style={{ marginBottom:8 }}>
-          <label style={S.label}>🔔 Recordatorio</label>
-          <select value={newM.reminder||"none"} onChange={e=>setNewM(p=>({...p,reminder:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12 }}>
-            <option value="none">Sin recordatorio</option>
-            <option value="ontime">En el momento</option>
-            <option value="15min">15 min antes</option>
-            <option value="30min">30 min antes</option>
-            <option value="1h">1 hora antes</option>
-            <option value="1day">1 día antes</option>
-          </select>
-        </div>}
-      </>}
-      {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
-        <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
-          <option value="">— Sin meta —</option>
-          {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
-        </select>
-      </div>}
-      {!isEvent&&<div style={{ marginBottom:10 }}>
-        <label style={S.label}>🔁 Tarea recurrente</label>
-        <div style={{ display:"flex", gap:4 }}>
-          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
-            <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
-              style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
-          ))}
-        </div>
-        {newM.seriesPattern && <div style={{ marginTop:8 }}>
-          <label style={S.label}>📅 Repetir hasta (opcional)</label>
-          <input type="date" value={newM.seriesEndDate||""} onChange={e=>setNewM(p=>({...p,seriesEndDate:e.target.value}))} style={{...S.inputSm,colorScheme:"dark"}} />
-        </div>}
-      </div>}
-      <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
-        <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-          {STATUS_ORDER.map(s=><button key={s} onClick={()=>setNewM(p=>({...p,status:s}))} style={{ ...badgeStyle(s), opacity:newM.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}
-        </div>
-        <div style={{ display:"flex", gap:6 }}>
-          <button onClick={onCancel} style={S.btnSecondary}>Cancelar</button>
-          <button onClick={onAdd} style={S.btnPrimary}>Añadir ✨</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
-  const [expanded, setExpanded] = useState(false);
-  const [popping, setPopping] = useState(false);
-  const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
-  const mCats = getMCats(mission).map(id=>CAT_MAP[id]).filter(Boolean);
-  const clr = colors || DEFAULT_COLORS;
-  const whoColor = mission.who==="person1"?clr.person1:mission.who==="person2"?clr.person2:clr.together;
-  const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
-  const gcalUrl = googleCalendarUrl(mission, p1, p2);
-  const isEvent = mission.type==="event";
-  const firstCat = mCats[0];
-  const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":firstCat?`${firstCat.color}30`:`${whoColor}22`;
-  // v3: color rail + pop
-  const railStyle = { borderLeft:`3px solid ${whoColor}`, paddingLeft:13 };
-  const handleCycle = () => { setPopping(true); setTimeout(()=>setPopping(false),240); onCycleStatus(); };
-  const carriedWeeks = (() => {
-    if (!isCarried || isDone || !weeksData) return 0;
-    let count = 0, originId = mission.carriedFrom, originWeek = mission.carriedFromWeek;
-    while (originId && originWeek && count < 20) {
-      count++;
-      const w = weeksData[originWeek];
-      if (!w) break;
-      const origin = (w.missions || []).find(m => m.id === originId);
-      if (!origin?.carriedFrom) break;
-      originId = origin.carriedFrom;
-      originWeek = origin.carriedFromWeek;
-    }
-    return count;
-  })();
-  return (
-    <div style={{ ...S.card, ...railStyle, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
-      {isCarried&&!isDone&&(
-        <div style={{ fontSize:10, color:carriedWeeks>=3?"#f87171":"#fb923c", letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
-          {carriedWeeks>=3?"⚠️":"🔁"} {carriedWeeks>=3?`Arrastrada ${carriedWeeks} semanas`:"Arrastrada"}
-        </div>
-      )}
-      {mission.completedLate&&isDone&&(
-        <div style={{ fontSize:10, color:"#fb923c", letterSpacing:0.5, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
-          ⏰ Completada con retraso
-        </div>
-      )}
-      <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-        <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
-        <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>
-          <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
-          <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
-            {mCats.map(cat=><span key={cat.id} style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>)}
-            {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
-            {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
-            {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
-            {mission.duration&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
-            {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
-            {mission.date&&<span style={{ background:"rgba(128,128,128,0.08)", color:"var(--t-text-dim,#6b5f88)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
-            {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
-            {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
-            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
-          </div>
-        </div>
-        <button onClick={handleCycle} style={{ ...badgeStyle(mission.status), animation:popping?"mc-pop 0.22s ease-out":"none" }}>{STATUS[mission.status].icon}</button>
-        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
-          onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
-      </div>
-      {expanded && (
-        <div style={{ marginTop:12, borderTop:"1px solid rgba(167,139,250,0.12)", paddingTop:12 }}>
-          <div style={{ marginBottom:10 }}><label style={S.label}>Título</label><input value={mission.title} onChange={e=>onPatch({title:e.target.value})} style={S.input} /></div>
-          <div style={{ marginBottom:10 }}>
-            <label style={S.label}>Tipo</label>
-            <div style={{ display:"flex", gap:4 }}>
-              {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>{
-                const sel=(mission.type||"task")===t.id;
-                const ac=t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)";
-                const tc=t.id==="event"?"#60a5fa":"#c4b8ff";
-                return <button key={t.id} onClick={()=>onPatch({type:t.id})} style={{ flex:1, background:sel?(t.id==="event"?"rgba(96,165,250,0.15)":"rgba(167,139,250,0.15)"):"rgba(128,128,128,0.05)", border:`1px solid ${sel?ac:"rgba(255,255,255,0.08)"}`, borderRadius:7, color:sel?tc:"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:sel?600:400 }}>{t.label}</button>;
-              })}
-            </div>
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <label style={S.label}>Categoría (multi)</label>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-              {CATEGORIES.map(c=>{
-                const curCats=getMCats(mission);const sel=curCats.includes(c.id);
-                return <button key={c.id} onClick={()=>onPatch({categories:sel?curCats.filter(x=>x!==c.id):[...curCats,c.id],category:null})}
-                  style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!curCats.length?1:0.4 }}>{c.icon} {c.label}</button>;
-              })}
-            </div>
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <label style={S.label}>¿Quién?</label>
-            <div style={{ display:"flex", gap:5 }}>
-              {WHO.map(w=>{
-                const wc=w.id==="person1"?clr.person1:w.id==="person2"?clr.person2:clr.together;
-                const sel=mission.who===w.id;
-                return <button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:sel?`${wc}22`:"rgba(128,128,128,0.06)", border:`1px solid ${sel?wc+"60":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?wc:"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>;
-              })}
-            </div>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-            <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-          </div>
-          {isEvent&&<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-            <div><label style={S.label}>🏁 Fecha fin</label><input type="date" value={mission.endDate||""} onChange={e=>{const ed=e.target.value||null;const dur=mission.date&&mission.time&&ed&&mission.endTime?Math.round((new Date(ed+"T"+mission.endTime)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endDate:ed,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={mission.endTime||""} onChange={e=>{const et=e.target.value||null;const dur=mission.date&&mission.time&&mission.endDate&&et?Math.round((new Date(mission.endDate+"T"+et)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-          </div>}
-          {!isEvent&&<div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (min)</label><input type="number" min="0" step="15" value={mission.duration||""} onChange={e=>onPatch({duration:parseInt(e.target.value)||null})} placeholder="90" style={S.inputSm} /></div>}
-          {(()=>{const gmw=(g,w)=>w==="together"||g.who==="together"||!g.who||g.who===w;const filtered=(goals||[]).filter(g=>g.active!==false&&gmw(g,mission.who));return filtered.length>0&&<div style={{ marginBottom:8 }}>
-            <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
-              <option value="">— Sin meta —</option>
-              {filtered.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
-            </select>
-          </div>;})()}
-          {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
-        </div>
-      )}
     </div>
   );
 }

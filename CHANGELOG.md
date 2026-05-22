@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.20] — 2026-05-22 · Monolito Fase 2a: WorkHoursCard + AddMissionForm + MissionCard
+
+### Refactor
+- **`WorkHoursCard`** → `src/components/WorkHoursCard.jsx`
+- **`AddMissionForm`** → `src/components/AddMissionForm.jsx`
+- **`MissionCard`** → `src/components/MissionCard.jsx`
+- Constantes duplicadas eliminadas de App.jsx: `STATUS`, `CATEGORIES`, `CAT_MAP`, `getMCats`, `DEFAULT_COLORS`, `S`, `badgeStyle`, `catBadgeStyle` — reemplazadas por imports de `constants.js` y `styles.js`.
+- `googleCalendarUrl` local eliminada (ya existía en `utils.js`).
+- App.jsx: **2833 → 2492 líneas** (−341).
+
+### Pendiente Fase 2b
+ProfileModal, ChatView, CalendarView siguen en App.jsx (mayor complejidad).
+
+---
+
 ## [3.8.19] — 2026-05-22 · Sprint G-2 ACTIVADO: lectura desde tablas normalizadas
 
 ### Cambiado
