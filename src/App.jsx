@@ -37,7 +37,7 @@ const STATUS = {
 const CATEGORIES = [
   { id:"pareja",  label:"Pareja",  icon:"💞", color:"#f472b6" },
   { id:"deporte", label:"Deporte", icon:"🏅", color:"#60a5fa" },
-  { id:"casa",    label:"Casa",    icon:"🏠", color:"var(--t-accent,#a78bfa)" },
+  { id:"casa",    label:"Casa",    icon:"🏠", color:"#a78bfa" },
   { id:"salud",   label:"Salud",   icon:"💊", color:"#34d399" },
   { id:"trabajo", label:"Trabajo", icon:"💼", color:"#fbbf24" },
   { id:"ocio",    label:"Ocio",    icon:"🎉", color:"#f97316" },

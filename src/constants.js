@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.17";
+export const APP_VERSION = "3.8.18";
 export const LAST_UPDATE = "2026-05-22";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.18", date:"2026-05-22", notes:["Fix borde oscuro en tarjetas con categoría Casa en temas claros: el color de Casa usaba 'var(--t-accent,#a78bfa)' como string CSS — al interpolarse en '${color}30' generaba un valor inválido que el browser resolvía como currentColor (texto oscuro). Corregido a '#a78bfa' fijo. Misma corrección en GASTO_CATS (constants.js)"] },
   { v:"3.8.17", date:"2026-05-22", notes:["Sprint G-2 implementado: loadFromNormalized() en supabase.js lee missions+goals de tablas normalizadas y reconstruye el objeto data; settings y metadatos de semana (label/epicGoal) siguen del blob como fallback. App.jsx condiciona la carga con isEnabled('read_from_normalized')","Estrategia híbrida: si las tablas fallan → fallback automático a blob. El flag permanece en false hasta que el Externo ejecute el ALTER TABLE de columnas faltantes en missions (time/reminder/series_pattern/series_end_date)"] },
   { v:"3.8.16", date:"2026-05-22", notes:["Flag read_from_normalized:false añadido a DEFAULTS en flags.js — infraestructura Sprint G-2 lista, default seguro hasta que la implementación esté completa","Documentados 3 gaps que bloquean el flip: columnas faltantes en missions (time/reminder/seriesPattern/seriesEndDate), tabla week_metadata inexistente, loadFromNormalized() por implementar en supabase.js","TAREAS_SQL actualizado con DDL para cerrar los gaps y corrección de los 2 bugs en las queries de consistencia (cross join + filtro nanoid)"] },
   { v:"3.8.15", date:"2026-05-22", notes:["Props muertos eliminados: coupleId de ProfileModal, p1/p2 de ChatView (nunca se usaban en la firma del componente)","Copy de confirmación de borrado mejorado: diálogos ahora dicen 'Vas a eliminar esta tarea/logro/actividad' con descripción de irreversibilidad y botones 'Sí, eliminar' / 'Mejor no'","ConfirmModal API extendida: acepta confirmLabel y cancelLabel en el objeto de opciones — retrocompatible (los valores por defecto son los anteriores)"] },
@@ -189,7 +190,7 @@ export const SEED = {
 export const GASTO_CATS = [
   { id:"comida",      label:"Comida",       icon:"🍽️",  color:"#f97316" },
   { id:"super",       label:"Supermercado", icon:"🛒",  color:"#fb923c" },
-  { id:"casa",        label:"Casa",         icon:"🏠",  color:"var(--t-accent,#a78bfa)" },
+  { id:"casa",        label:"Casa",         icon:"🏠",  color:"#a78bfa" },
   { id:"ocio",        label:"Ocio",         icon:"🎉",  color:"#e879f9" },
   { id:"transporte",  label:"Transporte",   icon:"🚗",  color:"#60a5fa" },
   { id:"salud",       label:"Salud",        icon:"💊",  color:"#34d399" },

@@ -7,6 +7,17 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.18] — 2026-05-22 · Fix borde oscuro tarjetas Casa en temas claros
+
+### Corregido
+- **Borde oscuro en tarjetas con categoría "Casa" en temas claros** (Lavanda, Blush, Cielo, etc.): el color de la categoría Casa usaba `"var(--t-accent,#a78bfa)"` como string literal. Al interpolarse en la expresión `${firstCat.color}30` para calcular `cardBorder`, generaba `"var(--t-accent,#a78bfa)30"` — un valor CSS inválido. El browser resolvía `border-color` como `currentColor` (el color de texto del tema, ej. `#1e0b4b`), produciendo un borde negro/navy prominente. Corregido a `"#a78bfa"` fijo.
+- Misma corrección en `GASTO_CATS` (`constants.js`) donde "Casa" tenía el mismo problema.
+
+### Alcance
+Solo afectaba a tarjetas con "Casa" como primera (o única) categoría, en estado distinto de DONE/arrastrada/evento, y únicamente en temas claros donde `currentColor` es oscuro.
+
+---
+
 ## [3.8.17] — 2026-05-22 · Sprint G-2: loadFromNormalized implementado
 
 ### Añadido
