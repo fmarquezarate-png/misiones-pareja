@@ -1213,7 +1213,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
 
       {/* ICS export date-range modal */}
       {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
@@ -1665,7 +1665,7 @@ ${sorted.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} p1={p1} p2={p2} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
@@ -1774,7 +1774,7 @@ ${sorted.map(m=>{
                         <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
                           <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
                           <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
-                          <button onClick={()=>confirm("¿Eliminar esta tarea?",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:18,padding:"0 2px",lineHeight:1,flexShrink:0}} title="Eliminar">×</button>
+                          <button onClick={()=>confirm("Vas a eliminar esta tarea\n\nEsta acción no se puede deshacer. Desaparecerá para los dos.",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id),{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:18,padding:"0 2px",lineHeight:1,flexShrink:0}} title="Eliminar">×</button>
                         </div>
                       </div>
                     </div>;
@@ -1872,7 +1872,7 @@ ${sorted.map(m=>{
                                         </div>
                                         <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
                                           <span style={{fontSize:18}}>✅</span>
-                                          <button onClick={()=>confirm("¿Eliminar este logro?",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id))} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar">×</button>
+                                          <button onClick={()=>confirm("Vas a eliminar este logro\n\nEsta acción no se puede deshacer. Desaparecerá del historial de los dos.",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id),{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar">×</button>
                                         </div>
                                       </div>
                                     </div>
@@ -2820,7 +2820,7 @@ function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleSt
             </div>
           )}
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:14}}>
-            <button onClick={()=>confirm("¿Eliminar esta actividad?", ()=>{onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();})} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
+            <button onClick={()=>confirm("Vas a eliminar esta actividad\n\nEsta acción no se puede deshacer.", ()=>{onDeleteMission&&onDeleteMission(editingMission.wn,editingMission.yr,editingMission.mission.id);closeEdit();},{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{...S.btnSecondary,color:"#f472b6",borderColor:"rgba(244,114,182,0.3)"}}>🗑 Eliminar</button>
             <button onClick={closeEdit} style={S.btnPrimary}>Listo ✓</button>
           </div>
         </div>
