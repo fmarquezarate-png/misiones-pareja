@@ -177,13 +177,25 @@ where table_name = 'push_subscriptions';
 
 ---
 
-## 🔮 SPRINT D — EJECUTAR DESPUÉS DEL 10 DE JUNIO
+## ✅ SPRINT D — COMPLETADO ✅
 
 > **Contexto:** Este es el mayor cambio de schema del roadmap. Hoy toda la información de la pareja (misiones, metas, gastos, fotos, configuración) vive en un único blob JSON en `app_data.data`. Esto hace que cada cambio envíe ~200KB al servidor y que dos personas editando a la vez puedan pisarse. Las siguientes tablas normalizan el schema: cada entidad tiene su propia tabla, su propio RLS y sus propios índices.
 >
 > **Estrategia de migración:** Se usa **dual-write transitorio** — la app escribe en el blob Y en las tablas nuevas durante 2-3 semanas. Cuando la consistencia supera el 99.9%, se cambia la lectura a las tablas nuevas. Nunca se borra el blob hasta 30 días después.
 >
 > **IMPORTANTE:** No ejecutar este bloque hasta que el equipo de desarrollo confirme que el feature flag `dual_write_normalized` está listo en el código.
+
+### Resultados del backfill (verificados)
+
+| Pareja | Misiones | Metas | Settings |
+|--------|----------|-------|----------|
+| CRI-COCO | 32 ✅ | 0 ✅ | ✅ |
+| FRANANA | 220 ✅ | 8 ✅ | ✅ |
+
+**3 problemas resueltos durante el proceso:**
+1. `app_data.id` era text, no uuid — filas legacy rompían el cast
+2. 2 filas UUID en app_data sin pareja en couples — excluidas como orphans
+3. IDs de misiones en formato nanoid (no UUID) — resuelto con columna `blob_id` + `gen_random_uuid()`
 
 ### D-1 · Función helper de seguridad RLS
 

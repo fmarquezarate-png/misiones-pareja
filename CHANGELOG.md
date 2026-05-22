@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.15] — [PENDING] · Sprint G-2: Flip lectura blob → tablas normalizadas
+
+> ⏳ Pendiente confirmación de consistencia por el Externo (3 queries de verificación).
+
+### Cambios previstos
+- Flag `read_from_normalized` activado en `src/lib/flags.js`
+- Lectura desde tablas `missions`, `goals`, `couple_settings` en lugar del blob JSONB
+- Source-of-truth cambia de blob a tablas normalizadas
+- Rollback: desactivar flag sin redesploy
+
+---
+
 ## [3.8.14] — 2026-05-22 · Banner de mantenimiento + limpieza CalendarView
 
 ### Añadido
