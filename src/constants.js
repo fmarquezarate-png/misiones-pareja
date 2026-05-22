@@ -1,11 +1,23 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.13";
-export const LAST_UPDATE = "2026-05-21";
+export const APP_VERSION = "3.8.14";
+export const LAST_UPDATE = "2026-05-22";
+
+// Banner de mantenimiento — null = desactivado
+// Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
+// Se revierte a null una vez completado el mantenimiento.
+export const MAINTENANCE_WARNING = null;
+/* Ejemplo de activación:
+export const MAINTENANCE_WARNING = {
+  title: "Estamos mejorando la app",
+  body:  "Realizamos ajustes para hacerla más segura y estable. Te recomendamos no realizar cambios importantes — no podemos garantizar que se guarden correctamente en este momento.",
+};
+*/
 
 // Clave pública VAPID — segura en el cliente (no es un secreto)
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.14", date:"2026-05-22", notes:["Banner de mantenimiento: MAINTENANCE_WARNING en constants.js activa MaintenanceBanner cuando se hacen cambios de riesgo — null=off, {title,body}=on. Deploy activa el aviso, revert lo apaga. position:fixed, amber, descartable por sesión","Props muertos eliminados del call site de CalendarView: settings, onDownloadICS, onDownloadPDF ya no se pasan (limpieza de Fase 1b incompleta)"] },
   { v:"3.8.13", date:"2026-05-21", notes:["Limpieza ESLint: 49 warnings → 0. Eliminadas importaciones muertas (signInWithGoogle, createCouple, joinCouple, generateInsights), constantes duplicadas post-extracción (GASTO_CATS, EMOJI_GROUPS, TABS, PERIOD_LABEL, PERIOD_EMOJI) y funciones locales redundantes (computeGoalProgress, computeGoalHistory, downloadFilteredPDF) de App.jsx","Fix bug silencioso: <ConfirmDialog /> ahora se renderiza en CoupleMissions — los diálogos '¿Eliminar esta tarea?' y '¿Eliminar este logro?' ya muestran UI (antes confirm() invocaba un hook sin render)","Deps de hooks intencionalmente acotados: eslint-disable-next-line añadido con justificación en subscribeToUpdates, useCallback update, ChatView useEffect","Destructurings limpiados: p1/p2 en DayDetailSheet y GoalPeriodDetail, coupleId en ProfileModal, p1/p2 en ChatView, onDownloadICS/onDownloadPDF/settings en CalendarView"] },
   { v:"3.8.12", date:"2026-05-21", notes:["Monolito Fase 1b: StatsView, GastosView, CatStatsCard, WeekDetailList extraídos a src/components/ — App.jsx −1023 líneas (de ~4050 a ~2967)","Fix push unicode: send-push Edge Function post-procesa JSON para revertir \\uXXXX → UTF-8 — emojis y tildes llegan correctos al dispositivo","dlBlob exportado a utils.js — elimina dependencia de App.jsx en StatsView","Preventiva CHANGELOG: regla de versionado sincronizado añadida a CLAUDE.md"] },
   { v:"3.8.11", date:"2026-05-21", notes:["Send-push v2.0 autodiagnóstico: modos ?probe=1 (ping) y ?diagnose=1 (metadata de secrets sin exponer valores). setVapidDetails movido dentro del handler con try/catch — el error real ahora aparece en el body JSON con {stage, error, name}, no en logs perdidos","Nuevo agente: Forense — exige datos crudos antes de deployar fixes. Activado tras 4 versiones (3.8.7→3.8.10) buscando bug push a ciegas","Regla preventiva: si bug persiste tras 2 intentos, Forense pausa el ciclo hasta confirmar diagnóstico con evidencia"] },
