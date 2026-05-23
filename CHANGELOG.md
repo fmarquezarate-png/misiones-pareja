@@ -1,9 +1,17 @@
-# Changelog — Misiones de Pareja
+# Changelog — Shared Calendar
 
 Todas las versiones notables de este proyecto están documentadas aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 Cada merge a la rama principal incrementa la versión de parche (x.y.**z**).
 Los hitos de sprint incrementan la versión menor (x.**y**.0).
+
+---
+
+## [3.8.23] — 2026-05-23 · Nombre "Shared Calendar" + ícono PWA
+
+### Cambiado
+- **Nombre de la app → "Shared Calendar"** en todos los entornos: `manifest.name`, `manifest.short_name` ("Shared Cal"), `<title>`, `apple-mobile-web-app-title`, y descripción del manifest.
+- **Ícono PWA generado**: `icon-192.png` e `icon-512.png` reemplazados con el logo diseñado por el usuario — dos círculos superpuestos (Venn diagram) sobre fondo partido blanco/negro, intersección dorada (`#C9A873`). Visible en escritorio móvil al instalar la PWA.
 
 ---
 

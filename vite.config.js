@@ -14,9 +14,9 @@ export default defineConfig({
         globIgnores: ['**/version.json'],
       },
       manifest: {
-        name: 'Misiones de Pareja',
-        short_name: 'Misiones',
-        description: 'Planificación semanal compartida para parejas',
+        name: 'Shared Calendar',
+        short_name: 'Shared Cal',
+        description: 'Shared weekly planning for couples',
         theme_color: '#0a0714',
         background_color: '#0a0714',
         display: 'standalone',

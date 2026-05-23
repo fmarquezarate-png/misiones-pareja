@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.22";
+export const APP_VERSION = "3.8.23";
 export const LAST_UPDATE = "2026-05-23";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.23", date:"2026-05-23", notes:["Nombre de la app cambiado a 'Shared Calendar' en todos los entornos: manifest (name/short_name), index.html (title + apple-mobile-web-app-title), vite.config.js description.","Icono PWA generado: icon-192.png e icon-512.png reemplazados con el logo diseñado — dos círculos superpuestos (Venn) sobre fondo partido blanco/negro con intersección dorada (#C9A873). Visible en escritorio móvil al instalar la PWA."] },
   { v:"3.8.22", date:"2026-05-23", notes:["Push contextual: sendContextualPush() añadido a push.js — llama directamente a la Edge Function send-push con contexto específico. Disparos: nueva tarea ('Nueva tarea: 🎯 Título'), nuevo evento ('Nuevo evento: 📅 Título'), tarea completada ('Completada: ✅ Título'), chat ('Nombre: texto...'). Tarea para Externo: deshabilitar trigger trg_notify_push_on_app_data_update para evitar notificaciones dobles (el trigger genérico y el contextual). La columna user_id en push_subscriptions permite excluir al emisor en cada notificación.","PWA: nombre corregido de 'Shared Calendar' → 'Misiones de Pareja' en manifest y HTML (title, apple-mobile-web-app-title). Icono separado en purpose:any + purpose:maskable para mejor soporte Android adaptativo. Instrucción al usuario: reemplazar icon-192.png e icon-512.png en public/ con el logo diseñado (PNG cuadrado, fondo opaco)."] },
   { v:"3.8.21", date:"2026-05-23", notes:["Monolito Fase 2b: ProfileModal extraído de App.jsx a src/components/ProfileModal.jsx. getUserPrefs/saveUserPrefs movidos a src/lib/userPrefs.js. App.jsx −304 líneas adicionales (2492→2188). 0 errores ESLint.","Push notification fix: texto por defecto cambiado a ASCII puro 'Tu pareja hizo cambios en la app' en sw.js y Edge Function send-push — elimina posible rendering de secuencias \\uXXXX en dispositivos con problemas de encoding. Tarea para Externo: actualizar trigger SQL con el mismo texto."] },
   { v:"3.8.20", date:"2026-05-22", notes:["Monolito Fase 2a: WorkHoursCard, AddMissionForm y MissionCard extraídos de App.jsx a src/components/. App.jsx −341 líneas (2833→2492). Constantes duplicadas (STATUS, CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS, S, badgeStyle, catBadgeStyle) eliminadas del monolito y reemplazadas por imports de constants.js y styles.js"] },
