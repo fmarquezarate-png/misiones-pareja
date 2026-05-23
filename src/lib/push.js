@@ -91,3 +91,17 @@ export async function unsubscribePush() {
   await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
   await sub.unsubscribe();
 }
+
+// Envía una notificación push contextual directamente a la Edge Function.
+// Fire-and-forget: nunca lanza errores al llamador.
+export async function sendContextualPush(coupleId, { title = 'Misiones de Pareja', body, tag = 'mp-push' }, excludeUserId) {
+  if (!coupleId || !body) return;
+  try {
+    const payload = { coupleId, title, body, tag };
+    if (excludeUserId) payload.excludeUserId = excludeUserId;
+    const { error } = await supabase.functions.invoke('send-push', { body: payload });
+    if (error) console.warn('[push] contextual push error:', error.message);
+  } catch (e) {
+    console.warn('[push] contextual push failed:', e);
+  }
+}

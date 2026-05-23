@@ -7,6 +7,29 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.22] — 2026-05-23 · Push contextual + PWA nombre e ícono
+
+### Añadido
+- **Push notificaciones contextuales** — `sendContextualPush()` en `push.js` llama directamente a la Edge Function con texto específico según el evento:
+  - Nueva tarea → `"Nueva tarea: 🎯 Título de la tarea"`
+  - Nuevo evento → `"Nuevo evento: 📅 Nombre del evento"`
+  - Tarea completada → `"Completada: ✅ Título de la tarea"`
+  - Chat → `"Nombre: primeros 80 chars del mensaje"`
+- El emisor queda excluido automáticamente de la notificación (usa `user_id` en `push_subscriptions`).
+- Texto neutro — no dice "tu pareja" para mantener apertura y funcionar para cualquier tipo de pareja.
+
+### Corregido
+- **PWA nombre**: `"Shared Calendar"` → `"Misiones de Pareja"` en manifest, `<title>`, `apple-mobile-web-app-title`
+- **Ícono adaptativo Android**: separado en `purpose: "any"` + `purpose: "maskable"` (antes combinado, lo que causaba problemas en algunos launchers)
+
+### Pendiente Externo
+- Deshabilitar el trigger `trg_notify_push_on_app_data_update` en Supabase para evitar doble notificación (el genérico del trigger + el contextual del código): `ALTER TABLE public.app_data DISABLE TRIGGER trg_notify_push_on_app_data_update;`
+
+### Pendiente usuario
+- Reemplazar `/public/icon-192.png` (192×192 px) e `/public/icon-512.png` (512×512 px) con el logo diseñado. PNG cuadrado con fondo opaco (no transparente), sin redondeo — el sistema operativo aplica el recorte.
+
+---
+
 ## [3.8.21] — 2026-05-23 · Monolito Fase 2b: ProfileModal + push notification fix
 
 ### Refactorizado

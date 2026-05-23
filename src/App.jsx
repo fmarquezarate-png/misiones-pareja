@@ -22,7 +22,7 @@ import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
-import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported } from "./lib/push.js";
+import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
 import LoginScreen from "./components/LoginScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
@@ -878,7 +878,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const hasEnd = !!newM.endDate;
     const startTime = newM.time || (hasEnd ? "00:00" : null);
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
+    const isEv = newM.type === "event";
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null }] }));
+    sendContextualPush(coupleId, { body:`${isEv?"Nuevo evento":"Nueva tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -896,6 +898,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
+    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`Completada: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
   };
 
@@ -1617,7 +1620,7 @@ ${sorted.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} sessionUserId={sessionUserId} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
@@ -1865,7 +1868,7 @@ ${sorted.map(m=>{
   );
 }
 
-function ChatView({ coupleId, personName, chatNotifEnabled }) {
+function ChatView({ coupleId, personName, sessionUserId, chatNotifEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -1891,9 +1894,11 @@ function ChatView({ coupleId, personName, chatNotifEnabled }) {
   const send = async () => {
     if (!input.trim() || sending) return;
     setSending(true);
+    const msgText = input.trim();
     try {
-      await sendMessage(coupleId, personName, input.trim());
+      await sendMessage(coupleId, personName, msgText);
       setInput("");
+      sendContextualPush(coupleId, { body:`${personName}: ${msgText.slice(0, 80)}`, tag:"mp-chat" }, sessionUserId);
     } catch (e) { console.warn("send err", e); }
     finally { setSending(false); }
   };
