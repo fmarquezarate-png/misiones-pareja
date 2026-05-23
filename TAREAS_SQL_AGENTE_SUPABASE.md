@@ -1,9 +1,112 @@
 # Tareas SQL para el Agente Supabase
-## Misiones de Pareja — Roadmap v3.5.0 → v4.0.0
+## Shared Calendar — Roadmap v3.5.0 → v4.0.0
 
-> **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase de Misiones de Pareja, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
+> **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
 >
 > **Regla de oro:** Todas las migraciones son **additive-only** (solo añaden, nunca borran). Nunca ejecutes un DROP TABLE salvo que la sección lo indique explícitamente y diga "SEGURO BORRAR".
+
+---
+
+## 🔴 URGENTE — Ejecutar esta semana (del diagnóstico 23/05/2026)
+
+### U-1 · Verificar y reforzar snapshot automático del blob
+
+**Prioridad:** CRÍTICA. El blob en `app_data` es la única fuente de verdad. Un save inválido sin rollback posible destruye los datos de una pareja.
+
+**Verificar primero:**
+```sql
+-- ¿Existe trigger que crea backups automáticos en cada UPDATE de app_data?
+SELECT trigger_name, event_manipulation, action_statement
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data';
+
+-- ¿Cuántos backups hay y cuándo se crearon?
+SELECT couple_id, COUNT(*), MIN(created_at), MAX(created_at)
+FROM app_data_backups
+GROUP BY couple_id;
+```
+
+**Si no existe trigger de backup automático**, crear uno:
+```sql
+-- Trigger que inserta snapshot en app_data_backups antes de cada UPDATE
+CREATE OR REPLACE FUNCTION public.snapshot_app_data()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO public.app_data_backups (couple_id, data, created_at)
+  VALUES (OLD.id, OLD.data, NOW());
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_snapshot_app_data ON public.app_data;
+CREATE TRIGGER trg_snapshot_app_data
+  BEFORE UPDATE ON public.app_data
+  FOR EACH ROW EXECUTE FUNCTION public.snapshot_app_data();
+```
+
+**Retention policy — borrar backups con más de 30 días:**
+```sql
+-- Ejecutar manualmente o programar con pg_cron
+DELETE FROM public.app_data_backups
+WHERE created_at < NOW() - INTERVAL '30 days';
+```
+
+**Confirmar al equipo:** cuántos backups existen, si el trigger estaba activo antes del 23/05, y si los 30 backups existentes son del trigger o del backfill manual.
+
+---
+
+### U-2 · Resolver Security Definer Views restantes
+
+**Prioridad:** ALTA. 2 vistas con SECURITY DEFINER siguen sin resolver tras el diagnóstico del 23/05.
+
+```sql
+-- Listar vistas con SECURITY DEFINER
+SELECT schemaname, viewname, definition
+FROM pg_views
+WHERE definition ILIKE '%security_definer%'
+  AND schemaname = 'public';
+```
+
+Para cada vista: evaluar si el SECURITY DEFINER es intencional (bypass RLS para vistas públicas) o accidental. Si es accidental, recrear sin SECURITY DEFINER.
+
+---
+
+### U-3 · Activar telemetría real en tabla `events`
+
+**Prioridad:** ALTA. La tabla existe desde el 20/05 pero los datos son seed del backfill, no uso real.
+
+**Verificar que el RLS permite INSERT desde usuarios autenticados:**
+```sql
+-- Ver políticas actuales en events
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE tablename = 'events';
+```
+
+**Query semanal de engagement (ejecutar manualmente o con pg_cron):**
+```sql
+-- Dashboard mínimo: últimos 7 días
+SELECT
+  name,
+  COUNT(*) as count,
+  COUNT(DISTINCT couple_id) as couples,
+  MAX(ts) as last_seen
+FROM public.events
+WHERE ts > NOW() - INTERVAL '7 days'
+GROUP BY name
+ORDER BY count DESC;
+
+-- Misiones completadas por semana
+SELECT
+  DATE_TRUNC('week', (props->>'ts')::timestamptz) as week,
+  COUNT(*) as completadas,
+  COUNT(DISTINCT couple_id) as couples
+FROM public.events
+WHERE name = 'mission_completed'
+GROUP BY 1
+ORDER BY 1 DESC
+LIMIT 8;
+```
 
 ---
 

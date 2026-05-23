@@ -7,6 +7,17 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.27] — 2026-05-23 · Push personalizado + documentación arquitectónica
+
+### Mejorado
+- **Push copy personalizado** — mensajes incluyen el nombre del emisor: `"Ana añadió una tarea: 🎯 Título"`, `"Ana completó: ✅ Título"`. Chat ya tenía el nombre desde v3.8.22. Personalización sube de 6/10 a ~8/10.
+
+### Documentado
+- **`CLAUDE.md`** — decisión oficial: tabla `missions` es analytics futura, no fuente de verdad. `read_from_normalized: false` permanente hasta sync servidor. Riesgo blob sin versionado histórico registrado como riesgo crítico activo del sistema.
+- **`TAREAS_SQL_AGENTE_SUPABASE.md`** — añadidas tareas urgentes: U-1 (snapshot automático + retention policy del blob), U-2 (Security Definer Views restantes), U-3 (activar telemetría real + queries de engagement).
+
+---
+
 ## [3.8.26] — 2026-05-23 · Fix crítico: revertir read_from_normalized
 
 ### Corregido

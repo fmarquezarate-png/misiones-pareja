@@ -608,7 +608,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
     const isEv = newM.type === "event";
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null }] }));
-    sendContextualPush(coupleId, { body:`${isEv?"Nuevo evento":"Nueva tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
+    sendContextualPush(coupleId, { body:`${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -626,7 +626,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
-    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`Completada: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
+    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
   };
 
