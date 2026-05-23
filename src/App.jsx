@@ -1,25 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates } from "./supabase.js";
 import supabase from "./supabase.js";
-import Brand from "./components/Brand.jsx";
 import Toast, { useToast } from "./components/Toast.jsx";
 import HomeDashboard from "./components/HomeDashboard.jsx";
 import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
-import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear } from "./utils.js";
-import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS } from "./constants.js";
-import { S, badgeStyle } from "./styles.js";
+import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
+import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
 import AddMissionForm from "./components/AddMissionForm.jsx";
 import MissionCard from "./components/MissionCard.jsx";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
-import { saveWithCAS } from "./lib/repo.js";
-import PillFilter from "./components/PillFilter.jsx";
+import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus } from "./lib/repo.js";
+
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
@@ -34,6 +32,10 @@ import ThemeInjector from "./components/ThemeInjector.jsx";
 import MaintenanceBanner from "./components/MaintenanceBanner.jsx";
 import ChatView from "./components/ChatView.jsx";
 import CalendarView from "./components/CalendarView.jsx";
+import HistoryView from "./components/HistoryView.jsx";
+import PendingView from "./components/PendingView.jsx";
+import SideMenu from "./components/SideMenu.jsx";
+import Topbar from "./components/Topbar.jsx";
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -120,20 +122,17 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
-  const [settingsMenuOpen,setSettingsMenuOpen]= useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newM, setNewM] = useState({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
   const [editObj, setEditObj] = useState(false);
   const [error, setError] = useState(null);
-  const [histWeekRange, setHistWeekRange] = useState("all");
   const [globalPersonFilter, setGlobalPersonFilter] = useState([]); // [] = todos
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [localThemeId, setLocalThemeId] = useState(null);
   const [localFontId,  setLocalFontId]  = useState(null);
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
-  const [showChangelog, setShowChangelog] = useState(false);
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
   const [syncError, setSyncError]   = useState(null);   // string | null
@@ -151,17 +150,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
   const [savingState, setSavingState] = useState("idle"); // "idle"|"saving"|"saved"|"error"
-  const [pendingTab, setPendingTab] = useState("pending"); // "pending" | "logros"
-  const [logrosPeopleFilter, setLogrosPeopleFilter] = useState([]);
-  const [logrosCatFilter, setLogrosCatFilter] = useState([]);
-  const [icsModal, setIcsModal] = useState(false);
-  const [icsFrom,  setIcsFrom]  = useState("");
-  const [icsTo,    setIcsTo]    = useState("");
-  const [popOpen,       setPopOpen]       = useState(false);
   const [filtersOpen,   setFiltersOpen]   = useState(false);
   const [weekViewMode,  setWeekViewMode]  = useState("timeline"); // "list" | "timeline"
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
-  const { confirm, ConfirmDialog } = useConfirm();
+  const { ConfirmDialog } = useConfirm();
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -187,10 +179,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (reg) {
           await reg.update();
           if (reg.waiting) {
+            // Register controllerchange BEFORE postMessage so reload fires reliably
+            navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          } else if (!reg.installing && serverVersion && serverVersion !== APP_VERSION) {
-            // SW updated but not yet waiting — force reload anyway
-          } else if (!reg.waiting && !reg.installing && !serverVersion) {
+            return; // reload triggered by controllerchange
+          } else if (!reg.installing && !serverVersion) {
             pushToast({ kind: "error", text: "No se encontró actualización en el service worker. Intenta limpiar caché del navegador (Ctrl+Shift+R)." });
             return;
           }
@@ -207,35 +200,35 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     }
   };
 
-  // Pull remote data; if Supabase has nothing, push local data up.
-  const forceSync = async () => {
+  // Pull from Supabase and update local. Never pushes — push happens via auto-save.
+  const smartSync = async () => {
     setSyncing(true);
     setSyncError(null);
     try {
-      const remote = await (isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId));
+      const remote = await loadData(coupleId);
       if (remote) {
         setData(prev => {
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
             showSyncMsg("✓ Ya estás al día");
-          } else {
-            showSyncMsg("⬇ Datos actualizados desde Supabase");
+            return prev;
           }
+          const localCount = Object.values(prev?.weeks ?? {}).reduce((s,w) => s + (w.missions?.length ?? 0), 0);
+          const remoteCount = Object.values(remote?.weeks ?? {}).reduce((s,w) => s + (w.missions?.length ?? 0), 0);
+          const diff = remoteCount - localCount;
+          const msg = diff > 0 ? `⬇ Sincronizado — ${diff} tarea${diff!==1?"s":""} nuevas`
+                    : diff < 0 ? `⬇ Sincronizado — ${Math.abs(diff)} tarea${Math.abs(diff)!==1?"s":""} menos`
+                    : "⬇ Datos sincronizados";
+          showSyncMsg(msg);
           return remote;
         });
       } else {
-        // No row in Supabase yet — push local data up
-        setData(current => {
-          if (current) {
-            saveData(current, coupleId)
-              .then(() => showSyncMsg("⬆ Datos subidos a Supabase"))
-              .catch(e => { setSyncError(e.message); showSyncMsg("⚠ Error al subir"); });
-          }
-          return current;
-        });
+        // null = network error, RLS failure, or session expired — never push
+        setSyncError("No se pudo conectar con Supabase");
+        showSyncMsg("⚠ Sin conexión — datos sin modificar");
       }
     } catch (e) {
       setSyncError(e.message);
-      showSyncMsg("⚠ Error de conexión");
+      showSyncMsg("⚠ Error: " + e.message.slice(0, 60));
     }
     setSyncing(false);
   };
@@ -341,6 +334,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   }, [tutorialStep]);
 
   const tutorialNext   = () => setTutorialStep(s => Math.min(s+1, TUTORIAL_STEPS.length-1));
+  const tutorialBack   = () => setTutorialStep(s => Math.max(s-1, 0));
   const tutorialFinish = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); setActiveTab("home"); };
   const tutorialSkip   = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); };
 
@@ -607,8 +601,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const startTime = newM.time || (hasEnd ? "00:00" : null);
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
     const isEv = newM.type === "event";
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null }] }));
-    sendContextualPush(coupleId, { body:`${isEv?"Nuevo evento":"Nueva tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
+    const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), mission] }));
+    insertNormalizedMission(coupleId, wkey, data.currentWeekNumber, data.currentYear, mission).catch(e => console.error("[dual_write] insert:", e));
+    sendContextualPush(coupleId, { body:`${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -626,11 +622,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
-    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`Completada: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
+    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
+    if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
   };
 
-  const delMission = id => patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
+  const delMission = id => {
+    deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
+    patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
+  };
   const patchM = (id, patch) => patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
@@ -661,6 +661,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       return next;
     });
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
+    if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const key = isoWeekKey(wn, yr);
@@ -671,6 +672,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   };
   const deleteMissionGlobal = (wn, yr, id) => {
     const key = isoWeekKey(wn, yr);
+    deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
     update(d => {
       const w = d.weeks[key]; if (!w) return d;
       return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.filter(x=>x.id!==id) } } };
@@ -746,37 +748,6 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     dlBlob(blob,`misiones-${weekKey}.ics`);
   };
 
-  const downloadRangeICS = () => {
-    if (!icsFrom || !icsTo || icsFrom > icsTo) return;
-    const missions = Object.values(data.weeks)
-      .flatMap(w => (w.missions||[]).filter(m => m.date && m.date >= icsFrom && m.date <= icsTo))
-      .sort((a,b) => a.date.localeCompare(b.date));
-    if (missions.length === 0) { alert("No hay actividades con fecha en ese rango."); return; }
-    const stamp = new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
-    const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Shared Calendar//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
-    for (const m of missions) {
-      const who = m.who==="person1"?p1:m.who==="person2"?p2:`${p1} & ${p2}`;
-      const ds = m.date.replace(/-/g,"");
-      lines.push("BEGIN:VEVENT",`UID:${m.id}-${stamp}@sc`,`DTSTAMP:${stamp}`);
-      if (m.time) {
-        const ts = m.time.replace(":","")+"00";
-        lines.push(`DTSTART:${ds}T${ts}`);
-        const [hh,mm2] = m.time.split(":").map(Number);
-        const tot = hh*60+mm2+(m.duration||60);
-        lines.push(`DTEND:${ds}T${String(Math.floor(tot/60)%24).padStart(2,"0")}${String(tot%60).padStart(2,"0")}00`);
-      } else {
-        lines.push(`DTSTART;VALUE=DATE:${ds}`);
-        const nd = new Date(m.date+"T00:00:00"); nd.setDate(nd.getDate()+1);
-        lines.push(`DTEND;VALUE=DATE:${nd.toISOString().slice(0,10).replace(/-/g,"")}`);
-      }
-      lines.push(`SUMMARY:${m.emoji} ${m.title}`);
-      lines.push(`DESCRIPTION:Estado: ${STATUS[m.status]?.label||m.status}\\nQuién: ${who}${m.duration?`\\nDuración: ${Math.round(m.duration/60*10)/10}h`:""}`);
-      lines.push("END:VEVENT");
-    }
-    lines.push("END:VCALENDAR");
-    dlBlob(new Blob([lines.join("\r\n")], {type:"text/calendar;charset=utf-8"}), `calendar-${icsFrom}-${icsTo}.ics`);
-    setIcsModal(false);
-  };
 
   const downloadWeekPDF = (weekData, weekKey, name1, name2) => {
     const missions = weekData.missions || [];
@@ -898,212 +869,35 @@ ${sorted.map(m=>{
 
       {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
 
-      {/* ICS export date-range modal */}
-      {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
-        <div style={{background:"var(--t-card,#1d1733)",border:"1px solid var(--t-card-border,rgba(167,139,250,0.35))",borderRadius:16,padding:22,width:"100%",maxWidth:380}} onClick={e=>e.stopPropagation()}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-            <span style={{fontFamily:"'Fraunces',serif",fontSize:18,color:"var(--t-text,#f8f4ff)"}}>📅 Exportar a Google Calendar</span>
-            <button onClick={()=>setIcsModal(false)} style={{background:"none",border:"none",color:"var(--t-text-dim,#6b5f88)",fontSize:20,cursor:"pointer"}}>×</button>
-          </div>
-          {/* Quick select */}
-          <div style={S.label}>Selección rápida</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-            {[
-              ["Esta semana", ()=>{ const {week:tw,year:ty}=getWeekAndYear(); const mon=weekStartDate(tw,ty); const sun=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+6); setIcsFrom(mon.toISOString().slice(0,10)); setIcsTo(sun.toISOString().slice(0,10)); }],
-              ["Este mes",    ()=>{ const n=new Date(); setIcsFrom(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-01`); setIcsTo(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${new Date(n.getFullYear(),n.getMonth()+1,0).getDate()}`); }],
-              ["Próx. 4 sem.",()=>{ const n=new Date(),t=new Date(n); t.setDate(n.getDate()+28); setIcsFrom(n.toISOString().slice(0,10)); setIcsTo(t.toISOString().slice(0,10)); }],
-              ["Próx. 3 meses",()=>{ const n=new Date(),t=new Date(n); t.setMonth(n.getMonth()+3); setIcsFrom(n.toISOString().slice(0,10)); setIcsTo(t.toISOString().slice(0,10)); }],
-            ].map(([l,fn])=>(
-              <button key={l} onClick={fn} style={{background:"var(--t-accent-soft,rgba(167,139,250,0.1))",border:"1px solid var(--t-card-border)",borderRadius:7,color:"var(--t-text-muted,#8b7fa8)",padding:"5px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{l}</button>
-            ))}
-          </div>
-          {/* Date pickers */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-            <div><label style={S.label}>Desde</label><input type="date" value={icsFrom} onChange={e=>setIcsFrom(e.target.value)} style={{...S.inputSm,colorScheme:"dark"}} /></div>
-            <div><label style={S.label}>Hasta</label><input type="date" value={icsTo}   onChange={e=>setIcsTo(e.target.value)}   style={{...S.inputSm,colorScheme:"dark"}} /></div>
-          </div>
-          {/* Preview count */}
-          {icsFrom&&icsTo&&icsFrom<=icsTo&&<div style={{fontSize:12,color:"var(--t-text-dim,#6b5f88)",textAlign:"center",marginBottom:12}}>
-            {Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.date&&m.date>=icsFrom&&m.date<=icsTo)).length} actividades en ese rango
-          </div>}
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setIcsModal(false)} style={S.btnSecondary}>Cancelar</button>
-            <button onClick={downloadRangeICS} disabled={!icsFrom||!icsTo||icsFrom>icsTo} style={{...S.btnPrimary,flex:1,opacity:(!icsFrom||!icsTo||icsFrom>icsTo)?0.4:1}}>⬇ Descargar .ics</button>
-          </div>
-        </div>
-      </div>}
 
-      {/* Changelog modal */}
-      {showChangelog && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
-          <div style={{ background:"var(--t-card,#1d1733)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"var(--t-accent,#fbbf24)" }}>📋 Changelog</span>
-              <button onClick={()=>setShowChangelog(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#6b5f88)", fontSize:20, cursor:"pointer" }}>×</button>
-            </div>
-            {CHANGELOG.map(c=>(
-              <div key={c.v} style={{ marginBottom:16 }}>
-                <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:"var(--t-accent,#fbbf24)" }}>v{c.v}</span>
-                  <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{c.date}</span>
-                </div>
-                <ul style={{ margin:0, padding:"0 0 0 16px" }}>
-                  {c.notes.map((n,i)=><li key={i} style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginBottom:3 }}>{n}</li>)}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Slide-out menu backdrop */}
-      {menuOpen && <div onClick={()=>setMenuOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90, backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />}
 
-      {/* Slide-out menu */}
-      <div style={{ position:"fixed", top:0, left:0, bottom:0, width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
-        {/* Menu header */}
-        <div style={{ paddingTop:"calc(18px + env(safe-area-inset-top))", paddingLeft:20, paddingRight:20, paddingBottom:14, borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
-          {data.settings?.photos?.couple
-            ? <img src={data.settings.photos.couple} style={{ width:44, height:44, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0 }} alt="pareja" />
-            : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{data.settings?.coupleEmoji||"💞"}</div>
-          }
-          <div>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, textTransform:"uppercase" }}>Shared Calendar</div>
-            <div style={{ fontSize:14, color:"var(--t-accent,#c4b8ff)", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
-          </div>
-        </div>
-        {/* Nav items */}
-        <nav aria-label="Navegación principal" style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
-          {[
-            { id:"home",     label:"Inicio",         icon:"🏠" },
-            { id:"current",  label:"Semana",          icon:"🎯" },
-            { id:"pending",  label:"Pendientes",      icon:"📋" },
-            { id:"calendar", label:"Calendario",      icon:"📅" },
-            { id:"history",  label:"Histórico",       icon:"🗂️" },
-            { id:"goals",    label:"Metas",           icon:"🏅" },
-            { id:"stats",    label:"Stats",           icon:"📊" },
-            { id:"gastos",   label:"Gastos",          icon:"💸" },
-            { id:"chat",     label:"Chat",            icon:"💬" },
-            { id:"links",    label:"Links de Interés", icon:"🔗" },
-          ].map(n => (
-            <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
-              aria-label={n.label} aria-current={activeTab===n.id ? "page" : undefined}
-              className="sc-nav-btn"
-              style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent", color:activeTab===n.id?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
-              <span aria-hidden="true" style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
-              <span style={{ flex:1 }}>{n.label}</span>
-              {activeTab===n.id && <span aria-hidden="true" style={{ width:5, height:5, borderRadius:99, background:"var(--t-accent,#a78bfa)", flexShrink:0 }} />}
-            </button>
-          ))}
-        </nav>
-        {/* Menu footer: version only — always visible, no scroll needed */}
-        <div style={{ padding:"12px 16px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", flexShrink:0 }}>
-          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:6, lineHeight:1.4 }}>{syncMsg}</div>}
-          <button onClick={()=>{ setShowChangelog(true); setMenuOpen(false); }}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
-            <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
-            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)" }}>{LAST_UPDATE}</span>
-            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)", marginLeft:"auto" }}>Ver cambios →</span>
-          </button>
-        </div>
-      </div>
 
-      {/* ── Sticky top bar ── */}
-      <div style={{ position:"sticky", top:0, zIndex:80, background:"var(--t-topbar-bg,rgba(10,7,20,0.9))", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.08))", paddingTop:"env(safe-area-inset-top)" }}>
-      <div style={{ height:52, display:"flex", alignItems:"center", gap:8, paddingLeft:12, paddingRight:12 }}>
-        {/* Hamburger */}
-        <button onClick={()=>setMenuOpen(v=>!v)} aria-label="Menú"
-          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
-          <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
-          <span style={{ display:"block", width:13, height:1.5, background:"currentColor", borderRadius:99 }} />
-          <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
-        </button>
-        {/* Home button */}
-        <button onClick={()=>setActiveTab("home")} aria-label="Inicio"
-          style={{ background:"none", border:"none", cursor:"pointer", color:activeTab==="home"?"#c4b8ff":"#4a4166", fontSize:18, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0, transition:"color 0.15s" }}>🏠</button>
-        {/* Page title */}
-        <div style={{ flex:1, textAlign:"center" }}>
-          {activeTab==="home"
-            ? <Brand size={22} wordmark colors={colors} />
-            : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#8b7fa8)" }}>
-                {activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
-                :activeTab==="pending"  ? "📋 Pendientes"
-                :activeTab==="calendar" ? "Calendario"
-                :activeTab==="history"  ? "🗂️ Histórico"
-                :activeTab==="goals"    ? "🏅 Metas"
-                :activeTab==="stats"    ? "📊 Stats"
-                :activeTab==="gastos"   ? "💸 Gastos Compartidos"
-                :activeTab==="chat"     ? "💬 Chat"
-                :activeTab==="links"    ? "🔗 Links de Interés"
-                : ""}
-              </span>
-          }
-        </div>
-        {/* Saving indicator dot — tappable when error to show detail */}
-        {savingState !== "idle" && (
-          <div
-            role={savingState === "error" ? "button" : undefined}
-            onClick={savingState === "error" ? () => forcePush() : undefined}
-            title={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado ✓" : "Error al guardar — toca para reintentar"}
-            aria-label={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado" : "Error al guardar — toca para reintentar"}
-            style={{ width:savingState==="error"?20:7, height:savingState==="error"?20:7, borderRadius:99, flexShrink:0, cursor:savingState==="error"?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center",
-              background: savingState === "saving" ? "#a78bfa" : savingState === "saved" ? "#34d399" : "rgba(248,113,113,0.15)",
-              border: savingState === "error" ? "1.5px solid #f87171" : "none",
-              animation: savingState === "saving" ? "sc-dot-pulse 1s ease-in-out infinite" : savingState === "saved" ? "sc-saved-fade 2s ease-out 0.5s forwards" : "none",
-              boxShadow: savingState === "saving" ? "0 0 6px rgba(167,139,250,0.6)" : savingState === "saved" ? "0 0 6px rgba(52,211,153,0.6)" : "0 0 4px rgba(248,113,113,0.4)",
-            }}>
-            {savingState === "error" && <span style={{ fontSize:11, color:"#f87171", lineHeight:1 }}>!</span>}
-          </div>
-        )}
-        {/* Dark/light toggle */}
-        <button onClick={toggleDarkLight} aria-label={_activeTheme.dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
-          title={_activeTheme.dark ? "Modo claro" : "Modo oscuro"}
-          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
-          <span aria-hidden="true">{_activeTheme.dark ? "☀️" : "🌙"}</span>
-        </button>
-        {/* Overflow menu ⋯ */}
-        <div style={{ position:"relative", flexShrink:0 }}>
-          <OverflowButton onClick={() => setPopOpen(o => !o)} />
-          <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
-            { icon:"↻", label:"Actualizar versión", onClick: checkUpdate },
-            { icon:"⬆", label: syncing ? "Subiendo…" : "Subir datos a Supabase", onClick: () => { forcePush(); setPopOpen(false); } },
-            { icon:"🔄", label: syncing ? "Sincronizando…" : "Bajar datos de Supabase", onClick: () => { forceSync(); setPopOpen(false); } },
-            { divider: true },
-            { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => downloadWeekICS(week, wkey, p1, p2) },
-            { icon:"🖨", label:"Imprimir / PDF", onClick: () => downloadWeekPDF(week, wkey, p1, p2) },
-          ]} />
-        </div>
-        {/* Settings dropdown trigger */}
-        <div style={{ position:"relative", flexShrink:0 }}>
-          <button onClick={()=>setSettingsMenuOpen(v=>!v)} aria-label="Ajustes"
-            style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
-          {settingsMenuOpen && <>
-            <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
-            <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
-              {[
-                { icon:"👤", label:"Mi perfil",  action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
-                { icon:"📥", label:"Exportar",   action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
-                { icon:"📤", label:"Importar",   action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
-                { icon:"🔄", label:syncing?"Sincronizando…":"Actualizar datos", action:()=>{ forceSync(); setSettingsMenuOpen(false); } },
-              ].map((item,i)=>(
-                <button key={i} onClick={item.action}
-                  style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#c4b8ff", width:"100%", textAlign:"left", transition:"background 0.12s" }}
-                  onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-soft,rgba(167,139,250,0.1))"}
-                  onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                  <span style={{ fontSize:15 }}>{item.icon}</span>{item.label}
-                </button>
-              ))}
-              <div style={{ height:1, background:"var(--t-card-border,rgba(167,139,250,0.1))", margin:"4px 0" }} />
-              <button onClick={()=>{ onSignOut(); setSettingsMenuOpen(false); }}
-                style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#f472b6", width:"100%", textAlign:"left" }}
-                onMouseEnter={e=>e.currentTarget.style.background="rgba(244,114,182,0.08)"}
-                onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                <span style={{ fontSize:15 }}>🚪</span>Cerrar sesión
-              </button>
-            </div>
-          </>}
-        </div>
-      </div></div>{/* end inner 52px row + safe-area wrapper */}
+
+      <SideMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        activeTab={activeTab}
+        onNavigate={tab => { setActiveTab(tab); setMenuOpen(false); }}
+        couplePhoto={data.settings?.photos?.couple}
+        coupleEmoji={data.settings?.coupleEmoji}
+        p1={p1} p2={p2}
+        syncMsg={syncMsg}
+      />
+
+      <Topbar
+        activeTab={activeTab} setActiveTab={setActiveTab} setMenuOpen={setMenuOpen}
+        currentWeekNumber={data.currentWeekNumber}
+        savingState={savingState} onForcePush={forcePush}
+        isDark={_activeTheme.dark} onToggleDark={toggleDarkLight}
+        onCheckUpdate={checkUpdate} onSmartSync={smartSync} syncing={syncing}
+        onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
+        onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
+        onShowProfile={() => setShowProfile(true)}
+        onExport={() => exportData(data)}
+        importFileRef={importFileRef} onSignOut={onSignOut}
+        colors={colors}
+      />
 
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
 
@@ -1263,86 +1057,7 @@ ${sorted.map(m=>{
           onCycleStatus={cycleStatusGlobal}
         />}
 
-        {activeTab==="history" && (() => {
-          const { week:_htw, year:_hty } = getWeekAndYear();
-          const _htodayKey = isoWeekKey(_htw, _hty);
-          const allHistSorted = Object.entries(data.weeks).filter(([key])=>key<=_htodayKey).sort((a,b)=>b[0].localeCompare(a[0]));
-          const histFiltered = histWeekRange==="all" ? allHistSorted : allHistSorted.slice(0, parseInt(histWeekRange));
-          const filterHM = ms => ms.filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
-          return (
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {/* Filter bar */}
-            <div style={{ ...S.card, padding:"10px 14px" }}>
-              <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-                <div>
-                  <div style={S.label}>Semanas</div>
-                  <div style={{ display:"flex", gap:3 }}>
-                    {[["all","Todas"],["1","Esta sem."],["4","4 últ."],["8","8 últ."]].map(([v,l])=>(
-                      <button key={v} onClick={()=>setHistWeekRange(v)} style={{ background:histWeekRange===v?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.06)", border:`1px solid ${histWeekRange===v?"var(--t-accent,rgba(167,139,250,0.4))":"var(--t-card-border,rgba(255,255,255,0.08))"}`, borderRadius:7, color:histWeekRange===v?"var(--t-accent,#a78bfa)":"var(--t-text-dim,#6b5f88)", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* Week cards */}
-            {histFiltered.map(([key,w]) => {
-              const filtMs = filterHM(w.missions||[]);
-              const d=filtMs.filter(m=>m.status==="DONE").length, t=filtMs.length, p=t>0?Math.round((d/t)*100):0, cur=key===wkey;
-              return (
-                <div key={key} style={{ ...S.card, borderColor:cur?"var(--t-accent,rgba(167,139,250,0.45))":"var(--t-card-border,rgba(167,139,250,0.1))", background:cur?"var(--t-accent-soft,rgba(167,139,250,0.12))":"var(--t-card,#1d1733)", padding:"12px 14px" }}>
-                  <div onClick={()=>{const yr=parseInt(key.split("-W")[0])||w.year;update(s=>({...s,currentWeekNumber:w.weekNumber,currentYear:yr}));setActiveTab("current");}} style={{ cursor:"pointer", marginBottom:w.epicObjective?5:8 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div style={{ fontFamily:"'Fraunces',serif", fontWeight:600, fontSize:18, display:"flex", alignItems:"center", gap:7 }}>
-                        Semana {w.weekNumber}
-                        {cur&&<span style={{ fontSize:10, color:"var(--t-accent,#a78bfa)", background:"var(--t-accent-soft,rgba(167,139,250,0.15))", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}
-                      </div>
-                      <div style={{ fontSize:13, color:p===100?"#34d399":"var(--t-text-muted,#8b7fa8)", fontWeight:600 }}>{p===100?"🏆":""} {d}/{t}</div>
-                    </div>
-                    {w.epicObjective&&<div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }} onClick={e=>e.stopPropagation()}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden" }}>
-                        <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
-                      </div>
-                      <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
-                    </div>
-                    {w.photo
-                      ? <div style={{ position:"relative", flexShrink:0 }}>
-                          <img src={w.photo} onClick={()=>setLightboxSrc(w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
-                          <button onClick={()=>update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null}}}))}
-                            style={{ position:"absolute", top:-5, right:-5, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
-                        </div>
-                      : <div style={{ flexShrink:0, display:"flex", gap:4 }}>
-                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Tomar foto">
-                            📷
-                            <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
-                              onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
-                          </label>
-                          <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Elegir de galería">
-                            🖼️
-                            <input type="file" accept="image/*" style={{ display:"none" }}
-                              onChange={async e=>{const f=e.target.files[0];if(!f)return;const b64=await compressImage(f);update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}}));e.target.value="";}} />
-                          </label>
-                        </div>
-                    }
-                  </div>
-                  {/* ICS por semana */}
-                  {(w.missions||[]).some(m=>m.date)&&<div style={{ marginTop:8 }}>
-                    <button onClick={()=>downloadWeekICS(w, key, p1, p2)} style={{ ...S.btnSecondary, fontSize:11, padding:"4px 10px", borderColor:"rgba(52,211,153,0.25)", color:"#34d399", width:"100%" }}>📅 Importar semana {w.weekNumber} a Google Calendar (.ics)</button>
-                  </div>}
-                  {w.photo&&<div style={{ marginTop:8, position:"relative", cursor:"zoom-in" }} onClick={()=>setLightboxSrc(w.photo)}>
-                    <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:130, objectFit:"cover", display:"block" }} alt="foto semana" />
-                    <div style={{ position:"absolute", inset:0, borderRadius:10, background:"rgba(0,0,0,0)", display:"flex", alignItems:"flex-end", justifyContent:"flex-end", padding:6 }}>
-                      <span style={{ background:"rgba(0,0,0,0.45)", borderRadius:6, fontSize:10, color:"#f8f4ff", padding:"2px 7px", backdropFilter:"blur(4px)" }}>🔍 Ver completa</span>
-                    </div>
-                  </div>}
-                </div>
-              );
-            })}
-          </div>
-          );
-        })()}
+        {activeTab==="history" && <HistoryView weeks={data.weeks} wkey={wkey} globalPersonFilter={globalPersonFilter} globalCatFilter={globalCatFilter} update={update} setActiveTab={setActiveTab} setLightboxSrc={setLightboxSrc} compressImage={compressImage} downloadWeekICS={downloadWeekICS} p1={p1} p2={p2} />}
 
         {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
 
@@ -1354,228 +1069,25 @@ ${sorted.map(m=>{
 
         {activeTab==="links" && <LinksView links={data.links||[]} onSave={links=>update(d=>({...d,links}))} />}
 
-        {activeTab==="pending" && (()=>{
-          // ── Pendientes ──────────────────────────────────────────────────────
-          // Only suppress originals when an UNDONE carry copy exists (if carry copy is DONE, show original)
-          const carriedFromIds=new Set(Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.carriedFrom&&m.status!=="DONE").map(m=>m.carriedFrom)));
-          const pendingRaw=Object.entries(data.weeks)
-            .sort((a,b)=>a[0].localeCompare(b[0]))
-            .flatMap(([key,w])=>(w.missions||[])
-              .filter(m=>m.status!=="DONE" && m.type!=="event" && !carriedFromIds.has(m.id))
-              .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
-          const latestBySeries={};
-          for(const m of pendingRaw){if(m.seriesId&&(!latestBySeries[m.seriesId]||m._wkey>latestBySeries[m.seriesId]._wkey))latestBySeries[m.seriesId]=m;}
-          const pendingAll=pendingRaw.filter(m=>!m.seriesId||latestBySeries[m.seriesId]===m);
-          const pendingFiltered=pendingAll.filter(m=>
-            (!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&
-            (!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c)))
-          );
-          // ── Logros ──────────────────────────────────────────────────────────
-          // Sorted newest-week-first so dedup keeps the most recent completion
-          const logrosAll=Object.entries(data.weeks)
-            .sort((a,b)=>b[0].localeCompare(a[0]))
-            .flatMap(([key,w])=>(w.missions||[])
-              .filter(m=>m.status==="DONE" && m.type!=="event")
-              .map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||new Date().getFullYear(),_wkey:key})));
-          // Dedup: by seriesId only (recurring tasks)
-          const _seenSeries = new Set();
-          const logrosDeduped = logrosAll.filter(m => {
-            if (m.seriesId) {
-              if (_seenSeries.has(m.seriesId)) return false;
-              _seenSeries.add(m.seriesId);
-            }
-            return true;
-          });
-          // Hero stats para Logros
-          const cwKey = `${data.currentYear}-W${String(data.currentWeekNumber).padStart(2,"0")}`;
-          const logrosThisWeek = logrosAll.filter(m => m._wkey === cwKey).length;
-          // Racha: días consecutivos hacia atrás con al menos 1 logro (usa completedAt)
-          const logrosWithDate = logrosAll.filter(m => m.completedAt);
-          const doneByDay = new Set(logrosWithDate.map(m => {
-            if (typeof m.completedAt === 'string') return m.completedAt.slice(0,10);
-            if (typeof m.completedAt === 'number') return new Date(m.completedAt).toISOString().slice(0,10);
-            return null;
-          }).filter(Boolean));
-          let racha = 0;
-          const today = new Date();
-          for (let i = 0; i < 365; i++) {
-            const d = new Date(today); d.setDate(today.getDate() - i);
-            const key = d.toISOString().slice(0,10);
-            if (doneByDay.has(key)) racha++;
-            else if (i > 0) break;
-          }
-          const subTabStyle=(active)=>({
-            flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit",
-            fontSize:12, fontWeight:600,
-            background: active ? "var(--t-accent-soft,rgba(167,139,250,0.14))" : "rgba(128,128,128,0.06)",
-            color: active ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
-            transition:"all .15s",
-          });
-          return <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {/* Toolbar: sub-tabs + refresh */}
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <div style={{display:"flex",flex:1,gap:4,background:"rgba(128,128,128,0.06)",borderRadius:10,padding:3}}>
-                <button onClick={()=>setPendingTab("pending")} style={subTabStyle(pendingTab==="pending")}>📋 Pendientes <span style={{fontSize:10,opacity:0.7}}>({pendingFiltered.length})</span></button>
-                <button onClick={()=>{ setPendingTab("logros"); track("logros_tab_viewed", { count: logrosDeduped.length }); }}  style={subTabStyle(pendingTab==="logros")}>🏆 Logros <span style={{fontSize:10,opacity:0.7}}>({logrosDeduped.length})</span></button>
-              </div>
-              <button onClick={()=>forceSync()} title="Bajar datos de Supabase"
-                style={{...S.btnSecondary, padding:"7px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4, flexShrink:0}}>
-                🔄 Bajar
-              </button>
-              <button onClick={()=>forcePush()} title="Subir datos locales a Supabase"
-                style={{...S.btnSecondary, padding:"7px 10px", fontSize:12, display:"flex", alignItems:"center", gap:4, flexShrink:0, color:"var(--t-accent,#a78bfa)"}}>
-                ⬆ Subir
-              </button>
-            </div>
-            {/* Pendientes list */}
-            {pendingTab==="pending" && (
-              pendingFiltered.length===0
-                ?<div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
-                  <div style={{fontSize:36,marginBottom:12}}>🎉</div>
-                  <div>¡Sin pendientes! Todo al día.</div>
-                </div>
-                :<div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {pendingFiltered.map(m=>{
-                    const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
-                    const isCarriedM=!!m.carriedFrom;
-                    const delayWeeks=(()=>{if(!isCarriedM)return 0;let n=0,oid=m.carriedFrom,owk=m.carriedFromWeek;while(oid&&owk&&n<20){n++;const ow=data.weeks[owk];if(!ow)break;const om=(ow.missions||[]).find(x=>x.id===oid);if(!om?.carriedFrom)break;oid=om.carriedFrom;owk=om.carriedFromWeek;}return n;})();
-                    return <div key={m.id+m._wkey} style={{...S.card,padding:"10px 14px"}}>
-                      {isCarriedM&&<div style={{fontSize:10,color:delayWeeks>=3?"#f87171":"#fb923c",letterSpacing:0.5,marginBottom:5,display:"flex",alignItems:"center",gap:4}}>
-                        {delayWeeks>=3?"⚠️":"🔁"} {delayWeeks>=3?`Arrastrada ${delayWeeks} semanas`:"Arrastrada"}
-                      </div>}
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontSize:22,flexShrink:0}}>{m.emoji}</span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,color:"var(--t-text,#e2d9ff)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
-                          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:3}}>
-                            <span style={{fontSize:10,color:"var(--t-text-dim,#4a4166)"}}>S{m.weekNumber} {m._yr}</span>
-                            {m.date&&<span style={{fontSize:10,color:"var(--t-accent,#a78bfa)"}}>📆 {m.date}</span>}
-                            {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon} {c.label}</span>:null;})}
-                            <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
-                          </div>
-                        </div>
-                        <div style={{display:"flex",gap:4,flexShrink:0,alignItems:"center"}}>
-                          <button onClick={()=>cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
-                          <button onClick={()=>{update(s=>({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr}));setActiveTab("current");}} style={{...S.btnSecondary,fontSize:10,padding:"4px 8px"}}>→ S{m.weekNumber}</button>
-                          <button onClick={()=>confirm("Vas a eliminar esta tarea\n\nEsta acción no se puede deshacer. Desaparecerá para los dos.",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id),{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:18,padding:"0 2px",lineHeight:1,flexShrink:0}} title="Eliminar">×</button>
-                        </div>
-                      </div>
-                    </div>;
-                  })}
-                </div>
-            )}
-            {/* Logros list */}
-            {pendingTab==="logros" && (()=>{
-              // PillFilter data
-              const peoplePills = [
-                { id:"person1", label:p1, count:logrosDeduped.filter(m=>m.who==="person1").length, color:colors?.person1||DEFAULT_COLORS.person1 },
-                { id:"person2", label:p2, count:logrosDeduped.filter(m=>m.who==="person2").length, color:colors?.person2||DEFAULT_COLORS.person2 },
-                { id:"together", label:"Juntos", count:logrosDeduped.filter(m=>m.who==="together").length, color:colors?.together||DEFAULT_COLORS.together },
-              ].filter(p=>p.count>0);
-              const catCounts = {};
-              logrosDeduped.forEach(m=>getMCats(m).forEach(c=>{ catCounts[c]=(catCounts[c]||0)+1; }));
-              const catPills = Object.entries(catCounts)
-                .filter(([,n])=>n>0)
-                .map(([id,count])=>({ id, count, ...CAT_MAP[id] }))
-                .filter(c=>c.label);
-              // Local filtered
-              const logrosLocalFiltered = logrosDeduped.filter(m =>
-                (!logrosPeopleFilter.length || logrosPeopleFilter.includes(m.who)) &&
-                (!logrosCatFilter.length || getMCats(m).some(c => logrosCatFilter.includes(c)))
-              );
-              // Group by day
-              const byDay = {};
-              logrosLocalFiltered.forEach(m => {
-                const day = (typeof m.completedAt === 'string' ? m.completedAt.slice(0,10) : null) || m._wkey;
-                if(!byDay[day]) byDay[day]=[];
-                byDay[day].push(m);
-              });
-              const days = Object.entries(byDay).sort(([a],[b])=>b.localeCompare(a));
-              return (
-                <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  {/* Hero stats */}
-                  <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:2}}>
-                    {[
-                      { icon:"🏆", value:logrosDeduped.length, label:"Totales" },
-                      { icon:"📅", value:logrosThisWeek, label:"Esta semana" },
-                      { icon:"🔥", value:racha, label:`Día${racha!==1?"s":""} de racha` },
-                    ].map(s=>(
-                      <div key={s.label} style={{flex:"0 0 auto",background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.18)",borderRadius:12,padding:"10px 16px",textAlign:"center",minWidth:90}}>
-                        <div style={{fontSize:20}}>{s.icon}</div>
-                        <div style={{fontFamily:"'Fraunces',serif",fontSize:22,color:"#f8f4ff",fontWeight:700,lineHeight:1}}>{s.value}</div>
-                        <div style={{fontSize:10,color:"#8b7fa8",marginTop:2}}>{s.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* PillFilter local */}
-                  <PillFilter
-                    people={peoplePills}
-                    categories={catPills}
-                    selectedPeople={logrosPeopleFilter}
-                    selectedCats={logrosCatFilter}
-                    onTogglePerson={id=>setLogrosPeopleFilter(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id])}
-                    onToggleCat={id=>setLogrosCatFilter(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id])}
-                  />
-                  {/* Timeline agrupada por día */}
-                  {logrosLocalFiltered.length===0
-                    ? <div style={{...S.card,textAlign:"center",color:"var(--t-text-dim,#3d3360)",fontStyle:"italic",padding:40}}>
-                        <div style={{fontSize:36,marginBottom:12}}>🏆</div>
-                        <div>Todavía no hay logros registrados.</div>
-                      </div>
-                    : <div style={{display:"flex",flexDirection:"column",gap:14}}>
-                        {days.map(([day,missions],di)=>{
-                          let dayLabel;
-                          if(day.includes("-W")) {
-                            const [yr,wn]=day.split("-W");
-                            dayLabel=`Semana ${wn} · ${yr}`;
-                          } else {
-                            const d=new Date(day+"T12:00:00");
-                            const todayStr=new Date().toISOString().slice(0,10);
-                            const yesterStr=new Date(Date.now()-86400000).toISOString().slice(0,10);
-                            dayLabel=day===todayStr?"Hoy":day===yesterStr?"Ayer":d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"short"});
-                          }
-                          return (
-                            <div key={day} style={{opacity:0,animation:`fadeInUp 0.3s ease ${di*0.05}s forwards`}}>
-                              <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"var(--t-accent,#a78bfa)",fontWeight:600,marginBottom:6}}>
-                                {dayLabel} · {missions.length} logro{missions.length!==1?"s":""}
-                              </div>
-                              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                                {missions.map(m=>{
-                                  const whoColor=m.who==="person1"?colors?.person1||DEFAULT_COLORS.person1:m.who==="person2"?colors?.person2||DEFAULT_COLORS.person2:colors?.together||DEFAULT_COLORS.together;
-                                  return (
-                                    <div key={m.id+m._wkey} style={{...S.card,padding:"9px 13px",borderLeft:`3px solid ${whoColor}`,opacity:0,animation:`fadeInUp 0.25s ease ${di*0.05+0.05}s forwards`}}>
-                                      <div style={{display:"flex",alignItems:"center",gap:9}}>
-                                        <span style={{fontSize:20,flexShrink:0}}>{m.emoji}</span>
-                                        <div style={{flex:1,minWidth:0}}>
-                                          <div style={{fontSize:13,color:"var(--t-text,#e2d9ff)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
-                                          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:2}}>
-                                            <span style={{fontSize:10,background:`${whoColor}18`,color:whoColor,border:`1px solid ${whoColor}40`,padding:"0 5px",borderRadius:99}}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
-                                            {getMCats(m).map(ci=>{const c=CAT_MAP[ci];return c?<span key={ci} style={{fontSize:10,color:c.color}}>{c.icon}</span>:null;})}
-                                          </div>
-                                        </div>
-                                        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-                                          <span style={{fontSize:18}}>✅</span>
-                                          <button onClick={()=>confirm("Vas a eliminar este logro\n\nEsta acción no se puede deshacer. Desaparecerá del historial de los dos.",()=>deleteMissionGlobal(m.weekNumber,m._yr,m.id),{confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t-text-dim,#4a4166)",fontSize:16,padding:"0 2px",lineHeight:1}} title="Eliminar">×</button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                  }
-                </div>
-              );
-            })()}
-          </div>;
-        })()}
+        {activeTab==="pending" && <PendingView
+          weeks={data.weeks}
+          currentWeekNumber={data.currentWeekNumber}
+          currentYear={data.currentYear}
+          globalPersonFilter={globalPersonFilter}
+          globalCatFilter={globalCatFilter}
+          colors={colors}
+          p1={p1} p2={p2}
+          cycleStatusGlobal={cycleStatusGlobal}
+          onDelete={deleteMissionGlobal}
+          setActiveTab={setActiveTab}
+          update={update}
+          onSync={smartSync}
+          syncing={syncing}
+        />}
       </div>
 
       {/* Tutorial overlay */}
-      {tutorialStep !== null && <TutorialOverlay step={tutorialStep} onNext={tutorialNext} onSkip={tutorialSkip} onFinish={tutorialFinish} />}
+      {tutorialStep !== null && <TutorialOverlay step={tutorialStep} onNext={tutorialNext} onBack={tutorialBack} onSkip={tutorialSkip} onFinish={tutorialFinish} />}
 
       {/* Lightbox */}
       {lightboxSrc && (

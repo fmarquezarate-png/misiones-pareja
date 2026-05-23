@@ -117,10 +117,26 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 | 4 versiones intentando fix push sin ver el error real | Agente Forense + Edge Functions con `?probe=1` y `?diagnose=1` que devuelven `{stage, error, name}` en JSON. Regla: si un bug persiste tras 2 intentos, llamar al Forense antes de deployar otro fix. |
 | `CHANGELOG.md` desincronizado 8 versiones respecto a `constants.js` | Regla de versionado en sección 3: `CHANGELOG.md` es obligatorio en el mismo commit que el bump de `APP_VERSION`. El Redactor verifica antes de cada push. |
 | `<ConfirmDialog />` declarado via `useConfirm()` pero nunca renderizado en JSX — `confirm()` invocaba el hook pero no mostraba UI. Los diálogos "¿Eliminar esta tarea?" y "¿Eliminar este logro?" ejecutaban el borrado sin confirmación visible desde v3.5+. | `useConfirm()` devuelve `{ confirm, ConfirmDialog }`. **`ConfirmDialog` debe renderizarse en el JSX del mismo componente** que llama al hook. ESLint `no-unused-vars` lo atrapa si se olvida. Ejemplo correcto: añadir `<ConfirmDialog />` al final del return del componente. |
+| `read_from_normalized: true` con tabla `missions` congelada en backfill (20/05) → semanas posteriores al backfill aparecen vacías. El fallback de v3.8.24 (tabla con 0 filas) no cubre tabla con datos obsoletos. | `read_from_normalized` → **`false` permanente** hasta que exista sync servidor real. La tabla `missions` es analytics futura, no fuente de verdad. Documentado abajo en sección 7. |
 
 ---
 
-## 6. Documentos referenciados
+## 6. Estado de la tabla `missions` — decisión arquitectónica (23/05/2026)
+
+La tabla `missions` tiene **252 filas congeladas** en el backfill del Sprint D (20/05/2026). No existe trigger de DB ni mecanismo de sync que la actualice.
+
+**Decisión oficial:** `missions` es tabla de **analytics futura**, no fuente de verdad operacional.
+
+- `read_from_normalized: false` — permanente hasta que se implemente sync servidor
+- `dual_write_normalized: true` — el flag existe pero `repo.js` no está cableado en el save path principal; las escrituras a `missions` no ocurren en producción
+- El blob en `app_data` es la única fuente de verdad real
+- Reactive cuando haya caso de uso concreto: búsqueda full-text, analytics cross-pareja, exportación estructurada
+
+**Riesgo principal del sistema (23/05/2026):** el blob no tiene versionado histórico verificable. `isValidAppData()` es el único gate antes de cada save. Si un save con datos inválidos pasa el gate, la historia de la pareja se pierde sin rollback posible. Acción pendiente: snapshot diario automático con retención de 30 días (tarea Externo + Programador).
+
+---
+
+## 7. Documentos referenciados
 
 - [`README.md`](./README.md) — overview público, tech stack
 - [`CHANGELOG.md`](./CHANGELOG.md) — historia versión por versión

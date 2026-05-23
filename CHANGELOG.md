@@ -7,6 +7,60 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.2] — 2026-05-23 · G-2 prep: dual-write de misiones cableado
+
+### Arquitectura
+- **Dual-write de misiones activado** en el flujo de mutaciones de App.jsx. Tres funciones nuevas en `repo.js`:
+  - `insertNormalizedMission` — disparado en `addMission`, crea la fila en `missions` en tiempo real.
+  - `deleteNormalizedMission` — disparado en `delMission` y `deleteMissionGlobal`.
+  - `updateNormalizedMissionStatus` — disparado en `cycleStatus` y `cycleStatusGlobal`.
+  - Todas son fire-and-forget: el blob sigue siendo fuente de verdad; los errores se loguean via `track("dual_write_error")`.
+- **`loadFromNormalized` safety mejorado** — además de detectar tabla vacía, ahora hace fallback al blob si la tabla tiene <80% de las misiones del blob (tabla desactualizada por baja cobertura del dual-write histórico).
+
+### Estado G-2
+- Gap 3 (código `loadFromNormalized`): ✅ cerrado — existía desde sesión anterior, ya estaba cableado en App.jsx.
+- Gap 2 (`week_metadata`): ya no bloquea — `loadFromNormalized` preserva `label`/`epicGoal` del blob como skeleton de cada semana.
+- Gap 1 (4 columnas en tabla `missions`): pendiente Externo — añadir `time`, `reminder`, `series_pattern`, `series_end_date`. Hasta entonces el INSERT omite esos campos (null default).
+- **Próximo paso**: Externo añade columnas → actualizamos INSERT → re-backfill desde blob → verificamos consistencia → flip `read_from_normalized: true`.
+
+---
+
+## [3.9.1] — 2026-05-23 · Monolito Fase 2d completa (SideMenu + Topbar)
+
+### Arquitectura
+- **`SideMenu.jsx`** extraído de App.jsx — contiene el backdrop, el panel deslizante, los ítems de navegación y el **Changelog modal** (que solo se abre desde aquí). Posee su propio estado `showChangelog`.
+- **`Topbar.jsx`** extraído de App.jsx — posee internamente `popOpen` y `settingsOpen`, eliminando 2 `useState` de App.jsx.
+- **Código muerto eliminado**: modal ICS de rango de fechas (`{icsModal && ...}`), función `downloadRangeICS`, y estados `icsModal`/`icsFrom`/`icsTo`. El botón que abría el modal nunca existió en el overflow menu.
+- **App.jsx**: 1314 → 1101 líneas (objetivo ~1100 alcanzado, −16% adicional).
+
+---
+
+## [3.9.0] — 2026-05-23 · Smart sync + UX fixes + Tutorial + Monolito Fase 2d
+
+### Corregido
+- **Smart sync** — reemplaza los botones "Subir datos" / "Bajar datos" con un único botón inteligente `Sincronizar datos`. Descarga desde Supabase, compara contenido y reporta claramente: `"✓ Ya estás al día"` / `"⬇ Sincronizado — 3 tareas nuevas"`. El bug crítico anterior: cuando `loadData()` devolvía `null` (error de red o RLS), la app subía los datos locales pisando los del partner. Ahora en ese caso muestra `"⚠ Sin conexión — datos sin modificar"` y **nunca sube**.
+- **Actualización de versión sin cerrar la app** — el botón "Actualizar versión" ya registra el listener `controllerchange` antes de enviar `SKIP_WAITING` al service worker. La recarga ocurre inmediatamente cuando el nuevo SW activa, sin necesidad de cerrar y reabrir la app.
+- **Toast "Ya tienes la última versión" pegado** — los toasts de tipo `error` ahora se auto-descartan a los 7 segundos y tienen botón `×` para cerrarlos manualmente.
+
+### Mejorado
+- **Tutorial rediseñado (UX/UI)** — `TutorialOverlay` pasa de burbujas flotantes con flechas SVG hardcoded (posicionadas en píxeles fijos, rotas en pantallas pequeñas) a un modal centrado profesional: backdrop oscuro con blur, icono grande por paso, barra de progreso en la parte superior, botón `← Atrás` para retroceder, y animación de entrada pulida. 10 pasos, diseño coherente con el resto de la app.
+
+### Arquitectura
+- **Monolito Fase 2d** — extraídos `HistoryView.jsx` (~85 líneas) y `PendingView.jsx` (~155 líneas) de `App.jsx`. `App.jsx` pasa de 1597 a 1314 líneas (↓18%). `PendingView` gestiona ahora su propio estado de filtros de logros y su propio `useConfirm`.
+
+---
+
+## [3.8.27] — 2026-05-23 · Push personalizado + documentación arquitectónica
+
+### Mejorado
+- **Push copy personalizado** — mensajes incluyen el nombre del emisor: `"Ana añadió una tarea: 🎯 Título"`, `"Ana completó: ✅ Título"`. Chat ya tenía el nombre desde v3.8.22. Personalización sube de 6/10 a ~8/10.
+
+### Documentado
+- **`CLAUDE.md`** — decisión oficial: tabla `missions` es analytics futura, no fuente de verdad. `read_from_normalized: false` permanente hasta sync servidor. Riesgo blob sin versionado histórico registrado como riesgo crítico activo del sistema.
+- **`TAREAS_SQL_AGENTE_SUPABASE.md`** — añadidas tareas urgentes: U-1 (snapshot automático + retention policy del blob), U-2 (Security Definer Views restantes), U-3 (activar telemetría real + queries de engagement).
+
+---
+
 ## [3.8.26] — 2026-05-23 · Fix crítico: revertir read_from_normalized
 
 ### Corregido

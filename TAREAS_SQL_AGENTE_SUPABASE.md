@@ -1,9 +1,112 @@
 # Tareas SQL para el Agente Supabase
-## Misiones de Pareja — Roadmap v3.5.0 → v4.0.0
+## Shared Calendar — Roadmap v3.5.0 → v4.0.0
 
-> **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase de Misiones de Pareja, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
+> **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
 >
 > **Regla de oro:** Todas las migraciones son **additive-only** (solo añaden, nunca borran). Nunca ejecutes un DROP TABLE salvo que la sección lo indique explícitamente y diga "SEGURO BORRAR".
+
+---
+
+## 🔴 URGENTE — Ejecutar esta semana (del diagnóstico 23/05/2026)
+
+### U-1 · Verificar y reforzar snapshot automático del blob
+
+**Prioridad:** CRÍTICA. El blob en `app_data` es la única fuente de verdad. Un save inválido sin rollback posible destruye los datos de una pareja.
+
+**Verificar primero:**
+```sql
+-- ¿Existe trigger que crea backups automáticos en cada UPDATE de app_data?
+SELECT trigger_name, event_manipulation, action_statement
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data';
+
+-- ¿Cuántos backups hay y cuándo se crearon?
+SELECT couple_id, COUNT(*), MIN(created_at), MAX(created_at)
+FROM app_data_backups
+GROUP BY couple_id;
+```
+
+**Si no existe trigger de backup automático**, crear uno:
+```sql
+-- Trigger que inserta snapshot en app_data_backups antes de cada UPDATE
+CREATE OR REPLACE FUNCTION public.snapshot_app_data()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO public.app_data_backups (couple_id, data, created_at)
+  VALUES (OLD.id, OLD.data, NOW());
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_snapshot_app_data ON public.app_data;
+CREATE TRIGGER trg_snapshot_app_data
+  BEFORE UPDATE ON public.app_data
+  FOR EACH ROW EXECUTE FUNCTION public.snapshot_app_data();
+```
+
+**Retention policy — borrar backups con más de 30 días:**
+```sql
+-- Ejecutar manualmente o programar con pg_cron
+DELETE FROM public.app_data_backups
+WHERE created_at < NOW() - INTERVAL '30 days';
+```
+
+**Confirmar al equipo:** cuántos backups existen, si el trigger estaba activo antes del 23/05, y si los 30 backups existentes son del trigger o del backfill manual.
+
+---
+
+### U-2 · Resolver Security Definer Views restantes
+
+**Prioridad:** ALTA. 2 vistas con SECURITY DEFINER siguen sin resolver tras el diagnóstico del 23/05.
+
+```sql
+-- Listar vistas con SECURITY DEFINER
+SELECT schemaname, viewname, definition
+FROM pg_views
+WHERE definition ILIKE '%security_definer%'
+  AND schemaname = 'public';
+```
+
+Para cada vista: evaluar si el SECURITY DEFINER es intencional (bypass RLS para vistas públicas) o accidental. Si es accidental, recrear sin SECURITY DEFINER.
+
+---
+
+### U-3 · Activar telemetría real en tabla `events`
+
+**Prioridad:** ALTA. La tabla existe desde el 20/05 pero los datos son seed del backfill, no uso real.
+
+**Verificar que el RLS permite INSERT desde usuarios autenticados:**
+```sql
+-- Ver políticas actuales en events
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE tablename = 'events';
+```
+
+**Query semanal de engagement (ejecutar manualmente o con pg_cron):**
+```sql
+-- Dashboard mínimo: últimos 7 días
+SELECT
+  name,
+  COUNT(*) as count,
+  COUNT(DISTINCT couple_id) as couples,
+  MAX(ts) as last_seen
+FROM public.events
+WHERE ts > NOW() - INTERVAL '7 days'
+GROUP BY name
+ORDER BY count DESC;
+
+-- Misiones completadas por semana
+SELECT
+  DATE_TRUNC('week', (props->>'ts')::timestamptz) as week,
+  COUNT(*) as completadas,
+  COUNT(DISTINCT couple_id) as couples
+FROM public.events
+WHERE name = 'mission_completed'
+GROUP BY 1
+ORDER BY 1 DESC
+LIMIT 8;
+```
 
 ---
 
@@ -685,62 +788,70 @@ create policy "app_data_all_own" on public.app_data
 
 ### G-2 · Flip lectura blob → tablas normalizadas (Sprint G-2)
 
-> **Estado:** 🟡 Infraestructura lista — implementación de lectura pendiente.
-> **Flag creado:** `read_from_normalized: false` en `src/lib/flags.js` DEFAULTS (2026-05-22).
-> **Consistencia verificada:** ✅ FRANANA (225/220 — +5 post-backfill real) y CRI-COCO (32/32) están OK. Luz verde dada por Externo el 2026-05-22.
+> **Estado:** 🟡 Dual-write cableado (v3.9.2) — pendiente: Externo añade 4 columnas + re-backfill + flip.
+> **Flag:** `read_from_normalized: false` en `src/lib/flags.js` DEFAULTS.
+> **Consistencia verificada:** ✅ FRANANA (225/220 — +5 post-backfill real) y CRI-COCO (32/32) — Externo 2026-05-22.
 
-#### Qué falta antes de activar el flip
+#### Estado de los 3 gaps
 
-**Gap 1 — Campos de misión faltantes en tabla `missions`:**
-La tabla `missions` no tiene: `time`, `reminder`, `series_pattern`, `series_end_date`. Estos campos viven en el blob y se usan en la app. El flip no puede ser completo sin agregarlos.
+**Gap 3 — Código de lectura:** ✅ CERRADO (2026-05-23)
+`loadFromNormalized(coupleId)` implementada en `supabase.js` y cableada en App.jsx. Incluye safety check: fallback al blob si la tabla está vacía O si tiene <80% de las misiones del blob.
+
+**Gap 2 — Metadatos de semana:** ✅ NO BLOQUEA (2026-05-23)
+`loadFromNormalized` usa el blob como skeleton de cada semana, preservando `label` y `epicGoal` directamente. La tabla `week_metadata` es útil para analytics futura pero no es requisito para el flip.
+
+**Gap 1 — 4 columnas faltantes en `missions`:** 🔴 PENDIENTE EXTERNO
+
+La tabla `missions` no tiene: `time`, `reminder`, `series_pattern`, `series_end_date`. El dual-write de v3.9.2 ya emite INSERTs por cada nueva misión — los inserts incluirán estos campos en cuanto las columnas existan.
 
 ```sql
 -- Verificar columnas actuales de missions:
 SELECT column_name, data_type FROM information_schema.columns
 WHERE table_name = 'missions' ORDER BY ordinal_position;
-```
 
-DDL a ejecutar para completar el esquema:
-```sql
+-- Añadir las 4 columnas faltantes:
 ALTER TABLE public.missions
-  ADD COLUMN IF NOT EXISTS time           text,
-  ADD COLUMN IF NOT EXISTS reminder       text,
-  ADD COLUMN IF NOT EXISTS series_pattern text,
+  ADD COLUMN IF NOT EXISTS time            text,
+  ADD COLUMN IF NOT EXISTS reminder        text,
+  ADD COLUMN IF NOT EXISTS series_pattern  text,
   ADD COLUMN IF NOT EXISTS series_end_date date;
+
+-- Verificación:
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'missions' AND column_name IN ('time','reminder','series_pattern','series_end_date');
+-- Debe devolver 4 filas
 ```
 
-**Gap 2 — Metadatos de semana no normalizados:**
-`data.weeks["YYYY-WNN"].label` y `data.weeks["YYYY-WNN"].epicGoal` NO están en ninguna tabla normalizada. La app los usa en HomeDashboard (`week.epicGoal`) y en la navegación de semanas. Requiere una nueva tabla `week_metadata`.
+#### Qué sigue después de Gap 1 (secuencia)
+
+1. Externo añade las 4 columnas → confirma al equipo
+2. El equipo actualiza `insertNormalizedMission` en `repo.js` para incluir `time`, `reminder`, `series_pattern`, `series_end_date` en el payload del INSERT
+3. Re-backfill desde blob para recuperar datos históricos (las filas actuales del backfill del 20/05 quedan con NULL en esos campos):
 
 ```sql
--- Tabla propuesta:
-CREATE TABLE IF NOT EXISTS public.week_metadata (
-  couple_id   uuid NOT NULL REFERENCES public.couples(id) ON DELETE CASCADE,
-  week_key    text NOT NULL,
-  label       text,
-  epic_goal   text,
-  PRIMARY KEY (couple_id, week_key)
-);
-ALTER TABLE public.week_metadata ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "week_metadata_own" ON public.week_metadata
-  FOR ALL TO authenticated USING (is_couple_member(couple_id)) WITH CHECK (is_couple_member(couple_id));
+-- Re-backfill de los 4 campos desde el blob en las filas existentes
+UPDATE public.missions m
+SET
+  time            = (src.raw_mission->>'time'),
+  reminder        = (src.raw_mission->>'reminder'),
+  series_pattern  = (src.raw_mission->>'seriesPattern'),
+  series_end_date = NULLIF(src.raw_mission->>'seriesEndDate', '')::date
+FROM (
+  SELECT
+    ad.id::uuid             AS couple_id,
+    week_entry.key          AS week_key,
+    mission_item.value      AS raw_mission
+  FROM app_data ad,
+    jsonb_each(ad.data->'weeks')                AS week_entry,
+    jsonb_array_elements(week_entry.value->'missions') AS mission_item
+) src
+WHERE m.couple_id = src.couple_id
+  AND m.week_key  = src.week_key
+  AND m.blob_id   = (src.raw_mission->>'id');
 ```
 
-Luego backfill:
-```sql
-INSERT INTO public.week_metadata (couple_id, week_key, label, epic_goal)
-SELECT
-  ad.id,
-  wk.key,
-  wk.val->>'label',
-  wk.val->>'epicGoal'
-FROM public.app_data ad, jsonb_each(ad.data->'weeks') AS wk(key, val)
-WHERE wk.val->>'label' IS NOT NULL OR wk.val->>'epicGoal' IS NOT NULL
-ON CONFLICT (couple_id, week_key) DO NOTHING;
-```
-
-**Gap 3 — Código de lectura en supabase.js:**
-No existe `loadFromNormalized(coupleId)` — está por implementar. Mientras tanto, `read_from_normalized: false` en DEFAULTS mantiene el comportamiento actual (leer del blob).
+4. Verificar consistencia: contar misiones en blob vs tabla. Si ratio > 95%, el flip es seguro.
+5. El equipo cambia `read_from_normalized: false` → `true` en `src/lib/flags.js` DEFAULTS + redesploy.
 
 #### Correcciones a las queries de consistencia (para referencia futura)
 
@@ -782,7 +893,11 @@ Las queries enviadas al Externo el 2026-05-22 tenían 2 bugs confirmados por el 
 | PERF-1 — 16 políticas RLS optimizadas `(SELECT auth.uid())` | Ejecutado 21 mayo | ✅ app_data, app_data_backups, couple_members, daily_load_cache, events, messages, push_subscriptions |
 | PERF-2 — 5 índices FK creados | Ejecutado 21 mayo | ✅ app_data_backups, couple_members, events, messages, push_subscriptions |
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro (julio) |
-| G-2 — Flip lectura blob → tablas | Bloqueado: 3 gaps de schema + código | 🟡 Infraestructura lista, implementación pendiente |
+| G-2 — Gap 3 (loadFromNormalized) | Cerrado v3.9.2 | ✅ Código listo + cableado |
+| G-2 — Gap 2 (week_metadata) | No bloquea | ✅ loadFromNormalized usa blob skeleton |
+| G-2 — Gap 1 (4 columnas missions) | Pendiente Externo | 🔴 time/reminder/series_pattern/series_end_date |
+| G-2 — Dual-write misiones | Activado v3.9.2 | ✅ insert/delete/status fire-and-forget |
+| G-2 — Re-backfill + flip flag | Tras Gap 1 | ⏳ Esperando confirmación Externo |
 
 ---
 

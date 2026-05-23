@@ -1,10 +1,16 @@
 // repo.js — Capa de acceso a datos
 //
-// HOY (v3.6): dual_write_normalized activado → escribe blob + tablas normalizadas
+// HOY (v3.9.2): dual_write_normalized activado → escribe blob + tablas normalizadas
 // IMPORTANTE: IDs en el blob son nanoids cortos (uid()), NO UUIDs.
 //   Las tablas normalizadas usan UUID como PK y guardan el nanoid en blob_id.
 //   Todas las búsquedas por ID usan .eq("blob_id", id).
 // SPRINT G (v4.0): cas_version_check → saveWithCAS reemplaza el save directo
+//
+// DUAL-WRITE WIRING (v3.9.2):
+//   insertNormalizedMission / deleteNormalizedMission / updateNormalizedMissionStatus
+//   son fire-and-forget desde App.jsx en cada mutación de misión.
+//   Gap 1 pendiente (Externo): añadir columnas time/reminder/series_pattern/series_end_date
+//   a la tabla missions. Hasta entonces el INSERT omite esos 4 campos (null).
 
 import supabase from "../supabase.js";
 import { isEnabled } from "./flags.js";
@@ -126,6 +132,69 @@ export async function getSettings(coupleId, blobData) {
     return data;
   }
   return blobData?.settings || {};
+}
+
+/* ── Dual-write de misiones (Sprint G-2 prep) ──────────────────────────── */
+
+// INSERT una nueva misión en la tabla normalizada.
+// Omite time/reminder/series_pattern/series_end_date hasta que Gap 1 sea cerrado por Externo.
+export async function insertNormalizedMission(coupleId, weekKey, weekNumber, year, m) {
+  if (!isEnabled("dual_write_normalized")) return;
+  const { error } = await supabase.from("missions").insert({
+    blob_id:          m.id,
+    couple_id:        coupleId,
+    week_key:         weekKey,
+    week_number:      weekNumber,
+    year,
+    title:            m.title,
+    emoji:            m.emoji ?? null,
+    who:              m.who,
+    status:           m.status ?? "TBC",
+    type:             m.type ?? "task",
+    categories:       m.categories ?? [],
+    duration:         m.duration ?? null,
+    date:             m.date ?? null,
+    carried_from_week: m.carriedFromWeek ?? null,
+    completed_at:     m.completedAt ? new Date(m.completedAt).toISOString() : null,
+    completed_late:   m.completedLate ?? false,
+    notes:            m.notes ?? null,
+  });
+  if (error) {
+    console.error("[repo] insertNormalizedMission:", error.message);
+    track("dual_write_error", { table: "missions", op: "insert", error: error.message });
+  }
+}
+
+// DELETE una misión por blob_id (nanoid del blob).
+export async function deleteNormalizedMission(coupleId, blobId) {
+  if (!isEnabled("dual_write_normalized")) return;
+  const { error } = await supabase
+    .from("missions")
+    .delete()
+    .eq("blob_id", blobId)
+    .eq("couple_id", coupleId);
+  if (error) {
+    console.error("[repo] deleteNormalizedMission:", error.message);
+    track("dual_write_error", { table: "missions", op: "delete", error: error.message });
+  }
+}
+
+// UPDATE solo el status de una misión (operación más frecuente).
+export async function updateNormalizedMissionStatus(coupleId, blobId, newStatus) {
+  if (!isEnabled("dual_write_normalized")) return;
+  const { error } = await supabase
+    .from("missions")
+    .update({
+      status:       newStatus,
+      completed_at: newStatus === "DONE" ? new Date().toISOString() : null,
+      updated_at:   new Date().toISOString(),
+    })
+    .eq("blob_id", blobId)
+    .eq("couple_id", coupleId);
+  if (error) {
+    console.error("[repo] updateNormalizedMissionStatus:", error.message);
+    track("dual_write_error", { table: "missions", op: "update_status", error: error.message });
+  }
 }
 
 /* ── Save con CAS (preparado para Sprint G) ────────────────────────────── */

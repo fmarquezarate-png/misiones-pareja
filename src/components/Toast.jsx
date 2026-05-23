@@ -11,8 +11,9 @@ export function useToast() {
 
   useEffect(() => {
     if (!toast) return;
-    if (toast.kind === "success") {
-      const id = setTimeout(() => setToast(null), 4000);
+    if (toast.kind === "success" || toast.kind === "error") {
+      const ms = toast.kind === "error" ? 7000 : 4000;
+      const id = setTimeout(() => setToast(null), ms);
       return () => clearTimeout(id);
     }
   }, [toast]);
@@ -85,7 +86,7 @@ export default function Toast({ toast, onDismiss }) {
         }}>Reintentar</button>
       )}
 
-      {toast.kind === "success" && (
+      {(toast.kind === "success" || toast.kind === "error") && (
         <button onClick={onDismiss} aria-label="Cerrar" style={{
           background:"none", border:"none", color: p.color, opacity:0.6, cursor:"pointer", fontSize:16, padding:0, marginLeft:4, lineHeight:1, fontFamily:"inherit",
         }}>×</button>
