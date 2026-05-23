@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.0] — 2026-05-23 · Smart sync + UX fixes + Tutorial + Monolito Fase 2d
+
+### Corregido
+- **Smart sync** — reemplaza los botones "Subir datos" / "Bajar datos" con un único botón inteligente `Sincronizar datos`. Descarga desde Supabase, compara contenido y reporta claramente: `"✓ Ya estás al día"` / `"⬇ Sincronizado — 3 tareas nuevas"`. El bug crítico anterior: cuando `loadData()` devolvía `null` (error de red o RLS), la app subía los datos locales pisando los del partner. Ahora en ese caso muestra `"⚠ Sin conexión — datos sin modificar"` y **nunca sube**.
+- **Actualización de versión sin cerrar la app** — el botón "Actualizar versión" ya registra el listener `controllerchange` antes de enviar `SKIP_WAITING` al service worker. La recarga ocurre inmediatamente cuando el nuevo SW activa, sin necesidad de cerrar y reabrir la app.
+- **Toast "Ya tienes la última versión" pegado** — los toasts de tipo `error` ahora se auto-descartan a los 7 segundos y tienen botón `×` para cerrarlos manualmente.
+
+### Mejorado
+- **Tutorial rediseñado (UX/UI)** — `TutorialOverlay` pasa de burbujas flotantes con flechas SVG hardcoded (posicionadas en píxeles fijos, rotas en pantallas pequeñas) a un modal centrado profesional: backdrop oscuro con blur, icono grande por paso, barra de progreso en la parte superior, botón `← Atrás` para retroceder, y animación de entrada pulida. 10 pasos, diseño coherente con el resto de la app.
+
+### Arquitectura
+- **Monolito Fase 2d** — extraídos `HistoryView.jsx` (~85 líneas) y `PendingView.jsx` (~155 líneas) de `App.jsx`. `App.jsx` pasa de 1597 a 1314 líneas (↓18%). `PendingView` gestiona ahora su propio estado de filtros de logros y su propio `useConfirm`.
+
+---
+
 ## [3.8.27] — 2026-05-23 · Push personalizado + documentación arquitectónica
 
 ### Mejorado
