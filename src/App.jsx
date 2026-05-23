@@ -1,17 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates } from "./supabase.js";
 import supabase from "./supabase.js";
-import Brand from "./components/Brand.jsx";
 import Toast, { useToast } from "./components/Toast.jsx";
 import HomeDashboard from "./components/HomeDashboard.jsx";
 import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
-import OverflowMenu, { OverflowButton } from "./components/OverflowMenu.jsx";
 import LinksView from "./components/LinksView.jsx";
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear } from "./utils.js";
-import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
+import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
 import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
 import AddMissionForm from "./components/AddMissionForm.jsx";
@@ -36,6 +34,8 @@ import ChatView from "./components/ChatView.jsx";
 import CalendarView from "./components/CalendarView.jsx";
 import HistoryView from "./components/HistoryView.jsx";
 import PendingView from "./components/PendingView.jsx";
+import SideMenu from "./components/SideMenu.jsx";
+import Topbar from "./components/Topbar.jsx";
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -122,7 +122,6 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
-  const [settingsMenuOpen,setSettingsMenuOpen]= useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -134,7 +133,6 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [localThemeId, setLocalThemeId] = useState(null);
   const [localFontId,  setLocalFontId]  = useState(null);
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
-  const [showChangelog, setShowChangelog] = useState(false);
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
   const [syncError, setSyncError]   = useState(null);   // string | null
@@ -152,10 +150,6 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [pendingSave, setPendingSave] = useState(false);
   const [savingState, setSavingState] = useState("idle"); // "idle"|"saving"|"saved"|"error"
-  const [icsModal, setIcsModal] = useState(false);
-  const [icsFrom,  setIcsFrom]  = useState("");
-  const [icsTo,    setIcsTo]    = useState("");
-  const [popOpen,       setPopOpen]       = useState(false);
   const [filtersOpen,   setFiltersOpen]   = useState(false);
   const [weekViewMode,  setWeekViewMode]  = useState("timeline"); // "list" | "timeline"
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
@@ -746,37 +740,6 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     dlBlob(blob,`misiones-${weekKey}.ics`);
   };
 
-  const downloadRangeICS = () => {
-    if (!icsFrom || !icsTo || icsFrom > icsTo) return;
-    const missions = Object.values(data.weeks)
-      .flatMap(w => (w.missions||[]).filter(m => m.date && m.date >= icsFrom && m.date <= icsTo))
-      .sort((a,b) => a.date.localeCompare(b.date));
-    if (missions.length === 0) { alert("No hay actividades con fecha en ese rango."); return; }
-    const stamp = new Date().toISOString().replace(/[-:.]/g,"").slice(0,15)+"Z";
-    const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Shared Calendar//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
-    for (const m of missions) {
-      const who = m.who==="person1"?p1:m.who==="person2"?p2:`${p1} & ${p2}`;
-      const ds = m.date.replace(/-/g,"");
-      lines.push("BEGIN:VEVENT",`UID:${m.id}-${stamp}@sc`,`DTSTAMP:${stamp}`);
-      if (m.time) {
-        const ts = m.time.replace(":","")+"00";
-        lines.push(`DTSTART:${ds}T${ts}`);
-        const [hh,mm2] = m.time.split(":").map(Number);
-        const tot = hh*60+mm2+(m.duration||60);
-        lines.push(`DTEND:${ds}T${String(Math.floor(tot/60)%24).padStart(2,"0")}${String(tot%60).padStart(2,"0")}00`);
-      } else {
-        lines.push(`DTSTART;VALUE=DATE:${ds}`);
-        const nd = new Date(m.date+"T00:00:00"); nd.setDate(nd.getDate()+1);
-        lines.push(`DTEND;VALUE=DATE:${nd.toISOString().slice(0,10).replace(/-/g,"")}`);
-      }
-      lines.push(`SUMMARY:${m.emoji} ${m.title}`);
-      lines.push(`DESCRIPTION:Estado: ${STATUS[m.status]?.label||m.status}\\nQuién: ${who}${m.duration?`\\nDuración: ${Math.round(m.duration/60*10)/10}h`:""}`);
-      lines.push("END:VEVENT");
-    }
-    lines.push("END:VCALENDAR");
-    dlBlob(new Blob([lines.join("\r\n")], {type:"text/calendar;charset=utf-8"}), `calendar-${icsFrom}-${icsTo}.ics`);
-    setIcsModal(false);
-  };
 
   const downloadWeekPDF = (weekData, weekKey, name1, name2) => {
     const missions = weekData.missions || [];
@@ -898,211 +861,35 @@ ${sorted.map(m=>{
 
       {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
 
-      {/* ICS export date-range modal */}
-      {icsModal && <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setIcsModal(false)}>
-        <div style={{background:"var(--t-card,#1d1733)",border:"1px solid var(--t-card-border,rgba(167,139,250,0.35))",borderRadius:16,padding:22,width:"100%",maxWidth:380}} onClick={e=>e.stopPropagation()}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-            <span style={{fontFamily:"'Fraunces',serif",fontSize:18,color:"var(--t-text,#f8f4ff)"}}>📅 Exportar a Google Calendar</span>
-            <button onClick={()=>setIcsModal(false)} style={{background:"none",border:"none",color:"var(--t-text-dim,#6b5f88)",fontSize:20,cursor:"pointer"}}>×</button>
-          </div>
-          {/* Quick select */}
-          <div style={S.label}>Selección rápida</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-            {[
-              ["Esta semana", ()=>{ const {week:tw,year:ty}=getWeekAndYear(); const mon=weekStartDate(tw,ty); const sun=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+6); setIcsFrom(mon.toISOString().slice(0,10)); setIcsTo(sun.toISOString().slice(0,10)); }],
-              ["Este mes",    ()=>{ const n=new Date(); setIcsFrom(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-01`); setIcsTo(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${new Date(n.getFullYear(),n.getMonth()+1,0).getDate()}`); }],
-              ["Próx. 4 sem.",()=>{ const n=new Date(),t=new Date(n); t.setDate(n.getDate()+28); setIcsFrom(n.toISOString().slice(0,10)); setIcsTo(t.toISOString().slice(0,10)); }],
-              ["Próx. 3 meses",()=>{ const n=new Date(),t=new Date(n); t.setMonth(n.getMonth()+3); setIcsFrom(n.toISOString().slice(0,10)); setIcsTo(t.toISOString().slice(0,10)); }],
-            ].map(([l,fn])=>(
-              <button key={l} onClick={fn} style={{background:"var(--t-accent-soft,rgba(167,139,250,0.1))",border:"1px solid var(--t-card-border)",borderRadius:7,color:"var(--t-text-muted,#8b7fa8)",padding:"5px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{l}</button>
-            ))}
-          </div>
-          {/* Date pickers */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-            <div><label style={S.label}>Desde</label><input type="date" value={icsFrom} onChange={e=>setIcsFrom(e.target.value)} style={{...S.inputSm,colorScheme:"dark"}} /></div>
-            <div><label style={S.label}>Hasta</label><input type="date" value={icsTo}   onChange={e=>setIcsTo(e.target.value)}   style={{...S.inputSm,colorScheme:"dark"}} /></div>
-          </div>
-          {/* Preview count */}
-          {icsFrom&&icsTo&&icsFrom<=icsTo&&<div style={{fontSize:12,color:"var(--t-text-dim,#6b5f88)",textAlign:"center",marginBottom:12}}>
-            {Object.values(data.weeks).flatMap(w=>(w.missions||[]).filter(m=>m.date&&m.date>=icsFrom&&m.date<=icsTo)).length} actividades en ese rango
-          </div>}
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setIcsModal(false)} style={S.btnSecondary}>Cancelar</button>
-            <button onClick={downloadRangeICS} disabled={!icsFrom||!icsTo||icsFrom>icsTo} style={{...S.btnPrimary,flex:1,opacity:(!icsFrom||!icsTo||icsFrom>icsTo)?0.4:1}}>⬇ Descargar .ics</button>
-          </div>
-        </div>
-      </div>}
 
-      {/* Changelog modal */}
-      {showChangelog && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={()=>setShowChangelog(false)}>
-          <div style={{ background:"var(--t-card,#1d1733)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e=>e.stopPropagation()}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"var(--t-accent,#fbbf24)" }}>📋 Changelog</span>
-              <button onClick={()=>setShowChangelog(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#6b5f88)", fontSize:20, cursor:"pointer" }}>×</button>
-            </div>
-            {CHANGELOG.map(c=>(
-              <div key={c.v} style={{ marginBottom:16 }}>
-                <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:"var(--t-accent,#fbbf24)" }}>v{c.v}</span>
-                  <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{c.date}</span>
-                </div>
-                <ul style={{ margin:0, padding:"0 0 0 16px" }}>
-                  {c.notes.map((n,i)=><li key={i} style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginBottom:3 }}>{n}</li>)}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Slide-out menu backdrop */}
-      {menuOpen && <div onClick={()=>setMenuOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90, backdropFilter:"blur(3px)", WebkitBackdropFilter:"blur(3px)" }} />}
 
-      {/* Slide-out menu */}
-      <div style={{ position:"fixed", top:0, left:0, bottom:0, width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:menuOpen?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
-        {/* Menu header */}
-        <div style={{ paddingTop:"calc(18px + env(safe-area-inset-top))", paddingLeft:20, paddingRight:20, paddingBottom:14, borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
-          {data.settings?.photos?.couple
-            ? <img src={data.settings.photos.couple} style={{ width:44, height:44, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0 }} alt="pareja" />
-            : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{data.settings?.coupleEmoji||"💞"}</div>
-          }
-          <div>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, textTransform:"uppercase" }}>Shared Calendar</div>
-            <div style={{ fontSize:14, color:"var(--t-accent,#c4b8ff)", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
-          </div>
-        </div>
-        {/* Nav items */}
-        <nav aria-label="Navegación principal" style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>
-          {[
-            { id:"home",     label:"Inicio",         icon:"🏠" },
-            { id:"current",  label:"Semana",          icon:"🎯" },
-            { id:"pending",  label:"Pendientes",      icon:"📋" },
-            { id:"calendar", label:"Calendario",      icon:"📅" },
-            { id:"history",  label:"Histórico",       icon:"🗂️" },
-            { id:"goals",    label:"Metas",           icon:"🏅" },
-            { id:"stats",    label:"Stats",           icon:"📊" },
-            { id:"gastos",   label:"Gastos",          icon:"💸" },
-            { id:"chat",     label:"Chat",            icon:"💬" },
-            { id:"links",    label:"Links de Interés", icon:"🔗" },
-          ].map(n => (
-            <button key={n.id} onClick={()=>{ setActiveTab(n.id); setMenuOpen(false); }}
-              aria-label={n.label} aria-current={activeTab===n.id ? "page" : undefined}
-              className="sc-nav-btn"
-              style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:activeTab===n.id?600:400, background:activeTab===n.id?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent", color:activeTab===n.id?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)", textAlign:"left", width:"100%", transition:"all 0.15s", position:"relative" }}>
-              <span aria-hidden="true" style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
-              <span style={{ flex:1 }}>{n.label}</span>
-              {activeTab===n.id && <span aria-hidden="true" style={{ width:5, height:5, borderRadius:99, background:"var(--t-accent,#a78bfa)", flexShrink:0 }} />}
-            </button>
-          ))}
-        </nav>
-        {/* Menu footer: version only — always visible, no scroll needed */}
-        <div style={{ padding:"12px 16px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", flexShrink:0 }}>
-          {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:6, lineHeight:1.4 }}>{syncMsg}</div>}
-          <button onClick={()=>{ setShowChangelog(true); setMenuOpen(false); }}
-            style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
-            <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
-            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)" }}>{LAST_UPDATE}</span>
-            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)", marginLeft:"auto" }}>Ver cambios →</span>
-          </button>
-        </div>
-      </div>
 
-      {/* ── Sticky top bar ── */}
-      <div style={{ position:"sticky", top:0, zIndex:80, background:"var(--t-topbar-bg,rgba(10,7,20,0.9))", backdropFilter:"blur(14px)", WebkitBackdropFilter:"blur(14px)", borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.08))", paddingTop:"env(safe-area-inset-top)" }}>
-      <div style={{ height:52, display:"flex", alignItems:"center", gap:8, paddingLeft:12, paddingRight:12 }}>
-        {/* Hamburger */}
-        <button onClick={()=>setMenuOpen(v=>!v)} aria-label="Menú"
-          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
-          <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
-          <span style={{ display:"block", width:13, height:1.5, background:"currentColor", borderRadius:99 }} />
-          <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
-        </button>
-        {/* Home button */}
-        <button onClick={()=>setActiveTab("home")} aria-label="Inicio"
-          style={{ background:"none", border:"none", cursor:"pointer", color:activeTab==="home"?"#c4b8ff":"#4a4166", fontSize:18, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0, transition:"color 0.15s" }}>🏠</button>
-        {/* Page title */}
-        <div style={{ flex:1, textAlign:"center" }}>
-          {activeTab==="home"
-            ? <Brand size={22} wordmark colors={colors} />
-            : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#8b7fa8)" }}>
-                {activeTab==="current"  ? `🎯 Semana ${data.currentWeekNumber}`
-                :activeTab==="pending"  ? "📋 Pendientes"
-                :activeTab==="calendar" ? "Calendario"
-                :activeTab==="history"  ? "🗂️ Histórico"
-                :activeTab==="goals"    ? "🏅 Metas"
-                :activeTab==="stats"    ? "📊 Stats"
-                :activeTab==="gastos"   ? "💸 Gastos Compartidos"
-                :activeTab==="chat"     ? "💬 Chat"
-                :activeTab==="links"    ? "🔗 Links de Interés"
-                : ""}
-              </span>
-          }
-        </div>
-        {/* Saving indicator dot — tappable when error to show detail */}
-        {savingState !== "idle" && (
-          <div
-            role={savingState === "error" ? "button" : undefined}
-            onClick={savingState === "error" ? () => forcePush() : undefined}
-            title={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado ✓" : "Error al guardar — toca para reintentar"}
-            aria-label={savingState === "saving" ? "Guardando…" : savingState === "saved" ? "Guardado" : "Error al guardar — toca para reintentar"}
-            style={{ width:savingState==="error"?20:7, height:savingState==="error"?20:7, borderRadius:99, flexShrink:0, cursor:savingState==="error"?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center",
-              background: savingState === "saving" ? "#a78bfa" : savingState === "saved" ? "#34d399" : "rgba(248,113,113,0.15)",
-              border: savingState === "error" ? "1.5px solid #f87171" : "none",
-              animation: savingState === "saving" ? "sc-dot-pulse 1s ease-in-out infinite" : savingState === "saved" ? "sc-saved-fade 2s ease-out 0.5s forwards" : "none",
-              boxShadow: savingState === "saving" ? "0 0 6px rgba(167,139,250,0.6)" : savingState === "saved" ? "0 0 6px rgba(52,211,153,0.6)" : "0 0 4px rgba(248,113,113,0.4)",
-            }}>
-            {savingState === "error" && <span style={{ fontSize:11, color:"#f87171", lineHeight:1 }}>!</span>}
-          </div>
-        )}
-        {/* Dark/light toggle */}
-        <button onClick={toggleDarkLight} aria-label={_activeTheme.dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
-          title={_activeTheme.dark ? "Modo claro" : "Modo oscuro"}
-          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
-          <span aria-hidden="true">{_activeTheme.dark ? "☀️" : "🌙"}</span>
-        </button>
-        {/* Overflow menu ⋯ */}
-        <div style={{ position:"relative", flexShrink:0 }}>
-          <OverflowButton onClick={() => setPopOpen(o => !o)} />
-          <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
-            { icon:"↻", label:"Actualizar versión", onClick: checkUpdate },
-            { icon:"🔄", label: syncing ? "Sincronizando…" : "Sincronizar datos", onClick: () => { smartSync(); setPopOpen(false); } },
-            { divider: true },
-            { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => downloadWeekICS(week, wkey, p1, p2) },
-            { icon:"🖨", label:"Imprimir / PDF", onClick: () => downloadWeekPDF(week, wkey, p1, p2) },
-          ]} />
-        </div>
-        {/* Settings dropdown trigger */}
-        <div style={{ position:"relative", flexShrink:0 }}>
-          <button onClick={()=>setSettingsMenuOpen(v=>!v)} aria-label="Ajustes"
-            style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
-          {settingsMenuOpen && <>
-            <div onClick={()=>setSettingsMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
-            <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
-              {[
-                { icon:"👤", label:"Mi perfil",  action:()=>{ setShowProfile(true); setSettingsMenuOpen(false); } },
-                { icon:"📥", label:"Exportar",   action:()=>{ exportData(data); setSettingsMenuOpen(false); } },
-                { icon:"📤", label:"Importar",   action:()=>{ importFileRef.current?.click(); setSettingsMenuOpen(false); } },
-                { icon:"🔄", label:syncing?"Sincronizando…":"Sincronizar datos", action:()=>{ smartSync(); setSettingsMenuOpen(false); } },
-              ].map((item,i)=>(
-                <button key={i} onClick={item.action}
-                  style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#c4b8ff", width:"100%", textAlign:"left", transition:"background 0.12s" }}
-                  onMouseEnter={e=>e.currentTarget.style.background="var(--t-accent-soft,rgba(167,139,250,0.1))"}
-                  onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                  <span style={{ fontSize:15 }}>{item.icon}</span>{item.label}
-                </button>
-              ))}
-              <div style={{ height:1, background:"var(--t-card-border,rgba(167,139,250,0.1))", margin:"4px 0" }} />
-              <button onClick={()=>{ onSignOut(); setSettingsMenuOpen(false); }}
-                style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 16px", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, color:"#f472b6", width:"100%", textAlign:"left" }}
-                onMouseEnter={e=>e.currentTarget.style.background="rgba(244,114,182,0.08)"}
-                onMouseLeave={e=>e.currentTarget.style.background="none"}>
-                <span style={{ fontSize:15 }}>🚪</span>Cerrar sesión
-              </button>
-            </div>
-          </>}
-        </div>
-      </div></div>{/* end inner 52px row + safe-area wrapper */}
+
+      <SideMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        activeTab={activeTab}
+        onNavigate={tab => { setActiveTab(tab); setMenuOpen(false); }}
+        couplePhoto={data.settings?.photos?.couple}
+        coupleEmoji={data.settings?.coupleEmoji}
+        p1={p1} p2={p2}
+        syncMsg={syncMsg}
+      />
+
+      <Topbar
+        activeTab={activeTab} setActiveTab={setActiveTab} setMenuOpen={setMenuOpen}
+        currentWeekNumber={data.currentWeekNumber}
+        savingState={savingState} onForcePush={forcePush}
+        isDark={_activeTheme.dark} onToggleDark={toggleDarkLight}
+        onCheckUpdate={checkUpdate} onSmartSync={smartSync} syncing={syncing}
+        onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
+        onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
+        onShowProfile={() => setShowProfile(true)}
+        onExport={() => exportData(data)}
+        importFileRef={importFileRef} onSignOut={onSignOut}
+        colors={colors}
+      />
 
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
 

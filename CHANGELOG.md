@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.1] — 2026-05-23 · Monolito Fase 2d completa (SideMenu + Topbar)
+
+### Arquitectura
+- **`SideMenu.jsx`** extraído de App.jsx — contiene el backdrop, el panel deslizante, los ítems de navegación y el **Changelog modal** (que solo se abre desde aquí). Posee su propio estado `showChangelog`.
+- **`Topbar.jsx`** extraído de App.jsx — posee internamente `popOpen` y `settingsOpen`, eliminando 2 `useState` de App.jsx.
+- **Código muerto eliminado**: modal ICS de rango de fechas (`{icsModal && ...}`), función `downloadRangeICS`, y estados `icsModal`/`icsFrom`/`icsTo`. El botón que abría el modal nunca existió en el overflow menu.
+- **App.jsx**: 1314 → 1101 líneas (objetivo ~1100 alcanzado, −16% adicional).
+
+---
+
 ## [3.9.0] — 2026-05-23 · Smart sync + UX fixes + Tutorial + Monolito Fase 2d
 
 ### Corregido
