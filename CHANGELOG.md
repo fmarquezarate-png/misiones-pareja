@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.25] — 2026-05-23 · Monolito Fase 2c — −596 líneas de App.jsx
+
+### Extraído
+- **`src/components/ChatView.jsx`** — vista de chat con Supabase realtime
+- **`src/components/CalendarView.jsx`** — calendario mensual con drag-drop y edición inline
+- **`src/components/ThemeInjector.jsx`** — inyección de CSS custom properties + Google Fonts
+- **`src/components/MaintenanceBanner.jsx`** — banner de mantenimiento descartable
+- **`src/lib/appUtils.js`** — helpers puros: `useSwipe`, `repairMisplacedMissions`, `applyCarryOver`, `syncCarryDone`, `getMissionDates`, `showNotif`, `scheduleReminders`, `dlBlob`, `fmtWeekRange`, `weekStartDate`, `fmtShortDate`
+
+### Corregido (incluido en extracción)
+- **CalendarView — confirm() no ejecutaba callbacks**: los botones "Eliminar" y "Aplicar a todas las futuras" en el modal de edición del calendario llamaban a `window.confirm(msg, callback)`, pero la API nativa no soporta callbacks — la acción nunca se ejecutaba. Corregido usando `useConfirm()` + `<ConfirmDialog />`.
+
+### Métricas
+- App.jsx: **2193 → 1597 líneas** (−596 líneas en Fase 2c, −1236 total vs. inicio del sprint)
+
+---
+
 ## [3.8.24] — 2026-05-23 · Fix crítico: datos vacíos al instalar PWA
 
 ### Corregido
