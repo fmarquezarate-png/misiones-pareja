@@ -290,13 +290,18 @@ export async function loadFromNormalized(coupleId) {
     return blob;
   }
 
-  // Safety: si la tabla devuelve 0 filas pero el blob tiene misiones, algo falla
-  // (RLS silencioso, tabla vacía, etc.) → fallback al blob para no perder datos.
+  // Safety: si la tabla tiene 0 filas o está significativamente más escasa que el blob,
+  // algo falla (RLS silencioso, tabla desactualizada, etc.) → fallback al blob.
   const blobMissionCount = Object.values(blob.weeks ?? {}).reduce(
     (sum, w) => sum + (w.missions?.length ?? 0), 0
   );
   if (missionRows.length === 0 && blobMissionCount > 0) {
     console.warn(`[loadFromNormalized] tabla missions vacía pero blob tiene ${blobMissionCount} misiones → fallback a blob`);
+    return blob;
+  }
+  if (blobMissionCount > 5 && missionRows.length < blobMissionCount * 0.8) {
+    const pct = Math.round(missionRows.length / blobMissionCount * 100);
+    console.warn(`[loadFromNormalized] tabla tiene solo ${pct}% de misiones vs blob (${missionRows.length}/${blobMissionCount}) → fallback por tabla desactualizada`);
     return blob;
   }
 

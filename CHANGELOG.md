@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.2] — 2026-05-23 · G-2 prep: dual-write de misiones cableado
+
+### Arquitectura
+- **Dual-write de misiones activado** en el flujo de mutaciones de App.jsx. Tres funciones nuevas en `repo.js`:
+  - `insertNormalizedMission` — disparado en `addMission`, crea la fila en `missions` en tiempo real.
+  - `deleteNormalizedMission` — disparado en `delMission` y `deleteMissionGlobal`.
+  - `updateNormalizedMissionStatus` — disparado en `cycleStatus` y `cycleStatusGlobal`.
+  - Todas son fire-and-forget: el blob sigue siendo fuente de verdad; los errores se loguean via `track("dual_write_error")`.
+- **`loadFromNormalized` safety mejorado** — además de detectar tabla vacía, ahora hace fallback al blob si la tabla tiene <80% de las misiones del blob (tabla desactualizada por baja cobertura del dual-write histórico).
+
+### Estado G-2
+- Gap 3 (código `loadFromNormalized`): ✅ cerrado — existía desde sesión anterior, ya estaba cableado en App.jsx.
+- Gap 2 (`week_metadata`): ya no bloquea — `loadFromNormalized` preserva `label`/`epicGoal` del blob como skeleton de cada semana.
+- Gap 1 (4 columnas en tabla `missions`): pendiente Externo — añadir `time`, `reminder`, `series_pattern`, `series_end_date`. Hasta entonces el INSERT omite esos campos (null default).
+- **Próximo paso**: Externo añade columnas → actualizamos INSERT → re-backfill desde blob → verificamos consistencia → flip `read_from_normalized: true`.
+
+---
+
 ## [3.9.1] — 2026-05-23 · Monolito Fase 2d completa (SideMenu + Topbar)
 
 ### Arquitectura
