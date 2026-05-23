@@ -290,6 +290,16 @@ export async function loadFromNormalized(coupleId) {
     return blob;
   }
 
+  // Safety: si la tabla devuelve 0 filas pero el blob tiene misiones, algo falla
+  // (RLS silencioso, tabla vacía, etc.) → fallback al blob para no perder datos.
+  const blobMissionCount = Object.values(blob.weeks ?? {}).reduce(
+    (sum, w) => sum + (w.missions?.length ?? 0), 0
+  );
+  if (missionRows.length === 0 && blobMissionCount > 0) {
+    console.warn(`[loadFromNormalized] tabla missions vacía pero blob tiene ${blobMissionCount} misiones → fallback a blob`);
+    return blob;
+  }
+
   // Reconstruir weeks: esqueleto del blob preserva label/epicGoal/weekNumber/year,
   // missions[] se reemplaza con los datos normalizados
   const weeks = {};

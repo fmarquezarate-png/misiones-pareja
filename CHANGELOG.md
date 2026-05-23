@@ -7,6 +7,13 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.24] — 2026-05-23 · Fix crítico: datos vacíos al instalar PWA
+
+### Corregido
+- **`loadFromNormalized` — fallback silencioso faltante**: si la tabla `missions` devolvía 0 filas sin error (ej. RLS deniega silenciosamente, tabla aún no poblada, o nueva instalación sin localStorage), la app construía semanas con arrays de misiones vacíos y los datos del blob quedaban ocultos. El fallback al blob solo se activaba con errores explícitos de Supabase. Ahora: si `missionRows.length === 0` pero el blob contiene misiones, se registra un warning y se usa el blob como fuente de verdad.
+
+---
+
 ## [3.8.23] — 2026-05-23 · Nombre "Shared Calendar" + ícono PWA
 
 ### Cambiado
