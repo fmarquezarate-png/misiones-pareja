@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.25";
+export const APP_VERSION = "3.8.26";
 export const LAST_UPDATE = "2026-05-23";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.26", date:"2026-05-23", notes:["Fix crítico: read_from_normalized revertido a false. La tabla missions está congelada en el backfill del 20/05 (252 filas, sin actualizaciones posteriores). Con el flag en true, loadFromNormalized() construía las semanas usando los datos del backfill y dejaba vacías todas las semanas posteriores al 20/05 (W21+) — incluyendo la semana actual. El blob (app_data) sigue siendo la única fuente de verdad real hasta que se implemente el dual-write del lado servidor."] },
   { v:"3.8.25", date:"2026-05-23", notes:["Monolito Fase 2c: ChatView → src/components/ChatView.jsx, CalendarView → src/components/CalendarView.jsx, ThemeInjector → src/components/ThemeInjector.jsx, MaintenanceBanner → src/components/MaintenanceBanner.jsx. Helpers puros (useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, getMissionDates, showNotif, scheduleReminders, dlBlob, fmtWeekRange) → src/lib/appUtils.js. App.jsx: 2193 → 1597 líneas (−596). Fix incluido: CalendarView ahora usa useConfirm() + <ConfirmDialog /> — antes llamaba window.confirm con callback que nunca se ejecutaba; el borrado y 'aplicar a futuras' ahora funcionan correctamente."] },
   { v:"3.8.24", date:"2026-05-23", notes:["Fix crítico: loadFromNormalized() ahora detecta cuando la tabla missions devuelve 0 filas pero el blob tiene misiones (RLS silencioso, tabla vacía o error sin código de error) y hace fallback al blob. Antes el fallback solo se activaba con errores explícitos de Supabase, causando que la app mostrara 0 misiones en instalaciones limpias de la PWA."] },
   { v:"3.8.23", date:"2026-05-23", notes:["Nombre de la app cambiado a 'Shared Calendar' en todos los entornos: manifest (name/short_name), index.html (title + apple-mobile-web-app-title), vite.config.js description.","Icono PWA generado: icon-192.png e icon-512.png reemplazados con el logo diseñado — dos círculos superpuestos (Venn) sobre fondo partido blanco/negro con intersección dorada (#C9A873). Visible en escritorio móvil al instalar la PWA."] },
