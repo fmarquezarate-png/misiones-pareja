@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.21] — 2026-05-23 · Monolito Fase 2b: ProfileModal + push notification fix
+
+### Refactorizado
+- **`ProfileModal`** → `src/components/ProfileModal.jsx` (tema, foto de pareja, notificaciones, sección push)
+- **`getUserPrefs` / `saveUserPrefs`** → `src/lib/userPrefs.js` (compartido entre `CoupleMissions` y `ProfileModal`)
+- **App.jsx**: 2492 → 2188 líneas (−304 adicionales; total acumulado desde inicio Fase 2: −645 líneas)
+
+### Corregido
+- **Push notification texto roto**: texto por defecto cambiado a ASCII puro `'Tu pareja hizo cambios en la app'` en `sw.js` y Edge Function `send-push` — elimina posible rendering de escape sequences `\uXXXX` en dispositivos con problemas de encoding.
+
+### Pendiente Externo
+- Actualizar trigger SQL `trg_notify_push_on_app_data_update`: cambiar campo `body` de `'Tu pareja actualizó algo ✨'` a `'Tu pareja hizo cambios en la app'` para mantener consistencia con los defaults del código.
+
+---
+
 ## [3.8.20] — 2026-05-22 · Monolito Fase 2a: WorkHoursCard + AddMissionForm + MissionCard
 
 ### Refactor

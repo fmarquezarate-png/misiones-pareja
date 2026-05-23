@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.8.20";
-export const LAST_UPDATE = "2026-05-22";
+export const APP_VERSION = "3.8.21";
+export const LAST_UPDATE = "2026-05-23";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.8.21", date:"2026-05-23", notes:["Monolito Fase 2b: ProfileModal extraído de App.jsx a src/components/ProfileModal.jsx. getUserPrefs/saveUserPrefs movidos a src/lib/userPrefs.js. App.jsx −304 líneas adicionales (2492→2188). 0 errores ESLint.","Push notification fix: texto por defecto cambiado a ASCII puro 'Tu pareja hizo cambios en la app' en sw.js y Edge Function send-push — elimina posible rendering de secuencias \\uXXXX en dispositivos con problemas de encoding. Tarea para Externo: actualizar trigger SQL con el mismo texto."] },
   { v:"3.8.20", date:"2026-05-22", notes:["Monolito Fase 2a: WorkHoursCard, AddMissionForm y MissionCard extraídos de App.jsx a src/components/. App.jsx −341 líneas (2833→2492). Constantes duplicadas (STATUS, CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS, S, badgeStyle, catBadgeStyle) eliminadas del monolito y reemplazadas por imports de constants.js y styles.js"] },
   { v:"3.8.19", date:"2026-05-22", notes:["Sprint G-2 ACTIVADO: flag read_from_normalized → true. La app lee missions+goals desde tablas normalizadas (Supabase); settings y metadatos de semana (label/epicGoal) siguen del blob. Consistencia verificada: FRANANA 220/220 misiones 8/8 metas, CRI-COCO 32/32 misiones 0/0 metas. Fallback automático a blob si las tablas fallan."] },
   { v:"3.8.18", date:"2026-05-22", notes:["Fix borde oscuro en tarjetas con categoría Casa en temas claros: el color de Casa usaba 'var(--t-accent,#a78bfa)' como string CSS — al interpolarse en '${color}30' generaba un valor inválido que el browser resolvía como currentColor (texto oscuro). Corregido a '#a78bfa' fijo. Misma corrección en GASTO_CATS (constants.js)"] },

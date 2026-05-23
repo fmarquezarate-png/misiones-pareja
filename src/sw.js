@@ -34,7 +34,7 @@ self.addEventListener('push', event => {
   try { payload = event.data.json(); } catch { payload = {}; }
   const {
     title = 'Misiones de Pareja',
-    body  = 'Tu pareja actualizó algo ✨',
+    body  = 'Tu pareja hizo cambios en la app',
     tag   = 'mp-push',
     url   = '/',
   } = payload;
