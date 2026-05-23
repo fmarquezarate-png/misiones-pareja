@@ -96,7 +96,7 @@ serve(async (req) => {
       coupleId,
       excludeUserId,
       title = 'Misiones de Pareja',
-      body  = '✨ Tu pareja actualizó algo',
+      body  = 'Tu pareja hizo cambios en la app',
       tag   = 'mp-push',
       url: clickUrl = '/',
     } = await req.json();

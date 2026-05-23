@@ -1,9 +1,70 @@
-# Changelog — Misiones de Pareja
+# Changelog — Shared Calendar
 
 Todas las versiones notables de este proyecto están documentadas aquí.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/).
 Cada merge a la rama principal incrementa la versión de parche (x.y.**z**).
 Los hitos de sprint incrementan la versión menor (x.**y**.0).
+
+---
+
+## [3.8.23] — 2026-05-23 · Nombre "Shared Calendar" + ícono PWA
+
+### Cambiado
+- **Nombre de la app → "Shared Calendar"** en todos los entornos: `manifest.name`, `manifest.short_name` ("Shared Cal"), `<title>`, `apple-mobile-web-app-title`, y descripción del manifest.
+- **Ícono PWA generado**: `icon-192.png` e `icon-512.png` reemplazados con el logo diseñado por el usuario — dos círculos superpuestos (Venn diagram) sobre fondo partido blanco/negro, intersección dorada (`#C9A873`). Visible en escritorio móvil al instalar la PWA.
+
+---
+
+## [3.8.22] — 2026-05-23 · Push contextual + PWA nombre e ícono
+
+### Añadido
+- **Push notificaciones contextuales** — `sendContextualPush()` en `push.js` llama directamente a la Edge Function con texto específico según el evento:
+  - Nueva tarea → `"Nueva tarea: 🎯 Título de la tarea"`
+  - Nuevo evento → `"Nuevo evento: 📅 Nombre del evento"`
+  - Tarea completada → `"Completada: ✅ Título de la tarea"`
+  - Chat → `"Nombre: primeros 80 chars del mensaje"`
+- El emisor queda excluido automáticamente de la notificación (usa `user_id` en `push_subscriptions`).
+- Texto neutro — no dice "tu pareja" para mantener apertura y funcionar para cualquier tipo de pareja.
+
+### Corregido
+- **PWA nombre**: `"Shared Calendar"` → `"Misiones de Pareja"` en manifest, `<title>`, `apple-mobile-web-app-title`
+- **Ícono adaptativo Android**: separado en `purpose: "any"` + `purpose: "maskable"` (antes combinado, lo que causaba problemas en algunos launchers)
+
+### Pendiente Externo
+- Deshabilitar el trigger `trg_notify_push_on_app_data_update` en Supabase para evitar doble notificación (el genérico del trigger + el contextual del código): `ALTER TABLE public.app_data DISABLE TRIGGER trg_notify_push_on_app_data_update;`
+
+### Pendiente usuario
+- Reemplazar `/public/icon-192.png` (192×192 px) e `/public/icon-512.png` (512×512 px) con el logo diseñado. PNG cuadrado con fondo opaco (no transparente), sin redondeo — el sistema operativo aplica el recorte.
+
+---
+
+## [3.8.21] — 2026-05-23 · Monolito Fase 2b: ProfileModal + push notification fix
+
+### Refactorizado
+- **`ProfileModal`** → `src/components/ProfileModal.jsx` (tema, foto de pareja, notificaciones, sección push)
+- **`getUserPrefs` / `saveUserPrefs`** → `src/lib/userPrefs.js` (compartido entre `CoupleMissions` y `ProfileModal`)
+- **App.jsx**: 2492 → 2188 líneas (−304 adicionales; total acumulado desde inicio Fase 2: −645 líneas)
+
+### Corregido
+- **Push notification texto roto**: texto por defecto cambiado a ASCII puro `'Tu pareja hizo cambios en la app'` en `sw.js` y Edge Function `send-push` — elimina posible rendering de escape sequences `\uXXXX` en dispositivos con problemas de encoding.
+
+### Pendiente Externo
+- Actualizar trigger SQL `trg_notify_push_on_app_data_update`: cambiar campo `body` de `'Tu pareja actualizó algo ✨'` a `'Tu pareja hizo cambios en la app'` para mantener consistencia con los defaults del código.
+
+---
+
+## [3.8.20] — 2026-05-22 · Monolito Fase 2a: WorkHoursCard + AddMissionForm + MissionCard
+
+### Refactor
+- **`WorkHoursCard`** → `src/components/WorkHoursCard.jsx`
+- **`AddMissionForm`** → `src/components/AddMissionForm.jsx`
+- **`MissionCard`** → `src/components/MissionCard.jsx`
+- Constantes duplicadas eliminadas de App.jsx: `STATUS`, `CATEGORIES`, `CAT_MAP`, `getMCats`, `DEFAULT_COLORS`, `S`, `badgeStyle`, `catBadgeStyle` — reemplazadas por imports de `constants.js` y `styles.js`.
+- `googleCalendarUrl` local eliminada (ya existía en `utils.js`).
+- App.jsx: **2833 → 2492 líneas** (−341).
+
+### Pendiente Fase 2b
+ProfileModal, ChatView, CalendarView siguen en App.jsx (mayor complejidad).
 
 ---
 

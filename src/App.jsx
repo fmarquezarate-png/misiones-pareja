@@ -11,41 +11,26 @@ import LinksView from "./components/LinksView.jsx";
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, prevWeekFn } from "./utils.js";
-import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS, MAINTENANCE_WARNING } from "./constants.js";
+import { APP_VERSION, LAST_UPDATE, CHANGELOG, SEED_VERSION, THEMES, FONTS, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS } from "./constants.js";
+import { S, badgeStyle, catBadgeStyle } from "./styles.js";
+import WorkHoursCard from "./components/WorkHoursCard.jsx";
+import AddMissionForm from "./components/AddMissionForm.jsx";
+import MissionCard from "./components/MissionCard.jsx";
 import { track, setTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS } from "./lib/repo.js";
 import PillFilter from "./components/PillFilter.jsx";
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
-import EmojiSelect from "./components/EmojiSelect.jsx";
-import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported } from "./lib/push.js";
+import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
 import LoginScreen from "./components/LoginScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
 import StatsView from "./components/StatsView.jsx";
 import GastosView from "./components/GastosView.jsx";
+import ProfileModal from "./components/ProfileModal.jsx";
+import { getUserPrefs, saveUserPrefs } from "./lib/userPrefs.js";
 
-const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
-const STATUS = {
-  TBC:         { label:"TBC",      icon:"⏳", color:"#94a3b8", bg:"rgba(148,163,184,0.12)", border:"rgba(148,163,184,0.3)" },
-  ASAP:        { label:"ASAP",     icon:"🔥", color:"#fb923c", bg:"rgba(251,146,60,0.12)",  border:"rgba(251,146,60,0.3)"  },
-  IN_PROGRESS: { label:"En curso", icon:"⚡", color:"#60a5fa", bg:"rgba(96,165,250,0.12)",  border:"rgba(96,165,250,0.3)"  },
-  DONE:        { label:"Hecho",    icon:"✅", color:"#34d399", bg:"rgba(52,211,153,0.12)",  border:"rgba(52,211,153,0.3)"  },
-};
-
-const CATEGORIES = [
-  { id:"pareja",  label:"Pareja",  icon:"💞", color:"#f472b6" },
-  { id:"deporte", label:"Deporte", icon:"🏅", color:"#60a5fa" },
-  { id:"casa",    label:"Casa",    icon:"🏠", color:"#a78bfa" },
-  { id:"salud",   label:"Salud",   icon:"💊", color:"#34d399" },
-  { id:"trabajo", label:"Trabajo", icon:"💼", color:"#fbbf24" },
-  { id:"ocio",    label:"Ocio",    icon:"🎉", color:"#f97316" },
-  { id:"social",  label:"Social",  icon:"🥂", color:"#e879f9" },
-  { id:"viaje",   label:"Viaje",   icon:"✈️", color:"#38bdf8" },
-];
-const getMCats = m => m.categories?.length ? m.categories : (m.category ? [m.category] : []);
-const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 
 
 
@@ -69,7 +54,6 @@ function useSwipe(onLeft, onRight, minDist = 110) {
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
-const DEFAULT_COLORS = { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" };
 
 // ─── Notification helpers ─────────────────────────────────────────────────────
 const showNotif = (title, body, opts={}) => {
@@ -95,9 +79,6 @@ const scheduleReminders = (data, p1, p2) => {
   });
 };
 
-// Per-user localStorage preferences (theme & font are personal, not shared with partner)
-const getUserPrefs = id => { try { return JSON.parse(localStorage.getItem(`user-prefs-${id}`)||"{}"); } catch { return {}; } };
-const saveUserPrefs = (id, patch) => { try { localStorage.setItem(`user-prefs-${id}`, JSON.stringify({...getUserPrefs(id),...patch})); } catch {} };
 
 // ISO week date helpers
 const _SD = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -116,24 +97,6 @@ const fmtWeekRange = (wn, yr) => {
   return mon.getMonth()===sun.getMonth() ? `${mon.getDate()}–${sun.getDate()} ${_SM[mon.getMonth()]}` : `${from} – ${to}`;
 };
 
-const googleCalendarUrl = (mission, name1, name2) => {
-  if (!mission.date) return null;
-  const ds = mission.date.replace(/-/g, "");
-  const who = mission.who==="person1"?name1:mission.who==="person2"?name2:`${name1} & ${name2}`;
-  let dates;
-  if (mission.time) {
-    const [hh, mm] = mission.time.split(":").map(Number);
-    const tot = hh*60 + mm + (mission.duration || 60);
-    const eh = String(Math.floor(tot/60)%24).padStart(2,"0"), em = String(tot%60).padStart(2,"0");
-    dates = `${ds}T${String(hh).padStart(2,"0")}${String(mm).padStart(2,"0")}00/${ds}T${eh}${em}00`;
-  } else {
-    const nd = new Date(mission.date); nd.setDate(nd.getDate()+1);
-    dates = `${ds}/${nd.toISOString().slice(0,10).replace(/-/g,"")}`;
-  }
-  const dur = mission.duration;
-  const details = `Quién: ${who}${dur?` · ${Math.round(dur/60*10)/10}h`:""}`;
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(mission.emoji+" "+mission.title)}&dates=${dates}&details=${encodeURIComponent(details)}`;
-};
 
 
 const { week: _seedWeek, year: _seedYear } = getWeekAndYear();
@@ -229,16 +192,6 @@ function syncCarryDone(data, weekKey, missionId) {
   return { ...data, weeks: { ...data.weeks, [mission.carriedFromWeek]: { ...origWeek, missions: origWeek.missions.map(m => m.id===mission.carriedFrom ? {...m, status:"DONE", completedAt:Date.now(), completedLate:true} : m) } } };
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const S = {
-  card:        { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.12))", borderRadius:14, padding:"14px 16px" },
-  input:       { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.25))", borderRadius:8, padding:"8px 12px", color:"var(--t-text,#f8f4ff)", fontSize:14, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  inputSm:     { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:7, padding:"5px 8px", color:"var(--t-text,#f8f4ff)", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
-  btnNav:      { background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:8, color:"var(--t-accent,#a78bfa)", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
-  btnPrimary:  { background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
-  btnSecondary:{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
-  label:       { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6, display:"block" },
-};
 
 const dlBlob=(blob,name)=>{
   const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
@@ -340,8 +293,6 @@ function ThemeInjector({ themeId, fontId }) {
   }, [themeId, fontId]);
   return null;
 }
-const badgeStyle = s => ({ background:STATUS[s].bg, color:STATUS[s].color, border:`1px solid ${STATUS[s].border}`, padding:"3px 8px", borderRadius:99, fontSize:11, fontWeight:600, fontFamily:"inherit", letterSpacing:0.3, cursor:"pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 });
-const catBadgeStyle = catId => { const c = CAT_MAP[catId]; if (!c) return {}; return { background:`${c.color}18`, color:c.color, border:`1px solid ${c.color}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" }; };
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
@@ -927,7 +878,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const hasEnd = !!newM.endDate;
     const startTime = newM.time || (hasEnd ? "00:00" : null);
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
+    const isEv = newM.type === "event";
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null }] }));
+    sendContextualPush(coupleId, { body:`${isEv?"Nuevo evento":"Nueva tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -945,6 +898,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
+    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`Completada: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
   };
 
@@ -1666,7 +1620,7 @@ ${sorted.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} sessionUserId={sessionUserId} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
@@ -1914,603 +1868,7 @@ ${sorted.map(m=>{
   );
 }
 
-function WorkHoursCard({ week, patchWeek, p1, p2 }) {
-  const [open, setOpen] = useState(false);
-  const wh = week.workHours || { person1:0, person2:0 };
-  return (
-    <div style={{ ...S.card, marginBottom:14, borderColor:"rgba(251,191,36,0.18)" }}>
-      <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
-        <div style={{ fontSize:10, letterSpacing:2.5, textTransform:"uppercase", color:"#fbbf24", fontWeight:600 }}>💼 Horas laborales</div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          {(wh.person1||wh.person2)>0
-            ? <div style={{ display:"flex", gap:8 }}>
-                {wh.person1>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p1}: <strong style={{ color:"#f8f4ff" }}>{wh.person1}h</strong></span>}
-                {wh.person2>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p2}: <strong style={{ color:"#f8f4ff" }}>{wh.person2}h</strong></span>}
-              </div>
-            : <span style={{ fontSize:12, color:"var(--t-text-dim,#3d3360)", fontStyle:"italic" }}>sin registrar</span>
-          }
-          <span style={{ color:"var(--t-text-dim,#4a4166)", fontSize:14 }}>{open?"▲":"▼"}</span>
-        </div>
-      </div>
-      {open && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:12 }}>
-          {[{key:"person1",label:p1},{key:"person2",label:p2}].map(({key,label})=>(
-            <div key={key}>
-              <label style={S.label}>{label}</label>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <input type="number" min="0" max="80" step="0.5" value={wh[key]||""} onChange={e=>patchWeek(w=>({...w, workHours:{...w.workHours,[key]:parseFloat(e.target.value)||0}}))} placeholder="0" style={{ ...S.inputSm, width:"70px" }} />
-                <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>horas</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
-  const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
-  const goalMatchesWho = (g, who) => who === "together" || g.who === "together" || !g.who || g.who === who;
-  const activeGoals = (goals||[]).filter(g => g.active!==false && goalMatchesWho(g, newM.who));
-  const isEvent = newM.type==="event";
-  const [endMode, setEndMode] = useState("duration");
-
-  const computeEnd = (date, time, durMin) => {
-    if (!date || !time || !durMin || durMin<=0) return { endDate:"", endTime:"" };
-    const e = new Date(new Date(date+"T"+time).getTime() + durMin*60000);
-    return { endDate:`${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,"0")}-${String(e.getDate()).padStart(2,"0")}`, endTime:`${String(e.getHours()).padStart(2,"0")}:${String(e.getMinutes()).padStart(2,"0")}` };
-  };
-  const computeDur = (d, t, ed, et) => {
-    if (!d||!t||!ed||!et) return null;
-    const diff = Math.round((new Date(ed+"T"+et) - new Date(d+"T"+t)) / 60000);
-    return diff > 0 ? diff : null;
-  };
-  const durLabel = min => !min ? "" : min>=60 ? `${Math.floor(min/60)}h${min%60?` ${min%60}m`:""}` : `${min}m`;
-
-  const { endDate:calcEndDate, endTime:calcEndTime } = computeEnd(newM.date, newM.time, newM.duration);
-  const calcDurMin = computeDur(newM.date, newM.time, newM.endDate, newM.endTime);
-
-  return (
-    <div style={{ ...S.card, borderColor:isEvent?"rgba(96,165,250,0.35)":"rgba(167,139,250,0.3)" }}>
-      <div style={{ display:"flex", gap:4, marginBottom:10 }}>
-        {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>(
-          <button key={t.id} onClick={()=>setNewM(p=>({...p,type:t.id}))}
-            style={{ flex:1, background:newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.18)":"rgba(167,139,250,0.18)"):"rgba(128,128,128,0.05)", border:`1px solid ${newM.type===t.id?(t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)"):"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.type===t.id?(t.id==="event"?"#60a5fa":"#c4b8ff"):"#4a4166", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:newM.type===t.id?600:400 }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-        <EmojiSelect value={newM.emoji} onChange={e=>setNewM(p=>({...p,emoji:e}))} />
-        <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder={isEvent?"Nombre del evento...":"Nombre de la misión..."} style={S.input} />
-      </div>
-      <div style={{ marginBottom:10 }}>
-        <label style={S.label}>Categoría (multi)</label>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-          {CATEGORIES.map(c=>{
-            const sel=(newM.categories||[]).includes(c.id);
-            return <button key={c.id} onClick={()=>setNewM(p=>{const cats=p.categories||[];return {...p,categories:sel?cats.filter(x=>x!==c.id):[...cats,c.id]};})}
-              style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!(newM.categories||[]).length?1:0.4 }}>
-              {c.icon} {c.label}
-            </button>;
-          })}
-        </div>
-      </div>
-      <div style={{ marginBottom:10 }}>
-        <label style={S.label}>¿Quién?</label>
-        <div style={{ display:"flex", gap:5 }}>
-          {WHO.map(w=>(
-            <button key={w.id} onClick={()=>setNewM(p=>({...p,who:w.id}))}
-              style={{ background:newM.who===w.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.who===w.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:newM.who===w.id?"#c4b8ff":"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
-              {w.icon} {w.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {isEvent&&<>
-        {/* Inicio — date + time agrupados en card */}
-        <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>📅 Inicio</div>
-          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
-            <input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
-          </div>
-        </div>
-        {/* Toggle duración / hora fin */}
-        <div style={{ display:"flex", gap:4, marginBottom:8 }}>
-          {[{id:"duration",label:"⏱ Duración"},{id:"endtime",label:"🏁 Hora fin"}].map(m=>(
-            <button key={m.id} onClick={()=>setEndMode(m.id)}
-              style={{ flex:1, background:endMode===m.id?"rgba(96,165,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${endMode===m.id?"rgba(96,165,250,0.45)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:endMode===m.id?"#60a5fa":"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:endMode===m.id?600:400 }}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-        {endMode==="duration"
-          ?<div style={{ marginBottom:10 }}>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <input type="number" min="0" step="15" value={newM.duration||""} onChange={e=>{const dur=parseInt(e.target.value)||0;const {endDate,endTime}=computeEnd(newM.date,newM.time,dur);setNewM(p=>({...p,duration:dur,endDate,endTime}));}} placeholder="90" style={{ ...S.inputSm, flex:1 }} />
-              <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
-            </div>
-            {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
-          </div>
-          :<div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>🏁 Fin</div>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-              <input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
-              <input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
-            </div>
-            {calcDurMin!==null&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:6 }}>⏱ Duración: {durLabel(calcDurMin)}</div>}
-          </div>
-        }
-        {newM.time&&<div style={{ marginBottom:8 }}>
-          <label style={S.label}>🔔 Recordatorio</label>
-          <select value={newM.reminder||"none"} onChange={e=>setNewM(p=>({...p,reminder:e.target.value}))} style={{ ...S.inputSm, colorScheme:"dark", fontSize:12 }}>
-            <option value="none">Sin recordatorio</option>
-            <option value="ontime">En el momento</option>
-            <option value="15min">15 min antes</option>
-            <option value="30min">30 min antes</option>
-            <option value="1h">1 hora antes</option>
-            <option value="1day">1 día antes</option>
-          </select>
-        </div>}
-      </>}
-      {activeGoals.length>0&&<div style={{ marginBottom:10 }}>
-        <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-        <select value={newM.goalId||""} onChange={e=>setNewM(p=>({...p,goalId:e.target.value||null}))} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
-          <option value="">— Sin meta —</option>
-          {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
-        </select>
-      </div>}
-      {!isEvent&&<div style={{ marginBottom:10 }}>
-        <label style={S.label}>🔁 Tarea recurrente</label>
-        <div style={{ display:"flex", gap:4 }}>
-          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
-            <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
-              style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
-          ))}
-        </div>
-        {newM.seriesPattern && <div style={{ marginTop:8 }}>
-          <label style={S.label}>📅 Repetir hasta (opcional)</label>
-          <input type="date" value={newM.seriesEndDate||""} onChange={e=>setNewM(p=>({...p,seriesEndDate:e.target.value}))} style={{...S.inputSm,colorScheme:"dark"}} />
-        </div>}
-      </div>}
-      <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
-        <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-          {STATUS_ORDER.map(s=><button key={s} onClick={()=>setNewM(p=>({...p,status:s}))} style={{ ...badgeStyle(s), opacity:newM.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}
-        </div>
-        <div style={{ display:"flex", gap:6 }}>
-          <button onClick={onCancel} style={S.btnSecondary}>Cancelar</button>
-          <button onClick={onAdd} style={S.btnPrimary}>Añadir ✨</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
-  const [expanded, setExpanded] = useState(false);
-  const [popping, setPopping] = useState(false);
-  const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
-  const mCats = getMCats(mission).map(id=>CAT_MAP[id]).filter(Boolean);
-  const clr = colors || DEFAULT_COLORS;
-  const whoColor = mission.who==="person1"?clr.person1:mission.who==="person2"?clr.person2:clr.together;
-  const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
-  const gcalUrl = googleCalendarUrl(mission, p1, p2);
-  const isEvent = mission.type==="event";
-  const firstCat = mCats[0];
-  const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":firstCat?`${firstCat.color}30`:`${whoColor}22`;
-  // v3: color rail + pop
-  const railStyle = { borderLeft:`3px solid ${whoColor}`, paddingLeft:13 };
-  const handleCycle = () => { setPopping(true); setTimeout(()=>setPopping(false),240); onCycleStatus(); };
-  const carriedWeeks = (() => {
-    if (!isCarried || isDone || !weeksData) return 0;
-    let count = 0, originId = mission.carriedFrom, originWeek = mission.carriedFromWeek;
-    while (originId && originWeek && count < 20) {
-      count++;
-      const w = weeksData[originWeek];
-      if (!w) break;
-      const origin = (w.missions || []).find(m => m.id === originId);
-      if (!origin?.carriedFrom) break;
-      originId = origin.carriedFrom;
-      originWeek = origin.carriedFromWeek;
-    }
-    return count;
-  })();
-  return (
-    <div style={{ ...S.card, ...railStyle, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
-      {isCarried&&!isDone&&(
-        <div style={{ fontSize:10, color:carriedWeeks>=3?"#f87171":"#fb923c", letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
-          {carriedWeeks>=3?"⚠️":"🔁"} {carriedWeeks>=3?`Arrastrada ${carriedWeeks} semanas`:"Arrastrada"}
-        </div>
-      )}
-      {mission.completedLate&&isDone&&(
-        <div style={{ fontSize:10, color:"#fb923c", letterSpacing:0.5, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
-          ⏰ Completada con retraso
-        </div>
-      )}
-      <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-        <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
-        <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>
-          <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
-          <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
-            {mCats.map(cat=><span key={cat.id} style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>)}
-            {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
-            {mission.who==="person1"&&<span style={{ background:`${clr.person1}18`, color:clr.person1, border:`1px solid ${clr.person1}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p1}</span>}
-            {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
-            {mission.duration&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
-            {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
-            {mission.date&&<span style={{ background:"rgba(128,128,128,0.08)", color:"var(--t-text-dim,#6b5f88)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
-            {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
-            {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
-            {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
-          </div>
-        </div>
-        <button onClick={handleCycle} style={{ ...badgeStyle(mission.status), animation:popping?"mc-pop 0.22s ease-out":"none" }}>{STATUS[mission.status].icon}</button>
-        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
-          onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
-      </div>
-      {expanded && (
-        <div style={{ marginTop:12, borderTop:"1px solid rgba(167,139,250,0.12)", paddingTop:12 }}>
-          <div style={{ marginBottom:10 }}><label style={S.label}>Título</label><input value={mission.title} onChange={e=>onPatch({title:e.target.value})} style={S.input} /></div>
-          <div style={{ marginBottom:10 }}>
-            <label style={S.label}>Tipo</label>
-            <div style={{ display:"flex", gap:4 }}>
-              {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>{
-                const sel=(mission.type||"task")===t.id;
-                const ac=t.id==="event"?"rgba(96,165,250,0.5)":"rgba(167,139,250,0.5)";
-                const tc=t.id==="event"?"#60a5fa":"#c4b8ff";
-                return <button key={t.id} onClick={()=>onPatch({type:t.id})} style={{ flex:1, background:sel?(t.id==="event"?"rgba(96,165,250,0.15)":"rgba(167,139,250,0.15)"):"rgba(128,128,128,0.05)", border:`1px solid ${sel?ac:"rgba(255,255,255,0.08)"}`, borderRadius:7, color:sel?tc:"#4a4166", padding:"4px 8px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:sel?600:400 }}>{t.label}</button>;
-              })}
-            </div>
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <label style={S.label}>Categoría (multi)</label>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-              {CATEGORIES.map(c=>{
-                const curCats=getMCats(mission);const sel=curCats.includes(c.id);
-                return <button key={c.id} onClick={()=>onPatch({categories:sel?curCats.filter(x=>x!==c.id):[...curCats,c.id],category:null})}
-                  style={{ ...catBadgeStyle(c.id), cursor:"pointer", border:`1px solid ${c.color}${sel?"":"20"}`, opacity:sel||!curCats.length?1:0.4 }}>{c.icon} {c.label}</button>;
-              })}
-            </div>
-          </div>
-          <div style={{ marginBottom:10 }}>
-            <label style={S.label}>¿Quién?</label>
-            <div style={{ display:"flex", gap:5 }}>
-              {WHO.map(w=>{
-                const wc=w.id==="person1"?clr.person1:w.id==="person2"?clr.person2:clr.together;
-                const sel=mission.who===w.id;
-                return <button key={w.id} onClick={()=>onPatch({who:w.id})} style={{ background:sel?`${wc}22`:"rgba(128,128,128,0.06)", border:`1px solid ${sel?wc+"60":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:sel?wc:"#6b5f88", padding:"5px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>{w.icon} {w.label}</button>;
-              })}
-            </div>
-          </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-            <div><label style={S.label}>📆 Fecha inicio</label><input type="date" value={mission.date||""} onChange={e=>onPatch({date:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>🕐 Hora inicio</label><input type="time" value={mission.time||""} onChange={e=>onPatch({time:e.target.value||null})} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-          </div>
-          {isEvent&&<div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
-            <div><label style={S.label}>🏁 Fecha fin</label><input type="date" value={mission.endDate||""} onChange={e=>{const ed=e.target.value||null;const dur=mission.date&&mission.time&&ed&&mission.endTime?Math.round((new Date(ed+"T"+mission.endTime)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endDate:ed,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-            <div><label style={S.label}>🕐 Hora fin</label><input type="time" value={mission.endTime||""} onChange={e=>{const et=e.target.value||null;const dur=mission.date&&mission.time&&mission.endDate&&et?Math.round((new Date(mission.endDate+"T"+et)-new Date(mission.date+"T"+mission.time))/60000):mission.duration;onPatch({endTime:et,...(dur>0?{duration:dur}:{})});}} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
-          </div>}
-          {!isEvent&&<div style={{ marginBottom:8 }}><label style={S.label}>⏱ Duración (min)</label><input type="number" min="0" step="15" value={mission.duration||""} onChange={e=>onPatch({duration:parseInt(e.target.value)||null})} placeholder="90" style={S.inputSm} /></div>}
-          {(()=>{const gmw=(g,w)=>w==="together"||g.who==="together"||!g.who||g.who===w;const filtered=(goals||[]).filter(g=>g.active!==false&&gmw(g,mission.who));return filtered.length>0&&<div style={{ marginBottom:8 }}>
-            <label style={S.label}>🏅 ¿Cuenta para alguna meta?</label>
-            <select value={mission.goalId||""} onChange={e=>onPatch({goalId:e.target.value||null})} style={{ ...S.input, fontSize:13, colorScheme:"dark", background:"var(--t-card,rgba(16,10,32,0.95))", color:"var(--t-text,#f8f4ff)" }}>
-              <option value="">— Sin meta —</option>
-              {filtered.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
-            </select>
-          </div>;})()}
-          {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle }) {
-  const settings = data.settings || {};
-  const [p1,      setP1]      = useState(settings.person1||"Persona 1");
-  const [p2,      setP2]      = useState(settings.person2||"Persona 2");
-  const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
-  const _pm_uprefs = getUserPrefs(sessionUserId);
-  const [themeId,      setThemeId]      = useState(_pm_uprefs.themeId || settings.themeId || "violet");
-  const [themeOpen,    setThemeOpen]    = useState(false);
-  const [fontId,       setFontId]       = useState(_pm_uprefs.fontId  || settings.fontId  || "auto");
-  const [fontOpen,     setFontOpen]     = useState(false);
-  const [coupleEmoji,  setCoupleEmoji]  = useState(settings.coupleEmoji||"💞");
-  const [photos,       setPhotos]       = useState({ person1: settings.photos?.person1||null, person2: settings.photos?.person2||null, couple: settings.photos?.couple||null });
-  const defNotif = settings.notifications || {};
-  const [notifChat,        setNotifChat]        = useState(defNotif.chat !== false);
-  const [notifPartner,     setNotifPartner]     = useState(defNotif.partnerChanges !== false);
-  const [notifEvents,      setNotifEvents]      = useState(defNotif.eventReminders !== false);
-  const [notifGoals,       setNotifGoals]       = useState(defNotif.goalDeadlines !== false);
-  const [notifBriefing,    setNotifBriefing]    = useState(defNotif.dailyBriefing === true);
-  const [notifBriefTime,   setNotifBriefTime]   = useState(defNotif.briefingTime || "08:00");
-  const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
-  const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
-  const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
-
-  const compressAvatar = (file) => new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const size = 180;
-        const canvas = document.createElement("canvas");
-        canvas.width = size; canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        // crop square from center
-        const s = Math.min(img.width, img.height);
-        const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
-        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
-        resolve(canvas.toDataURL("image/jpeg", 0.8));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  const handlePhoto = async (key, e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const b64 = await compressAvatar(file);
-    setPhotos(p=>({...p,[key]:b64}));
-    e.target.value = "";
-  };
-
-  const requestNotifPermission = async () => {
-    if (typeof Notification === "undefined") return;
-    const result = await Notification.requestPermission();
-    setNotifPermission(result);
-  };
-
-  const save = () => {
-    const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
-    if (sessionUserId) saveUserPrefs(sessionUserId, { themeId, fontId });
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, coupleEmoji, photos, notifications}}));
-    onClose();
-  };
-
-  const personRow = (key, label, nameVal, setName) => (
-    <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:18 }}>
-      {/* Avatar */}
-      <label style={{ cursor:"pointer", flexShrink:0 }}>
-        <div style={{ width:56, height:56, borderRadius:99, background:colors[key]+"22", border:`2px solid ${colors[key]}55`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
-          {photos[key]
-            ? <img src={photos[key]} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
-            : <span style={{ fontSize:22 }}>{key==="person1"?"👤":"👤"}</span>}
-          <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", opacity:0, transition:"opacity 0.15s", borderRadius:99 }}
-            onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>
-            <span style={{ fontSize:16 }}>📷</span>
-          </div>
-        </div>
-        <input type="file" accept="image/*" onChange={e=>handlePhoto(key,e)} style={{ display:"none" }} />
-      </label>
-      <div style={{ flex:1 }}>
-        <label style={S.label}>{label}</label>
-        <input value={nameVal} onChange={e=>setName(e.target.value)} style={S.input} placeholder={label} />
-      </div>
-      <div style={{ flexShrink:0 }}>
-        <label style={{ ...S.label, textAlign:"center" }}>Color</label>
-        <input type="color" value={colors[key]} onChange={e=>setColor(key,e.target.value)}
-          style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, display:"block" }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:150, display:"flex", flexDirection:"column", overflow:"hidden" }} onClick={onClose}>
-      <div style={{ background:"var(--t-menu-bg,#0f0a1e)", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:"20px 20px 0 0", marginTop:"auto", maxHeight:"92vh", overflow:"hidden", display:"flex", flexDirection:"column" }} onClick={e=>e.stopPropagation()}>
-        {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 20px 0" }}>
-          <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, color:"#f8f4ff" }}>👤 Mi Perfil</span>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", fontSize:22, cursor:"pointer", lineHeight:1 }}>×</button>
-        </div>
-        {/* Scrollable body */}
-        <div style={{ overflowY:"auto", padding:"16px 20px 20px", flex:1 }}>
-
-          {/* Foto de pareja */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>Foto de pareja</div>
-          <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24, padding:"14px 16px", background:"var(--t-accent-soft,rgba(167,139,250,0.06))", borderRadius:14, border:"1px solid var(--t-card-border)" }}>
-            <label style={{ cursor:"pointer", flexShrink:0 }}>
-              <div style={{ width:72, height:72, borderRadius:99, background:"var(--t-accent-soft)", border:`2px solid var(--t-accent,#a78bfa)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
-                {photos.couple
-                  ? <img src={photos.couple} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
-                  : <span style={{ fontSize:32 }}>{coupleEmoji}</span>}
-              </div>
-              <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
-            </label>
-            <div>
-              <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500, marginBottom:4 }}>Vuestra foto juntos</div>
-              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8, lineHeight:1.5 }}>Aparece en la pantalla de inicio y en el menú lateral</div>
-              <div style={{ display:"flex", gap:8 }}>
-                <label style={{ ...S.btnSecondary, fontSize:11, cursor:"pointer", padding:"5px 12px", display:"inline-block" }}>
-                  📷 Cambiar
-                  <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
-                </label>
-                {photos.couple && <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px" }}>✕ Quitar</button>}
-              </div>
-              <div style={{ marginTop:10 }}>
-                <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginBottom:6 }}>Emoji cuando no hay foto</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-                  {COUPLE_EMOJIS.map(e=>(
-                    <button key={e} onClick={()=>setCoupleEmoji(e)}
-                      style={{ fontSize:19, background:coupleEmoji===e?"rgba(167,139,250,0.22)":"rgba(128,128,128,0.06)", border:`1px solid ${coupleEmoji===e?"rgba(167,139,250,0.55)":"rgba(255,255,255,0.08)"}`, borderRadius:8, padding:"4px 5px", cursor:"pointer", lineHeight:1, outline:"none" }}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Personas */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Personas</div>
-          {personRow("person1","Persona 1",p1,setP1)}
-          {personRow("person2","Persona 2",p2,setP2)}
-          <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:20 }}>
-            <div style={{ width:56, height:56, borderRadius:99, background:colors.together+"22", border:`2px solid ${colors.together}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              <span style={{ fontSize:22 }}>{coupleEmoji}</span>
-            </div>
-            <div style={{ flex:1 }}>
-              <label style={S.label}>Juntos</label>
-              <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", fontStyle:"italic" }}>Color para actividades en pareja</div>
-            </div>
-            <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
-              style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
-          </div>
-          <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
-
-          {/* Push en segundo plano */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Push en segundo plano</div>
-          <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
-            {!pushSupported ? (
-              <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>⚠️ Tu navegador no soporta notificaciones push</div>
-            ) : (
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
-                <div>
-                  <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>
-                    {pushSubscribed ? "🔔 Activadas en este dispositivo" : "🔕 No activas en este dispositivo"}
-                  </div>
-                  <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:3 }}>
-                    {pushSubscribed
-                      ? "Recibirás avisos cuando tu pareja actualice"
-                      : "Tu pareja puede estar recibiendo notificaciones — vos no"}
-                  </div>
-                  {pushError && <div style={{ fontSize:12, color:"#f87171", marginTop:8, padding:"8px 10px", background:"rgba(248,113,113,0.08)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:8, lineHeight:1.5 }}>⚠️ {pushError}</div>}
-                </div>
-                <button onClick={onPushToggle} disabled={pushLoading}
-                  style={{ ...S.btnPrimary, fontSize:11, padding:"7px 14px", flexShrink:0, opacity:pushLoading?0.6:1,
-                    background: pushSubscribed ? "rgba(244,114,182,0.15)" : undefined,
-                    border: pushSubscribed ? "1px solid rgba(244,114,182,0.4)" : undefined,
-                    color: pushSubscribed ? "#f472b6" : undefined }}>
-                  {pushLoading ? "…" : pushSubscribed ? "Desactivar" : "Activar"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Notificaciones */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones en app</div>
-          <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
-            {notifPermission !== "granted" ? (
-              <div style={{ textAlign:"center", padding:"8px 0 12px" }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>🔔</div>
-                <div style={{ fontSize:13, color:"#c4b8ff", marginBottom:6, fontWeight:500 }}>Activa las notificaciones</div>
-                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:14, lineHeight:1.6 }}>
-                  {notifPermission === "denied"
-                    ? "Tu navegador ha bloqueado las notificaciones. Cámbialas desde la configuración del navegador."
-                    : "Recibe alertas de mensajes, cambios de tu pareja y recordatorios de eventos."}
-                </div>
-                {notifPermission !== "denied" && (
-                  <button onClick={requestNotifPermission} style={{ ...S.btnPrimary, fontSize:12, padding:"8px 20px" }}>🔔 Permitir notificaciones</button>
-                )}
-              </div>
-            ) : (
-              <>
-                {[
-                  [notifChat,    setNotifChat,    "💬", "Mensajes del chat"],
-                  [notifPartner, setNotifPartner, "🔄", "Cambios de tu pareja"],
-                  [notifEvents,  setNotifEvents,  "📅", "Recordatorios de eventos"],
-                  [notifGoals,   setNotifGoals,   "🎯", "Vencimiento de metas"],
-                ].map(([val, set, icon, label]) => (
-                  <div key={label} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:12, marginBottom:12, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-                    <div style={{ fontSize:13, color:"#c4b8ff" }}>{icon} {label}</div>
-                    <button onClick={()=>set(v=>!v)}
-                      style={{ width:40, height:22, borderRadius:99, background:val?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
-                      <span style={{ position:"absolute", top:3, left:val?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
-                    </button>
-                  </div>
-                ))}
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:notifBriefing?10:0 }}>
-                  <div style={{ fontSize:13, color:"#c4b8ff" }}>🌅 Resumen diario</div>
-                  <button onClick={()=>setNotifBriefing(v=>!v)}
-                    style={{ width:40, height:22, borderRadius:99, background:notifBriefing?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
-                    <span style={{ position:"absolute", top:3, left:notifBriefing?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
-                  </button>
-                </div>
-                {notifBriefing && (
-                  <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-                    <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>Hora del resumen</span>
-                    <input type="time" value={notifBriefTime} onChange={e=>setNotifBriefTime(e.target.value)}
-                      style={{ ...S.inputSm, colorScheme:"dark", flex:1, maxWidth:110 }} />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Tema */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10 }}>Tema de la app</div>
-          <div style={{ marginBottom:8 }}>
-            {/* Trigger */}
-            <button onClick={()=>setThemeOpen(v=>!v)}
-              style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:themeOpen?"10px 10px 0 0":10, cursor:"pointer", fontFamily:"inherit", borderBottom:themeOpen?"none":"1px solid var(--t-card-border,rgba(167,139,250,0.2))" }}>
-              <div style={{ display:"flex", gap:5 }}>
-                {(THEMES.find(t=>t.id===themeId)||THEMES[0]).preview.map((c,i)=>(
-                  <div key={i} style={{ width:11, height:11, borderRadius:99, background:c }} />
-                ))}
-              </div>
-              <span style={{ flex:1, textAlign:"left", fontSize:13, color:"var(--t-text,#f8f4ff)", fontWeight:500 }}>
-                {(THEMES.find(t=>t.id===themeId)||THEMES[0]).name}
-              </span>
-              <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{themeOpen?"▲":"▼"}</span>
-            </button>
-            {/* Inline list — avoids overflow:auto clipping */}
-            {themeOpen && (
-              <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
-                {THEMES.map(t=>(
-                  <button key={t.id} onClick={()=>{ setThemeId(t.id); setThemeOpen(false); onThemeChange&&onThemeChange(t.id, fontId); }}
-                    style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:themeId===t.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:"inherit" }}>
-                    <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                      {t.preview.map((c,i)=><div key={i} style={{ width:10, height:10, borderRadius:99, background:c }} />)}
-                    </div>
-                    <span style={{ flex:1, fontSize:13, color:themeId===t.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:themeId===t.id?600:400 }}>{t.name}</span>
-                    {themeId===t.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>{/* end theme dropdown wrapper */}
-
-          {/* Fuente */}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:10, marginTop:16 }}>Tipografía</div>
-          <div style={{ marginBottom:8 }}>
-            <button onClick={()=>setFontOpen(v=>!v)}
-              style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:fontOpen?"10px 10px 0 0":10, cursor:"pointer", fontFamily:"inherit", borderBottom:fontOpen?"none":"1px solid var(--t-card-border,rgba(167,139,250,0.2))" }}>
-              <span style={{ fontSize:15 }}>Aa</span>
-              <span style={{ flex:1, textAlign:"left", fontSize:13, color:"var(--t-text,#f8f4ff)", fontWeight:500 }}>
-                {(FONTS.find(f=>f.id===fontId)||FONTS[0]).name}
-              </span>
-              <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{fontOpen?"▲":"▼"}</span>
-            </button>
-            {fontOpen && (
-              <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
-                {FONTS.map(f=>(
-                  <button key={f.id} onClick={()=>{ setFontId(f.id); setFontOpen(false); onThemeChange&&onThemeChange(themeId, f.id); }}
-                    style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:fontId===f.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:f.family||"inherit" }}>
-                    <span style={{ flex:1, fontSize:13, color:fontId===f.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:fontId===f.id?600:400 }}>{f.name}</span>
-                    {fontId===f.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>{/* end font dropdown wrapper */}
-        </div>{/* end scrollable body */}
-        {/* Footer */}
-        <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
-          {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
-          <button onClick={()=>{ onClose(); onCheckUpdate && onCheckUpdate(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
-          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
-            <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>
-            <button onClick={save} style={S.btnPrimary}>Guardar ✓</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChatView({ coupleId, personName, chatNotifEnabled }) {
+function ChatView({ coupleId, personName, sessionUserId, chatNotifEnabled }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2536,9 +1894,11 @@ function ChatView({ coupleId, personName, chatNotifEnabled }) {
   const send = async () => {
     if (!input.trim() || sending) return;
     setSending(true);
+    const msgText = input.trim();
     try {
-      await sendMessage(coupleId, personName, input.trim());
+      await sendMessage(coupleId, personName, msgText);
       setInput("");
+      sendContextualPush(coupleId, { body:`${personName}: ${msgText.slice(0, 80)}`, tag:"mp-chat" }, sessionUserId);
     } catch (e) { console.warn("send err", e); }
     finally { setSending(false); }
   };
