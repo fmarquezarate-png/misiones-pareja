@@ -7,6 +7,42 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.8.26] — 2026-05-23 · Fix crítico: revertir read_from_normalized
+
+### Corregido
+- **`read_from_normalized` → `false`**: La tabla `missions` está congelada en el backfill del 20/05 (252 filas, sin actualizaciones). Con el flag en `true`, `loadFromNormalized()` construía las semanas usando datos del backfill y dejaba **vacías todas las semanas posteriores al 20/05** (W21+), incluyendo la semana actual. El fallback de v3.8.24 solo cubría el caso de tabla completamente vacía (0 filas), no el caso de tabla con datos obsoletos. El blob (`app_data`) sigue siendo la única fuente de verdad real hasta que se implemente sync del lado servidor.
+
+### Diagnóstico (Forense)
+- No existe trigger DB que parsee el blob y escriba en `missions` — el dual-write servidor nunca se implementó
+- Las 252 filas son solo el backfill del Sprint D (20/05)
+- `read_from_normalized: true` causaba datos aparentemente vacíos en semanas recientes para usuarios con RLS activo
+
+---
+
+## [3.8.25] — 2026-05-23 · Monolito Fase 2c — −596 líneas de App.jsx
+
+### Extraído
+- **`src/components/ChatView.jsx`** — vista de chat con Supabase realtime
+- **`src/components/CalendarView.jsx`** — calendario mensual con drag-drop y edición inline
+- **`src/components/ThemeInjector.jsx`** — inyección de CSS custom properties + Google Fonts
+- **`src/components/MaintenanceBanner.jsx`** — banner de mantenimiento descartable
+- **`src/lib/appUtils.js`** — helpers puros: `useSwipe`, `repairMisplacedMissions`, `applyCarryOver`, `syncCarryDone`, `getMissionDates`, `showNotif`, `scheduleReminders`, `dlBlob`, `fmtWeekRange`, `weekStartDate`, `fmtShortDate`
+
+### Corregido (incluido en extracción)
+- **CalendarView — confirm() no ejecutaba callbacks**: los botones "Eliminar" y "Aplicar a todas las futuras" en el modal de edición del calendario llamaban a `window.confirm(msg, callback)`, pero la API nativa no soporta callbacks — la acción nunca se ejecutaba. Corregido usando `useConfirm()` + `<ConfirmDialog />`.
+
+### Métricas
+- App.jsx: **2193 → 1597 líneas** (−596 líneas en Fase 2c, −1236 total vs. inicio del sprint)
+
+---
+
+## [3.8.24] — 2026-05-23 · Fix crítico: datos vacíos al instalar PWA
+
+### Corregido
+- **`loadFromNormalized` — fallback silencioso faltante**: si la tabla `missions` devolvía 0 filas sin error (ej. RLS deniega silenciosamente, tabla aún no poblada, o nueva instalación sin localStorage), la app construía semanas con arrays de misiones vacíos y los datos del blob quedaban ocultos. El fallback al blob solo se activaba con errores explícitos de Supabase. Ahora: si `missionRows.length === 0` pero el blob contiene misiones, se registra un warning y se usa el blob como fuente de verdad.
+
+---
+
 ## [3.8.23] — 2026-05-23 · Nombre "Shared Calendar" + ícono PWA
 
 ### Cambiado
