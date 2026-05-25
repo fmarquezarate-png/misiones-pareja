@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.3] — 2026-05-25 · Perf StatsView + accesibilidad GoalsView
+
+### Performance
+- **StatsView memoización** — toda la computación pesada (streak, catStats, bySt, series, donutSegments, insights) envuelta en `useMemo([weeks,stWho,stRange,p1,p2,todayKey])`. Elimina recálculos innecesarios en cada render no relacionado con stats.
+
+### Accesibilidad
+- **GoalsView historial**: celdas de historial cambiadas de `<div onClick>` a `<button disabled={noData}>` — activables por teclado (Tab/Enter/Space) y correctamente anunciadas por screen readers.
+
+---
+
 ## [3.9.2] — 2026-05-23 · G-2 prep: dual-write de misiones cableado
 
 ### Arquitectura

@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.9.2";
-export const LAST_UPDATE = "2026-05-23";
+export const APP_VERSION = "3.9.3";
+export const LAST_UPDATE = "2026-05-25";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.9.3", date:"2026-05-25", notes:["StatsView: toda la computación pesada (streak, catStats, bySt, series, donutSegments, insights) envuelta en useMemo([weeks,stWho,stRange,p1,p2,todayKey]) — elimina recálculos innecesarios en cada render.","GoalsView: celdas de historial cambiadas de <div onClick> a <button disabled={noData}> — accesibilidad por teclado y screen reader."] },
   { v:"3.9.2", date:"2026-05-23", notes:["G-2 prep: dual-write de misiones cableado en App.jsx. insertNormalizedMission (addMission), deleteNormalizedMission (delMission/deleteMissionGlobal) y updateNormalizedMissionStatus (cycleStatus/cycleStatusGlobal) son now fire-and-forget desde cada mutación. La tabla missions se actualiza en tiempo real al blob.","loadFromNormalized: safety check mejorado — fallback a blob si la tabla tiene <80% de las misiones del blob (tabla desactualizada), no solo si está vacía.","G-2 estado: Gap 3 cerrado (código existía), Gap 2 (week_metadata) no bloquea — loadFromNormalized usa blob skeleton para label/epicGoal. Pendiente: Externo añade 4 columnas (time/reminder/series_pattern/series_end_date) a missions, luego re-backfill y flip del flag read_from_normalized."] },
   { v:"3.9.1", date:"2026-05-23", notes:["Monolito Fase 2d completa: extraídos SideMenu.jsx y Topbar.jsx de App.jsx. Topbar posee internamente su estado de dropdowns (popOpen, settingsOpen). SideMenu posee el Changelog modal y la lista de navegación. Eliminado código muerto: modal ICS de rango de fechas (nunca se abría), downloadRangeICS, icsFrom/icsTo. App.jsx pasa de 1314 a 1101 líneas (objetivo ~1100 alcanzado)."] },
   { v:"3.9.0", date:"2026-05-23", notes:["Smart sync: el botón de sincronización ahora es único e inteligente — descarga desde Supabase, compara con datos locales y reporta el resultado claro ('Ya estás al día' / 'Sincronizado — N tareas nuevas'). Nunca sube datos cuando la conexión falla, eliminando el bug donde una sesión rota causaba pérdida de datos del partner.","Version update auto-reload: el botón 'Actualizar versión' ya activa la recarga inmediatamente al cambiar el service worker, sin necesidad de cerrar y reabrir la app. Se añadió listener controllerchange antes de postMessage SKIP_WAITING.","Toasts dismissibles: los toasts de error ahora se auto-descartan a los 7 segundos y tienen botón × para descartarlos manualmente.","Tutorial rediseñado: TutorialOverlay reemplaza las burbujas flotantes con flechas SVG hardcoded por un modal centrado profesional — backdrop oscuro, icono grande por paso, barra de progreso, botón Atrás y animación polished.","Monolito Fase 2d: extraídos HistoryView.jsx (~85 líneas) y PendingView.jsx (~155 líneas) de App.jsx. App.jsx pasa de 1597 a 1314 líneas (↓18%)."] },
