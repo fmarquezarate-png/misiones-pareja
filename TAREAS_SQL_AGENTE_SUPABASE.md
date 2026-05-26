@@ -37,24 +37,16 @@ LIMIT 10;
 
 ---
 
-### S-2 · INSERT policy en tabla `events` para rol `authenticated`
+### S-2 · INSERT policy en tabla `events` para rol `authenticated` — ✅ YA EXISTE (26/05)
 
-**Prioridad:** P1. Sin esta policy, los eventos de telemetría (`track.js`) fallan con 403. El error se descarta silenciosamente pero la telemetría está completamente muerta.
-
-**Verificar primero:**
-```sql
-SELECT policyname, cmd, qual
-FROM pg_policies
-WHERE tablename = 'events';
+**Estado:** Verificado por Externo el 26/05/2026. La policy `events_insert_own` ya existe:
+```
+Policy: events_insert_own | Cmd: INSERT | Roles: authenticated | WITH CHECK: user_id = auth.uid()
 ```
 
-**Si no existe la policy INSERT:**
-```sql
-CREATE POLICY "authenticated users can insert events"
-ON public.events FOR INSERT
-TO authenticated
-WITH CHECK (true);
-```
+**Causa real del problema:** La policy es correcta. El fallo de telemetría venía de `track.js` haciendo flush antes de que `setTrackContext` fuera llamado — `user_id` era `null` en el payload y la RLS lo rechazaba silenciosamente.
+
+**Fix aplicado en v4.0.4:** `flush()` en `track.js` ahora espera 3s y reintenta si `userId` o `coupleId` son null, en lugar de enviar y fallar.
 
 ---
 

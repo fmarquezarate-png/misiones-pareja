@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.4] — 2026-05-26 · Fix telemetría + series_blob_id completo
+
+### Bugs corregidos
+
+- **Telemetría completamente muerta desde v3.4.0** — `track.js` hacía flush con `user_id: null` antes de que `setTrackContext()` fuera llamado. La RLS de la tabla `events` (`WITH CHECK: user_id = auth.uid()`) rechazaba silenciosamente cada INSERT. Confirmado por Externo: la policy `events_insert_own` era correcta desde siempre. El problema era el cliente. Fix: `flush()` ahora comprueba `if (!userId || !coupleId)` y reintenta en 3s en lugar de enviar y perder los eventos. **La telemetría real está operativa desde esta versión.**
+- **S-1 completo (Externo):** columna `series_blob_id text NULL` añadida a `missions`. `insertNormalizedMission` ya la escribe (v4.0.2) y `missionRowToBlob` ya la lee (v4.0.2). El roundtrip completo de series recurrentes por la tabla normalizada ya está disponible.
+
+---
+
 ## [4.0.3] — 2026-05-26 · Scan completo: 9 bugs de raíz (datos, push, seguridad)
 
 ### Bugs corregidos (raíz)

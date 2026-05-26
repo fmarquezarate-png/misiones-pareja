@@ -25,6 +25,12 @@ export function track(name, props = {}) {
 async function flush() {
   flushTimer = null;
   if (!queue.length) return;
+  // RLS policy: user_id = auth.uid() — sending null user_id gets a silent 403.
+  // Retry in 3s rather than lose events if auth context not yet available.
+  if (!userId || !coupleId) {
+    flushTimer = setTimeout(flush, 3000);
+    return;
+  }
   const batch = queue.splice(0);
   try {
     const rows = batch.map(e => ({
