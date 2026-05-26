@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.2] — 2026-05-26 · Bug scan: realtime, CAS, VAPID, series
+
+### Bugs corregidos (raíz)
+
+- **Realtime guard nunca activo** — `subscribeToUpdates` recibía `{hasPendingSave: () => ...}` (objeto) en lugar de una función directa. `typeof hasPendingSave === 'function'` devolvía `false` siempre, el guard se ignoraba y actualizaciones del partner pisaban cambios locales no guardados. Corregido pasando la función directamente: `() => pendingSave || !!saveTimerRef.current`.
+- **`saveTimerRef` sucia tras el timer** — cuando el `setTimeout` de 700ms disparaba, `saveTimerRef.current` seguía apuntando al ID expirado. `hasPendingSave()` devolvía `true` incorrectamente y bloqueaba actualizaciones realtime posteriores durante toda la sesión. Añadido `saveTimerRef.current = null` al inicio del callback.
+- **`dataVersionRef` obsoleta en conflicto CAS** — si `loadDataWithVersion` fallaba durante la resolución de un conflicto, el `.catch(() => {})` silencioso dejaba la versión antigua en el ref. El siguiente save enviaba la versión incorrecta al RPC. Ahora el catch setea `dataVersionRef.current = null` para que el próximo save use `saveWithRetry` como fallback seguro.
+- **VAPID fallback incorrecto** — la clave pública hardcodeada era `BJ9sW…` (par viejo, sin clave privada en Supabase). Las notificaciones fallaban silenciosamente en entornos sin `VITE_VAPID_PUBLIC_KEY`. Actualizada al par activo `BCoIIBd…`.
+- **`seriesId` perdido en roundtrip normalized** — `missionRowToBlob` leía `row.series_id` (columna inexistente); `insertNormalizedMission` no escribía el nanoid de serie. Corregido: escribe `series_blob_id: m.seriesId` y lee `row.series_blob_id`. **Pendiente Externo:** `ALTER TABLE missions ADD COLUMN series_blob_id text;` para que el roundtrip complete.
+
+---
+
 ## [4.0.1] — 2026-05-26 · Fix crítico loadData
 
 ### Bugs corregidos

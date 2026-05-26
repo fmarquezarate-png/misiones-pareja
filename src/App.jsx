@@ -423,9 +423,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setTimeout(() => setPushNudgeVisible(false), 8000);
       }
       setData(() => remoteData);
-    }, {
-      hasPendingSave: () => pendingSave || !!saveTimerRef.current,
-    });
+    }, () => pendingSave || !!saveTimerRef.current);
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
@@ -529,6 +527,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
         const doSaveWithRetry = () => {
           saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
             .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
@@ -549,7 +548,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
               loadData(coupleId).then(fresh => {
                 if (fresh && isValidAppData(fresh)) {
                   setData(fresh);
-                  loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => {});
+                  loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => { dataVersionRef.current = null; });
                 }
               }).catch(() => {});
               setSavingState("idle");

@@ -226,7 +226,7 @@ function missionRowToBlob(row) {
     time:           row.time ?? null,
     reminder:       row.reminder ?? null,
     goalId:         row.goal_id ?? null,
-    seriesId:       row.series_id ?? null,
+    seriesId:       row.series_blob_id ?? null,
     seriesPattern:  row.series_pattern ?? null,
     seriesEndDate:  row.series_end_date ? String(row.series_end_date) : null,
     carriedFrom:    row.carried_from ?? null,

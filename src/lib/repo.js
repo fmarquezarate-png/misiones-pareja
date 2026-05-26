@@ -156,6 +156,7 @@ export async function insertNormalizedMission(coupleId, weekKey, weekNumber, yea
     date:             m.date ?? null,
     time:             m.time ?? null,
     reminder:         m.reminder !== "none" ? (m.reminder ?? null) : null,
+    series_blob_id:   m.seriesId ?? null,
     series_pattern:   m.seriesPattern ?? null,
     series_end_date:  m.seriesEndDate ? m.seriesEndDate : null,
     carried_from_week: m.carriedFromWeek ?? null,
