@@ -26,10 +26,12 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
-  const compressAvatar = (file) => new Promise(resolve => {
+  const compressAvatar = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo de imagen"));
     reader.onload = e => {
       const img = new Image();
+      img.onerror = () => reject(new Error("Formato de imagen no válido"));
       img.onload = () => {
         const size = 180;
         const canvas = document.createElement("canvas");
@@ -47,9 +49,14 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
 
   const handlePhoto = async (key, e) => {
     const file = e.target.files?.[0]; if (!file) return;
-    const b64 = await compressAvatar(file);
-    setPhotos(p=>({...p,[key]:b64}));
-    e.target.value = "";
+    try {
+      const b64 = await compressAvatar(file);
+      setPhotos(p=>({...p,[key]:b64}));
+    } catch (err) {
+      console.warn("[avatar]", err.message);
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const requestNotifPermission = async () => {

@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.7] — 2026-05-26 · Fix avatar hang + GoalsView crash con datos legacy
+
+### Bugs corregidos
+
+- **`compressAvatar` Promise sin reject** (P1) — Si el archivo de imagen subido para el avatar estaba corrupto o en formato no válido, `img.onerror` nunca se disparaba y el Promise nunca resolvía ni rechazaba. La UI se quedaba colgada indefinidamente: el input de foto no se reseteaba y `setPhotos` nunca se llamaba. Fix: `new Promise((resolve, reject) => ...)` con `img.onerror` y `reader.onerror` que llaman a `reject`; el `handlePhoto` wrappea en `try/catch/finally` para siempre limpiar el input.
+- **`form.title.trim()` crash con datos legacy** (P0 defensivo) — Si un goal antiguo tenía `title: undefined` (datos corruptos o migrados sin campo), `openEdit` establecía `form.title = undefined`, y `form.title.trim()` en la función `save` lanzaba `TypeError`. Fix: `form.title?.trim()` con optional chaining.
+
+---
+
 ## [4.0.6] — 2026-05-26 · Fix crítico realtime guard + 2 fixes defensivos
 
 ### Bugs corregidos
