@@ -543,7 +543,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         isSavingRef.current = true;
         const doSaveWithRetry = () => {
           saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
-            .then(() => { isSavingRef.current = false; setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
+            .then(() => {
+              isSavingRef.current = false;
+              setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000);
+              // Resync version: doSaveWithRetry bypasses CAS so the DB trigger incremented the version
+              // without our knowledge. Without a resync the next CAS save sends a stale version,
+              // gets a false conflict, downloads old data and silently discards the user's change.
+              loadDataWithVersion(coupleId)
+                .then(({ version }) => { dataVersionRef.current = version ?? null; })
+                .catch(() => { dataVersionRef.current = null; });
+            })
             .catch(e => { isSavingRef.current = false; setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
         };
 

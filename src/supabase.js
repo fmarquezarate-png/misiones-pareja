@@ -201,12 +201,12 @@ export async function loadDataWithVersion(coupleId) {
       .select("data, version")
       .eq("id", coupleId)
       .limit(1);
-    if (error) { console.error("loadDataWithVersion error:", error.message); return { data: null, version: 0 }; }
+    if (error) { console.error("loadDataWithVersion error:", error.message); return { data: null, version: null }; }
     const row = rows?.[0];
-    return { data: row?.data ?? null, version: row?.version ?? 0 };
+    return { data: row?.data ?? null, version: row?.version ?? null };
   } catch (e) {
     console.error("loadDataWithVersion exception:", e);
-    return { data: null, version: 0 };
+    return { data: null, version: null };
   }
 }
 

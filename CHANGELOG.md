@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.9] — 2026-05-26 · Fix crítico: cambios no se guardaban (CAS versión stale)
+
+### Bugs corregidos
+
+- **`doSaveWithRetry` dejaba `dataVersionRef` obsoleto** (P0) — Cuando el CAS fallaba por cualquier motivo (red, error de RPC, `dataVersionRef = null` al startup), el sistema caía al path `doSaveWithRetry` que sí guardaba los datos en DB. Pero el trigger `bump_app_data_version` incrementaba la versión en DB sin que el cliente lo supiera. El siguiente intento de save usaba la versión vieja → el nuevo `save_app_data_cas` con `FOR UPDATE` detectaba correctamente el mismatch → devolvía NULL → el cliente lo interpretaba como conflicto real → descargaba datos viejos de DB → **descartaba silenciosamente el cambio del usuario**. Fix: después de cada `doSaveWithRetry` exitoso, se recarga la versión real con `loadDataWithVersion`. Si la recarga falla, `dataVersionRef = null` → el próximo save usa `doSaveWithRetry` otra vez (path seguro, no CAS).
+- **`loadDataWithVersion` devolvía `version: 0` en error** (P1) — En error de red o excepción, la función devolvía `{ version: 0 }`, indistinguible de un usuario nuevo con `app_data` recién creada. Para usuarios existentes (DB version > 0), `saveWithCAS(..., 0)` fallaba inmediatamente con conflicto. Ahora devuelve `{ version: null }` en error → la condición `dataVersionRef.current !== null` en App.jsx lo detecta y usa `doSaveWithRetry` en lugar de CAS.
+
+---
+
 ## [4.0.8] — 2026-05-26 · Carryover fix + snapshots + push CORS
 
 ### Bugs corregidos
