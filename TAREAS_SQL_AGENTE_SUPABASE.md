@@ -7,6 +7,36 @@
 
 ---
 
+## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.5+)
+
+### S-3 · Columna `carried_from_blob_id` en la tabla `missions` (NUEVO)
+
+**Prioridad:** P1. Con `read_from_normalized: true`, las misiones de carryover pierden su vínculo al original. `missionRowToBlob` lee `carriedFrom: row.carried_from ?? null`; como `carried_from` (UUID) nunca se escribe en `insertNormalizedMission` (requiere lookup), `carriedFrom` siempre es null. Resultado: cuando el usuario completa una misión arrastrada, `syncCarryDone` no puede marcar el original como completado.
+
+**Contexto:** El campo `m.carriedFrom` en el blob es un nanoid (no UUID). No se puede insertar directamente en `carried_from` (UUID column). La solución es una columna texto permanente que guarda el nanoid, igual que `blob_id` para `id` y `series_blob_id` para `seriesId`.
+
+```sql
+ALTER TABLE public.missions
+  ADD COLUMN IF NOT EXISTS carried_from_blob_id text;
+
+CREATE INDEX IF NOT EXISTS idx_missions_carried_from_blob_id
+  ON public.missions (carried_from_blob_id)
+  WHERE carried_from_blob_id IS NOT NULL;
+```
+
+**Verificar después:**
+```sql
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_name = 'missions' AND column_name = 'carried_from_blob_id';
+-- Debe devolver 1 fila
+```
+
+**Nota:** Tras confirmar la columna, el equipo actualiza:
+1. `insertNormalizedMission` en repo.js: añadir `carried_from_blob_id: m.carriedFrom ?? null`
+2. `missionRowToBlob` en supabase.js: cambiar `carriedFrom: row.carried_from ?? null` → `carriedFrom: row.carried_from_blob_id ?? row.carried_from ?? null`
+
+---
+
 ## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.3)
 
 ### S-1 · Añadir columna `series_blob_id` a la tabla `missions`
