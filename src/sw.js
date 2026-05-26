@@ -33,11 +33,13 @@ self.addEventListener('push', event => {
   let payload;
   try { payload = event.data.json(); } catch { payload = {}; }
   const {
-    title = 'Misiones de Pareja',
-    body  = 'Tu pareja hizo cambios en la app',
+    title: rawTitle = 'Misiones de Pareja',
+    body:  rawBody  = 'Tu pareja hizo cambios en la app',
     tag   = 'mp-push',
     url   = '/',
   } = payload;
+  const title = typeof rawTitle === 'string' ? rawTitle.slice(0, 100) : 'Misiones de Pareja';
+  const body  = typeof rawBody  === 'string' ? rawBody.slice(0, 300)  : 'Tu pareja hizo cambios en la app';
 
   event.waitUntil(
     self.registration.showNotification(title, {
@@ -53,7 +55,9 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const rawUrl = event.notification.data?.url || '/';
+  // Only allow same-origin or relative URLs — prevent open redirect via compromised push payload
+  const targetUrl = (rawUrl.startsWith('/') || rawUrl.startsWith(self.location.origin)) ? rawUrl : '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const c of list) {

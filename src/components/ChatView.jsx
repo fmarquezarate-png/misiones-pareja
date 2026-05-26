@@ -27,14 +27,17 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const MAX_MSG = 2000;
+
   const send = async () => {
-    if (!input.trim() || sending) return;
-    setSending(true);
     const msgText = input.trim();
+    if (!msgText || sending) return;
+    if (msgText.length > MAX_MSG) return;
+    setSending(true);
     try {
       await sendMessage(coupleId, personName, msgText);
       setInput("");
-      sendContextualPush(coupleId, { body: `${personName}: ${msgText.slice(0, 80)}`, tag: "mp-chat" }, sessionUserId);
+      setTimeout(() => sendContextualPush(coupleId, { body: `${personName}: ${msgText.slice(0, 80)}`, tag: "mp-chat" }, sessionUserId), 1500);
     } catch (e) { console.warn("send err", e); }
     finally { setSending(false); }
   };
@@ -70,15 +73,22 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
         <div ref={bottomRef} />
       </div>
       <div style={{ borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.1))", paddingTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
-          placeholder="Escribe un mensaje..."
-          style={{ ...S.input, flex: 1 }}
-          autoComplete="off"
-        />
-        <button onClick={send} disabled={sending || !input.trim()}
+        <div style={{ flex: 1, position: "relative" }}>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value.slice(0, MAX_MSG))}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
+            placeholder="Escribe un mensaje..."
+            style={{ ...S.input, width: "100%", boxSizing: "border-box" }}
+            autoComplete="off"
+          />
+          {input.length > MAX_MSG * 0.8 && (
+            <div style={{ position: "absolute", right: 6, bottom: -16, fontSize: 10, color: input.length >= MAX_MSG ? "#f87171" : "var(--t-text-dim,#3d3360)" }}>
+              {input.length}/{MAX_MSG}
+            </div>
+          )}
+        </div>
+        <button onClick={send} disabled={sending || !input.trim() || input.length > MAX_MSG}
           style={{ ...S.btnPrimary, padding: "10px 16px", flexShrink: 0, minWidth: 44 }}>
           {sending ? "⏳" : "➤"}
         </button>

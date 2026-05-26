@@ -7,6 +7,59 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.5] — 2026-05-26 · Hardening: push toggle, chat, payload validation, stubs
+
+### Bugs corregidos
+
+- **`handlePushToggle` no revertía estado en error** — si `subscribePush` o `unsubscribePush` fallaba, `pushSubscribed` quedaba en el estado incorrecto (UI mostraba activado pero el navegador no tenía suscripción real, o viceversa). Ahora se captura `wasPushSubscribed` antes de la operación y se revierte en el `catch`.
+- **`cycleStatusGlobal` sin push** — la función de ciclo de estado para semanas pasadas (historial) no enviaba notificación push al completar misiones. Ahora incluye el mismo `sendContextualPush` con delay 1500ms que `cycleStatus` de la semana actual.
+- **`ChatView` push sin delay** — `sendContextualPush` en el chat disparaba sin delay; aunque el mensaje de chat va directo a DB (no al blob), se unifica el patrón de 1500ms para consistencia y tolerancia a latencia de red.
+- **`ChatView` sin límite de longitud** — un mensaje muy largo podía romper la columna en DB (`content text` tiene límite implícito). Ahora hay límite de 2000 chars enforceado en input (`slice`) con contador visual al 80%.
+- **`isPushSupported()` sin check HTTPS** — en HTTP (o iframe embedido), la Push API no está disponible aunque `'PushManager' in window` devuelva `true`. `subscribePush` fallaba con error críptico del navegador. El check HTTPS hace el diagnóstico correcto antes de intentar la suscripción.
+- **`subscribePush` VAPID truncado** — si `VITE_VAPID_PUBLIC_KEY` está mal configurada o truncada, `urlBase64ToUint8Array` producía un array inválido con error críptico de `DOMException`. La validación de longitud mínima (87 chars) da un mensaje de error claro antes del crash.
+- **`sw.js` push payload sin validar** — si el payload llegaba con `title` o `body` no-string (null, número, objeto), `showNotification` podía comportarse de forma imprevisible. Ahora se valida tipo string y se trunca a 100/300 chars.
+- **`loadFromNormalized` stub de semana incompleto** — cuando una semana existía en la tabla `missions` pero no en el blob, se creaba con solo `weekNumber/year/missions`. Los componentes que asumen `epicObjective`, `workHours` o `label` recibían `undefined`. Ahora el stub incluye todos los campos con valores por defecto.
+
+---
+
+## [4.0.4] — 2026-05-26 · Fix telemetría + series_blob_id completo
+
+### Bugs corregidos
+
+- **Telemetría completamente muerta desde v3.4.0** — `track.js` hacía flush con `user_id: null` antes de que `setTrackContext()` fuera llamado. La RLS de la tabla `events` (`WITH CHECK: user_id = auth.uid()`) rechazaba silenciosamente cada INSERT. Confirmado por Externo: la policy `events_insert_own` era correcta desde siempre. El problema era el cliente. Fix: `flush()` ahora comprueba `if (!userId || !coupleId)` y reintenta en 3s en lugar de enviar y perder los eventos. **La telemetría real está operativa desde esta versión.**
+- **S-1 completo (Externo):** columna `series_blob_id text NULL` añadida a `missions`. `insertNormalizedMission` ya la escribe (v4.0.2) y `missionRowToBlob` ya la lee (v4.0.2). El roundtrip completo de series recurrentes por la tabla normalizada ya está disponible.
+
+---
+
+## [4.0.3] — 2026-05-26 · Scan completo: 9 bugs de raíz (datos, push, seguridad)
+
+### Bugs corregidos (raíz)
+
+- **`goalRowToBlob` UUID vs nanoid** — devolvía `row.id` (UUID del DB) en lugar de `row.blob_id` (nanoid del blob). Con `read_from_normalized: true`, toda vinculación misión↔meta se rompía: el campo `goalId` de una misión (nanoid) nunca coincidía con el `id` de la meta cargada (UUID). Las barras de progreso de metas, el drill-down y la telemetría `mission_completed.hasGoal` devolvían siempre falso.
+- **Race condition en save in-flight** — `saveTimerRef.current = null` (v4.0.2) se limpiaba cuando el timer de 700ms disparaba, pero el `saveWithCAS`/`saveWithRetry` async seguía corriendo. `hasPendingSave()` devolvía `false` en esa ventana, permitiendo a realtime sobreescribir el save en vuelo. Nuevo `isSavingRef.current = true` mientras dura la operación; se limpia en cada `.then()` y `.catch()`.
+- **`isValidAppData` no validaba goals** — un array corrupto (`goals: "string"`) pasaba la validación y crasheaba en `.map()` en GoalsView y StatsView.
+- **`handleImport` no recargaba versión CAS** — tras importar un backup, `dataVersionRef` quedaba en el valor pre-import. El siguiente guardado enviaba la versión incorrecta al RPC y obtenía un conflicto falso.
+- **`sendContextualPush` prematuro** — las llamadas en `addMission` y `cycleStatus` disparaban el push inmediatamente tras `patchWeek()`, 700ms antes de que el blob se guardara en DB. El partner recibía la notificación, abría la app y veía datos desactualizados. Ahora retraso de 1500ms.
+- **Open redirect en service worker** — `clients.openWindow(targetUrl)` aceptaba URLs externas del payload del push sin validación. Un payload comprometido podía abrir `https://sitio-malicioso.com`. Ahora solo se permiten URLs relativas o del mismo origen.
+- **`getCurrentSubscription()` podía colgarse** — `navigator.serviceWorker.ready` nunca rechaza si el SW falla; el Promise colgaba indefinidamente bloqueando el estado del toggle de push. Añadido timeout de 5 segundos.
+- **`unsubscribePush` error silencioso** — el `.delete()` de Supabase no chequeaba errores; si fallaba (RLS, red), la suscripción quedaba huérfana en DB con `enabled: true`. Ahora se loguea el error con `console.warn`.
+- **`notifGranted` no se actualizaba mid-session** — si el usuario concedía/denegaba permiso desde el diálogo del navegador sin recargar, el estado React no cambiaba. Los recordatorios y briefing podían estar activos/inactivos sin reflejar el permiso real. Añadido listener `permissionchange`.
+- **Push nudge dismiss solo en memoria** — `pushNudgeDismissRef` era un `useRef(false)`; al recargar la app, el dismiss se perdía y el nudge reaparecía. Ahora persiste en `localStorage` con clave `mp-push-nudge-dismissed`.
+
+---
+
+## [4.0.2] — 2026-05-26 · Bug scan: realtime, CAS, VAPID, series
+
+### Bugs corregidos (raíz)
+
+- **Realtime guard nunca activo** — `subscribeToUpdates` recibía `{hasPendingSave: () => ...}` (objeto) en lugar de una función directa. `typeof hasPendingSave === 'function'` devolvía `false` siempre, el guard se ignoraba y actualizaciones del partner pisaban cambios locales no guardados. Corregido pasando la función directamente: `() => pendingSave || !!saveTimerRef.current`.
+- **`saveTimerRef` sucia tras el timer** — cuando el `setTimeout` de 700ms disparaba, `saveTimerRef.current` seguía apuntando al ID expirado. `hasPendingSave()` devolvía `true` incorrectamente y bloqueaba actualizaciones realtime posteriores durante toda la sesión. Añadido `saveTimerRef.current = null` al inicio del callback.
+- **`dataVersionRef` obsoleta en conflicto CAS** — si `loadDataWithVersion` fallaba durante la resolución de un conflicto, el `.catch(() => {})` silencioso dejaba la versión antigua en el ref. El siguiente save enviaba la versión incorrecta al RPC. Ahora el catch setea `dataVersionRef.current = null` para que el próximo save use `saveWithRetry` como fallback seguro.
+- **VAPID fallback incorrecto** — la clave pública hardcodeada era `BJ9sW…` (par viejo, sin clave privada en Supabase). Las notificaciones fallaban silenciosamente en entornos sin `VITE_VAPID_PUBLIC_KEY`. Actualizada al par activo `BCoIIBd…`.
+- **`seriesId` perdido en roundtrip normalized** — `missionRowToBlob` leía `row.series_id` (columna inexistente); `insertNormalizedMission` no escribía el nanoid de serie. Corregido: escribe `series_blob_id: m.seriesId` y lee `row.series_blob_id`. **Pendiente Externo:** `ALTER TABLE missions ADD COLUMN series_blob_id text;` para que el roundtrip complete.
+
+---
+
 ## [4.0.1] — 2026-05-26 · Fix crítico loadData
 
 ### Bugs corregidos

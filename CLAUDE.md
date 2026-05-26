@@ -10,7 +10,7 @@
 **Misiones de Pareja** — PWA de planificación semanal para parejas (React 18 + Vite 5 + Supabase + Netlify). Single page, sin router, datos compartidos por `coupleId`. Persistencia: blob JSON en `app_data.data` + dual-write a tablas normalizadas (Sprint G en curso).
 
 - **Versión actual:** ver `src/constants.js → APP_VERSION`
-- **Branch activo:** `claude/debug-app-issues-rVPzI`
+- **Branch activo:** `claude/modest-heisenberg-zB9mn`
 - **Doc detallado:** [`README.md`](./README.md), [`CHANGELOG.md`](./CHANGELOG.md)
 
 ---
@@ -90,6 +90,7 @@ El proyecto se trabaja por roles que dialogan en cada sesión. Cada agente tiene
 | **UI/UX** | Filtro de "Marta en la línea 5" | [`docs/agents/ui-ux.md`](./docs/agents/ui-ux.md) |
 | **Redactor** | Documenta cada cambio en CHANGELOG | [`docs/agents/redactor.md`](./docs/agents/redactor.md) |
 | **Externo (Supabase)** | Operario SQL/RLS/Edge Functions en consola Supabase | [`docs/agents/externo-supabase.md`](./docs/agents/externo-supabase.md) |
+| **Scanner** | Scan sistemático de bugs con agentes paralelos; triaje P0/P1/P2 | [`docs/agents/scanner.md`](./docs/agents/scanner.md) |
 
 ### Distribución de trabajo (regla de oro del Coordinador)
 - **Equipo** (agentes Claude) resuelve la mayor cantidad posible
@@ -119,6 +120,10 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 | `<ConfirmDialog />` declarado via `useConfirm()` pero nunca renderizado en JSX — `confirm()` invocaba el hook pero no mostraba UI. Los diálogos "¿Eliminar esta tarea?" y "¿Eliminar este logro?" ejecutaban el borrado sin confirmación visible desde v3.5+. | `useConfirm()` devuelve `{ confirm, ConfirmDialog }`. **`ConfirmDialog` debe renderizarse en el JSX del mismo componente** que llama al hook. ESLint `no-unused-vars` lo atrapa si se olvida. Ejemplo correcto: añadir `<ConfirmDialog />` al final del return del componente. |
 | `read_from_normalized: true` con tabla `missions` congelada en backfill (20/05) → semanas posteriores al backfill aparecen vacías. El fallback de v3.8.24 (tabla con 0 filas) no cubre tabla con datos obsoletos. | `read_from_normalized` → **`false` permanente** hasta que exista sync servidor real. La tabla `missions` es analytics futura, no fuente de verdad. Documentado abajo en sección 7. |
 | `saveWithCAS` corría en paralelo con `saveWithRetry` — aunque el CAS detectase conflicto, el save normal sobreescribía igualmente. El flag `cas_version_check: true` era decorativo. Confirmado por 2 misiones reales perdidas del blob (26/05/2026). | `saveWithCAS` debe ser el único save cuando CAS está activo — `saveWithRetry` solo corre en el `else` (flag off, versión null, o error de red). Control flow corregido en v3.9.6. Regla: nunca ejecutar dos paths de save en paralelo. |
+| `goalRowToBlob` devolvía `row.id` (UUID de la tabla) en lugar de `row.blob_id` (nanoid) — con `read_from_normalized: true`, toda la vinculación misión↔meta se rompía silenciosamente (v4.0.0 a v4.0.2). Las barras de progreso y `hasGoal` en telemetría siempre devolvían falso. | `goalRowToBlob` debe mapear `id: row.blob_id ?? row.id`. Mismo patrón que `missionRowToBlob`. Regla: **cualquier función `*RowToBlob` debe usar `blob_id` como `id`**, no el UUID del DB. |
+| `saveTimerRef.current = null` se limpiaba cuando el timer de 700ms disparaba, antes de que el `saveWithCAS`/`saveWithRetry` async terminase. `hasPendingSave()` devolvía `false` en esa ventana → realtime podía sobreescribir un save en vuelo. | Nuevo `isSavingRef.current = true` al inicio del callback; se limpia en cada `.then()` y `.catch()` de todos los paths de save. `hasPendingSave()` = `pendingSave \|\| !!saveTimerRef.current \|\| isSavingRef.current`. |
+| `sendContextualPush` disparaba inmediatamente tras `patchWeek()`, 700ms antes de que el blob llegase a DB. Partner recibía la notificación, abría la app y veía datos desactualizados. | Todas las llamadas a `sendContextualPush` en mutaciones del blob tienen `setTimeout(..., 1500)` — cubre el debounce de 700ms más el tiempo de red del save. |
+| v4.0.0 se lanzó sin verificar que v3.x funcionara correctamente en producción. Bugs acumulados de v4.0.0 a v4.0.3: `goalRowToBlob`, `saveTimerRef` race, `isValidAppData` goals, `handleImport` CAS, push timing, open redirect, SW hang, nudge dismiss. | **Regla de QA**: antes de cambiar cualquier flag de arquitectura (`read_from_normalized`, `dual_write_normalized`, `cas_version_check`), ejecutar el Scanner para verificar que los paths de lectura/escritura que usa el flag no tengan bugs activos. No flipear flags sin Scanner sign-off. |
 
 ---
 

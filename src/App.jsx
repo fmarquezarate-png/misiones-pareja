@@ -14,7 +14,7 @@ import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
 import AddMissionForm from "./components/AddMissionForm.jsx";
 import MissionCard from "./components/MissionCard.jsx";
-import { track, setTrackContext } from "./lib/track.js";
+import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus } from "./lib/repo.js";
 
@@ -91,7 +91,7 @@ export default function AppWithAuth() {
     return () => sub.unsubscribe();
   }, []);
 
-  const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); signOut(); };
+  const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); clearTrackContext(); signOut(); };
 
   if (authStep === "checking") return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
@@ -117,6 +117,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const saveTimerRef    = useRef(null);
+  const isSavingRef     = useRef(false); // true while async save is in-flight
   const dataRef         = useRef(null);
   const dataVersionRef  = useRef(null); // null = version not yet loaded from DB
   const [activeTab,       setActiveTab]       = useState("home");
@@ -141,7 +142,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [notifGranted, _setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
   const notifSettingsRef    = useRef(null);
   const pushSubscribedRef   = useRef(false);
-  const pushNudgeDismissRef = useRef(false);
+  const pushNudgeDismissRef = useRef(localStorage.getItem("mp-push-nudge-dismissed") === "true");
   const [pushSubscribed,   setPushSubscribed]   = useState(false);
   const [pushLoading,      setPushLoading]      = useState(false);
   const [pushError,        setPushError]        = useState(null);
@@ -338,6 +339,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const tutorialFinish = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); setActiveTab("home"); };
   const tutorialSkip   = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); };
 
+  // Sync notifGranted if user grants/denies permission mid-session
+  useEffect(() => {
+    if (typeof Notification === "undefined" || !Notification.addEventListener) return;
+    const handler = () => _setNotifGranted(Notification.permission === "granted");
+    Notification.addEventListener("permissionchange", handler);
+    return () => Notification.removeEventListener("permissionchange", handler);
+  }, []);
+
   // Keep notifSettingsRef current for use inside async callbacks
   useEffect(() => { notifSettingsRef.current = data?.settings?.notifications; }, [data?.settings?.notifications]);
 
@@ -423,9 +432,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setTimeout(() => setPushNudgeVisible(false), 8000);
       }
       setData(() => remoteData);
-    }, {
-      hasPendingSave: () => pendingSave || !!saveTimerRef.current,
-    });
+    }, () => pendingSave || !!saveTimerRef.current || isSavingRef.current);
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
@@ -457,7 +464,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         loadData(coupleId).then(fresh => {
           if (fresh && isValidAppData(fresh)) {
             setData(fresh);
-            loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => {});
+            loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => { dataVersionRef.current = null; });
           }
         }).catch(() => {});
       }
@@ -494,6 +501,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   }, [pushSupported]);
   useEffect(() => { pushSubscribedRef.current = pushSubscribed; }, [pushSubscribed]);
   const handlePushToggle = async () => {
+    const wasPushSubscribed = pushSubscribed;
     setPushLoading(true);
     setPushError(null);
     try {
@@ -505,6 +513,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setPushSubscribed(true);
       }
     } catch (e) {
+      setPushSubscribed(wasPushSubscribed);
       const msg = e.message || 'Error al cambiar estado de notificaciones';
       setPushError(msg);
       pushToast({ kind: "error", text: msg });
@@ -529,10 +538,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        isSavingRef.current = true;
         const doSaveWithRetry = () => {
           saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
-            .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
-            .catch(e => { setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
+            .then(() => { isSavingRef.current = false; setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
+            .catch(e => { isSavingRef.current = false; setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
         };
 
         // CAS: solo activo si el flag está ON y la versión ya fue cargada de DB.
@@ -540,16 +551,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (isEnabled("cas_version_check") && dataVersionRef.current !== null) {
           saveWithCAS(coupleId, next, dataVersionRef.current).then(result => {
             if (result.success) {
+              isSavingRef.current = false;
               dataVersionRef.current = result.newVersion;
               setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000);
             } else if (result.conflict) {
+              isSavingRef.current = false;
               // Conflicto real: otro cliente guardó primero. NO sobreescribir.
               track("cas_conflict", { couple_id: coupleId });
               pushToast({ kind: "error", text: "⚠ Conflicto: tu pareja guardó al mismo tiempo. Cargando su versión — revisa si falta algún cambio tuyo." });
               loadData(coupleId).then(fresh => {
                 if (fresh && isValidAppData(fresh)) {
                   setData(fresh);
-                  loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => {});
+                  loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => { dataVersionRef.current = null; });
                 }
               }).catch(() => {});
               setSavingState("idle");
@@ -616,6 +629,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     try {
       const imported = await importData(file);
       update(() => imported);
+      // Delay version reload until after debounce+save (700ms) so we read the post-import version
+      if (coupleId) {
+        setTimeout(() => {
+          loadDataWithVersion(coupleId)
+            .then(({ version }) => { dataVersionRef.current = version; })
+            .catch(() => { dataVersionRef.current = null; });
+        }, 1200);
+      }
       setImportMsg("✅ Datos restaurados correctamente");
       setTimeout(() => setImportMsg(null), 2500);
     } catch (err) { setImportMsg("❌ " + err.message); setTimeout(() => setImportMsg(null), 3500); }
@@ -638,7 +659,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), mission] }));
     insertNormalizedMission(coupleId, wkey, data.currentWeekNumber, data.currentYear, mission).catch(e => console.error("[dual_write] insert:", e));
-    sendContextualPush(coupleId, { body:`${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId);
+    // Delay push until after the 700ms debounce + save completes so partner data is ready
+    setTimeout(() => sendContextualPush(coupleId, { body:`${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId), 1500);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -656,7 +678,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
-    if (nx === "DONE" && mCur) sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId);
+    if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
   };
@@ -696,6 +718,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     });
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
+    if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const key = isoWeekKey(wn, yr);
@@ -888,7 +911,7 @@ ${sorted.map(m=>{
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
             <button onClick={async () => { setPushNudgeVisible(false); await handlePushToggle(); }} style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, fontFamily:"inherit", whiteSpace:"nowrap" }}>Activar</button>
-            <button onClick={() => { setPushNudgeVisible(false); pushNudgeDismissRef.current = true; }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0" }}>Ahora no</button>
+            <button onClick={() => { setPushNudgeVisible(false); pushNudgeDismissRef.current = true; localStorage.setItem("mp-push-nudge-dismissed", "true"); }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0" }}>Ahora no</button>
           </div>
         </div>
       )}

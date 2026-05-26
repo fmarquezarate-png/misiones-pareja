@@ -23,7 +23,8 @@ export function isPushSupported() {
   return typeof window !== 'undefined'
     && 'serviceWorker' in navigator
     && 'PushManager' in window
-    && 'Notification' in window;
+    && 'Notification' in window
+    && (location.protocol === 'https:' || location.hostname === 'localhost');
 }
 
 export function getPermissionStatus() {
@@ -33,12 +34,18 @@ export function getPermissionStatus() {
 
 export async function getCurrentSubscription() {
   if (!isPushSupported()) return null;
-  const reg = await navigator.serviceWorker.ready;
+  // navigator.serviceWorker.ready never rejects — guard with 5s timeout
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 5000)),
+  ]).catch(() => null);
+  if (!reg) return null;
   return reg.pushManager.getSubscription();
 }
 
 export async function subscribePush(coupleId) {
   if (!VAPID_PUBLIC_KEY) throw new Error('VAPID_PUBLIC_KEY no configurada');
+  if (VAPID_PUBLIC_KEY.length < 87) throw new Error('VAPID_PUBLIC_KEY inválida — verifica la variable de entorno VITE_VAPID_PUBLIC_KEY');
 
   // Solo pedir permiso si aún no fue concedido — preserva el contexto de gesto
   // de usuario para la llamada a pushManager.subscribe() que viene después.
@@ -88,7 +95,8 @@ export async function unsubscribePush() {
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return;
 
-  await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+  const { error: delErr } = await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+  if (delErr) console.warn('[push] unsubscribe: DB delete failed (orphan may remain):', delErr.message);
   await sub.unsubscribe();
 }
 

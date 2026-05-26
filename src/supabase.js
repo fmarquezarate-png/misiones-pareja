@@ -226,7 +226,7 @@ function missionRowToBlob(row) {
     time:           row.time ?? null,
     reminder:       row.reminder ?? null,
     goalId:         row.goal_id ?? null,
-    seriesId:       row.series_id ?? null,
+    seriesId:       row.series_blob_id ?? null,
     seriesPattern:  row.series_pattern ?? null,
     seriesEndDate:  row.series_end_date ? String(row.series_end_date) : null,
     carriedFrom:    row.carried_from ?? null,
@@ -239,7 +239,7 @@ function missionRowToBlob(row) {
 
 function goalRowToBlob(row) {
   return {
-    id:        row.id,
+    id:        row.blob_id ?? row.id,
     title:     row.title,
     emoji:     row.emoji ?? null,
     who:       row.who,
@@ -296,7 +296,7 @@ export async function loadFromNormalized(coupleId) {
   for (const row of missionRows) {
     const wkey = row.week_key;
     if (!weeks[wkey]) {
-      weeks[wkey] = { weekNumber: row.week_number, year: row.year, missions: [] };
+      weeks[wkey] = { weekNumber: row.week_number, year: row.year, label: "", epicObjective: "", workHours: { person1: 0, person2: 0 }, createdAt: Date.now(), missions: [] };
     }
     weeks[wkey].missions.push(missionRowToBlob(row));
   }
@@ -342,7 +342,10 @@ export async function saveData(appData, coupleId) {
 }
 
 export function isValidAppData(d) {
-  return !!(d && typeof d === "object" && d.weeks && typeof d.weeks === "object" && d.settings);
+  return !!(d && typeof d === "object" &&
+    d.weeks && typeof d.weeks === "object" &&
+    d.settings && typeof d.settings === "object" &&
+    (!d.goals || Array.isArray(d.goals)));
 }
 
 /**
