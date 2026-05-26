@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.6] — 2026-05-26 · Fix crítico realtime guard + 2 fixes defensivos
+
+### Bugs corregidos
+
+- **`pendingSave` stale closure en `subscribeToUpdates`** (P1) — La función de guard `() => pendingSave || !!saveTimerRef.current || isSavingRef.current` se creaba una sola vez al montar la suscripción (efecto con `[coupleId]`) y capturaba `pendingSave = false` del closure inicial. Cambios posteriores de `pendingSave` nunca se reflejaban: la parte de estado siempre era `false`. Los refs (`saveTimerRef`, `isSavingRef`) sí funcionaban correctamente porque son mutables. El guard parcialmente roto significaba que realtime podía sobreescribir saves en vuelo si solo `pendingSave` era `true` (sin timer ni isSaving activos). Fix: nuevo `pendingSaveRef` sincronizado via `useEffect([pendingSave])`.
+- **`getSession()` sin `.catch()`** (P1) — Si la sesión inicial fallaba por error de red o CORS, el Promise rechazaba sin handler y la app quedaba congelada en pantalla `checking` indefinidamente. Fix: `.catch(() => resolve(null))` redirige al login limpiamente.
+- **`missionRows` null en `loadFromNormalized`** (defensive) — Supabase puede devolver `{ data: null, error: null }` en edge cases de RLS o vacíos; `null.length` crasheaba en la comparación del safety check. Fix: `!missionRows || missionRows.length === 0`.
+
+---
+
 ## [4.0.5] — 2026-05-26 · Hardening: push toggle, chat, payload validation, stubs
 
 ### Bugs corregidos

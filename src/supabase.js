@@ -277,7 +277,7 @@ export async function loadFromNormalized(coupleId) {
   const blobMissionCount = Object.values(blob.weeks ?? {}).reduce(
     (sum, w) => sum + (w.missions?.length ?? 0), 0
   );
-  if (missionRows.length === 0 && blobMissionCount > 0) {
+  if ((!missionRows || missionRows.length === 0) && blobMissionCount > 0) {
     console.warn(`[loadFromNormalized] tabla missions vacía pero blob tiene ${blobMissionCount} misiones → fallback a blob`);
     return blob;
   }

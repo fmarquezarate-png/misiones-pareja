@@ -86,7 +86,7 @@ export default function AppWithAuth() {
         setAuthStep("onboarding");
       }
     };
-    getSession().then(resolve);
+    getSession().then(resolve).catch(() => resolve(null));
     const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
   }, []);
@@ -118,6 +118,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [loading, setLoading] = useState(true);
   const saveTimerRef    = useRef(null);
   const isSavingRef     = useRef(false); // true while async save is in-flight
+  const pendingSaveRef  = useRef(false); // ref mirror of pendingSave state for stale-closure safety
   const dataRef         = useRef(null);
   const dataVersionRef  = useRef(null); // null = version not yet loaded from DB
   const [activeTab,       setActiveTab]       = useState("home");
@@ -432,9 +433,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setTimeout(() => setPushNudgeVisible(false), 8000);
       }
       setData(() => remoteData);
-    }, () => pendingSave || !!saveTimerRef.current || isSavingRef.current);
+    }, () => pendingSaveRef.current || !!saveTimerRef.current || isSavingRef.current);
     return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coupleId]);
 
   // Keep dataRef in sync so visibilitychange handler always has fresh data
@@ -500,6 +500,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     getCurrentSubscription().then(sub => setPushSubscribed(!!sub));
   }, [pushSupported]);
   useEffect(() => { pushSubscribedRef.current = pushSubscribed; }, [pushSubscribed]);
+  useEffect(() => { pendingSaveRef.current = pendingSave; }, [pendingSave]);
   const handlePushToggle = async () => {
     const wasPushSubscribed = pushSubscribed;
     setPushLoading(true);
