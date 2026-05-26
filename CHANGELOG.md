@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.10] — 2026-05-26 · Sync CORS Edge Function + deuda técnica documentada
+
+### Bugs corregidos
+
+- **CORS `send-push` desincronizado en repo** (P1) — El archivo `supabase/functions/send-push/index.ts` en el repositorio tenía los headers CORS de la v2.0 original (sin `x-client-info, apikey`). La v2.1 con el fix real solo existía en producción (deployada por Externo el 26/05). Cualquier `supabase functions deploy send-push` desde el repo habría regresionado el CORS y bloqueado todas las notificaciones push. Archivo sincronizado con la versión de producción.
+
+### Infraestructura / Docs
+
+- **E-1 bloqueante hasta limpiar trigger duplicado** — `trg_push_on_app_data_update` sigue activo junto a `trg_notify_push_on_app_data_update`. Antes de activar push server-side (E-1), deshabilitar el primero es prerequisito; de lo contrario cada save generará dos notificaciones. Documentado en `TAREAS_SQL_AGENTE_SUPABASE.md`.
+- **Deuda técnica `setTimeout(1500ms)` documentada** — El delay fijo para notificaciones push post-mutación es frágil en conexiones lentas. Path correcto: mover `sendContextualPush` al `.then()` del save, o usar tabla `push_queue`. Planificado para Sprint E-2. Documentado en `CLAUDE.md`.
+- **Scanner mandato cross-sistema** — `docs/agents/scanner.md` ahora exige trazar el ciclo completo de save (versión en cada rama de error), closures de larga vida y async error paths en cada scan, con pregunta de cierre obligatoria.
+
+---
+
 ## [4.0.9] — 2026-05-26 · Fix crítico: cambios no se guardaban (CAS versión stale)
 
 ### Bugs corregidos
