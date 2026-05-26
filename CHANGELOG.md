@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.0] — 2026-05-26 · Hito Sprint G-2: lectura desde tabla normalizada
+
+### Hito arquitectónico
+- **`read_from_normalized: true`** — la app lee misiones desde la tabla `missions` (Supabase) en lugar del blob JSON. Cierre del Sprint G-2, iniciado en v3.9.2 con el dual-write. El blob sigue siendo la fuente de escritura; la tabla es ahora fuente de verdad para lectura.
+- **Consistencia verificada (26/05):** 222 filas en tabla vs 220 en blob. Las 2 filas extra son misiones reales ("Hablar tranquilos" W21 + "Psico" W25) que el blob perdió el 25/05 por race condition (bug CAS, corregido en v3.9.6). Con el flip, **se restauran automáticamente** en la app.
+- Safety check activo en `loadFromNormalized`: si la tabla tiene <80% de las misiones del blob, hace fallback al blob automáticamente. Protección permanente contra tablas desactualizadas.
+
+### Prerequisitos completados (Externo, 26/05)
+- Gap 1: columnas `time`, `reminder`, `series_pattern`, `series_end_date` añadidas a `missions`
+- Re-backfill de 4 columnas en 139 filas históricas
+- Limpieza de 7 filas huérfanas del backfill (misiones eliminadas entre 20/05 y 23/05)
+- Backfill de 9 misiones faltantes (creadas entre backfill y dual-write, 20/05–23/05)
+- `backup_app_data()` corregida para incluir `couple_id`
+
+---
+
 ## [3.9.6] — 2026-05-26 · Fix crítico CAS: protección real contra sobrescritura
 
 ### Bug fix (crítico — pérdida de datos confirmada)

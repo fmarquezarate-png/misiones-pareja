@@ -126,15 +126,14 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 
 La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfill del Sprint D (20/05) tenía 252 filas. Con el dual-write, cada nueva misión, borrado y cambio de status se propaga en tiempo real a la tabla.
 
-**Estado actual (26/05):**
+**Estado actual (26/05) — Sprint G-2 COMPLETO:**
 - `dual_write_normalized: true` — activo y cableado. `insertNormalizedMission` / `deleteNormalizedMission` / `updateNormalizedMissionStatus` se llaman desde App.jsx en cada mutación.
-- `read_from_normalized: false` — pendiente limpieza de 7 filas huérfanas de backfill (misiones eliminadas entre 20/05 y 23/05 antes de que dual-write existiese). Una vez limpias, flip a `true` → v4.0.
+- `read_from_normalized: true` — **ACTIVO desde v4.0.0**. La tabla `missions` es fuente de verdad para lectura. Blob sigue siendo fuente de escritura (dual-write). Consistencia verificada: 222 tabla / 220 blob (2 extra = misiones recuperadas que el blob había perdido).
+- Safety check permanente en `loadFromNormalized`: si tabla < 80% del blob → fallback automático al blob.
 
-**Riesgo residual resuelto:** `saveWithCAS` ahora es el único path de save cuando `cas_version_check: true` y la versión está cargada. La tabla `missions` actuó como red de seguridad el 25/05 cuando el blob perdió 2 misiones por race condition — esas misiones aún están en la tabla y se recuperarán al flipar el flag.
-- El blob en `app_data` es la única fuente de verdad real
-- Reactive cuando haya caso de uso concreto: búsqueda full-text, analytics cross-pareja, exportación estructurada
+**Riesgo residual resuelto:** `saveWithCAS` es el único path de save cuando `cas_version_check: true` y la versión está cargada. La tabla `missions` actuó como red de seguridad el 25/05 cuando el blob perdió 2 misiones por race condition — esas misiones se recuperaron con el flip del flag.
 
-**Riesgo principal del sistema (23/05/2026):** el blob no tiene versionado histórico verificable. `isValidAppData()` es el único gate antes de cada save. Si un save con datos inválidos pasa el gate, la historia de la pareja se pierde sin rollback posible. Acción pendiente: snapshot diario automático con retención de 30 días (tarea Externo + Programador).
+**Riesgo principal del sistema:** el blob sigue siendo la fuente de escritura. Si un save corrupto pasa `isValidAppData()`, los datos se pierden. Snapshot automático activo (trigger `backup_app_data` en Supabase, corregido 26/05 para incluir `couple_id`).
 
 ---
 

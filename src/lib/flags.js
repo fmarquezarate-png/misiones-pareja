@@ -8,7 +8,7 @@ const DEFAULTS = {
   dual_write_normalized: true,
   cas_version_check: true,
   idb_offline_queue: false,
-  read_from_normalized: false, // Sprint G-2 pausado: missions table congelada en backfill 20/05, blob es fuente de verdad
+  read_from_normalized: true, // Sprint G-2 completo: tabla missions sincronizada via dual-write (v3.9.2+). Backfill verificado 26/05 — 222 filas vs 220 blob. Fuente de verdad: tabla missions.
 };
 
 function loadOverrides() {
