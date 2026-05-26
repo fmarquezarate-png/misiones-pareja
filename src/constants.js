@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.0.0";
+export const APP_VERSION = "4.0.1";
 export const LAST_UPDATE = "2026-05-26";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"4.0.1", date:"2026-05-26", notes:["Fix crítico loadData: supabase.rpc().catch() lanzaba TypeError en @supabase/postgrest-js recientes (PromiseLike no implementa .catch directamente). El try-catch exterior capturaba el error y loadData devolvía null — la app no cargaba datos. Eliminadas las llamadas a should_reload_from_db (404, sin grant EXECUTE a 'authenticated') y mark_cache_loaded (misma causa). Ambas eran optimizaciones opcionales de caché; su ausencia no afecta la correctitud. Pendiente Externo: GRANT EXECUTE ON FUNCTION should_reload_from_db, mark_cache_loaded TO authenticated para re-activar la optimización."] },
   { v:"4.0.0", date:"2026-05-26", notes:["Hito Sprint G-2: read_from_normalized: true — la app ahora lee misiones desde la tabla normalizada missions en lugar del blob. Backfill verificado: 222 filas en tabla vs 220 en blob. Las 2 extra son misiones reales preservadas en tabla tras un race condition del 25/05 — con el flip, se restauran automáticamente en la app.", "Beneficio inmediato: 2 misiones perdidas del blob (Hablar tranquilos W21 + Psico W25) reaparecen. La tabla missions es ahora fuente de verdad para lectura. El blob sigue siendo la fuente de escritura (dual-write activo)."] },
   { v:"3.9.6", date:"2026-05-26", notes:["Fix crítico CAS: saveWithCAS y saveWithRetry corrían en PARALELO — aunque CAS detectase conflicto, el saveWithRetry sobreescribía igualmente. Ahora saveWithRetry solo corre en el else (flag off, versión null, o error de red). En conflicto real: se re-descarga la versión del partner y se muestra toast. dataVersionRef inicializado a null (no 0) para evitar falsos conflictos antes de que la versión se cargue de DB.", "Bug confirmado en producción: 2 misiones del 25/05 estaban en la tabla missions pero no en el blob — race condition sin protección CAS funcional."] },
   { v:"3.9.5", date:"2026-05-26", notes:["Gap 1 cerrado por Externo: insertNormalizedMission ahora incluye time, reminder, series_pattern y series_end_date. reminder='none' se normaliza a null. Dual-write de misiones completo al 100%."] },

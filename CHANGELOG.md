@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.1] — 2026-05-26 · Fix crítico loadData
+
+### Bugs corregidos
+- **`loadData` devolvía `null` en cada carga** — `supabase.rpc().catch()` lanzaba `TypeError` porque `@supabase/postgrest-js` recientes implementan `PromiseLike` (solo `.then()`) en lugar de `Promise` completo. El `try-catch` exterior capturaba el error y la función retornaba `null`, impidiendo que la app cargara datos.
+- **Causa raíz**: llamadas a `should_reload_from_db` (404 — sin GRANT EXECUTE a rol `authenticated`) y `mark_cache_loaded` (mismo problema). Ambas son optimizaciones opcionales de caché; su ausencia no afecta la correctitud del flujo de carga.
+- **Pendiente Externo** (no bloqueante): `GRANT EXECUTE ON FUNCTION should_reload_from_db(uuid), mark_cache_loaded(uuid) TO authenticated;` para reactivar la optimización de caché.
+
+### Bugs identificados — requieren Externo
+- **Trigger `backup_app_data` (400/500):** intenta insertar `NEW.id` (`text`) en `app_data_backups.couple_id` (`uuid`) sin castear → error de tipo en cada save. Fix: castear con `CASE WHEN NEW.id ~ uuid_regex THEN NEW.id::uuid ELSE NULL END`. Ver instrucciones abajo.
+- **Timeout en `trg_push_on_app_data_update` (500):** `net.http_post` bloquea la transacción — considerar timeout explícito o modo async.
+
+---
+
 ## [4.0.0] — 2026-05-26 · Hito Sprint G-2: lectura desde tabla normalizada
 
 ### Hito arquitectónico

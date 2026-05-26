@@ -175,21 +175,8 @@ export function importData(file) {
 
 /* ── Supabase CRUD ─────────────────────────────────────────────────────── */
 
-export async function loadData(coupleId, opts = {}) {
+export async function loadData(coupleId) {
   try {
-    if (!opts.force) {
-      const local = loadLocalBackup(coupleId);
-      if (local?.data && isValidAppData(local.data)) {
-        const { data: check, error: checkErr } = await supabase
-          .rpc("should_reload_from_db", { p_couple_id: coupleId });
-
-        if (!checkErr && check?.should_reload === false) {
-          console.debug("[loadData] Sirviendo desde cache local. Razón:", check.reason);
-          return local.data;
-        }
-      }
-    }
-
     const { data: rows, error } = await supabase
       .from("app_data")
       .select("data")
@@ -199,12 +186,7 @@ export async function loadData(coupleId, opts = {}) {
     if (error) { console.error("loadData error:", error.message); return null; }
 
     const result = rows?.[0]?.data ?? null;
-    if (result) {
-      saveLocalBackup(result, coupleId);
-      supabase.rpc("mark_cache_loaded", { p_couple_id: coupleId }).catch(e =>
-        console.warn("mark_cache_loaded error (non-fatal):", e)
-      );
-    }
+    if (result) saveLocalBackup(result, coupleId);
     return result;
   } catch (e) {
     console.error("loadData exception:", e);
