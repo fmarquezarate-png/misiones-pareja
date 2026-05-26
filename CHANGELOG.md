@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.3] — 2026-05-26 · Scan completo: 9 bugs de raíz (datos, push, seguridad)
+
+### Bugs corregidos (raíz)
+
+- **`goalRowToBlob` UUID vs nanoid** — devolvía `row.id` (UUID del DB) en lugar de `row.blob_id` (nanoid del blob). Con `read_from_normalized: true`, toda vinculación misión↔meta se rompía: el campo `goalId` de una misión (nanoid) nunca coincidía con el `id` de la meta cargada (UUID). Las barras de progreso de metas, el drill-down y la telemetría `mission_completed.hasGoal` devolvían siempre falso.
+- **Race condition en save in-flight** — `saveTimerRef.current = null` (v4.0.2) se limpiaba cuando el timer de 700ms disparaba, pero el `saveWithCAS`/`saveWithRetry` async seguía corriendo. `hasPendingSave()` devolvía `false` en esa ventana, permitiendo a realtime sobreescribir el save en vuelo. Nuevo `isSavingRef.current = true` mientras dura la operación; se limpia en cada `.then()` y `.catch()`.
+- **`isValidAppData` no validaba goals** — un array corrupto (`goals: "string"`) pasaba la validación y crasheaba en `.map()` en GoalsView y StatsView.
+- **`handleImport` no recargaba versión CAS** — tras importar un backup, `dataVersionRef` quedaba en el valor pre-import. El siguiente guardado enviaba la versión incorrecta al RPC y obtenía un conflicto falso.
+- **`sendContextualPush` prematuro** — las llamadas en `addMission` y `cycleStatus` disparaban el push inmediatamente tras `patchWeek()`, 700ms antes de que el blob se guardara en DB. El partner recibía la notificación, abría la app y veía datos desactualizados. Ahora retraso de 1500ms.
+- **Open redirect en service worker** — `clients.openWindow(targetUrl)` aceptaba URLs externas del payload del push sin validación. Un payload comprometido podía abrir `https://sitio-malicioso.com`. Ahora solo se permiten URLs relativas o del mismo origen.
+- **`getCurrentSubscription()` podía colgarse** — `navigator.serviceWorker.ready` nunca rechaza si el SW falla; el Promise colgaba indefinidamente bloqueando el estado del toggle de push. Añadido timeout de 5 segundos.
+- **`unsubscribePush` error silencioso** — el `.delete()` de Supabase no chequeaba errores; si fallaba (RLS, red), la suscripción quedaba huérfana en DB con `enabled: true`. Ahora se loguea el error con `console.warn`.
+- **`notifGranted` no se actualizaba mid-session** — si el usuario concedía/denegaba permiso desde el diálogo del navegador sin recargar, el estado React no cambiaba. Los recordatorios y briefing podían estar activos/inactivos sin reflejar el permiso real. Añadido listener `permissionchange`.
+- **Push nudge dismiss solo en memoria** — `pushNudgeDismissRef` era un `useRef(false)`; al recargar la app, el dismiss se perdía y el nudge reaparecía. Ahora persiste en `localStorage` con clave `mp-push-nudge-dismissed`.
+
+---
+
 ## [4.0.2] — 2026-05-26 · Bug scan: realtime, CAS, VAPID, series
 
 ### Bugs corregidos (raíz)

@@ -239,7 +239,7 @@ function missionRowToBlob(row) {
 
 function goalRowToBlob(row) {
   return {
-    id:        row.id,
+    id:        row.blob_id ?? row.id,
     title:     row.title,
     emoji:     row.emoji ?? null,
     who:       row.who,
@@ -342,7 +342,10 @@ export async function saveData(appData, coupleId) {
 }
 
 export function isValidAppData(d) {
-  return !!(d && typeof d === "object" && d.weeks && typeof d.weeks === "object" && d.settings);
+  return !!(d && typeof d === "object" &&
+    d.weeks && typeof d.weeks === "object" &&
+    d.settings && typeof d.settings === "object" &&
+    (!d.goals || Array.isArray(d.goals)));
 }
 
 /**
