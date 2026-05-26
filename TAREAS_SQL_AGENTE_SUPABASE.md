@@ -7,6 +7,20 @@
 
 ---
 
+## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.5+)
+
+### S-3 · Columna `carried_from_blob_id` en la tabla `missions` — ✅ EJECUTADO (26/05)
+
+**Estado:** Confirmado por Externo. Columna `carried_from_blob_id text NULL` añadida a `missions`.
+
+**Código actualizado en v4.0.8:**
+- `insertNormalizedMission` en repo.js: escribe `carried_from_blob_id: m.carriedFrom ?? null`
+- `missionRowToBlob` en supabase.js: lee `carriedFrom: row.carried_from_blob_id ?? null`
+
+`syncCarryDone` vuelve a funcionar cuando `read_from_normalized: true`.
+
+---
+
 ## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.3)
 
 ### S-1 · Añadir columna `series_blob_id` a la tabla `missions`
@@ -52,7 +66,18 @@ Policy: events_insert_own | Cmd: INSERT | Roles: authenticated | WITH CHECK: use
 
 ## 🔴 URGENTE — Ejecutar esta semana (del diagnóstico 23/05/2026)
 
-### U-1 · Verificar y reforzar snapshot automático del blob
+### U-1 · Verificar y reforzar snapshot automático del blob — ✅ EJECUTADO (26/05)
+
+**Estado:** Confirmado por Externo. Trigger `trg_snapshot_app_data` activo (BEFORE UPDATE ON app_data → `snapshot_app_data()`). El blob anterior se guarda en `app_data_backups` con UUID cast guard antes de cada save.
+
+**⚠️ Deuda técnica detectada:** `trg_push_on_app_data_update` sigue activo en la tabla `app_data`. Es el trigger genérico de push que se deshabilitó en sesiones anteriores para evitar dobles notificaciones (la app ya envía push contextual directamente). Si vuelven a aparecer notificaciones duplicadas, deshabilitar con:
+```sql
+ALTER TABLE public.app_data DISABLE TRIGGER trg_push_on_app_data_update;
+```
+
+---
+
+### U-1-original · (histórico)
 
 > ⚠️ **ANTES DE EJECUTAR** — El script original tenía el mismo bug que `backup_app_data`: intenta insertar `OLD.id` (text) en `couple_id` (uuid) sin castear. El script correcto está abajo con el guard UUID. NO ejecutes el SQL del diagnóstico 23/05 sin esta corrección.
 

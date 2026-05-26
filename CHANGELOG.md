@@ -7,6 +7,47 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.9] — 2026-05-26 · Fix crítico: cambios no se guardaban (CAS versión stale)
+
+### Bugs corregidos
+
+- **`doSaveWithRetry` dejaba `dataVersionRef` obsoleto** (P0) — Cuando el CAS fallaba por cualquier motivo (red, error de RPC, `dataVersionRef = null` al startup), el sistema caía al path `doSaveWithRetry` que sí guardaba los datos en DB. Pero el trigger `bump_app_data_version` incrementaba la versión en DB sin que el cliente lo supiera. El siguiente intento de save usaba la versión vieja → el nuevo `save_app_data_cas` con `FOR UPDATE` detectaba correctamente el mismatch → devolvía NULL → el cliente lo interpretaba como conflicto real → descargaba datos viejos de DB → **descartaba silenciosamente el cambio del usuario**. Fix: después de cada `doSaveWithRetry` exitoso, se recarga la versión real con `loadDataWithVersion`. Si la recarga falla, `dataVersionRef = null` → el próximo save usa `doSaveWithRetry` otra vez (path seguro, no CAS).
+- **`loadDataWithVersion` devolvía `version: 0` en error** (P1) — En error de red o excepción, la función devolvía `{ version: 0 }`, indistinguible de un usuario nuevo con `app_data` recién creada. Para usuarios existentes (DB version > 0), `saveWithCAS(..., 0)` fallaba inmediatamente con conflicto. Ahora devuelve `{ version: null }` en error → la condición `dataVersionRef.current !== null` en App.jsx lo detecta y usa `doSaveWithRetry` en lugar de CAS.
+
+---
+
+## [4.0.8] — 2026-05-26 · Carryover fix + snapshots + push CORS
+
+### Bugs corregidos
+
+- **Carryover sync roto con `read_from_normalized: true`** (P1) — `insertNormalizedMission` no escribía `carried_from_blob_id` (la columna no existía). `missionRowToBlob` leía `carriedFrom` desde `carried_from` (UUID) que era siempre null porque nunca se insertaba. Resultado: `syncCarryDone` no podía marcar el original como DONE al completar una misión arrastrada. Fix en dos pasos: Externo añadió columna `carried_from_blob_id text`; código actualizado para escribirla (nanoid del blob) y leerla de vuelta.
+- **Edge Function CORS `send-push`** (P1) — El SDK Supabase JS añade automáticamente `x-client-info` y `apikey` en cada `invoke()`; la función solo permitía `authorization, content-type` → preflight `OPTIONS` fallaba → ninguna notificación push contextual llegaba. Externo deployó v2.1 con headers correctos.
+
+### Infraestructura
+
+- **Snapshot automático del blob activo** (U-1) — Trigger `trg_snapshot_app_data` (BEFORE UPDATE ON `app_data`) guarda el estado anterior en `app_data_backups` con UUID cast guard antes de cada save. Sistema ahora tiene dos capas de backup: snapshot BEFORE + `auto_backup_on_update` AFTER.
+
+---
+
+## [4.0.7] — 2026-05-26 · Fix avatar hang + GoalsView crash con datos legacy
+
+### Bugs corregidos
+
+- **`compressAvatar` Promise sin reject** (P1) — Si el archivo de imagen subido para el avatar estaba corrupto o en formato no válido, `img.onerror` nunca se disparaba y el Promise nunca resolvía ni rechazaba. La UI se quedaba colgada indefinidamente: el input de foto no se reseteaba y `setPhotos` nunca se llamaba. Fix: `new Promise((resolve, reject) => ...)` con `img.onerror` y `reader.onerror` que llaman a `reject`; el `handlePhoto` wrappea en `try/catch/finally` para siempre limpiar el input.
+- **`form.title.trim()` crash con datos legacy** (P0 defensivo) — Si un goal antiguo tenía `title: undefined` (datos corruptos o migrados sin campo), `openEdit` establecía `form.title = undefined`, y `form.title.trim()` en la función `save` lanzaba `TypeError`. Fix: `form.title?.trim()` con optional chaining.
+
+---
+
+## [4.0.6] — 2026-05-26 · Fix crítico realtime guard + 2 fixes defensivos
+
+### Bugs corregidos
+
+- **`pendingSave` stale closure en `subscribeToUpdates`** (P1) — La función de guard `() => pendingSave || !!saveTimerRef.current || isSavingRef.current` se creaba una sola vez al montar la suscripción (efecto con `[coupleId]`) y capturaba `pendingSave = false` del closure inicial. Cambios posteriores de `pendingSave` nunca se reflejaban: la parte de estado siempre era `false`. Los refs (`saveTimerRef`, `isSavingRef`) sí funcionaban correctamente porque son mutables. El guard parcialmente roto significaba que realtime podía sobreescribir saves en vuelo si solo `pendingSave` era `true` (sin timer ni isSaving activos). Fix: nuevo `pendingSaveRef` sincronizado via `useEffect([pendingSave])`.
+- **`getSession()` sin `.catch()`** (P1) — Si la sesión inicial fallaba por error de red o CORS, el Promise rechazaba sin handler y la app quedaba congelada en pantalla `checking` indefinidamente. Fix: `.catch(() => resolve(null))` redirige al login limpiamente.
+- **`missionRows` null en `loadFromNormalized`** (defensive) — Supabase puede devolver `{ data: null, error: null }` en edge cases de RLS o vacíos; `null.length` crasheaba en la comparación del safety check. Fix: `!missionRows || missionRows.length === 0`.
+
+---
+
 ## [4.0.5] — 2026-05-26 · Hardening: push toggle, chat, payload validation, stubs
 
 ### Bugs corregidos

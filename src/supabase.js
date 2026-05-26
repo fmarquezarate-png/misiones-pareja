@@ -201,12 +201,12 @@ export async function loadDataWithVersion(coupleId) {
       .select("data, version")
       .eq("id", coupleId)
       .limit(1);
-    if (error) { console.error("loadDataWithVersion error:", error.message); return { data: null, version: 0 }; }
+    if (error) { console.error("loadDataWithVersion error:", error.message); return { data: null, version: null }; }
     const row = rows?.[0];
-    return { data: row?.data ?? null, version: row?.version ?? 0 };
+    return { data: row?.data ?? null, version: row?.version ?? null };
   } catch (e) {
     console.error("loadDataWithVersion exception:", e);
-    return { data: null, version: 0 };
+    return { data: null, version: null };
   }
 }
 
@@ -229,7 +229,7 @@ function missionRowToBlob(row) {
     seriesId:       row.series_blob_id ?? null,
     seriesPattern:  row.series_pattern ?? null,
     seriesEndDate:  row.series_end_date ? String(row.series_end_date) : null,
-    carriedFrom:    row.carried_from ?? null,
+    carriedFrom:    row.carried_from_blob_id ?? null,
     carriedFromWeek: row.carried_from_week ?? null,
     completedAt:    row.completed_at ?? null,
     completedLate:  row.completed_late ?? false,
@@ -277,7 +277,7 @@ export async function loadFromNormalized(coupleId) {
   const blobMissionCount = Object.values(blob.weeks ?? {}).reduce(
     (sum, w) => sum + (w.missions?.length ?? 0), 0
   );
-  if (missionRows.length === 0 && blobMissionCount > 0) {
+  if ((!missionRows || missionRows.length === 0) && blobMissionCount > 0) {
     console.warn(`[loadFromNormalized] tabla missions vacía pero blob tiene ${blobMissionCount} misiones → fallback a blob`);
     return blob;
   }

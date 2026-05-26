@@ -159,6 +159,7 @@ export async function insertNormalizedMission(coupleId, weekKey, weekNumber, yea
     series_blob_id:   m.seriesId ?? null,
     series_pattern:   m.seriesPattern ?? null,
     series_end_date:  m.seriesEndDate ? m.seriesEndDate : null,
+    carried_from_blob_id: m.carriedFrom ?? null,
     carried_from_week: m.carriedFromWeek ?? null,
     completed_at:     m.completedAt ? new Date(m.completedAt).toISOString() : null,
     completed_late:   m.completedLate ?? false,

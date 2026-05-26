@@ -205,7 +205,7 @@ export default function GoalsView({ goals, weeks, cwn, cyr, p1, p2, colors, onAd
   const openEdit = g  => { setEditGoal(g); setForm({ emoji:g.emoji, title:g.title, who:g.who, period:g.period, target:g.target, deadline:g.deadline||"", goalType:g.goalType||"min", startDate:g.startDate||"" }); setShowForm(true); };
   const cancel   = () => { setShowForm(false); setEditGoal(null); };
   const save     = () => {
-    if (!form.title.trim()) return;
+    if (!form.title?.trim()) return;
     if (editGoal) onUpdate(editGoal.id, form); else onAdd(form);
     setShowForm(false); setEditGoal(null);
   };

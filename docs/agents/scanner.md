@@ -35,6 +35,32 @@
 4. Consolidar hallazgos, descartar falsos positivos
 5. Ordenar por severidad y entregar al Programador con fixes concretos
 
+## Scan de flows críticos cross-sistema (mandato post-v4.0.9)
+
+Escanear archivo por archivo no alcanza. Bugs sistémicos emergen en la intersección de capas. El Scanner DEBE incluir una tercera pasada de tracing explícito para cada flow crítico:
+
+### Ciclo de save
+Para cada path de save (CAS, fallback retry, importData, handleImport), trazar:
+- ¿Qué valor tiene `dataVersionRef.current` al inicio?
+- ¿Qué valor queda en `dataVersionRef.current` después de cada rama de éxito y error?
+- ¿El DB trigger puede haber incrementado la versión sin que el cliente lo sepa?
+- ¿El siguiente save CAS usará una versión obsoleta?
+
+### Closures de larga vida
+Para cada callback dentro de `useEffect` con deps incompletas:
+- ¿Captura estado React directamente? → verificar que haya un `ref` espejo actualizado via `useEffect([estado])`
+- ¿Esa ventana de stale closure existe durante saves en vuelo?
+
+### Async error paths
+Para cada `new Promise(resolve => ...)` y cada función async crítica:
+- ¿Todos los handlers de error llaman a `reject` o al catch correspondiente?
+- ¿Puede un error silencioso dejar la app en estado incoherente indefinidamente?
+
+### Pregunta de cierre obligatoria
+> "Si esta operación falla silenciosamente en el paso N, ¿qué ve el usuario al refrescar 30 segundos después?"
+
+Si la respuesta es "datos de hace 5 minutos" o "pantalla congelada" → P0, bloquear deploy.
+
 ## Línea roja
 > "No reporto un bug sin haber leído el código real. Si el archivo es largo, lo leo entero. Un false positive es tan costoso como un bug que se escapa."
 
