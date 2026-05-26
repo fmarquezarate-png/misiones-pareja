@@ -118,7 +118,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [loading, setLoading] = useState(true);
   const saveTimerRef    = useRef(null);
   const dataRef         = useRef(null);
-  const dataVersionRef  = useRef(0);
+  const dataVersionRef  = useRef(null); // null = version not yet loaded from DB
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
@@ -529,22 +529,42 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Debounced save: 700ms after last change, with exponential backoff on failure
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
-        // CAS pre-check: si el flag está activo, intentar save atómico primero
-        if (isEnabled("cas_version_check")) {
+        const doSaveWithRetry = () => {
+          saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
+            .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
+            .catch(e => { setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
+        };
+
+        // CAS: solo activo si el flag está ON y la versión ya fue cargada de DB.
+        // Si la versión es null (aún no cargada), se usa saveWithRetry como fallback seguro.
+        if (isEnabled("cas_version_check") && dataVersionRef.current !== null) {
           saveWithCAS(coupleId, next, dataVersionRef.current).then(result => {
             if (result.success) {
               dataVersionRef.current = result.newVersion;
-              console.debug("[CAS] save exitoso, nueva version:", result.newVersion);
+              setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000);
             } else if (result.conflict) {
-              console.warn("[CAS] conflicto de version — otro cliente se adelantó");
+              // Conflicto real: otro cliente guardó primero. NO sobreescribir.
               track("cas_conflict", { couple_id: coupleId });
+              pushToast({ kind: "error", text: "⚠ Conflicto: tu pareja guardó al mismo tiempo. Cargando su versión — revisa si falta algún cambio tuyo." });
+              loadData(coupleId).then(fresh => {
+                if (fresh && isValidAppData(fresh)) {
+                  setData(fresh);
+                  loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => {});
+                }
+              }).catch(() => {});
+              setSavingState("idle");
+              setPendingSave(false);
+            } else {
+              // casDisabled o error de red → fallback a saveWithRetry
+              doSaveWithRetry();
             }
-            // Si casDisabled o error, el saveWithRetry normal ya se encarga
+          }).catch(() => {
+            // Error inesperado en el propio RPC → fallback seguro
+            doSaveWithRetry();
           });
+        } else {
+          doSaveWithRetry();
         }
-        saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
-          .then(() => { setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000); })
-          .catch(e => { setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
       }, 700);
       return next;
     });

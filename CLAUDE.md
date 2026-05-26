@@ -118,17 +118,19 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 | `CHANGELOG.md` desincronizado 8 versiones respecto a `constants.js` | Regla de versionado en sección 3: `CHANGELOG.md` es obligatorio en el mismo commit que el bump de `APP_VERSION`. El Redactor verifica antes de cada push. |
 | `<ConfirmDialog />` declarado via `useConfirm()` pero nunca renderizado en JSX — `confirm()` invocaba el hook pero no mostraba UI. Los diálogos "¿Eliminar esta tarea?" y "¿Eliminar este logro?" ejecutaban el borrado sin confirmación visible desde v3.5+. | `useConfirm()` devuelve `{ confirm, ConfirmDialog }`. **`ConfirmDialog` debe renderizarse en el JSX del mismo componente** que llama al hook. ESLint `no-unused-vars` lo atrapa si se olvida. Ejemplo correcto: añadir `<ConfirmDialog />` al final del return del componente. |
 | `read_from_normalized: true` con tabla `missions` congelada en backfill (20/05) → semanas posteriores al backfill aparecen vacías. El fallback de v3.8.24 (tabla con 0 filas) no cubre tabla con datos obsoletos. | `read_from_normalized` → **`false` permanente** hasta que exista sync servidor real. La tabla `missions` es analytics futura, no fuente de verdad. Documentado abajo en sección 7. |
+| `saveWithCAS` corría en paralelo con `saveWithRetry` — aunque el CAS detectase conflicto, el save normal sobreescribía igualmente. El flag `cas_version_check: true` era decorativo. Confirmado por 2 misiones reales perdidas del blob (26/05/2026). | `saveWithCAS` debe ser el único save cuando CAS está activo — `saveWithRetry` solo corre en el `else` (flag off, versión null, o error de red). Control flow corregido en v3.9.6. Regla: nunca ejecutar dos paths de save en paralelo. |
 
 ---
 
-## 6. Estado de la tabla `missions` — decisión arquitectónica (23/05/2026)
+## 6. Estado de la tabla `missions` — decisión arquitectónica (actualizado 26/05/2026)
 
-La tabla `missions` tiene **252 filas congeladas** en el backfill del Sprint D (20/05/2026). No existe trigger de DB ni mecanismo de sync que la actualice.
+La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfill del Sprint D (20/05) tenía 252 filas. Con el dual-write, cada nueva misión, borrado y cambio de status se propaga en tiempo real a la tabla.
 
-**Decisión oficial:** `missions` es tabla de **analytics futura**, no fuente de verdad operacional.
+**Estado actual (26/05):**
+- `dual_write_normalized: true` — activo y cableado. `insertNormalizedMission` / `deleteNormalizedMission` / `updateNormalizedMissionStatus` se llaman desde App.jsx en cada mutación.
+- `read_from_normalized: false` — pendiente limpieza de 7 filas huérfanas de backfill (misiones eliminadas entre 20/05 y 23/05 antes de que dual-write existiese). Una vez limpias, flip a `true` → v4.0.
 
-- `read_from_normalized: false` — permanente hasta que se implemente sync servidor
-- `dual_write_normalized: true` — el flag existe pero `repo.js` no está cableado en el save path principal; las escrituras a `missions` no ocurren en producción
+**Riesgo residual resuelto:** `saveWithCAS` ahora es el único path de save cuando `cas_version_check: true` y la versión está cargada. La tabla `missions` actuó como red de seguridad el 25/05 cuando el blob perdió 2 misiones por race condition — esas misiones aún están en la tabla y se recuperarán al flipar el flag.
 - El blob en `app_data` es la única fuente de verdad real
 - Reactive cuando haya caso de uso concreto: búsqueda full-text, analytics cross-pareja, exportación estructurada
 

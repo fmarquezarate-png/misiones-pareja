@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.6] — 2026-05-26 · Fix crítico CAS: protección real contra sobrescritura
+
+### Bug fix (crítico — pérdida de datos confirmada)
+- **`saveWithCAS` ahora es el único path de save** cuando `cas_version_check: true` y la versión está cargada. Antes, `saveWithCAS` y `saveWithRetry` corrían en **paralelo** — aunque el CAS detectase un conflicto real, el `saveWithRetry` sobreescribía igualmente. El flag `cas_version_check: true` era decorativo. Bug confirmado el 25/05: la tabla `missions` preservó 2 misiones que el blob perdió por este race condition.
+- **`dataVersionRef` inicializado a `null`** (antes `0`) para evitar falsos conflictos durante el arranque, antes de que `loadDataWithVersion` resuelva. Si la versión no está cargada, el save cae al path `saveWithRetry` como fallback seguro.
+- **Conflict handler**: en conflicto real (partner guardó primero), se re-descarga su versión, se actualiza `dataVersionRef`, y se muestra un toast avisando al usuario que sus últimos cambios no se guardaron.
+
+---
+
 ## [3.9.5] — 2026-05-26 · Gap 1 cerrado: dual-write de misiones completo
 
 ### Arquitectura

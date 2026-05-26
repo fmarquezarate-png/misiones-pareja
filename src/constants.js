@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "3.9.5";
+export const APP_VERSION = "3.9.6";
 export const LAST_UPDATE = "2026-05-26";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BJ9sW-bV_xAzEeuppG1eVkCVelQZ-OwXzxBXUJJZCSxovuQ5H5nUYplZTcvWOXbHvk9sRRLeDla3zMUL8n0hjmI";
 export const CHANGELOG = [
+  { v:"3.9.6", date:"2026-05-26", notes:["Fix crítico CAS: saveWithCAS y saveWithRetry corrían en PARALELO — aunque CAS detectase conflicto, el saveWithRetry sobreescribía igualmente. Ahora saveWithRetry solo corre en el else (flag off, versión null, o error de red). En conflicto real: se re-descarga la versión del partner y se muestra toast. dataVersionRef inicializado a null (no 0) para evitar falsos conflictos antes de que la versión se cargue de DB.", "Bug confirmado en producción: 2 misiones del 25/05 estaban en la tabla missions pero no en el blob — race condition sin protección CAS funcional."] },
   { v:"3.9.5", date:"2026-05-26", notes:["Gap 1 cerrado por Externo: insertNormalizedMission ahora incluye time, reminder, series_pattern y series_end_date. reminder='none' se normaliza a null. Dual-write de misiones completo al 100%."] },
   { v:"3.9.4", date:"2026-05-26", notes:["Fix crítico de sincronización: re-fetch silencioso de Supabase al volver a la pestaña (visibilitychange → visible). Resuelve el problema de ver datos desactualizados en web cuando la pareja guardó cambios mientras la pestaña estaba en segundo plano. El canal Realtime no recupera eventos perdidos durante reconexión — este re-fetch es el safety net.", "dataVersionRef actualizado en el re-fetch para mantener el CAS coherente cuando se active."] },
   { v:"3.9.3", date:"2026-05-25", notes:["StatsView: toda la computación pesada (streak, catStats, bySt, series, donutSegments, insights) envuelta en useMemo([weeks,stWho,stRange,p1,p2,todayKey]) — elimina recálculos innecesarios en cada render.","GoalsView: celdas de historial cambiadas de <div onClick> a <button disabled={noData}> — accesibilidad por teclado y screen reader."] },
