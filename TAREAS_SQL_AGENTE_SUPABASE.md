@@ -1,5 +1,5 @@
 # Tareas SQL para el Agente Supabase
-## Shared Calendar — Roadmap v3.5.0 → v4.0.0
+## Shared Calendar — Roadmap v3.5.0 → v4.0.3+
 
 > **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
 >
@@ -7,9 +7,62 @@
 
 ---
 
+## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.3)
+
+### S-1 · Añadir columna `series_blob_id` a la tabla `missions`
+
+**Prioridad:** P1. Sin esta columna, el nanoid que agrupa misiones recurrentes no sobrevive el roundtrip por la tabla normalizada. Con `read_from_normalized: true`, las series aparecen como misiones independientes.
+
+**Contexto:** El código (`insertNormalizedMission` en repo.js) ya escribe `series_blob_id: m.seriesId`. `missionRowToBlob` en supabase.js ya lee `row.series_blob_id`. Solo falta la columna en el esquema.
+
+```sql
+ALTER TABLE public.missions
+  ADD COLUMN IF NOT EXISTS series_blob_id text;
+
+-- Índice para búsquedas por serie
+CREATE INDEX IF NOT EXISTS idx_missions_series_blob_id
+  ON public.missions (series_blob_id)
+  WHERE series_blob_id IS NOT NULL;
+```
+
+**Verificar después:**
+```sql
+SELECT series_blob_id, COUNT(*)
+FROM missions
+WHERE series_blob_id IS NOT NULL
+GROUP BY series_blob_id
+ORDER BY COUNT(*) DESC
+LIMIT 10;
+```
+
+---
+
+### S-2 · INSERT policy en tabla `events` para rol `authenticated`
+
+**Prioridad:** P1. Sin esta policy, los eventos de telemetría (`track.js`) fallan con 403. El error se descarta silenciosamente pero la telemetría está completamente muerta.
+
+**Verificar primero:**
+```sql
+SELECT policyname, cmd, qual
+FROM pg_policies
+WHERE tablename = 'events';
+```
+
+**Si no existe la policy INSERT:**
+```sql
+CREATE POLICY "authenticated users can insert events"
+ON public.events FOR INSERT
+TO authenticated
+WITH CHECK (true);
+```
+
+---
+
 ## 🔴 URGENTE — Ejecutar esta semana (del diagnóstico 23/05/2026)
 
 ### U-1 · Verificar y reforzar snapshot automático del blob
+
+> ⚠️ **ANTES DE EJECUTAR** — El script original tenía el mismo bug que `backup_app_data`: intenta insertar `OLD.id` (text) en `couple_id` (uuid) sin castear. El script correcto está abajo con el guard UUID. NO ejecutes el SQL del diagnóstico 23/05 sin esta corrección.
 
 **Prioridad:** CRÍTICA. El blob en `app_data` es la única fuente de verdad. Un save inválido sin rollback posible destruye los datos de una pareja.
 
@@ -26,14 +79,21 @@ FROM app_data_backups
 GROUP BY couple_id;
 ```
 
-**Si no existe trigger de backup automático**, crear uno:
+**Si no existe trigger de backup automático**, crear uno (con UUID cast guard):
 ```sql
 -- Trigger que inserta snapshot en app_data_backups antes de cada UPDATE
+-- IMPORTANTE: app_data.id es text; app_data_backups.couple_id es uuid.
+-- Usar guard de cast para evitar error 400 "column couple_id is of type uuid but expression is of type text"
 CREATE OR REPLACE FUNCTION public.snapshot_app_data()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   INSERT INTO public.app_data_backups (couple_id, data, created_at)
-  VALUES (OLD.id, OLD.data, NOW());
+  VALUES (
+    CASE WHEN OLD.id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+         THEN OLD.id::uuid ELSE NULL END,
+    OLD.data,
+    NOW()
+  );
   RETURN NEW;
 END;
 $$;
