@@ -70,9 +70,23 @@ Policy: events_insert_own | Cmd: INSERT | Roles: authenticated | WITH CHECK: use
 
 **Estado:** Confirmado por Externo. Trigger `trg_snapshot_app_data` activo (BEFORE UPDATE ON app_data → `snapshot_app_data()`). El blob anterior se guarda en `app_data_backups` con UUID cast guard antes de cada save.
 
-**⚠️ Deuda técnica detectada:** `trg_push_on_app_data_update` sigue activo en la tabla `app_data`. Es el trigger genérico de push que se deshabilitó en sesiones anteriores para evitar dobles notificaciones (la app ya envía push contextual directamente). Si vuelven a aparecer notificaciones duplicadas, deshabilitar con:
+**⚠️ Deuda técnica BLOQUEANTE para E-1:** `trg_push_on_app_data_update` sigue activo en la tabla `app_data`. Coexiste con `trg_notify_push_on_app_data_update` — dos triggers apuntando a la misma función. Actualmente la app envía push desde el cliente (con 1500ms delay), por lo que el trigger duplicado no se nota. **Pero en cuanto se active E-1 (push server-side), el trigger duplicado causará dobles notificaciones sistemáticas.**
+
+**Ejecutar ANTES de cualquier trabajo en E-1:**
 ```sql
+-- Verificar estado actual de los dos triggers
+SELECT trigger_name, event_manipulation, action_statement
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data'
+  AND trigger_name ILIKE '%push%';
+
+-- Deshabilitar el trigger duplicado (no borrar — por si acaso)
 ALTER TABLE public.app_data DISABLE TRIGGER trg_push_on_app_data_update;
+
+-- Verificar que solo queda uno activo
+SELECT trigger_name, enabled
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data';
 ```
 
 ---
@@ -785,7 +799,11 @@ WHERE table_name = 'push_subscriptions'
 
 ### E-1 · Trigger de notificación al partner cuando hay cambios
 
+> **⛔ PREREQUISITO BLOQUEANTE:** Deshabilitar `trg_push_on_app_data_update` (ver U-1 arriba) ANTES de ejecutar este trigger. Si no, cada save generará dos notificaciones push al partner.
+
 **Por qué:** Cuando una persona guarda cambios en `app_data`, el partner debe recibir un push. Este trigger detecta el UPDATE y llama a la Edge Function usando `pg_net` (extensión de Supabase para HTTP desde triggers).
+
+> **Limitación conocida (post-v4.0.9):** el mensaje del trigger server-side es genérico ("Tu pareja actualizó algo ✨"). No puede ser contextual ("Francu añadió: 🎯 hacer la cama") porque el trigger no sabe qué acción específica ocurrió. Si se quiere mantener mensajes contextuales, el camino correcto es una tabla `push_queue` donde el cliente escribe el payload específico antes del save, y el trigger la vacía al dispararse. Evaluar en Sprint E-2.
 
 ```sql
 -- E-1: Trigger push al partner en cambios de app_data

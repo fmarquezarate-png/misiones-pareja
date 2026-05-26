@@ -148,7 +148,9 @@ La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfil
 - `trg_snapshot_app_data` (BEFORE UPDATE) → guarda estado anterior en `app_data_backups` antes de cada save
 - `auto_backup_on_update` (AFTER UPDATE, preexistente) → segunda copia post-save
 
-**⚠️ Trigger duplicado activo:** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` apuntan a la misma función en `app_data`. Si aparecen notificaciones duplicadas, deshabilitar `trg_push_on_app_data_update` (ver TAREAS_SQL U-1).
+**⚠️ Trigger duplicado BLOQUEANTE para E-1:** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` apuntan a la misma función en `app_data`. Mientras el push se envía desde el cliente (actual) el efecto es silencioso. Deshabilitar `trg_push_on_app_data_update` es PREREQUISITO de E-1 (ver TAREAS_SQL U-1).
+
+**Deuda técnica — push desde cliente con setTimeout:** `sendContextualPush` se llama con `setTimeout(..., 1500)` en cada mutación del blob. El delay cubre el debounce (700ms) + red, pero es frágil en conexiones lentas. La solución correcta a largo plazo es mover el push al `.then()` del save (no al inicio de la mutación), o usar una tabla `push_queue` en DB que el trigger server-side vacíe. Evaluar en Sprint E-2 junto con E-1.
 
 ---
 
