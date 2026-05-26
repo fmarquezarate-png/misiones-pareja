@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.5] — 2026-05-26 · Gap 1 cerrado: dual-write de misiones completo
+
+### Arquitectura
+- **`insertNormalizedMission` actualizado** — ahora incluye `time`, `reminder`, `series_pattern` y `series_end_date` en el INSERT a la tabla `missions`. Gap 1 del Sprint G-2 cerrado por Externo (26/05). El dual-write de misiones está completo al 100%. `reminder="none"` se normaliza a `null` en la tabla.
+- Pendiente Externo: re-backfill de las 4 columnas en las 252 filas históricas + verificación de consistencia antes del flip de `read_from_normalized`.
+
+---
+
 ## [3.9.4] — 2026-05-26 · Fix crítico: re-sync al volver a la pestaña
 
 ### Bug fix (crítico)
