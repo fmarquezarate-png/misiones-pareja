@@ -33,11 +33,13 @@ self.addEventListener('push', event => {
   let payload;
   try { payload = event.data.json(); } catch { payload = {}; }
   const {
-    title = 'Misiones de Pareja',
-    body  = 'Tu pareja hizo cambios en la app',
+    title: rawTitle = 'Misiones de Pareja',
+    body:  rawBody  = 'Tu pareja hizo cambios en la app',
     tag   = 'mp-push',
     url   = '/',
   } = payload;
+  const title = typeof rawTitle === 'string' ? rawTitle.slice(0, 100) : 'Misiones de Pareja';
+  const body  = typeof rawBody  === 'string' ? rawBody.slice(0, 300)  : 'Tu pareja hizo cambios en la app';
 
   event.waitUntil(
     self.registration.showNotification(title, {

@@ -23,7 +23,8 @@ export function isPushSupported() {
   return typeof window !== 'undefined'
     && 'serviceWorker' in navigator
     && 'PushManager' in window
-    && 'Notification' in window;
+    && 'Notification' in window
+    && (location.protocol === 'https:' || location.hostname === 'localhost');
 }
 
 export function getPermissionStatus() {
@@ -44,6 +45,7 @@ export async function getCurrentSubscription() {
 
 export async function subscribePush(coupleId) {
   if (!VAPID_PUBLIC_KEY) throw new Error('VAPID_PUBLIC_KEY no configurada');
+  if (VAPID_PUBLIC_KEY.length < 87) throw new Error('VAPID_PUBLIC_KEY inválida — verifica la variable de entorno VITE_VAPID_PUBLIC_KEY');
 
   // Solo pedir permiso si aún no fue concedido — preserva el contexto de gesto
   // de usuario para la llamada a pushManager.subscribe() que viene después.

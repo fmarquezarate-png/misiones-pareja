@@ -11,6 +11,11 @@ export function setTrackContext(ctx) {
   if (ctx.userId) userId = ctx.userId;
 }
 
+export function clearTrackContext() {
+  userId = null;
+  coupleId = null;
+}
+
 export function track(name, props = {}) {
   queue.push({
     name,

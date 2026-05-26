@@ -14,7 +14,7 @@ import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
 import AddMissionForm from "./components/AddMissionForm.jsx";
 import MissionCard from "./components/MissionCard.jsx";
-import { track, setTrackContext } from "./lib/track.js";
+import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus } from "./lib/repo.js";
 
@@ -91,7 +91,7 @@ export default function AppWithAuth() {
     return () => sub.unsubscribe();
   }, []);
 
-  const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); signOut(); };
+  const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); clearTrackContext(); signOut(); };
 
   if (authStep === "checking") return (
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
@@ -464,7 +464,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         loadData(coupleId).then(fresh => {
           if (fresh && isValidAppData(fresh)) {
             setData(fresh);
-            loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => {});
+            loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => { dataVersionRef.current = null; });
           }
         }).catch(() => {});
       }
@@ -501,6 +501,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   }, [pushSupported]);
   useEffect(() => { pushSubscribedRef.current = pushSubscribed; }, [pushSubscribed]);
   const handlePushToggle = async () => {
+    const wasPushSubscribed = pushSubscribed;
     setPushLoading(true);
     setPushError(null);
     try {
@@ -512,6 +513,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setPushSubscribed(true);
       }
     } catch (e) {
+      setPushSubscribed(wasPushSubscribed);
       const msg = e.message || 'Error al cambiar estado de notificaciones';
       setPushError(msg);
       pushToast({ kind: "error", text: msg });
@@ -627,11 +629,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     try {
       const imported = await importData(file);
       update(() => imported);
-      // Reload version so CAS uses the correct version after import
+      // Delay version reload until after debounce+save (700ms) so we read the post-import version
       if (coupleId) {
-        loadDataWithVersion(coupleId)
-          .then(({ version }) => { dataVersionRef.current = version; })
-          .catch(() => { dataVersionRef.current = null; });
+        setTimeout(() => {
+          loadDataWithVersion(coupleId)
+            .then(({ version }) => { dataVersionRef.current = version; })
+            .catch(() => { dataVersionRef.current = null; });
+        }, 1200);
       }
       setImportMsg("✅ Datos restaurados correctamente");
       setTimeout(() => setImportMsg(null), 2500);
@@ -714,6 +718,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     });
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
+    if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const key = isoWeekKey(wn, yr);

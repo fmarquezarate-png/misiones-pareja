@@ -296,7 +296,7 @@ export async function loadFromNormalized(coupleId) {
   for (const row of missionRows) {
     const wkey = row.week_key;
     if (!weeks[wkey]) {
-      weeks[wkey] = { weekNumber: row.week_number, year: row.year, missions: [] };
+      weeks[wkey] = { weekNumber: row.week_number, year: row.year, label: "", epicObjective: "", workHours: { person1: 0, person2: 0 }, createdAt: Date.now(), missions: [] };
     }
     weeks[wkey].missions.push(missionRowToBlob(row));
   }

@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.5] — 2026-05-26 · Hardening: push toggle, chat, payload validation, stubs
+
+### Bugs corregidos
+
+- **`handlePushToggle` no revertía estado en error** — si `subscribePush` o `unsubscribePush` fallaba, `pushSubscribed` quedaba en el estado incorrecto (UI mostraba activado pero el navegador no tenía suscripción real, o viceversa). Ahora se captura `wasPushSubscribed` antes de la operación y se revierte en el `catch`.
+- **`cycleStatusGlobal` sin push** — la función de ciclo de estado para semanas pasadas (historial) no enviaba notificación push al completar misiones. Ahora incluye el mismo `sendContextualPush` con delay 1500ms que `cycleStatus` de la semana actual.
+- **`ChatView` push sin delay** — `sendContextualPush` en el chat disparaba sin delay; aunque el mensaje de chat va directo a DB (no al blob), se unifica el patrón de 1500ms para consistencia y tolerancia a latencia de red.
+- **`ChatView` sin límite de longitud** — un mensaje muy largo podía romper la columna en DB (`content text` tiene límite implícito). Ahora hay límite de 2000 chars enforceado en input (`slice`) con contador visual al 80%.
+- **`isPushSupported()` sin check HTTPS** — en HTTP (o iframe embedido), la Push API no está disponible aunque `'PushManager' in window` devuelva `true`. `subscribePush` fallaba con error críptico del navegador. El check HTTPS hace el diagnóstico correcto antes de intentar la suscripción.
+- **`subscribePush` VAPID truncado** — si `VITE_VAPID_PUBLIC_KEY` está mal configurada o truncada, `urlBase64ToUint8Array` producía un array inválido con error críptico de `DOMException`. La validación de longitud mínima (87 chars) da un mensaje de error claro antes del crash.
+- **`sw.js` push payload sin validar** — si el payload llegaba con `title` o `body` no-string (null, número, objeto), `showNotification` podía comportarse de forma imprevisible. Ahora se valida tipo string y se trunca a 100/300 chars.
+- **`loadFromNormalized` stub de semana incompleto** — cuando una semana existía en la tabla `missions` pero no en el blob, se creaba con solo `weekNumber/year/missions`. Los componentes que asumen `epicObjective`, `workHours` o `label` recibían `undefined`. Ahora el stub incluye todos los campos con valores por defecto.
+
+---
+
 ## [4.0.4] — 2026-05-26 · Fix telemetría + series_blob_id completo
 
 ### Bugs corregidos
