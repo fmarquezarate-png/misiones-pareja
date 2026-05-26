@@ -1,4 +1,4 @@
-// send-push — Supabase Edge Function (Deno) v2.0 — autodiagnóstico
+// send-push — Supabase Edge Function (Deno) v2.1 — autodiagnóstico
 //
 // Modos:
 //   GET  ?probe=1     → ping de vida (sin secrets, sin DB)
@@ -22,7 +22,9 @@ import webpush from 'npm:web-push@3.6.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  // x-client-info and apikey are added automatically by the Supabase JS SDK.
+  // Without them, the OPTIONS preflight fails and supabase.functions.invoke() is blocked.
+  'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
   'Content-Type': 'application/json',
 };
 
@@ -46,7 +48,7 @@ serve(async (req) => {
 
   // ─── Modo probe: confirma que la función está viva ───
   if (url.searchParams.get('probe') === '1') {
-    return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString(), version: '2.0' }), { headers: corsHeaders });
+    return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString(), version: '2.1' }), { headers: corsHeaders });
   }
 
   // Leer secrets una vez por request (sin throw)
