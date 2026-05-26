@@ -3,6 +3,41 @@
 
 > **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
 >
+
+---
+
+## 🚨 CRÍTICO — Ejecutar AHORA (descubierto 26/05/2026 en producción)
+
+### P0 · Deshabilitar triggers de push en `app_data`
+
+**Síntoma en producción:** saves intermitentes fallan con statement timeout. Los cambios del usuario no persisten tras refresh.
+
+**Causa raíz confirmada por Externo:** Los triggers `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` llaman a `net.http_post` (hacia la Edge Function `send-push`) **dentro de la misma transacción** que `save_app_data_cas`. Aunque `pg_net` sea async, la ejecución del trigger extiende el tiempo que el `FOR UPDATE` lock está abierto. Si la Edge Function tarda más de unos millisegundos, la siguiente query de carga colisiona con el lock → statement timeout → 500 → el cliente no puede guardar ni cargar datos.
+
+**La app ya envía push contextual desde el cliente** (con 1500ms delay post-save). Los triggers son redundantes y peligrosos en su posición actual.
+
+```sql
+-- Deshabilitar AMBOS triggers de push en app_data
+ALTER TABLE public.app_data DISABLE TRIGGER trg_push_on_app_data_update;
+ALTER TABLE public.app_data DISABLE TRIGGER trg_notify_push_on_app_data_update;
+
+-- Verificar que quedaron deshabilitados
+SELECT trigger_name, enabled
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data'
+  AND trigger_name ILIKE '%push%';
+-- enabled debe ser 'NO' o 'DISABLED' para ambos
+
+-- Verificar los triggers restantes (solo deben quedar snapshot y version)
+SELECT trigger_name, event_manipulation, enabled
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data'
+ORDER BY trigger_name;
+```
+
+**Confirmar al equipo:** nombres exactos de los triggers deshabilitados y lista de los que quedan activos.
+
+---
 > **Regla de oro:** Todas las migraciones son **additive-only** (solo añaden, nunca borran). Nunca ejecutes un DROP TABLE salvo que la sección lo indique explícitamente y diga "SEGURO BORRAR".
 
 ---
