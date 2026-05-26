@@ -143,7 +143,11 @@ La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfil
 
 **Riesgo residual resuelto:** `saveWithCAS` es el único path de save cuando `cas_version_check: true` y la versión está cargada. La tabla `missions` actuó como red de seguridad el 25/05 cuando el blob perdió 2 misiones por race condition — esas misiones se recuperaron con el flip del flag.
 
-**Riesgo principal del sistema:** el blob sigue siendo la fuente de escritura. Si un save corrupto pasa `isValidAppData()`, los datos se pierden. Snapshot automático activo (trigger `backup_app_data` en Supabase, corregido 26/05 para incluir `couple_id`).
+**Riesgo principal del sistema:** el blob sigue siendo la fuente de escritura. Si un save corrupto pasa `isValidAppData()`, los datos se pierden. Dos capas de backup activas desde 26/05:
+- `trg_snapshot_app_data` (BEFORE UPDATE) → guarda estado anterior en `app_data_backups` antes de cada save
+- `auto_backup_on_update` (AFTER UPDATE, preexistente) → segunda copia post-save
+
+**⚠️ Trigger duplicado activo:** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` apuntan a la misma función en `app_data`. Si aparecen notificaciones duplicadas, deshabilitar `trg_push_on_app_data_update` (ver TAREAS_SQL U-1).
 
 ---
 

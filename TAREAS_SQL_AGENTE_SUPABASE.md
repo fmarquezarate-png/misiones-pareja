@@ -9,31 +9,15 @@
 
 ## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.5+)
 
-### S-3 · Columna `carried_from_blob_id` en la tabla `missions` (NUEVO)
+### S-3 · Columna `carried_from_blob_id` en la tabla `missions` — ✅ EJECUTADO (26/05)
 
-**Prioridad:** P1. Con `read_from_normalized: true`, las misiones de carryover pierden su vínculo al original. `missionRowToBlob` lee `carriedFrom: row.carried_from ?? null`; como `carried_from` (UUID) nunca se escribe en `insertNormalizedMission` (requiere lookup), `carriedFrom` siempre es null. Resultado: cuando el usuario completa una misión arrastrada, `syncCarryDone` no puede marcar el original como completado.
+**Estado:** Confirmado por Externo. Columna `carried_from_blob_id text NULL` añadida a `missions`.
 
-**Contexto:** El campo `m.carriedFrom` en el blob es un nanoid (no UUID). No se puede insertar directamente en `carried_from` (UUID column). La solución es una columna texto permanente que guarda el nanoid, igual que `blob_id` para `id` y `series_blob_id` para `seriesId`.
+**Código actualizado en v4.0.8:**
+- `insertNormalizedMission` en repo.js: escribe `carried_from_blob_id: m.carriedFrom ?? null`
+- `missionRowToBlob` en supabase.js: lee `carriedFrom: row.carried_from_blob_id ?? null`
 
-```sql
-ALTER TABLE public.missions
-  ADD COLUMN IF NOT EXISTS carried_from_blob_id text;
-
-CREATE INDEX IF NOT EXISTS idx_missions_carried_from_blob_id
-  ON public.missions (carried_from_blob_id)
-  WHERE carried_from_blob_id IS NOT NULL;
-```
-
-**Verificar después:**
-```sql
-SELECT column_name, data_type FROM information_schema.columns
-WHERE table_name = 'missions' AND column_name = 'carried_from_blob_id';
--- Debe devolver 1 fila
-```
-
-**Nota:** Tras confirmar la columna, el equipo actualiza:
-1. `insertNormalizedMission` en repo.js: añadir `carried_from_blob_id: m.carriedFrom ?? null`
-2. `missionRowToBlob` en supabase.js: cambiar `carriedFrom: row.carried_from ?? null` → `carriedFrom: row.carried_from_blob_id ?? row.carried_from ?? null`
+`syncCarryDone` vuelve a funcionar cuando `read_from_normalized: true`.
 
 ---
 
@@ -82,7 +66,18 @@ Policy: events_insert_own | Cmd: INSERT | Roles: authenticated | WITH CHECK: use
 
 ## 🔴 URGENTE — Ejecutar esta semana (del diagnóstico 23/05/2026)
 
-### U-1 · Verificar y reforzar snapshot automático del blob
+### U-1 · Verificar y reforzar snapshot automático del blob — ✅ EJECUTADO (26/05)
+
+**Estado:** Confirmado por Externo. Trigger `trg_snapshot_app_data` activo (BEFORE UPDATE ON app_data → `snapshot_app_data()`). El blob anterior se guarda en `app_data_backups` con UUID cast guard antes de cada save.
+
+**⚠️ Deuda técnica detectada:** `trg_push_on_app_data_update` sigue activo en la tabla `app_data`. Es el trigger genérico de push que se deshabilitó en sesiones anteriores para evitar dobles notificaciones (la app ya envía push contextual directamente). Si vuelven a aparecer notificaciones duplicadas, deshabilitar con:
+```sql
+ALTER TABLE public.app_data DISABLE TRIGGER trg_push_on_app_data_update;
+```
+
+---
+
+### U-1-original · (histórico)
 
 > ⚠️ **ANTES DE EJECUTAR** — El script original tenía el mismo bug que `backup_app_data`: intenta insertar `OLD.id` (text) en `couple_id` (uuid) sin castear. El script correcto está abajo con el guard UUID. NO ejecutes el SQL del diagnóstico 23/05 sin esta corrección.
 

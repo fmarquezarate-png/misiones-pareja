@@ -229,7 +229,7 @@ function missionRowToBlob(row) {
     seriesId:       row.series_blob_id ?? null,
     seriesPattern:  row.series_pattern ?? null,
     seriesEndDate:  row.series_end_date ? String(row.series_end_date) : null,
-    carriedFrom:    row.carried_from ?? null,
+    carriedFrom:    row.carried_from_blob_id ?? null,
     carriedFromWeek: row.carried_from_week ?? null,
     completedAt:    row.completed_at ?? null,
     completedLate:  row.completed_late ?? false,

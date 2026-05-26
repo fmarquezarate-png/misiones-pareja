@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.8] — 2026-05-26 · Carryover fix + snapshots + push CORS
+
+### Bugs corregidos
+
+- **Carryover sync roto con `read_from_normalized: true`** (P1) — `insertNormalizedMission` no escribía `carried_from_blob_id` (la columna no existía). `missionRowToBlob` leía `carriedFrom` desde `carried_from` (UUID) que era siempre null porque nunca se insertaba. Resultado: `syncCarryDone` no podía marcar el original como DONE al completar una misión arrastrada. Fix en dos pasos: Externo añadió columna `carried_from_blob_id text`; código actualizado para escribirla (nanoid del blob) y leerla de vuelta.
+- **Edge Function CORS `send-push`** (P1) — El SDK Supabase JS añade automáticamente `x-client-info` y `apikey` en cada `invoke()`; la función solo permitía `authorization, content-type` → preflight `OPTIONS` fallaba → ninguna notificación push contextual llegaba. Externo deployó v2.1 con headers correctos.
+
+### Infraestructura
+
+- **Snapshot automático del blob activo** (U-1) — Trigger `trg_snapshot_app_data` (BEFORE UPDATE ON `app_data`) guarda el estado anterior en `app_data_backups` con UUID cast guard antes de cada save. Sistema ahora tiene dos capas de backup: snapshot BEFORE + `auto_backup_on_update` AFTER.
+
+---
+
 ## [4.0.7] — 2026-05-26 · Fix avatar hang + GoalsView crash con datos legacy
 
 ### Bugs corregidos
