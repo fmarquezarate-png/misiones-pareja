@@ -137,7 +137,7 @@ export async function getSettings(coupleId, blobData) {
 /* ── Dual-write de misiones (Sprint G-2 prep) ──────────────────────────── */
 
 // INSERT una nueva misión en la tabla normalizada.
-// Omite time/reminder/series_pattern/series_end_date hasta que Gap 1 sea cerrado por Externo.
+// Gap 1 cerrado por Externo (26/05): columnas time/reminder/series_pattern/series_end_date disponibles.
 export async function insertNormalizedMission(coupleId, weekKey, weekNumber, year, m) {
   if (!isEnabled("dual_write_normalized")) return;
   const { error } = await supabase.from("missions").insert({
@@ -154,6 +154,10 @@ export async function insertNormalizedMission(coupleId, weekKey, weekNumber, yea
     categories:       m.categories ?? [],
     duration:         m.duration ?? null,
     date:             m.date ?? null,
+    time:             m.time ?? null,
+    reminder:         m.reminder !== "none" ? (m.reminder ?? null) : null,
+    series_pattern:   m.seriesPattern ?? null,
+    series_end_date:  m.seriesEndDate ? m.seriesEndDate : null,
     carried_from_week: m.carriedFromWeek ?? null,
     completed_at:     m.completedAt ? new Date(m.completedAt).toISOString() : null,
     completed_late:   m.completedLate ?? false,

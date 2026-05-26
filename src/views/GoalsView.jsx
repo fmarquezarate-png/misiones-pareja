@@ -162,17 +162,19 @@ function GoalCard({ goal, progress, history, weeks: _weeks, p1, p2, colors, onEd
               const failed  = !h.met && (h.count > 0 || h.isPast) && !h.noData;
               const noData  = !!h.noData;
               const selected = detailIdx === i;
-              return <div key={i}
+              return <button key={i}
                 onClick={() => { if (!noData) { if (!selected) track("goal_drilldown_opened", { period: goal.period, goalId: goal.id }); setDetailIdx(selected ? null : i); } }}
+                disabled={noData}
                 title={noData ? `${h.label}: sin datos` : `${h.label}: ${h.count}/${goal.target}`}
                 style={{ minWidth:28, height:28, borderRadius:7, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontSize:10, gap:1,
                   background:selected?"rgba(167,139,250,0.22)":noData?"rgba(128,128,128,0.04)":failed?"rgba(244,114,182,0.18)":h.met?"rgba(52,211,153,0.15)":"rgba(128,128,128,0.06)",
                   border:`1px solid ${selected?"rgba(167,139,250,0.6)":noData?"rgba(128,128,128,0.10)":failed?"rgba(244,114,182,0.45)":h.met?"rgba(52,211,153,0.35)":"rgba(128,128,128,0.10)"}`,
                   color:selected?"#c4b8ff":noData?"var(--t-text-dim,#2d2450)":failed?"#f472b6":h.met?"#34d399":"var(--t-text-dim,#4a4166)",
-                  padding:"0 4px", cursor:noData?"default":"pointer", transition:"background .15s,border .15s" }}>
+                  padding:"0 4px", cursor:noData?"default":"pointer", transition:"background .15s,border .15s",
+                  fontFamily:"inherit" }}>
                 <span style={{ fontSize:11 }}>{noData ? "–" : failed ? "❌" : h.met ? "✅" : "·"}</span>
                 <span style={{ fontSize:8 }}>{h.label}</span>
-              </div>;
+              </button>;
             })}
           </div>
 

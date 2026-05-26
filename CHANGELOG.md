@@ -7,6 +7,57 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.0] — 2026-05-26 · Hito Sprint G-2: lectura desde tabla normalizada
+
+### Hito arquitectónico
+- **`read_from_normalized: true`** — la app lee misiones desde la tabla `missions` (Supabase) en lugar del blob JSON. Cierre del Sprint G-2, iniciado en v3.9.2 con el dual-write. El blob sigue siendo la fuente de escritura; la tabla es ahora fuente de verdad para lectura.
+- **Consistencia verificada (26/05):** 222 filas en tabla vs 220 en blob. Las 2 filas extra son misiones reales ("Hablar tranquilos" W21 + "Psico" W25) que el blob perdió el 25/05 por race condition (bug CAS, corregido en v3.9.6). Con el flip, **se restauran automáticamente** en la app.
+- Safety check activo en `loadFromNormalized`: si la tabla tiene <80% de las misiones del blob, hace fallback al blob automáticamente. Protección permanente contra tablas desactualizadas.
+
+### Prerequisitos completados (Externo, 26/05)
+- Gap 1: columnas `time`, `reminder`, `series_pattern`, `series_end_date` añadidas a `missions`
+- Re-backfill de 4 columnas en 139 filas históricas
+- Limpieza de 7 filas huérfanas del backfill (misiones eliminadas entre 20/05 y 23/05)
+- Backfill de 9 misiones faltantes (creadas entre backfill y dual-write, 20/05–23/05)
+- `backup_app_data()` corregida para incluir `couple_id`
+
+---
+
+## [3.9.6] — 2026-05-26 · Fix crítico CAS: protección real contra sobrescritura
+
+### Bug fix (crítico — pérdida de datos confirmada)
+- **`saveWithCAS` ahora es el único path de save** cuando `cas_version_check: true` y la versión está cargada. Antes, `saveWithCAS` y `saveWithRetry` corrían en **paralelo** — aunque el CAS detectase un conflicto real, el `saveWithRetry` sobreescribía igualmente. El flag `cas_version_check: true` era decorativo. Bug confirmado el 25/05: la tabla `missions` preservó 2 misiones que el blob perdió por este race condition.
+- **`dataVersionRef` inicializado a `null`** (antes `0`) para evitar falsos conflictos durante el arranque, antes de que `loadDataWithVersion` resuelva. Si la versión no está cargada, el save cae al path `saveWithRetry` como fallback seguro.
+- **Conflict handler**: en conflicto real (partner guardó primero), se re-descarga su versión, se actualiza `dataVersionRef`, y se muestra un toast avisando al usuario que sus últimos cambios no se guardaron.
+
+---
+
+## [3.9.5] — 2026-05-26 · Gap 1 cerrado: dual-write de misiones completo
+
+### Arquitectura
+- **`insertNormalizedMission` actualizado** — ahora incluye `time`, `reminder`, `series_pattern` y `series_end_date` en el INSERT a la tabla `missions`. Gap 1 del Sprint G-2 cerrado por Externo (26/05). El dual-write de misiones está completo al 100%. `reminder="none"` se normaliza a `null` en la tabla.
+- Pendiente Externo: re-backfill de las 4 columnas en las 252 filas históricas + verificación de consistencia antes del flip de `read_from_normalized`.
+
+---
+
+## [3.9.4] — 2026-05-26 · Fix crítico: re-sync al volver a la pestaña
+
+### Bug fix (crítico)
+- **Re-fetch silencioso al recuperar foco** — cuando `visibilityState` cambia a `visible` y no hay un guardado pendiente, la app hace un `loadData` silencioso para traer los datos más recientes de Supabase. Esto resuelve el caso donde el canal Realtime perdió eventos mientras la pestaña estaba en background (el WebSocket puede desconectarse y al reconectarse solo recibe eventos futuros, nunca los perdidos). Antes: si tu pareja guardaba cambios con la pestaña web en segundo plano, podías volver y ver datos de hace 20 minutos sin saberlo.
+- **`dataVersionRef` actualizado en el re-fetch** — mantiene el CAS coherente de cara a la activación futura del flag `cas_version_check`.
+
+---
+
+## [3.9.3] — 2026-05-25 · Perf StatsView + accesibilidad GoalsView
+
+### Performance
+- **StatsView memoización** — toda la computación pesada (streak, catStats, bySt, series, donutSegments, insights) envuelta en `useMemo([weeks,stWho,stRange,p1,p2,todayKey])`. Elimina recálculos innecesarios en cada render no relacionado con stats.
+
+### Accesibilidad
+- **GoalsView historial**: celdas de historial cambiadas de `<div onClick>` a `<button disabled={noData}>` — activables por teclado (Tab/Enter/Space) y correctamente anunciadas por screen readers.
+
+---
+
 ## [3.9.2] — 2026-05-23 · G-2 prep: dual-write de misiones cableado
 
 ### Arquitectura

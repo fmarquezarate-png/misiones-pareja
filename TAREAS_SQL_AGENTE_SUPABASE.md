@@ -895,9 +895,12 @@ Las queries enviadas al Externo el 2026-05-22 tenían 2 bugs confirmados por el 
 | G-1 — RLS unificada `app_data` | Tras Sprint G | 🔮 Futuro (julio) |
 | G-2 — Gap 3 (loadFromNormalized) | Cerrado v3.9.2 | ✅ Código listo + cableado |
 | G-2 — Gap 2 (week_metadata) | No bloquea | ✅ loadFromNormalized usa blob skeleton |
-| G-2 — Gap 1 (4 columnas missions) | Pendiente Externo | 🔴 time/reminder/series_pattern/series_end_date |
-| G-2 — Dual-write misiones | Activado v3.9.2 | ✅ insert/delete/status fire-and-forget |
-| G-2 — Re-backfill + flip flag | Tras Gap 1 | ⏳ Esperando confirmación Externo |
+| G-2 — Gap 1 (4 columnas missions) | Cerrado Externo 26/05 | ✅ time/reminder/series_pattern/series_end_date |
+| G-2 — Dual-write misiones completo | Activado v3.9.5 | ✅ insert/delete/status + 4 campos nuevos |
+| G-2 — Re-backfill 4 columnas | Ejecutado Externo 26/05 | ✅ 139 filas actualizadas |
+| G-2 — Backup couple_id fix | Ejecutado Externo 26/05 | ✅ backup_app_data() usa NEW.id |
+| G-2 — Misión huérfana 42a03092 | Pendiente Externo | 🔴 1 fila en tabla sin match en blob — eliminar antes del flip |
+| G-2 — Flip read_from_normalized | Pendiente limpieza huérfana | ⏳ Verde en 2/3 parejas — espera DELETE huérfana |
 
 ---
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { S } from "../styles.js";
 import { STATUS_ORDER, STATUS, CATEGORIES, DEFAULT_COLORS, getMCats } from "../constants.js";
 import { getWeekAndYear, isoWeekKey, dlBlob } from "../utils.js";
@@ -17,92 +17,101 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
 
   const { week: _tw, year: _ty } = getWeekAndYear();
   const todayKey = isoWeekKey(_tw, _ty);
-  const sortedAll = Object.entries(weeks).filter(([key]) => key <= todayKey).sort((a,b)=>a[0].localeCompare(b[0]));
-  const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
-  const allW = rangedEntries.map(([key,w]) => {
-    const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
-    const _yr = parseInt(key.split("-W")[0]) || new Date().getFullYear();
-    return { ...w, missions:ms, _yr };
-  });
-  const allM = allW.flatMap(w=>w.missions||[]);
-  const total=allM.length, done=allM.filter(m=>m.status==="DONE"&&!m.completedLate).length;
-  const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  let bestStreak=0, currStreak=0, currStreakNow=0;
-  for (const w of allW) {
-    const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
-    if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); currStreakNow=currStreak; } else { currStreak=0; }
-  }
+  // Memoize all heavy computation — only recomputes when data or filters change
+  const computed = useMemo(() => {
+    const sortedAll = Object.entries(weeks).filter(([key]) => key <= todayKey).sort((a,b)=>a[0].localeCompare(b[0]));
+    const rangedEntries = stRange==="all" ? sortedAll : sortedAll.slice(-parseInt(stRange));
+    const allW = rangedEntries.map(([key,w]) => {
+      const ms = stWho==="all" ? (w.missions||[]) : (w.missions||[]).filter(m=>m.who===stWho);
+      const _yr = parseInt(key.split("-W")[0]) || new Date().getFullYear();
+      return { ...w, missions:ms, _yr };
+    });
+    const allM = allW.flatMap(w=>w.missions||[]);
+    const total=allM.length, done=allM.filter(m=>m.status==="DONE"&&!m.completedLate).length;
+    const pct=total>0?Math.round((done/total)*100):0, wc=allW.length;
 
-  const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
-  const maxSt = Math.max(...bySt.map(x=>x.count), 1);
-  const catStats = CATEGORIES.map(c => {
-    const ms=allM.filter(m=>getMCats(m).includes(c.id));
-    return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
-  }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
-  const rawAllM = rangedEntries.flatMap(([,w]) => w.missions||[]);
-  const ph = key => { const ms=rawAllM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
-  const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
-  const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
-  const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
-
-  const pctColor = pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
-  const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
-  const filterLabel = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
-
-  const analysisSeries = series.filter(s => isoWeekKey(s.weekNumber, s.year) < todayKey);
-  const insights = [];
-  if (analysisSeries.length>=3) {
-    const last3=analysisSeries.slice(-3),prev3=analysisSeries.slice(-6,-3);
-    const avgL=last3.reduce((s,w)=>s+w.pct,0)/last3.length;
-    const avgP=prev3.length>0?prev3.reduce((s,w)=>s+w.pct,0)/prev3.length:avgL;
-    const lastW=last3[last3.length-1];
-    const wRange=`S${last3[0].weekNumber}–S${lastW.weekNumber}`;
-    if (avgL>avgP+12) insights.push({icon:"🚀",title:`Tendencia al alza (${wRange}): +${Math.round(avgL-avgP)} puntos`,desc:`Habéis subido de ${Math.round(avgP)}% (3 sem. anteriores) a ${Math.round(avgL)}% (últimas 3 sem.). Ritmo excelente, mantened el plan.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
-    else if (avgL<avgP-12) insights.push({icon:"📉",title:`Bajada de ritmo (${wRange}): −${Math.round(avgP-avgL)} puntos`,desc:`Bajasteis de ${Math.round(avgP)}% a ${Math.round(avgL)}%. Revisad si las misiones son demasiado ambiciosas o si algo externo os está afectando.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
-    else insights.push({icon:"➡️",title:`Ritmo estable al ${Math.round(avgL)}% (${wRange})`,desc:`Lleváis 3 semanas con una variación menor de 12 puntos. La consistencia es más valiosa que los picos. Seguid igual.`});
-  }
-  const weekScores=allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0;return{p:t>0?d/t:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t,d};}).filter(w=>w.p!==null&&w.t>=5);
-  if (weekScores.length>=2){
-    const bW=weekScores.reduce((a,b)=>b.p>a.p?b:a);
-    const wW=weekScores.reduce((a,b)=>b.p<a.p?b:a);
-    if (Math.round(bW.p*100)>=60) insights.push({icon:"🏆",title:`Semana récord: S${bW.wn} con ${Math.round(bW.p*100)}%${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d} de ${bW.t} misiones completadas. ¿Qué hicisteis diferente esa semana? Intentad replicarlo.`,weekNumber:bW.wn,year:bW.yr});
-    if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana más difícil: S${wW.wn} (${Math.round(wW.p*100)}%, ${wW.d}/${wW.t})`,desc:`Fue la semana con menor completitud del periodo. Analizar qué la hizo difícil puede ayudar a prevenir caídas similares.`,weekNumber:wW.wn,year:wW.yr});
-  }
-  if (catStats.length>1){
-    const sorted=[...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1));
-    const best=sorted[0],weak=sorted[sorted.length-1];
-    if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: categoría estrella (${Math.round((best.done/best.count)*100)}% en ${best.count} misiones)`,desc:`${best.done} de ${best.count} completadas. Es donde sois más eficaces como equipo. Considerad ampliar misiones en esta área.`});
-    if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría pendiente (${Math.round((weak.done/weak.count)*100)}% en ${weak.count} misiones)`,desc:`Solo ${weak.done} de ${weak.count} completadas. Puede indicar que las misiones son poco concretas o que necesitan más tiempo del planificado.`});
-  }
-  const p1c=ph("person1").count,p2c=ph("person2").count;
-  if (p1c+p2c>=6){
-    const diff=Math.abs(p1c-p2c);
-    const diffPct=Math.round((diff/(p1c+p2c))*100);
-    if (diffPct>=25) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} concentra el ${Math.round(p1c>p2c?p1c/(p1c+p2c)*100:p2c/(p1c+p2c)*100)}% de las misiones individuales`,desc:`${p1}: ${p1c} misiones · ${p2}: ${p2c} misiones. Una diferencia del ${diffPct}% puede indicar desequilibrio. Valorad redistribuir.`});
-    else insights.push({icon:"🤝",title:`Reparto equilibrado: ${p1} ${p1c} − ${p2} ${p2c} (diferencia ${diffPct}%)`,desc:`Menos del 25% de diferencia en misiones individuales. El trabajo se distribuye de forma saludable entre los dos.`});
-  }
-  if (catStats.length>0){
-    const workC=catStats.find(c=>c.id==="trabajo");
-    const lifeTotal=catStats.filter(c=>c.id!=="trabajo").reduce((s,c)=>s+c.count,0);
-    if (workC&&lifeTotal>0){
-      const ratio=(workC.count/(workC.count+lifeTotal)*100);
-      if (ratio>60) insights.push({icon:"💼",title:`Trabajo ocupa el ${Math.round(ratio)}% de las misiones`,desc:`Las misiones de trabajo dominan el plan. ¿Estáis dedicando suficiente tiempo a pareja y ocio?`});
-      else if (ratio<20&&workC.count>0) insights.push({icon:"🌈",title:"Gran equilibrio vida-trabajo",desc:`Solo ${Math.round(ratio)}% de misiones son de trabajo. Tiempo de calidad bien aprovechado.`});
+    let bestStreak=0, currStreak=0, currStreakNow=0;
+    for (const w of allW) {
+      const d=w.missions?.filter(m=>m.status==="DONE").length||0, t=w.missions?.length||0;
+      if (t>0 && d===t) { currStreak++; bestStreak=Math.max(bestStreak,currStreak); currStreakNow=currStreak; } else { currStreak=0; }
     }
-  }
-  if (currStreakNow>=2) insights.push({icon:"🔥",title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`,desc:`Lleváis ${currStreakNow} semanas completando todas las misiones. Cada semana que mantenéis la racha refuerza el hábito. ¡A por la siguiente!`});
-  if (wc>=4){const avgMpW=(total/wc).toFixed(1);const advice=avgMpW<3?"Poco volumen — podéis añadir más misiones para aprovechar el ritmo":avgMpW>8?"Ritmo intenso — revisad si todas las misiones son realmente necesarias o si podéis simplificar":"Volumen saludable y sostenible";insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana en ${wc} semanas`,desc:`${total} misiones planificadas en total. ${advice}.`});}
 
-  const wrappedInsights = insights.length > 0
-    ? insights
-    : (isEnabled("stats_insights_enabled") ? generateInsights(weeks, p1, p2) : []);
+    const bySt = STATUS_ORDER.map(s => ({ s, count:allM.filter(m=>m.status===s).length }));
+    const maxSt = Math.max(...bySt.map(x=>x.count), 1);
+    const catStats = CATEGORIES.map(c => {
+      const ms=allM.filter(m=>getMCats(m).includes(c.id));
+      return { ...c, dur:ms.reduce((s,m)=>s+(m.duration||0),0), count:ms.length, done:ms.filter(m=>m.status==="DONE").length };
+    }).filter(c=>c.count>0).sort((a,b)=>b.count-a.count);
+    const rawAllM = rangedEntries.flatMap(([,w]) => w.missions||[]);
+    const ph = key => { const ms=rawAllM.filter(m=>m.who===key); return { count:ms.length, done:ms.filter(m=>m.status==="DONE").length }; };
+    const ph1=ph("person1"), ph2=ph("person2"), phT=ph("together");
+    const totalWork1=allW.reduce((s,w)=>s+(w.workHours?.person1||0),0), totalWork2=allW.reduce((s,w)=>s+(w.workHours?.person2||0),0);
+    const series=allW.map(w=>{ const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0; return { label:`S${w.weekNumber}`, pct:t>0?Math.round((d/t)*100):0, durH:(w.missions||[]).reduce((s,m)=>s+(m.duration||0),0), total:t, done:d, weekNumber:w.weekNumber, year:w._yr }; });
+
+    const pctColor = pct>=80?"#34d399":pct>=50?"#fbbf24":"#f472b6";
+    const filterLabel = (stRange!=="all"?`Últ. ${stRange} sem.`:"Historial completo") + (stWho!=="all"?" · "+(stWho==="person1"?p1:stWho==="person2"?p2:"Juntos"):"");
+
+    const analysisSeries = series.filter(s => isoWeekKey(s.weekNumber, s.year) < todayKey);
+    const insights = [];
+    if (analysisSeries.length>=3) {
+      const last3=analysisSeries.slice(-3),prev3=analysisSeries.slice(-6,-3);
+      const avgL=last3.reduce((s,w)=>s+w.pct,0)/last3.length;
+      const avgP=prev3.length>0?prev3.reduce((s,w)=>s+w.pct,0)/prev3.length:avgL;
+      const lastW=last3[last3.length-1];
+      const wRange=`S${last3[0].weekNumber}–S${lastW.weekNumber}`;
+      if (avgL>avgP+12) insights.push({icon:"🚀",title:`Tendencia al alza (${wRange}): +${Math.round(avgL-avgP)} puntos`,desc:`Habéis subido de ${Math.round(avgP)}% (3 sem. anteriores) a ${Math.round(avgL)}% (últimas 3 sem.). Ritmo excelente, mantened el plan.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
+      else if (avgL<avgP-12) insights.push({icon:"📉",title:`Bajada de ritmo (${wRange}): −${Math.round(avgP-avgL)} puntos`,desc:`Bajasteis de ${Math.round(avgP)}% a ${Math.round(avgL)}%. Revisad si las misiones son demasiado ambiciosas o si algo externo os está afectando.`,weekNumber:lastW?.weekNumber,year:lastW?.year});
+      else insights.push({icon:"➡️",title:`Ritmo estable al ${Math.round(avgL)}% (${wRange})`,desc:`Lleváis 3 semanas con una variación menor de 12 puntos. La consistencia es más valiosa que los picos. Seguid igual.`});
+    }
+    const weekScores=allW.filter(w=>isoWeekKey(w.weekNumber,w._yr)<todayKey).map(w=>{const d=w.missions?.filter(m=>m.status==="DONE"&&!m.completedLate).length||0,t=w.missions?.length||0;return{p:t>0?d/t:null,wn:w.weekNumber,yr:w._yr,obj:w.epicObjective,t,d};}).filter(w=>w.p!==null&&w.t>=5);
+    if (weekScores.length>=2){
+      const bW=weekScores.reduce((a,b)=>b.p>a.p?b:a);
+      const wW=weekScores.reduce((a,b)=>b.p<a.p?b:a);
+      if (Math.round(bW.p*100)>=60) insights.push({icon:"🏆",title:`Semana récord: S${bW.wn} con ${Math.round(bW.p*100)}%${bW.obj?` — "${bW.obj}"`:""}`,desc:`${bW.d} de ${bW.t} misiones completadas. ¿Qué hicisteis diferente esa semana? Intentad replicarlo.`,weekNumber:bW.wn,year:bW.yr});
+      if (wW.wn!==bW.wn&&Math.round(wW.p*100)<40) insights.push({icon:"💡",title:`Semana más difícil: S${wW.wn} (${Math.round(wW.p*100)}%, ${wW.d}/${wW.t})`,desc:`Fue la semana con menor completitud del periodo. Analizar qué la hizo difícil puede ayudar a prevenir caídas similares.`,weekNumber:wW.wn,year:wW.yr});
+    }
+    if (catStats.length>1){
+      const sorted=[...catStats].sort((a,b)=>b.done/Math.max(b.count,1)-a.done/Math.max(a.count,1));
+      const best=sorted[0],weak=sorted[sorted.length-1];
+      if (best.count>1) insights.push({icon:best.icon,title:`${best.label}: categoría estrella (${Math.round((best.done/best.count)*100)}% en ${best.count} misiones)`,desc:`${best.done} de ${best.count} completadas. Es donde sois más eficaces como equipo. Considerad ampliar misiones en esta área.`});
+      if (weak.count>1&&Math.round((weak.done/weak.count)*100)<50) insights.push({icon:"⚠️",title:`${weak.label}: categoría pendiente (${Math.round((weak.done/weak.count)*100)}% en ${weak.count} misiones)`,desc:`Solo ${weak.done} de ${weak.count} completadas. Puede indicar que las misiones son poco concretas o que necesitan más tiempo del planificado.`});
+    }
+    const p1c=ph("person1").count,p2c=ph("person2").count;
+    if (p1c+p2c>=6){
+      const diff=Math.abs(p1c-p2c);
+      const diffPct=Math.round((diff/(p1c+p2c))*100);
+      if (diffPct>=25) insights.push({icon:"⚖️",title:`${p1c>p2c?p1:p2} concentra el ${Math.round(p1c>p2c?p1c/(p1c+p2c)*100:p2c/(p1c+p2c)*100)}% de las misiones individuales`,desc:`${p1}: ${p1c} misiones · ${p2}: ${p2c} misiones. Una diferencia del ${diffPct}% puede indicar desequilibrio. Valorad redistribuir.`});
+      else insights.push({icon:"🤝",title:`Reparto equilibrado: ${p1} ${p1c} − ${p2} ${p2c} (diferencia ${diffPct}%)`,desc:`Menos del 25% de diferencia en misiones individuales. El trabajo se distribuye de forma saludable entre los dos.`});
+    }
+    if (catStats.length>0){
+      const workC=catStats.find(c=>c.id==="trabajo");
+      const lifeTotal=catStats.filter(c=>c.id!=="trabajo").reduce((s,c)=>s+c.count,0);
+      if (workC&&lifeTotal>0){
+        const ratio=(workC.count/(workC.count+lifeTotal)*100);
+        if (ratio>60) insights.push({icon:"💼",title:`Trabajo ocupa el ${Math.round(ratio)}% de las misiones`,desc:`Las misiones de trabajo dominan el plan. ¿Estáis dedicando suficiente tiempo a pareja y ocio?`});
+        else if (ratio<20&&workC.count>0) insights.push({icon:"🌈",title:"Gran equilibrio vida-trabajo",desc:`Solo ${Math.round(ratio)}% de misiones son de trabajo. Tiempo de calidad bien aprovechado.`});
+      }
+    }
+    if (currStreakNow>=2) insights.push({icon:"🔥",title:`Racha activa: ${currStreakNow} semana${currStreakNow>1?"s":""} al 100%`,desc:`Lleváis ${currStreakNow} semanas completando todas las misiones. Cada semana que mantenéis la racha refuerza el hábito. ¡A por la siguiente!`});
+    if (wc>=4){const avgMpW=(total/wc).toFixed(1);const advice=avgMpW<3?"Poco volumen — podéis añadir más misiones para aprovechar el ritmo":avgMpW>8?"Ritmo intenso — revisad si todas las misiones son realmente necesarias o si podéis simplificar":"Volumen saludable y sostenible";insights.push({icon:"📊",title:`Media de ${avgMpW} misiones/semana en ${wc} semanas`,desc:`${total} misiones planificadas en total. ${advice}.`});}
+
+    const wrappedInsights = insights.length > 0
+      ? insights
+      : (isEnabled("stats_insights_enabled") ? generateInsights(weeks, p1, p2) : []);
+
+    const donutTotal = bySt.reduce((s,x)=>s+x.count,0);
+    let donutOffset=0;
+    const donutSegments = bySt.filter(x=>x.count>0).map(({s,count})=>{ const pct2=(count/donutTotal)*100; const seg={s,pct:pct2,offset:donutOffset}; donutOffset+=pct2; return seg; });
+
+    return { allW, allM, total, done, pct, wc, bestStreak, currStreakNow, bySt, maxSt, catStats, ph1, ph2, phT, totalWork1, totalWork2, series, rangedEntries, pctColor, filterLabel, wrappedInsights, donutSegments, insights };
+  }, [weeks, stWho, stRange, p1, p2, todayKey]);
+
+  const { allW, total, done, pct, wc, bestStreak, bySt, maxSt, catStats, ph1, ph2, phT, totalWork1, totalWork2, series, pctColor, filterLabel, wrappedInsights, donutSegments, insights } = computed;
+
+  const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
 
   if(total===0) return <div style={{ textAlign:"center", color:"var(--t-text-dim,#3d3360)", padding:50 }}><div style={{ fontSize:40, marginBottom:12 }}>📊</div><div style={{ fontStyle:"italic" }}>Sin datos aún.</div></div>;
-
-  const donutTotal = bySt.reduce((s,x)=>s+x.count,0);
-  let donutOffset=0;
-  const donutSegments = bySt.filter(x=>x.count>0).map(({s,count})=>{ const pct2=(count/donutTotal)*100; const seg={s,pct:pct2,offset:donutOffset}; donutOffset+=pct2; return seg; });
 
   const whoOpts = [
     { id:"all", label:"Todos", color:"var(--t-text-muted,#8b7fa8)" },
