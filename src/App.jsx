@@ -447,7 +447,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         }
       }
     };
-    const handleVisibilityChange = () => { if (document.visibilityState === "hidden") flushPendingSave(); };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushPendingSave();
+      } else if (document.visibilityState === "visible" && !saveTimerRef.current && coupleId) {
+        // Realtime no recupera eventos perdidos tras reconexión del WebSocket.
+        // Re-fetch silencioso para sincronizar datos que llegaron mientras la pestaña
+        // estaba en segundo plano (pareja guardó cambios, realtime no los recibió).
+        loadData(coupleId).then(fresh => {
+          if (fresh && isValidAppData(fresh)) {
+            setData(fresh);
+            loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pagehide", flushPendingSave);
     return () => {

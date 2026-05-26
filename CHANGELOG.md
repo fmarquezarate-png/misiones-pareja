@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [3.9.4] — 2026-05-26 · Fix crítico: re-sync al volver a la pestaña
+
+### Bug fix (crítico)
+- **Re-fetch silencioso al recuperar foco** — cuando `visibilityState` cambia a `visible` y no hay un guardado pendiente, la app hace un `loadData` silencioso para traer los datos más recientes de Supabase. Esto resuelve el caso donde el canal Realtime perdió eventos mientras la pestaña estaba en background (el WebSocket puede desconectarse y al reconectarse solo recibe eventos futuros, nunca los perdidos). Antes: si tu pareja guardaba cambios con la pestaña web en segundo plano, podías volver y ver datos de hace 20 minutos sin saberlo.
+- **`dataVersionRef` actualizado en el re-fetch** — mantiene el CAS coherente de cara a la activación futura del flag `cas_version_check`.
+
+---
+
 ## [3.9.3] — 2026-05-25 · Perf StatsView + accesibilidad GoalsView
 
 ### Performance
