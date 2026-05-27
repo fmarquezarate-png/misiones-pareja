@@ -6,7 +6,12 @@ const DEFAULTS = {
   stats_insights_enabled: true,
   goals_drilldown_enabled: true,
   dual_write_normalized: true,
-  cas_version_check: true,
+  // Temporalmente desactivado hasta que Externo deshabilite los triggers de push
+  // en app_data (trg_push_on_app_data_update + trg_notify_push_on_app_data_update).
+  // Esos triggers corren net.http_post dentro de la misma transacción FOR UPDATE
+  // de save_app_data_cas → extienden el lock → timeouts intermitentes en saves.
+  // Reactivar una vez confirmado por Externo que los triggers están deshabilitados.
+  cas_version_check: false,
   idb_offline_queue: false,
   read_from_normalized: true, // Sprint G-2 completo: tabla missions sincronizada via dual-write (v3.9.2+). Backfill verificado 26/05 — 222 filas vs 220 blob. Fuente de verdad: tabla missions.
 };

@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.14] — 2026-05-26 · Estabilización: CAS desactivado hasta limpieza de triggers
+
+### Cambio de configuración
+
+- **`cas_version_check` desactivado temporalmente** — Los triggers `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` siguen activos en `app_data` y ejecutan `net.http_post` dentro de la misma transacción `FOR UPDATE` que usa `save_app_data_cas`. Cuando la Edge Function tarda más de ~2s, el lock se extiende y las queries de carga del otro cliente colisionan → statement timeout → 500. Saves e interrupción de la app. Con `cas_version_check: false`, los saves vuelven al path `saveWithRetry` (upsert simple, sin lock), comportamiento idéntico al monolito pre-v4.0.0. **El flag se reactiva en cuanto Externo deshabilite los dos triggers** (SQL preparado en `TAREAS_SQL_AGENTE_SUPABASE.md` sección 🚨 CRÍTICO).
+
+---
+
 ## [4.0.13] — 2026-05-26 · Fix Service Worker: activación inmediata
 
 ### Bugs corregidos

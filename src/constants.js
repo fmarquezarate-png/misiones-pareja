@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.0.13";
+export const APP_VERSION = "4.0.14";
 export const LAST_UPDATE = "2026-05-26";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.0.14", date:"2026-05-26", notes:["Estabilización: cas_version_check desactivado temporalmente. Los triggers de push en app_data (trg_push_on_app_data_update + trg_notify_push_on_app_data_update) corren net.http_post dentro de la transacción FOR UPDATE de save_app_data_cas — si la Edge Function tarda, el lock se extiende y los saves/cargas fallan intermitentemente con statement timeout. Con CAS desactivado, los saves vuelven al path upsert simple (sin lock), idéntico al comportamiento pre-v4.0.0. Se reactiva cuando Externo confirme que los triggers están deshabilitados."] },
   { v:"4.0.13", date:"2026-05-26", notes:["Fix Service Worker: el SW nuevo se quedaba en estado 'waiting' indefinidamente hasta cerrar todas las pestañas — los usuarios veían 'estamos en la última' mostrando la versión vieja aunque Netlify ya hubiera deployado la nueva. Añadido self.skipWaiting() en install (activación inmediata) y listener de mensaje SKIP_WAITING (soporta el botón 'Actualizar versión' en Settings). Junto con clients.claim() en activate y controllerchange en main.jsx, cada deploy se aplica al primer refresh."] },
   { v:"4.0.12", date:"2026-05-26", notes:["WeekTimeline: actividades del mismo día ahora se ordenan cronológicamente. Las que tienen hora van primero (orden ascendente por time HH:MM), las sin hora van al final. El orden anterior era de inserción (creación), no cronológico."] },
   { v:"4.0.11", date:"2026-05-26", notes:["Fix onboarding: createCouple ahora maneja el fallo del INSERT a couple_members correctamente. Si el INSERT a couples tiene éxito pero couple_members falla (probable por RLS usando is_couple_member() que devuelve FALSE porque el usuario aún no es miembro), se hace rollback del couple recién creado. Sin este rollback, el usuario quedaba atascado: no podía reintentar porque el código ya existía. También se maneja el error de find_couple_by_code RPC explícitamente en lugar de ignorarlo silenciosamente. Tarea Externo: verificar y corregir la policy INSERT de couple_members para usar user_id = auth.uid() en lugar de is_couple_member()."] },
