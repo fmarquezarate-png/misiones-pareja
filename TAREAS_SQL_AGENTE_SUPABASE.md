@@ -3,7 +3,84 @@
 
 > **Para el agente:** Este documento contiene todas las migraciones SQL que debes ejecutar en el proyecto Supabase, organizadas por sprint. Ejecuta **una sección a la vez**, en el orden indicado. Cada sección incluye el contexto de por qué se hace, para que puedas tomar decisiones si algo falla.
 >
+
+---
+
+## 🚨 CRÍTICO — Ejecutar AHORA (descubierto 26/05/2026 en producción)
+
+### P0 · Deshabilitar triggers de push en `app_data`
+
+**Síntoma en producción:** saves intermitentes fallan con statement timeout. Los cambios del usuario no persisten tras refresh.
+
+**Causa raíz confirmada por Externo:** Los triggers `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` llaman a `net.http_post` (hacia la Edge Function `send-push`) **dentro de la misma transacción** que `save_app_data_cas`. Aunque `pg_net` sea async, la ejecución del trigger extiende el tiempo que el `FOR UPDATE` lock está abierto. Si la Edge Function tarda más de unos millisegundos, la siguiente query de carga colisiona con el lock → statement timeout → 500 → el cliente no puede guardar ni cargar datos.
+
+**La app ya envía push contextual desde el cliente** (con 1500ms delay post-save). Los triggers son redundantes y peligrosos en su posición actual.
+
+```sql
+-- Deshabilitar AMBOS triggers de push en app_data
+ALTER TABLE public.app_data DISABLE TRIGGER trg_push_on_app_data_update;
+ALTER TABLE public.app_data DISABLE TRIGGER trg_notify_push_on_app_data_update;
+
+-- Verificar que quedaron deshabilitados
+SELECT trigger_name, enabled
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data'
+  AND trigger_name ILIKE '%push%';
+-- enabled debe ser 'NO' o 'DISABLED' para ambos
+
+-- Verificar los triggers restantes (solo deben quedar snapshot y version)
+SELECT trigger_name, event_manipulation, enabled
+FROM information_schema.triggers
+WHERE event_object_table = 'app_data'
+ORDER BY trigger_name;
+```
+
+**Confirmar al equipo:** nombres exactos de los triggers deshabilitados y lista de los que quedan activos.
+
+---
 > **Regla de oro:** Todas las migraciones son **additive-only** (solo añaden, nunca borran). Nunca ejecutes un DROP TABLE salvo que la sección lo indique explícitamente y diga "SEGURO BORRAR".
+
+---
+
+## 🔴 URGENTE — Onboarding roto para nuevos usuarios (26/05/2026)
+
+### P1 · Verificar y corregir RLS de `couple_members` para INSERT inicial
+
+**Síntoma:** Un usuario nuevo no puede crear pareja. El INSERT a `couples` puede pasar (tiene `owner_user_id: auth.uid()`) pero el INSERT a `couple_members` falla con RLS.
+
+**Causa probable:** La policy de INSERT en `couple_members` usa `is_couple_member(couple_id)` como WITH CHECK. Pero `is_couple_member()` devuelve FALSE porque el usuario AÚN NO ES MIEMBRO (está intentando convertirse en el primer miembro). Resultado: el INSERT es rechazado por la misma condición que debería proteger la tabla.
+
+**El mismo bug afecta `joinCouple`**: un usuario que quiere unirse tampoco puede insertar en `couple_members` si la policy usa `is_couple_member()`.
+
+**Diagnosticar:**
+```sql
+-- Ver las políticas actuales de couple_members
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE tablename = 'couple_members';
+```
+
+**Si la policy de INSERT usa `is_couple_member()`, reemplazarla:**
+```sql
+-- La condición correcta para INSERT en couple_members es:
+-- "solo puedes agregarte a ti mismo como miembro"
+-- No se puede verificar membresía previa porque aún no existe.
+DROP POLICY IF EXISTS "couple_members_insert_own" ON public.couple_members;
+CREATE POLICY "couple_members_insert_own" ON public.couple_members
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+```
+
+**Para prevenir que alguien agregue a un tercero** (la protección real):
+```sql
+-- Verificar que la policy SELECT sigue siendo correcta
+-- (los usuarios solo deben ver las parejas de las que son miembro)
+SELECT policyname, cmd, qual
+FROM pg_policies
+WHERE tablename = 'couple_members' AND cmd = 'SELECT';
+```
+
+**Confirmar al equipo:** resultado del SELECT de políticas antes y después del cambio.
 
 ---
 
