@@ -42,6 +42,48 @@ ORDER BY trigger_name;
 
 ---
 
+## 🔴 URGENTE — Onboarding roto para nuevos usuarios (26/05/2026)
+
+### P1 · Verificar y corregir RLS de `couple_members` para INSERT inicial
+
+**Síntoma:** Un usuario nuevo no puede crear pareja. El INSERT a `couples` puede pasar (tiene `owner_user_id: auth.uid()`) pero el INSERT a `couple_members` falla con RLS.
+
+**Causa probable:** La policy de INSERT en `couple_members` usa `is_couple_member(couple_id)` como WITH CHECK. Pero `is_couple_member()` devuelve FALSE porque el usuario AÚN NO ES MIEMBRO (está intentando convertirse en el primer miembro). Resultado: el INSERT es rechazado por la misma condición que debería proteger la tabla.
+
+**El mismo bug afecta `joinCouple`**: un usuario que quiere unirse tampoco puede insertar en `couple_members` si la policy usa `is_couple_member()`.
+
+**Diagnosticar:**
+```sql
+-- Ver las políticas actuales de couple_members
+SELECT policyname, cmd, qual, with_check
+FROM pg_policies
+WHERE tablename = 'couple_members';
+```
+
+**Si la policy de INSERT usa `is_couple_member()`, reemplazarla:**
+```sql
+-- La condición correcta para INSERT en couple_members es:
+-- "solo puedes agregarte a ti mismo como miembro"
+-- No se puede verificar membresía previa porque aún no existe.
+DROP POLICY IF EXISTS "couple_members_insert_own" ON public.couple_members;
+CREATE POLICY "couple_members_insert_own" ON public.couple_members
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+```
+
+**Para prevenir que alguien agregue a un tercero** (la protección real):
+```sql
+-- Verificar que la policy SELECT sigue siendo correcta
+-- (los usuarios solo deben ver las parejas de las que son miembro)
+SELECT policyname, cmd, qual
+FROM pg_policies
+WHERE tablename = 'couple_members' AND cmd = 'SELECT';
+```
+
+**Confirmar al equipo:** resultado del SELECT de políticas antes y después del cambio.
+
+---
+
 ## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.5+)
 
 ### S-3 · Columna `carried_from_blob_id` en la tabla `missions` — ✅ EJECUTADO (26/05)

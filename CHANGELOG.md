@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.11] — 2026-05-26 · Fix onboarding: rollback si couple_members INSERT falla
+
+### Bugs corregidos
+
+- **`createCouple` dejaba pareja huérfana si `couple_members` INSERT fallaba** (P1) — Si el INSERT a `couples` tenía éxito pero el INSERT a `couple_members` era rechazado por RLS (probable causa: la policy usa `is_couple_member()` que devuelve FALSE porque el usuario aún no es miembro del couple que acaba de crear), la pareja quedaba en DB sin ningún miembro visible. El usuario veía un error, intentaba de nuevo, y recibía "código ya en uso" quedando completamente bloqueado. Fix: si `couple_members` falla, se hace DELETE del couple recién creado antes de devolver el error.
+- **Error de `find_couple_by_code` RPC ignorado silenciosamente** — Si la RPC fallaba, la operación continuaba asumiendo que no había pareja existente. Podía resultar en inserción de código duplicado. Ahora se loguea el error y se retorna si es definitivo.
+
+### Infraestructura
+
+- Tarea Externo añadida en `TAREAS_SQL_AGENTE_SUPABASE.md`: verificar y corregir la policy INSERT de `couple_members` para usar `user_id = auth.uid()` en lugar de `is_couple_member()`.
+
+---
+
 ## [4.0.10] — 2026-05-26 · Sync CORS Edge Function + deuda técnica documentada
 
 ### Bugs corregidos

@@ -56,9 +56,10 @@ export async function createCouple(code, personName) {
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
   if (userErr || !user) return { error: "No hay sesión activa" };
 
-  const { data: existing } = await supabase
+  const { data: existing, error: findErr } = await supabase
     .rpc("find_couple_by_code", { p_code: code.toUpperCase() });
 
+  if (findErr) console.warn("[createCouple] find_couple_by_code error:", findErr.message);
   if (existing && existing.length > 0) return { error: "Ese código ya está en uso, elige otro" };
 
   const { data: couple, error: coupleErr } = await supabase
@@ -77,7 +78,14 @@ export async function createCouple(code, personName) {
     .from("couple_members")
     .insert({ user_id: user.id, couple_id: couple.id, person_name: personName });
 
-  if (memberErr) return { error: memberErr.message };
+  if (memberErr) {
+    // Cleanup: la pareja quedó huérfana si el miembro no se pudo insertar.
+    // Sin este delete, el usuario no puede reintentar (el código ya existe).
+    // Si el delete falla, el Externo deberá limpiar la fila manualmente.
+    await supabase.from("couples").delete().eq("id", couple.id).eq("owner_user_id", user.id);
+    console.error("[createCouple] couple_members insert failed:", memberErr.message);
+    return { error: "Error al crear la pareja: " + memberErr.message };
+  }
 
   return { couple_id: couple.id };
 }
