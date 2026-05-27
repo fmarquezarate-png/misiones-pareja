@@ -97,6 +97,13 @@ El proyecto se trabaja por roles que dialogan en cada sesión. Cada agente tiene
 - **Externo** recibe solo lo que requiere consola Supabase (SQL, Edge Functions, logs)
 - **Usuario** hace el mínimo, siempre no-técnico, siempre con instrucciones al detalle
 
+### Gate de deploy — NUNCA mergear a main si:
+1. Hay tareas Externo marcadas como **PREREQUISITO BLOQUEANTE** sin confirmación escrita del Externo
+2. El Scanner no ha hecho sign-off explícito del path de arquitectura que se activa
+3. Hay un flag de arquitectura (`read_from_normalized`, `cas_version_check`, `dual_write_normalized`) que se flipea por primera vez sin verificación en staging
+
+**El Coordinador es el único que puede levantar este gate.** Si no hay Coordinador activo, el gate no se levanta.
+
 ### Cómo añadir un agente nuevo
 1. Crear `docs/agents/<nombre>.md` siguiendo el template de [`docs/agents/README.md`](./docs/agents/README.md)
 2. Añadir fila a la tabla de arriba
