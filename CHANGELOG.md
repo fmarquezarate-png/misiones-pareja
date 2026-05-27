@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.13] — 2026-05-26 · Fix Service Worker: activación inmediata
+
+### Bugs corregidos
+
+- **SW nuevo se quedaba en "waiting" hasta cerrar todas las pestañas** (P1) — La app mostraba "estamos en la última versión" con el número viejo (4.0.10) incluso después de que Netlify hubiera desplegado una nueva. El SW se instalaba pero esperaba a que todas las pestañas/instancias PWA se cerraran antes de activarse. Como Chrome PWA y iOS PWA mantienen una pestaña abierta permanentemente, el SW podía quedarse semanas en waiting. Fix: `self.skipWaiting()` en el evento `install` — el SW nuevo se activa inmediatamente y, combinado con `clients.claim()` que ya estaba en activate, toma control de la pestaña actual. El listener `controllerchange` en `main.jsx` recarga la página automáticamente.
+- **Botón "Actualizar versión" no funcionaba en muchos casos** — App.jsx posteaba `{type:'SKIP_WAITING'}` al SW pero éste no tenía listener de mensajes. Añadido handler que llama `self.skipWaiting()` al recibir ese mensaje.
+
+### Nota técnica
+
+La propuesta de añadir una estrategia `stale-while-revalidate` separada para assets hasheados **no se aplicó**: `precacheAndRoute(self.__WB_MANIFEST)` ya hace cache-first para todos los assets del manifest, y `cleanupOutdatedCaches()` limpia las versiones viejas. Un fetch handler manual conflictaría con el routing de Workbox.
+
+---
+
 ## [4.0.12] — 2026-05-26 · Timeline: orden cronológico dentro del mismo día
 
 ### Mejoras
