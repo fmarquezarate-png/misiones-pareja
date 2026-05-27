@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.12] — 2026-05-26 · Timeline: orden cronológico dentro del mismo día
+
+### Mejoras
+
+- **WeekTimeline: actividades del mismo día ordenadas por hora** — Los items se agrupaban por fecha correctamente pero dentro de cada día se mostraban en orden de inserción. Ahora se ordenan por `time` ascendente (HH:MM). Items sin hora van al final del día.
+
+---
+
 ## [4.0.11] — 2026-05-26 · Fix onboarding: rollback si couple_members INSERT falla
 
 ### Bugs corregidos

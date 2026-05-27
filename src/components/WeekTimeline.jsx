@@ -13,6 +13,16 @@ export default function WeekTimeline({ missions, today = new Date(), weekDays, r
       if (!map[k]) map[k] = [];
       map[k].push(m);
     });
+    // Sort each day's items chronologically: timed first (ascending), then untimed
+    Object.keys(map).forEach(k => {
+      if (k === "_none") return;
+      map[k].sort((a, b) => {
+        if (!a.time && !b.time) return 0;
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return a.time.localeCompare(b.time);
+      });
+    });
     return map;
   }, [missions]);
 
