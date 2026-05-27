@@ -6,6 +6,19 @@ import { ExpirationPlugin } from 'workbox-expiration';
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
+// Activar el SW nuevo sin esperar a que cierren todas las pestañas viejas.
+// Combinado con clients.claim() en activate y el listener controllerchange en
+// main.jsx, garantiza que cada deploy se aplica al refrescar — no al cerrar la PWA.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+// Soporta el botón manual "Actualizar versión" en Settings — App.jsx postea
+// { type: 'SKIP_WAITING' } al SW en estado waiting cuando el usuario lo activa.
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 // Tomar control inmediato de todos los clientes al activarse
 self.addEventListener('activate', event => {
   event.waitUntil(clients.claim());
