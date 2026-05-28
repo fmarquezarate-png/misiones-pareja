@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates } from "./supabase.js";
+import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks } from "./supabase.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
 import HomeDashboard from "./components/HomeDashboard.jsx";
@@ -305,6 +305,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (isTodayMonday()) base = applyCarryOver(base);
         const { data: repaired, moved: repairedCount } = repairMisplacedMissions(base);
         if (repairedCount > 0) { base = repaired; didMigrate = true; }
+
+        const goalRepaired = await repairGoalIdLinks(coupleId, base);
+        if (goalRepaired) { base = goalRepaired; didMigrate = true; }
+
         setData(base);
 
         if (isRealData && didMigrate) await saveData(base, coupleId);

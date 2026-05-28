@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.1.2] — 2026-05-28 · Fix crítico: metas sin actividades asociadas
+
+### Bugs corregidos
+
+- **Metas sin actividades** (P0) — Al abrir la vista de Metas, todas mostraban 0 actividades y el drill-down mostraba "Sin actividades registradas". Causa: cuando `read_from_normalized: true` estuvo activo (v4.0.0–v4.0.15), `missionRowToBlob` usaba `row.goal_id` (UUID de DB) como `goalId` en cada misión. Los goals del blob siempre usaron nanoid como `id`. Cualquier guardado durante ese período escribió UUIDs en el campo `goalId` del blob, que nunca matcheaban con `goal.id` (nanoid) → `computeGoalProgress` y `computeGoalHistory` siempre devolvían 0.
+  - **Fix preventivo**: `loadFromNormalized` ahora construye un `goalIdMap` (UUID→nanoid) desde `goalRows` antes de procesar las misiones, garantizando que futuros loads de tabla usen el nanoid correcto.
+  - **Fix retroactivo**: `repairGoalIdLinks()` se ejecuta al cargar la app. Detecta misiones con `goalId` en formato UUID que no coincide con ningún goal del blob, consulta la tabla `goals` para obtener el `blob_id` (nanoid) y corrige el blob. Si se repara alguna misión, se guarda el blob corregido automáticamente.
+
+---
+
 ## [4.1.1] — 2026-05-28 · Hardening: telemetría, flags cache, lint CI, isValidAppData
 
 ### Bugs corregidos
