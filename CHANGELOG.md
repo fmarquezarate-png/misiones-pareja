@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.1.3] — 2026-05-28 · Fix dual-write: 3 black holes cerrados en tabla missions
+
+### Bugs corregidos
+
+- **`insertNormalizedMission` generaba duplicados / huérfanas** — Cambiado de INSERT a UPSERT con `onConflict: 'couple_id,blob_id'`. Ahora si la fila ya existe actualiza todos los campos; si no existe la inserta. Idempotente.
+
+- **`patchMissionGlobal` no sincronizaba la tabla** (black hole 1) — Después de aplicar el patch al blob, ahora llama `updateNormalizedMission(coupleId, id, patch)` que hace UPDATE de los campos cambiados en la fila existente.
+
+- **`patchAllFutureSeries` no sincronizaba la tabla** (black hole 2) — Después del `update()` del blob, itera sobre todas las misiones de la serie afectadas (`seriesId === seriesId && wkey >= fromWkey`) y llama `updateNormalizedMission` para cada una.
+
+- **`applyCarryOver` no insertaba misiones nuevas** (black hole 3) — Tanto en la carga inicial (lunes) como en `runCarryOver` (manual), después de aplicar el carry se detectan las misiones nuevas (id no existía antes) y se llama `insertNormalizedMission` para cada una.
+
+### Añadido
+
+- **`updateNormalizedMission(coupleId, blobId, patch)`** en `repo.js` — UPDATE parcial por `blob_id`, con mapeo explícito de campos blob → columnas DB. Maneja también `weekKey`/`weekNumber`/`year` para futuros drag entre semanas (actualiza `week_key` de la fila existente, no crea una nueva).
+
+---
+
 ## [4.1.2] — 2026-05-28 · Fix crítico: metas sin actividades asociadas
 
 ### Bugs corregidos

@@ -16,7 +16,7 @@ import AddMissionForm from "./components/AddMissionForm.jsx";
 import MissionCard from "./components/MissionCard.jsx";
 import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
-import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus } from "./lib/repo.js";
+import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
@@ -302,7 +302,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
         if (!base.settings) base.settings = DEFAULT_SETTINGS;
         if (!base.goals) base.goals = SEED.goals;
-        if (isTodayMonday()) base = applyCarryOver(base);
+        if (isTodayMonday()) {
+          const beforeCarry = base;
+          base = applyCarryOver(base);
+          // Insert any new carried/series missions into normalized table
+          const currKey = isoWeekKey(base.currentWeekNumber, base.currentYear);
+          const beforeIds = new Set((beforeCarry.weeks[currKey]?.missions || []).map(m => m.id));
+          for (const m of (base.weeks[currKey]?.missions || [])) {
+            if (!beforeIds.has(m.id)) {
+              insertNormalizedMission(coupleId, currKey, base.currentWeekNumber, base.currentYear, m)
+                .catch(e => console.error("[dual_write] carry insert:", e));
+            }
+          }
+          didMigrate = true;
+        }
         const { data: repaired, moved: repairedCount } = repairMisplacedMissions(base);
         if (repairedCount > 0) { base = repaired; didMigrate = true; }
 
@@ -705,7 +718,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
-  const runCarryOver = () => update(d => applyCarryOver(d));
+  const runCarryOver = () => {
+    const currKey = isoWeekKey(data.currentWeekNumber, data.currentYear);
+    const beforeIds = new Set((data.weeks[currKey]?.missions || []).map(m => m.id));
+    update(d => {
+      const after = applyCarryOver(d);
+      for (const m of (after.weeks[currKey]?.missions || [])) {
+        if (!beforeIds.has(m.id)) {
+          insertNormalizedMission(coupleId, currKey, d.currentWeekNumber, d.currentYear, m)
+            .catch(e => console.error("[dual_write] carry insert:", e));
+        }
+      }
+      return after;
+    });
+  };
   const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
     update(d => {
       const newWeeks = { ...d.weeks };
@@ -715,6 +741,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
       return { ...d, weeks: newWeeks };
     });
+    // Normalized: update each affected mission
+    for (const [wkey, w] of Object.entries(data.weeks)) {
+      if (wkey < fromWkey) continue;
+      for (const m of (w.missions || [])) {
+        if (m.seriesId === seriesId) {
+          updateNormalizedMission(coupleId, m.id, patch).catch(e => console.error("[dual_write] series patch:", e));
+        }
+      }
+    }
   };
   const cycleStatusGlobal = (wn, yr, id) => {
     const key = isoWeekKey(wn, yr);
@@ -740,6 +775,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const w = d.weeks[key]; if (!w) return d;
       return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,...patch}:x) } } };
     });
+    updateNormalizedMission(coupleId, id, patch).catch(e => console.error("[dual_write] patch:", e));
   };
   const deleteMissionGlobal = (wn, yr, id) => {
     const key = isoWeekKey(wn, yr);
