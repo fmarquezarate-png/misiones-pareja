@@ -24,8 +24,8 @@ function DayDetailSheet({ dateStr, missions, onClose, colors, onCycleStatus }) {
   ];
   return (
     <>
-      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90 }} />
-      <div style={{
+      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:90, cursor:"pointer" }} />
+      <div onClick={e => e.stopPropagation()} style={{
         position:"fixed", left:0, right:0, bottom:0, zIndex:100,
         background:"var(--t-card,rgba(8,5,18,0.98))",
         borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.3))",
@@ -84,8 +84,8 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
 
   return (
     <>
-      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:90 }} />
-      <div style={{
+      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:90, cursor:"pointer" }} />
+      <div onClick={e => e.stopPropagation()} style={{
         position:"fixed", left:0, right:0, bottom:0, zIndex:100,
         background:"var(--t-card,rgba(8,5,18,0.98))",
         borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.3))",
@@ -93,7 +93,16 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
         padding:"16px 20px calc(32px + env(safe-area-inset-bottom))",
         maxHeight:"80vh", overflowY:"auto",
       }}>
-        <div style={{ width:32, height:3, background:"rgba(128,128,128,0.3)", borderRadius:99, margin:"0 auto 16px" }} />
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          <div style={{ width:32, height:3, background:"rgba(128,128,128,0.3)", borderRadius:99, flex:1, margin:"0 auto" }} />
+          <button onClick={onClose} style={{
+            position:"absolute", right:16, top:14,
+            background:"rgba(128,128,128,0.12)", border:"none", borderRadius:99,
+            width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
+            cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:14, fontWeight:600,
+            fontFamily:"inherit",
+          }}>✕</button>
+        </div>
 
         {/* Header: photo + ring side by side */}
         <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:20 }}>
