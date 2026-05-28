@@ -159,7 +159,14 @@ La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfil
 - `trg_snapshot_app_data` (BEFORE UPDATE) → guarda estado anterior en `app_data_backups` antes de cada save
 - `auto_backup_on_update` (AFTER UPDATE, preexistente) → segunda copia post-save
 
-**⚠️ Trigger duplicado BLOQUEANTE para E-1:** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` apuntan a la misma función en `app_data`. Mientras el push se envía desde el cliente (actual) el efecto es silencioso. Deshabilitar `trg_push_on_app_data_update` es PREREQUISITO de E-1 (ver TAREAS_SQL U-1).
+**⚠️ Trigger duplicado BLOQUEANTE (P0 Externo):** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` corren `net.http_post` dentro de la transacción `FOR UPDATE` de `save_app_data_cas` → statement timeouts. Por esto `cas_version_check` está en `false`. El Externo debe deshabilitar ambos triggers antes de re-activar CAS.
+
+**⚠️ Black holes de dual-write (28/05/2026):** Tres paths de mutación escriben en blob pero NO sincronizan `missions`:
+1. `patchMissionGlobal` — edición de campo en todas las ocurrencias de una misión recurrente
+2. `patchAllFutureSeries` — edición de campos desde una fecha hacia adelante en serie recurrente
+3. `applyCarryOver` — promoción de misiones no completadas a la semana siguiente
+
+Mientras estos 3 paths no tengan su `updateNormalizedMission`, `read_from_normalized` debe permanecer en `false`. Activarlo causaría que estos cambios desaparezcan al recargar porque la tabla `missions` tiene la versión anterior.
 
 **Deuda técnica — push desde cliente con setTimeout:** `sendContextualPush` se llama con `setTimeout(..., 1500)` en cada mutación del blob. El delay cubre el debounce (700ms) + red, pero es frágil en conexiones lentas. La solución correcta a largo plazo es mover el push al `.then()` del save (no al inicio de la mutación), o usar una tabla `push_queue` en DB que el trigger server-side vacíe. Evaluar en Sprint E-2 junto con E-1.
 
@@ -171,5 +178,8 @@ La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfil
 - [`CHANGELOG.md`](./CHANGELOG.md) — historia versión por versión
 - [`TAREAS_SQL_AGENTE_SUPABASE.md`](./TAREAS_SQL_AGENTE_SUPABASE.md) — backlog del Externo
 - [`WORKSHOP_v4_INFORME_EJECUTIVO.md`](./WORKSHOP_v4_INFORME_EJECUTIVO.md) — visión de los 5 expertos (origen de los perfiles de agente)
+- [`WORKSHOP_v4_1_ESTADO_ACTUAL.md`](./WORKSHOP_v4_1_ESTADO_ACTUAL.md) — postmortem v4.0.x, revisión de roles, nuevos agentes QA/DevOps
+- [`WORKSHOP_v4_2_VISION_2036.md`](./WORKSHOP_v4_2_VISION_2036.md) — visión 10 años por agente, patrones sistémicos
+- [`WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md`](./WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md) — informe ejecutivo workshop live 28/05 con todos los agentes
 - [`ANALISIS_TECNICO_2026-05-14.md`](./ANALISIS_TECNICO_2026-05-14.md) — auditoría técnica
 - `docs/agents/*.md` — perfil por agente
