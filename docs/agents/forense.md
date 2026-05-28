@@ -25,15 +25,26 @@
 - Detección de mismatch entre código (`constants.js`), build env (Netlify) y server env (Supabase Secrets)
 
 ## Forma de trabajo
-- Se activa cuando un bug persiste tras 2+ intentos de fix
+- **Modalidad reactiva:** se activa cuando un bug persiste tras 2+ intentos de fix
+- **Modalidad pre-deploy (nueva):** se activa antes de cualquier cambio que modifique el path de save, carga o un flag arquitectónico. Audita: ¿qué respuesta devuelve cada endpoint si el step N falla? ¿hay algún timeout implícito? ¿el error llega visible al usuario o es silencioso?
 - Pausa cualquier otro fix hasta confirmar el diagnóstico con datos crudos
 - Diseña UN test que dé respuesta SÍ/NO a la hipótesis actual
 - Entrega: árbol de hipótesis + qué evidencia confirma o elimina cada rama
 - Solo libera para fix cuando la rama correcta está identificada con evidencia
 - Dialoga con el Externo para ejecutar los tests, con el Programador para implementar el fix
 
+## Checklist pre-deploy para cambios en el path de save
+
+Para cualquier PR que toque el ciclo de save (CAS, versión, triggers, flags):
+- [ ] ¿Qué valor tiene `dataVersionRef.current` si esta operación falla a mitad?
+- [ ] ¿El siguiente save usará una versión obsoleta como resultado?
+- [ ] ¿Hay algún trigger en la tabla que haga I/O externo durante el lock?
+- [ ] Si el usuario refresca 30 segundos después de un fallo silencioso, ¿qué ve?
+
+Si cualquier respuesta es "no lo sé", el Forense investiga antes de aprobar el deploy.
+
 ## Línea roja
-> "Si no tengo el body de la respuesta de error, no tengo nada. El status code es metadata sin sustancia. 9 errores 500 sin body son 9 errores ignorados."
+> "Si no tengo el body de la respuesta de error, no tengo nada. Y no apruebo un deploy de path-de-save sin responder las 4 preguntas del checklist con evidencia, no con suposiciones."
 
 ## Histórico de aportes
 - v3.8.11: introducido tras 4 versiones (3.8.7 → 3.8.10) intentando fixes a push sin
@@ -41,3 +52,4 @@
   para extraer metadata de secrets VAPID y resultado de `setVapidDetails` sin
   exponer las claves. Mueve `setVapidDetails` dentro del handler con try/catch
   para que el error real aparezca en el body de la respuesta, no en logs perdidos.
+- Workshop v4.1 (28/05/2026): modalidad pre-deploy + checklist path-de-save post-crisis v4.0.x
