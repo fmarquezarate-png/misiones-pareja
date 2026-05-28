@@ -36,7 +36,7 @@ async function flush() {
     flushTimer = setTimeout(flush, 3000);
     return;
   }
-  const batch = queue.splice(0);
+  const batch = queue.slice(0);
   try {
     const rows = batch.map(e => ({
       couple_id: coupleId,
@@ -53,14 +53,18 @@ async function flush() {
           _warnedNoTable = true;
           console.warn("[track] La tabla 'events' no existe en Supabase. Ejecuta la migración SQL en supabase/migrations/20260520_sprint_a.sql");
         }
+        queue.splice(0, batch.length);
       } else {
         console.debug("[track] flush error:", error.message);
       }
+    } else {
+      queue.splice(0, batch.length);
     }
   } catch {
     if (import.meta.env.DEV) {
-      console.debug("[track] network error, batch discarded silently");
+      console.debug("[track] network error, events retained for next flush");
     }
+    flushTimer = setTimeout(flush, 5000);
   }
 }
 
