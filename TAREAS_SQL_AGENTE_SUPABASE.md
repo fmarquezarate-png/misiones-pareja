@@ -6,9 +6,9 @@
 
 ---
 
-## 🚨 CRÍTICO — Ejecutar AHORA (descubierto 26/05/2026 en producción)
+## ✅ CRÍTICO — EJECUTADO (28/05/2026)
 
-### P0 · Deshabilitar triggers de push en `app_data`
+### P0 · Deshabilitar triggers de push en `app_data` — ✅ COMPLETADO (28/05)
 
 **Síntoma en producción:** saves intermitentes fallan con statement timeout. Los cambios del usuario no persisten tras refresh.
 
@@ -35,16 +35,16 @@ WHERE event_object_table = 'app_data'
 ORDER BY trigger_name;
 ```
 
-**Confirmar al equipo:** nombres exactos de los triggers deshabilitados y lista de los que quedan activos.
+**Confirmado (28/05/2026):** `trg_push_on_app_data_update` → disabled, `trg_notify_push_on_app_data_update` → disabled. Triggers activos: `auto_backup_on_update`, `set_app_data_updated_at`, `trg_app_data_version`, `trg_snapshot_app_data`. `cas_version_check: true` activado en código (v4.1.4).
 
 ---
 > **Regla de oro:** Todas las migraciones son **additive-only** (solo añaden, nunca borran). Nunca ejecutes un DROP TABLE salvo que la sección lo indique explícitamente y diga "SEGURO BORRAR".
 
 ---
 
-## 🔴 URGENTE — Onboarding roto para nuevos usuarios (26/05/2026)
+## ✅ URGENTE — EJECUTADO (28/05/2026)
 
-### P1 · Verificar y corregir RLS de `couple_members` para INSERT inicial
+### P1 · Verificar y corregir RLS de `couple_members` para INSERT inicial — ✅ COMPLETADO (28/05)
 
 **Síntoma:** Un usuario nuevo no puede crear pareja. El INSERT a `couples` puede pasar (tiene `owner_user_id: auth.uid()`) pero el INSERT a `couple_members` falla con RLS.
 
@@ -100,7 +100,7 @@ WHERE tablename = 'couple_members' AND cmd = 'SELECT';
 
 ## 🔴 URGENTE — Pendientes del scan 26/05/2026 (v4.0.3)
 
-### S-1 · Añadir columna `series_blob_id` a la tabla `missions`
+### S-1 · Añadir columna `series_blob_id` a la tabla `missions` — ✅ COMPLETADO (28/05)
 
 **Prioridad:** P1. Sin esta columna, el nanoid que agrupa misiones recurrentes no sobrevive el roundtrip por la tabla normalizada. Con `read_from_normalized: true`, las series aparecen como misiones independientes.
 
@@ -1078,7 +1078,7 @@ Las queries enviadas al Externo el 2026-05-22 tenían 2 bugs confirmados por el 
 
 ## 🔵 P2 — Deuda técnica (próxima sesión disponible)
 
-### P2-1 · Política de retención en `app_data_backups`
+### P2-1 · Política de retención en `app_data_backups` — ✅ COMPLETADO (28/05) · 663 → 12 backups
 
 **Síntoma:** La tabla crece indefinidamente con cada save. Con dual-write activo y 1500ms debounce, cada pareja genera ~80 backups por día de uso activo.
 

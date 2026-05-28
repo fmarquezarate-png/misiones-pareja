@@ -12,7 +12,7 @@ const DEFAULTS = {
   stats_insights_enabled: true,
   goals_drilldown_enabled: true,
   dual_write_normalized: true,
-  cas_version_check: false,
+  cas_version_check: true,
   idb_offline_queue: false,
   // Revertido a false: el dual-write no cubre ediciones de misiones (patchMissionGlobal)
   // ni carryover (applyCarryOver) → con true, esos cambios desaparecen al recargar
