@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.0.14";
+export const APP_VERSION = "4.0.15";
 export const LAST_UPDATE = "2026-05-26";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.0.15", date:"2026-05-26", notes:["Fix crítico: read_from_normalized revertido a false. El dual-write no cubría ediciones de misiones (patchMissionGlobal) ni carryover (applyCarryOver) — esas operaciones actualizaban el blob pero nunca la tabla missions. Con read_from_normalized:true, en el siguiente load la tabla ganaba sobre el blob y los cambios desaparecían. El blob sigue siendo la fuente de verdad; la tabla missions continúa recibiendo dual-write para insert/delete/status y sirve como backup/analytics."] },
   { v:"4.0.14", date:"2026-05-26", notes:["Estabilización: cas_version_check desactivado temporalmente. Los triggers de push en app_data (trg_push_on_app_data_update + trg_notify_push_on_app_data_update) corren net.http_post dentro de la transacción FOR UPDATE de save_app_data_cas — si la Edge Function tarda, el lock se extiende y los saves/cargas fallan intermitentemente con statement timeout. Con CAS desactivado, los saves vuelven al path upsert simple (sin lock), idéntico al comportamiento pre-v4.0.0. Se reactiva cuando Externo confirme que los triggers están deshabilitados."] },
   { v:"4.0.13", date:"2026-05-26", notes:["Fix Service Worker: el SW nuevo se quedaba en estado 'waiting' indefinidamente hasta cerrar todas las pestañas — los usuarios veían 'estamos en la última' mostrando la versión vieja aunque Netlify ya hubiera deployado la nueva. Añadido self.skipWaiting() en install (activación inmediata) y listener de mensaje SKIP_WAITING (soporta el botón 'Actualizar versión' en Settings). Junto con clients.claim() en activate y controllerchange en main.jsx, cada deploy se aplica al primer refresh."] },
   { v:"4.0.12", date:"2026-05-26", notes:["WeekTimeline: actividades del mismo día ahora se ordenan cronológicamente. Las que tienen hora van primero (orden ascendente por time HH:MM), las sin hora van al final. El orden anterior era de inserción (creación), no cronológico."] },

@@ -7,6 +7,17 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.15] — 2026-05-26 · Fix crítico: ediciones y carryover desaparecían al recargar
+
+### Bugs corregidos
+
+- **Ediciones de misiones no persistían** (P0) — `patchMissionGlobal` actualizaba el blob correctamente pero nunca escribía a la tabla `missions`. Con `read_from_normalized: true`, el load siguiente leía desde la tabla (versión vieja) y descartaba la edición del blob.
+- **Carryover desaparecía al recargar** (P0) — `applyCarryOver` crea misiones nuevas en la semana actual pero no llama a `insertNormalizedMission`. Mismas consecuencias: visible en UI, desaparece al refrescar.
+- **Causa raíz**: el dual-write solo cubre insert/delete/status. Las operaciones de edición completa (`patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver`) nunca tuvieron contraparte en la tabla normalizada.
+- **Fix**: `read_from_normalized: false` — el blob vuelve a ser la fuente de verdad para lectura. La tabla `missions` sigue recibiendo dual-write para insert/delete/status y actúa como backup/analytics. `read_from_normalized: true` solo se puede reactivar cuando todos los paths de mutación tengan su `updateNormalizedMission` correspondiente.
+
+---
+
 ## [4.0.14] — 2026-05-26 · Estabilización: CAS desactivado hasta limpieza de triggers
 
 ### Cambio de configuración
