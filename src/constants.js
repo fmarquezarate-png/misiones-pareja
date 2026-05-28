@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.0.15";
-export const LAST_UPDATE = "2026-05-26";
+export const APP_VERSION = "4.1.0";
+export const LAST_UPDATE = "2026-05-28";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.1.0", date:"2026-05-28", notes:["Feature: al tocar el avatar de cada persona en el home, el sheet de estadísticas ahora muestra 'Acciones para subir tu %'. Lista las tareas pendientes (no DONE, no completedLate) de los últimos 15 días, ordenadas por prioridad: ASAP primero, luego IN_PROGRESS, luego TBC. Cada fila es accionable — un tap avanza el estado de la tarea. Un callout verde muestra el % al que llegaría si completa esas tareas. Si no hay pendientes, muestra un trofeo '¡Todo al día!'. Máximo 5 tareas visibles con indicador '+ N más'."] },
   { v:"4.0.15", date:"2026-05-26", notes:["Fix crítico: read_from_normalized revertido a false. El dual-write no cubría ediciones de misiones (patchMissionGlobal) ni carryover (applyCarryOver) — esas operaciones actualizaban el blob pero nunca la tabla missions. Con read_from_normalized:true, en el siguiente load la tabla ganaba sobre el blob y los cambios desaparecían. El blob sigue siendo la fuente de verdad; la tabla missions continúa recibiendo dual-write para insert/delete/status y sirve como backup/analytics."] },
   { v:"4.0.14", date:"2026-05-26", notes:["Estabilización: cas_version_check desactivado temporalmente. Los triggers de push en app_data (trg_push_on_app_data_update + trg_notify_push_on_app_data_update) corren net.http_post dentro de la transacción FOR UPDATE de save_app_data_cas — si la Edge Function tarda, el lock se extiende y los saves/cargas fallan intermitentemente con statement timeout. Con CAS desactivado, los saves vuelven al path upsert simple (sin lock), idéntico al comportamiento pre-v4.0.0. Se reactiva cuando Externo confirme que los triggers están deshabilitados."] },
   { v:"4.0.13", date:"2026-05-26", notes:["Fix Service Worker: el SW nuevo se quedaba en estado 'waiting' indefinidamente hasta cerrar todas las pestañas — los usuarios veían 'estamos en la última' mostrando la versión vieja aunque Netlify ya hubiera deployado la nueva. Añadido self.skipWaiting() en install (activación inmediata) y listener de mensaje SKIP_WAITING (soporta el botón 'Actualizar versión' en Settings). Junto con clients.claim() en activate y controllerchange en main.jsx, cada deploy se aplica al primer refresh."] },

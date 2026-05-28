@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.1.0] — 2026-05-28 · Feature: acciones inmediatas en el perfil de cada persona
+
+### Añadido
+
+- **"Acciones para subir tu %" en el sheet de estadísticas** — Al tocar el avatar de una persona en el home, el sheet ahora incluye una sección accionable con las tareas pendientes de esa persona en los últimos 15 días, ordenadas por prioridad: ASAP → IN_PROGRESS → TBC.
+  - Cada fila es táctil: un toque avanza el estado de la tarea (usa `onCycleStatus`).
+  - Un callout verde muestra el porcentaje al que llegaría si completa las tareas visibles.
+  - Si no hay pendientes, muestra un estado vacío positivo ("¡Todo al día! 🏆").
+  - Máximo 5 tareas visibles; si hay más, muestra "y N más pendientes".
+
+---
+
 ## [4.0.15] — 2026-05-26 · Fix crítico: ediciones y carryover desaparecían al recargar
 
 ### Bugs corregidos
