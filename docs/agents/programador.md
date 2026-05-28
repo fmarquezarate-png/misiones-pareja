@@ -28,8 +28,20 @@
 - Bump de versión y entrada en CHANGELOG al cerrar un lote
 - Si toca arquitectura, antes consulta al Coordinador
 
+## Regla de activación de flags arquitectónicos
+
+> **Un flag arquitectónico NO se activa en el mismo PR que lo implementa.** Requiere PR separado con:
+> 1. Checklist firmado por Coordinador (Protocolo de flip)
+> 2. Lista de todos los paths de mutación cubiertos (del Analista)
+> 3. Inventario de triggers en las tablas afectadas (del Experto en Datos)
+> 4. QA checklist ejecutado
+
+Implementar el código y activar el flag son dos commits/PRs distintos. El primero puede mergear a main. El segundo espera el sign-off completo.
+
+Esta regla existe porque `read_from_normalized: true` se activó antes de que `patchMissionGlobal`, `patchAllFutureSeries` y `applyCarryOver` tuvieran su `updateNormalizedMission` (26/05/2026).
+
 ## Línea roja
-> "La tentación es atacar Push primero porque es lo más wow. Resistila. Si haces Push antes que el guardado optimizado, vas a tener race conditions visibles para el usuario."
+> "La tentación es atacar Push primero porque es lo más wow. Resistila. Y no actives un flag arquitectónico hasta que todos los paths estén cubiertos, sin excepciones."
 
 ## Histórico de aportes
 - v3.5.x: Logros + Goals drill-down + Insights (wins de cliente)
@@ -37,3 +49,5 @@
 - v3.8.7: Push nudge widget + asymmetric copy en Settings
 - v3.8.8: Lote M-1/M-4/M-5/UX-1 + fix scope `pushNudgeVisible`
 - v3.8.8: ESLint config + prebuild lint check
+- v4.0.x (26/05/2026): 15 fixes en un día — stale closure, isSavingRef, CAS versión, SW, CORS, onboarding
+- Workshop v4.1 (28/05/2026): regla de activación de flags post-crisis v4.0.15

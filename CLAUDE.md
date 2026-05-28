@@ -82,15 +82,17 @@ El proyecto se trabaja por roles que dialogan en cada sesión. Cada agente tiene
 
 | Agente | Rol en una frase | Doc |
 |--------|------------------|-----|
-| **Coordinador** | Guardián del scope, dice NO temprano | [`docs/agents/coordinador.md`](./docs/agents/coordinador.md) |
-| **Programador** | Pragmatismo con código real | [`docs/agents/programador.md`](./docs/agents/programador.md) |
-| **Analista** | Voz incómoda, señala lo que nadie mira | [`docs/agents/analista.md`](./docs/agents/analista.md) |
-| **Forense** | Detiene el ciclo "fix → deploy → no funciona" exigiendo datos crudos antes de actuar | [`docs/agents/forense.md`](./docs/agents/forense.md) |
-| **Experto en Datos** | Guardián de la integridad SQL/RLS | [`docs/agents/experto-en-datos.md`](./docs/agents/experto-en-datos.md) |
+| **Coordinador** | Guardián del scope, dice NO temprano, ejecuta el Protocolo de flip | [`docs/agents/coordinador.md`](./docs/agents/coordinador.md) |
+| **Programador** | Pragmatismo con código real, no activa flags sin sign-off completo | [`docs/agents/programador.md`](./docs/agents/programador.md) |
+| **Analista** | Voz incómoda con poder de veto técnico; audita paths antes de flip | [`docs/agents/analista.md`](./docs/agents/analista.md) |
+| **Forense** | Diagnóstico por evidencia — reactivo y pre-deploy | [`docs/agents/forense.md`](./docs/agents/forense.md) |
+| **Experto en Datos** | Guardián de la integridad SQL/RLS — audita triggers en cada lock | [`docs/agents/experto-en-datos.md`](./docs/agents/experto-en-datos.md) |
 | **UI/UX** | Filtro de "Marta en la línea 5" | [`docs/agents/ui-ux.md`](./docs/agents/ui-ux.md) |
 | **Redactor** | Documenta cada cambio en CHANGELOG | [`docs/agents/redactor.md`](./docs/agents/redactor.md) |
 | **Externo (Supabase)** | Operario SQL/RLS/Edge Functions en consola Supabase | [`docs/agents/externo-supabase.md`](./docs/agents/externo-supabase.md) |
 | **Scanner** | Scan sistemático de bugs con agentes paralelos; triaje P0/P1/P2 | [`docs/agents/scanner.md`](./docs/agents/scanner.md) |
+| **QA** | Red de seguridad pre-deploy — checklists de regresión y contratos de comportamiento | [`docs/agents/qa.md`](./docs/agents/qa.md) |
+| **DevOps** | Dueño del pipeline y paridad repo↔producción | [`docs/agents/devops.md`](./docs/agents/devops.md) |
 
 ### Distribución de trabajo (regla de oro del Coordinador)
 - **Equipo** (agentes Claude) resuelve la mayor cantidad posible
