@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "lint": "eslint src/",
-    "prebuild": "node scripts/gen-version.js && eslint src/ --max-warnings 9999",
+    "prebuild": "node scripts/gen-version.js && eslint src/ --max-warnings 0",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run"
