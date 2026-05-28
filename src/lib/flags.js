@@ -6,9 +6,14 @@ const DEFAULTS = {
   stats_insights_enabled: true,
   goals_drilldown_enabled: true,
   dual_write_normalized: true,
-  cas_version_check: true,
+  cas_version_check: false,
   idb_offline_queue: false,
-  read_from_normalized: true, // Sprint G-2 completo: tabla missions sincronizada via dual-write (v3.9.2+). Backfill verificado 26/05 — 222 filas vs 220 blob. Fuente de verdad: tabla missions.
+  // Revertido a false: el dual-write no cubre ediciones de misiones (patchMissionGlobal)
+  // ni carryover (applyCarryOver) → con true, esos cambios desaparecen al recargar
+  // porque la tabla missions tiene la versión vieja y gana sobre el blob en el load.
+  // Reactivar solo cuando updateNormalizedMission esté implementado para todos los
+  // paths de mutación (patchMissionGlobal, patchAllFutureSeries, applyCarryOver).
+  read_from_normalized: false,
 };
 
 function loadOverrides() {

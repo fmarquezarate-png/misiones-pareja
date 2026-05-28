@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.0.15] — 2026-05-26 · Fix crítico: ediciones y carryover desaparecían al recargar
+
+### Bugs corregidos
+
+- **Ediciones de misiones no persistían** (P0) — `patchMissionGlobal` actualizaba el blob correctamente pero nunca escribía a la tabla `missions`. Con `read_from_normalized: true`, el load siguiente leía desde la tabla (versión vieja) y descartaba la edición del blob.
+- **Carryover desaparecía al recargar** (P0) — `applyCarryOver` crea misiones nuevas en la semana actual pero no llama a `insertNormalizedMission`. Mismas consecuencias: visible en UI, desaparece al refrescar.
+- **Causa raíz**: el dual-write solo cubre insert/delete/status. Las operaciones de edición completa (`patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver`) nunca tuvieron contraparte en la tabla normalizada.
+- **Fix**: `read_from_normalized: false` — el blob vuelve a ser la fuente de verdad para lectura. La tabla `missions` sigue recibiendo dual-write para insert/delete/status y actúa como backup/analytics. `read_from_normalized: true` solo se puede reactivar cuando todos los paths de mutación tengan su `updateNormalizedMission` correspondiente.
+
+---
+
+## [4.0.14] — 2026-05-26 · Estabilización: CAS desactivado hasta limpieza de triggers
+
+### Cambio de configuración
+
+- **`cas_version_check` desactivado temporalmente** — Los triggers `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` siguen activos en `app_data` y ejecutan `net.http_post` dentro de la misma transacción `FOR UPDATE` que usa `save_app_data_cas`. Cuando la Edge Function tarda más de ~2s, el lock se extiende y las queries de carga del otro cliente colisionan → statement timeout → 500. Saves e interrupción de la app. Con `cas_version_check: false`, los saves vuelven al path `saveWithRetry` (upsert simple, sin lock), comportamiento idéntico al monolito pre-v4.0.0. **El flag se reactiva en cuanto Externo deshabilite los dos triggers** (SQL preparado en `TAREAS_SQL_AGENTE_SUPABASE.md` sección 🚨 CRÍTICO).
+
+---
+
 ## [4.0.13] — 2026-05-26 · Fix Service Worker: activación inmediata
 
 ### Bugs corregidos
