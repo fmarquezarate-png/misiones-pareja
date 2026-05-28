@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.1.1] — 2026-05-28 · Hardening: telemetría, flags cache, lint CI, isValidAppData
+
+### Bugs corregidos
+
+- **track.js: eventos de telemetría se perdían en fallos de red** — `queue.splice(0)` vaciaba la cola antes de confirmar el insert. Si el insert fallaba (red, RLS, timeout), los eventos desaparecían permanentemente. Ahora la cola solo se vacía tras insert exitoso; en error de red se programa reintento en 5s.
+- **flags.js: `localStorage.getItem` en cada llamada a `isEnabled()`** — Sin cache, cada comprobación de flag golpeaba el storage. Añadido cache de módulo invalidado en `setFlag()` y `resetFlags()`.
+- **isValidAppData: estructura interna de semanas no validada** — El gate aceptaba cualquier objeto en `weeks` aunque sus valores no fueran válidos. Ahora cada semana se valida como objeto y `missions` (si existe) debe ser array. También rechaza `Array.isArray(weeks)` y `Array.isArray(settings)`.
+- **prebuild lint: `--max-warnings 9999` era efectivamente no-op** — El lint en CI podía tener cientos de warnings sin fallar. Cambiado a `--max-warnings 0` para paridad con lint local.
+
+### Documentación
+
+- **WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md** — Informe ejecutivo del workshop con todos los agentes (11): estado de flags, hallazgos por agente, backlog P0/P1/P2, riesgos abiertos, métricas del sistema.
+- **CLAUDE.md** — Documentados explícitamente los 3 black holes de dual-write (`patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver`) como requisito para `read_from_normalized: true`. Clarificado el P0 de triggers de push.
+- **TAREAS_SQL_AGENTE_SUPABASE.md** — Nueva tarea P2-1: política de retención `app_data_backups` (últimas 50 filas por pareja).
+
+---
+
 ## [4.1.0] — 2026-05-28 · Feature: acciones inmediatas en el perfil de cada persona
 
 ### Añadido
