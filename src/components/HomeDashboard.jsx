@@ -65,7 +65,7 @@ function DayDetailSheet({ dateStr, missions, onClose, colors, onCycleStatus }) {
   );
 }
 
-function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose }) {
+function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pendingMissions = [], onCycleStatus }) {
   const r = 54, circ = 2 * Math.PI * r;
   const ringColor = pct >= 80 ? "#34d399" : pct >= 50 ? "#fbbf24" : "#f87171";
   const initial = (name || "?").charAt(0).toUpperCase();
@@ -76,6 +76,11 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose }) {
     { label:"ASAP",        icon:"🔥", count: stats.asap,       color:"#fb923c" },
     { label:"Pendientes",  icon:"⏳", count: stats.tbc,        color:"#94a3b8" },
   ];
+
+  const shownPending = pendingMissions.slice(0, 5);
+  const potentialPct = stats.total
+    ? Math.min(100, Math.round((stats.done + shownPending.length) / stats.total * 100))
+    : 0;
 
   return (
     <>
@@ -136,7 +141,6 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose }) {
                 <span style={{ fontSize:14, width:20 }}>{row.icon}</span>
                 <span style={{ flex:1, fontSize:13, color:"var(--t-text,#f8f4ff)" }}>{row.label}</span>
                 <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  {/* Mini bar */}
                   <div style={{ width:80, height:5, background:"rgba(128,128,128,0.15)", borderRadius:99, overflow:"hidden" }}>
                     <div style={{
                       height:"100%",
@@ -151,6 +155,66 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose }) {
             ))}
           </div>
         </div>
+
+        {/* Pending actions */}
+        {shownPending.length > 0 && (
+          <div style={{ ...W, marginBottom:14 }}>
+            <div style={{ ...eyebrow, marginBottom:8 }}>🎯 Acciones para subir tu %</div>
+            {potentialPct > pct && (
+              <div style={{
+                background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)",
+                borderRadius:9, padding:"7px 11px", marginBottom:10,
+                display:"flex", alignItems:"center", gap:8,
+              }}>
+                <span style={{ fontSize:15 }}>📈</span>
+                <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>
+                  {shownPending.length === pendingMissions.length ? "Completa todas" : `Completa estas ${shownPending.length}`} → {" "}
+                </span>
+                <span style={{ fontSize:14, fontWeight:700, color:"#34d399" }}>{potentialPct}%</span>
+              </div>
+            )}
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+              {shownPending.map(mi => {
+                const statusColor = mi.status === "ASAP" ? "#fb923c" : mi.status === "IN_PROGRESS" ? "#60a5fa" : "#94a3b8";
+                return (
+                  <div key={mi.id} onClick={() => onCycleStatus && onCycleStatus(mi.id)}
+                    style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 10px", borderRadius:9, cursor:"pointer",
+                      background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.12)",
+                      borderLeft:`3px solid ${clrAccent}` }}>
+                    <span style={{ fontSize:16, flexShrink:0 }}>{mi.emoji || "🎯"}</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12.5, fontWeight:500, color:"var(--t-text,#f0e8ff)",
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{mi.title}</div>
+                      {mi.date && (
+                        <div style={{ fontSize:9.5, color:"var(--t-accent,#a78bfa)", marginTop:1 }}>
+                          {mi.date}{mi.time ? ` · ${mi.time}` : ""}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:5 }}>
+                      <span style={{ fontSize:9.5, fontWeight:700, color:statusColor,
+                        background:`${statusColor}22`, borderRadius:5, padding:"2px 5px" }}>{mi.status}</span>
+                      <span style={{ fontSize:14, color:"var(--t-text-dim,#6b5f88)" }}>›</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {pendingMissions.length > 5 && (
+              <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", textAlign:"center", padding:"6px 0 0" }}>
+                y {pendingMissions.length - 5} más pendientes
+              </div>
+            )}
+          </div>
+        )}
+
+        {shownPending.length === 0 && stats.total > 0 && (
+          <div style={{ ...W, marginBottom:14, textAlign:"center", padding:"14px 16px" }}>
+            <div style={{ fontSize:22, marginBottom:6 }}>🏆</div>
+            <div style={{ fontSize:13, fontWeight:600, color:"#34d399", marginBottom:2 }}>¡Todo al día!</div>
+            <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)" }}>No hay tareas pendientes en los últimos 15 días</div>
+          </div>
+        )}
 
         {/* Note */}
         <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", textAlign:"center", lineHeight:1.5 }}>
@@ -248,6 +312,14 @@ export default function HomeDashboard({
   const p2Stats = buildStats(p2Ms);
   const p1Pct   = p1Stats.pct;
   const p2Pct   = p2Stats.pct;
+
+  const pendingOrder = { ASAP: 0, IN_PROGRESS: 1, TBC: 2 };
+  const p1Pending = p1Ms
+    .filter(m => !m.completedLate && m.status !== "DONE")
+    .sort((a, b) => (pendingOrder[a.status] ?? 3) - (pendingOrder[b.status] ?? 3));
+  const p2Pending = p2Ms
+    .filter(m => !m.completedLate && m.status !== "DONE")
+    .sort((a, b) => (pendingOrder[a.status] ?? 3) - (pendingOrder[b.status] ?? 3));
 
   const todayMs = missions.filter(m => m.date === todayStr);
   const asapMs  = missions.filter(m => m.status === "ASAP");
@@ -486,12 +558,14 @@ export default function HomeDashboard({
         <PersonStatsSheet
           name={p1} photo={p1Photo} pct={p1Pct} clrAccent={clr.person1}
           stats={p1Stats} onClose={() => setPersonSheet(null)}
+          pendingMissions={p1Pending} onCycleStatus={onCycleStatus}
         />
       )}
       {personSheet === "p2" && (
         <PersonStatsSheet
           name={p2} photo={p2Photo} pct={p2Pct} clrAccent={clr.person2}
           stats={p2Stats} onClose={() => setPersonSheet(null)}
+          pendingMissions={p2Pending} onCycleStatus={onCycleStatus}
         />
       )}
     </div>
