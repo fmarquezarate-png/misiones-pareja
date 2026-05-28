@@ -136,11 +136,13 @@ export async function getSettings(coupleId, blobData) {
 
 /* ── Dual-write de misiones (Sprint G-2 prep) ──────────────────────────── */
 
-// INSERT una nueva misión en la tabla normalizada.
-// Gap 1 cerrado por Externo (26/05): columnas time/reminder/series_pattern/series_end_date disponibles.
+// INSERT/UPDATE una misión en la tabla normalizada.
+// Usa upsert con onConflict 'couple_id,blob_id' para ser idempotente:
+// si la fila ya existe (edición en misma semana) actualiza todos los campos;
+// si no existe (misión nueva o migración) inserta.
 export async function insertNormalizedMission(coupleId, weekKey, weekNumber, year, m) {
   if (!isEnabled("dual_write_normalized")) return;
-  const { error } = await supabase.from("missions").insert({
+  const { error } = await supabase.from("missions").upsert({
     blob_id:          m.id,
     couple_id:        coupleId,
     week_key:         weekKey,
@@ -164,10 +166,11 @@ export async function insertNormalizedMission(coupleId, weekKey, weekNumber, yea
     completed_at:     m.completedAt ? new Date(m.completedAt).toISOString() : null,
     completed_late:   m.completedLate ?? false,
     notes:            m.notes ?? null,
-  });
+    updated_at:       new Date().toISOString(),
+  }, { onConflict: "couple_id,blob_id" });
   if (error) {
     console.error("[repo] insertNormalizedMission:", error.message);
-    track("dual_write_error", { table: "missions", op: "insert", error: error.message });
+    track("dual_write_error", { table: "missions", op: "upsert", error: error.message });
   }
 }
 
@@ -182,6 +185,49 @@ export async function deleteNormalizedMission(coupleId, blobId) {
   if (error) {
     console.error("[repo] deleteNormalizedMission:", error.message);
     track("dual_write_error", { table: "missions", op: "delete", error: error.message });
+  }
+}
+
+// UPDATE campos parciales de una misión existente (edición de título, emoji, etc.)
+// También maneja cambio de semana: si patch incluye weekKey/weekNumber/year
+// actualiza week_key/week_number/year en la fila existente en lugar de crear una nueva.
+// Mapping: blob field → DB column (solo los campos que el blob puede patchear).
+const MISSION_FIELD_MAP = {
+  title:      "title",
+  emoji:      "emoji",
+  who:        "who",
+  type:       "type",
+  categories: "categories",
+  duration:   "duration",
+  date:       "date",
+  time:       "time",
+  reminder:   "reminder",
+  notes:      "notes",
+  status:     "status",
+  // week movement
+  weekKey:    "week_key",
+  weekNumber: "week_number",
+  year:       "year",
+};
+export async function updateNormalizedMission(coupleId, blobId, patch) {
+  if (!isEnabled("dual_write_normalized")) return;
+  const dbPatch = {};
+  for (const [blobKey, dbKey] of Object.entries(MISSION_FIELD_MAP)) {
+    if (blobKey in patch) {
+      dbPatch[dbKey] = patch[blobKey];
+      if (blobKey === "reminder" && patch[blobKey] === "none") dbPatch[dbKey] = null;
+    }
+  }
+  if (Object.keys(dbPatch).length === 0) return;
+  dbPatch.updated_at = new Date().toISOString();
+  const { error } = await supabase
+    .from("missions")
+    .update(dbPatch)
+    .eq("blob_id", blobId)
+    .eq("couple_id", coupleId);
+  if (error) {
+    console.error("[repo] updateNormalizedMission:", error.message);
+    track("dual_write_error", { table: "missions", op: "update_fields", error: error.message });
   }
 }
 

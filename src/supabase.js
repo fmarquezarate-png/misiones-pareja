@@ -220,7 +220,9 @@ export async function loadDataWithVersion(coupleId) {
 
 // ── Sprint G-2: helpers de conversión fila → formato blob ──────────────────
 
-function missionRowToBlob(row) {
+// goalIdMap: Map<UUID → nanoid> built from goalRows; passed in from loadFromNormalized
+// so missionRowToBlob never uses the DB UUID as goalId
+function missionRowToBlob(row, goalIdMap) {
   return {
     id:             row.blob_id ?? row.id,
     title:          row.title,
@@ -233,7 +235,7 @@ function missionRowToBlob(row) {
     date:           row.date ? String(row.date) : null,
     time:           row.time ?? null,
     reminder:       row.reminder ?? null,
-    goalId:         row.goal_id ?? null,
+    goalId:         goalIdMap?.get(row.goal_id) ?? row.goal_id ?? null,
     seriesId:       row.series_blob_id ?? null,
     seriesPattern:  row.series_pattern ?? null,
     seriesEndDate:  row.series_end_date ? String(row.series_end_date) : null,
@@ -297,6 +299,11 @@ export async function loadFromNormalized(coupleId) {
 
   // Reconstruir weeks: esqueleto del blob preserva label/epicGoal/weekNumber/year,
   // missions[] se reemplaza con los datos normalizados
+  // Build goalIdMap: DB UUID → blob nanoid, so missions get the correct nanoid goalId
+  const goalIdMap = new Map(
+    (goalRows || []).filter(r => r.blob_id).map(r => [r.id, r.blob_id])
+  );
+
   const weeks = {};
   for (const [wkey, wdata] of Object.entries(blob.weeks ?? {})) {
     weeks[wkey] = { ...wdata, missions: [] };
@@ -306,7 +313,7 @@ export async function loadFromNormalized(coupleId) {
     if (!weeks[wkey]) {
       weeks[wkey] = { weekNumber: row.week_number, year: row.year, label: "", epicObjective: "", workHours: { person1: 0, person2: 0 }, createdAt: Date.now(), missions: [] };
     }
-    weeks[wkey].missions.push(missionRowToBlob(row));
+    weeks[wkey].missions.push(missionRowToBlob(row, goalIdMap));
   }
 
   const goals = goalRows.map(goalRowToBlob);
@@ -466,6 +473,52 @@ export function subscribeToMessages(coupleId, onMessage) {
     )
     .subscribe();
   return channel;
+}
+
+// Repairs blob data where missions have goalId set to a DB UUID instead of the blob nanoid.
+// Caused by read_from_normalized:true being active while missionRowToBlob used row.goal_id (UUID).
+// Returns repaired data object if any missions were fixed, or null if no repair was needed.
+export async function repairGoalIdLinks(coupleId, data) {
+  const goalNanoids = new Set((data.goals || []).map(g => g.id));
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  let hasCorrupted = false;
+  for (const week of Object.values(data.weeks || {})) {
+    for (const m of week.missions || []) {
+      if (m.goalId && UUID_RE.test(m.goalId) && !goalNanoids.has(m.goalId)) {
+        hasCorrupted = true;
+        break;
+      }
+    }
+    if (hasCorrupted) break;
+  }
+  if (!hasCorrupted) return null;
+
+  const { data: goalRows } = await supabase
+    .from("goals")
+    .select("id, blob_id")
+    .eq("couple_id", coupleId);
+
+  const uuidToNanoid = new Map(
+    (goalRows || []).filter(r => r.blob_id).map(r => [r.id, r.blob_id])
+  );
+
+  let repaired = 0;
+  const weeks = {};
+  for (const [wkey, week] of Object.entries(data.weeks || {})) {
+    const missions = (week.missions || []).map(m => {
+      if (m.goalId && UUID_RE.test(m.goalId) && !goalNanoids.has(m.goalId)) {
+        const nanoid = uuidToNanoid.get(m.goalId);
+        if (nanoid) { repaired++; return { ...m, goalId: nanoid }; }
+      }
+      return m;
+    });
+    weeks[wkey] = { ...week, missions };
+  }
+
+  if (repaired === 0) return null;
+  console.info(`[repairGoalIdLinks] repaired ${repaired} missions with corrupted goalId (UUID→nanoid)`);
+  return { ...data, weeks };
 }
 
 export default supabase;
