@@ -1076,6 +1076,43 @@ Las queries enviadas al Externo el 2026-05-22 tenían 2 bugs confirmados por el 
 
 ---
 
+## 🔵 P2 — Deuda técnica (próxima sesión disponible)
+
+### P2-1 · Política de retención en `app_data_backups`
+
+**Síntoma:** La tabla crece indefinidamente con cada save. Con dual-write activo y 1500ms debounce, cada pareja genera ~80 backups por día de uso activo.
+
+**Solución:** Mantener solo las últimas 50 filas por pareja. Ejecutar manualmente o con pg_cron cada semana.
+
+```sql
+-- Ver cuántas filas hay por pareja actualmente
+SELECT couple_id::text, COUNT(*) as backups, MIN(created_at) as oldest, MAX(created_at) as newest
+FROM app_data_backups
+GROUP BY couple_id
+ORDER BY COUNT(*) DESC;
+
+-- Política de retención: mantener solo las últimas 50 por pareja
+-- (esto borra las más antiguas)
+DELETE FROM app_data_backups
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id,
+      ROW_NUMBER() OVER (PARTITION BY couple_id ORDER BY created_at DESC) AS rn
+    FROM app_data_backups
+  ) ranked
+  WHERE rn > 50
+);
+
+-- Verificar resultado
+SELECT couple_id::text, COUNT(*) as backups_restantes
+FROM app_data_backups
+GROUP BY couple_id;
+```
+
+**Confirmar al equipo:** cuántas filas había antes y cuántas quedaron después.
+
+---
+
 ## ⚠️ Reglas de oro para el agente SQL
 
 1. **Nunca ejecutar DROP TABLE** salvo indicación explícita y marcada como "SEGURO BORRAR".
