@@ -159,7 +159,7 @@ La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfil
 - `trg_snapshot_app_data` (BEFORE UPDATE) → guarda estado anterior en `app_data_backups` antes de cada save
 - `auto_backup_on_update` (AFTER UPDATE, preexistente) → segunda copia post-save
 
-**⚠️ Trigger duplicado BLOQUEANTE (P0 Externo):** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` corren `net.http_post` dentro de la transacción `FOR UPDATE` de `save_app_data_cas` → statement timeouts. Por esto `cas_version_check` está en `false`. El Externo debe deshabilitar ambos triggers antes de re-activar CAS.
+**Triggers de push en `app_data` — RESUELTO (28/05/2026):** `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` deshabilitados por el Externo. `cas_version_check: true` desde v4.1.4. Triggers activos: `auto_backup_on_update`, `set_app_data_updated_at`, `trg_app_data_version`, `trg_snapshot_app_data`.
 
 **⚠️ Black holes de dual-write (28/05/2026):** Tres paths de mutación escriben en blob pero NO sincronizan `missions`:
 1. `patchMissionGlobal` — edición de campo en todas las ocurrencias de una misión recurrente

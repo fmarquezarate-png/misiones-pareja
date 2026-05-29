@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.1.4] — 2026-05-28 · Activado CAS + tareas Externo completadas
+
+### Activado
+
+- **`cas_version_check: true`** — El bloqueante P0 está resuelto: el Externo confirmó que `trg_push_on_app_data_update` y `trg_notify_push_on_app_data_update` están `DISABLED` en `app_data`. Los saves ahora usan Compare-And-Swap (`save_app_data_cas` RPC): si dos personas guardan a la vez, la segunda recibe un aviso de conflicto y recarga los datos del partner en lugar de sobrescribir silenciosamente. Triggers activos confirmados: `auto_backup_on_update`, `set_app_data_updated_at`, `trg_app_data_version`, `trg_snapshot_app_data`.
+
+### Externo — completado (28/05/2026)
+
+- **P1 · RLS INSERT `couple_members`** — Policy `couple_members_insert_own` creada con `user_id = auth.uid()`. Onboarding desbloqueado para nuevos usuarios que crean o se unen a una pareja.
+- **P2-1 · Retención `app_data_backups`** — De 663 → 12 backups. Índice `backed_up_at` creado.
+- **S-1 · `series_blob_id` en `missions`** — Columna + índice creados. El dual-write de misiones recurrentes ahora persiste el `seriesId` correctamente en la tabla normalizada.
+- **Estadísticas DB** — `pg_stat_statements` reseteado, baseline limpia desde 28/05.
+
+---
+
 ## [4.1.3] — 2026-05-28 · Fix dual-write: 3 black holes cerrados en tabla missions
 
 ### Bugs corregidos
