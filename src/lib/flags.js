@@ -14,11 +14,8 @@ const DEFAULTS = {
   dual_write_normalized: true,
   cas_version_check: true,
   idb_offline_queue: false,
-  // Revertido a false: el dual-write no cubre ediciones de misiones (patchMissionGlobal)
-  // ni carryover (applyCarryOver) → con true, esos cambios desaparecen al recargar
-  // porque la tabla missions tiene la versión vieja y gana sobre el blob en el load.
-  // Reactivar solo cuando updateNormalizedMission esté implementado para todos los
-  // paths de mutación (patchMissionGlobal, patchAllFutureSeries, applyCarryOver).
+  // false por precaución: dual-write cerrado en v4.1.3 (patchMissionGlobal, patchAllFutureSeries,
+  // applyCarryOver ya sincronizan la tabla). Pendiente: verificación blob↔tabla antes del flip.
   read_from_normalized: false,
 };
 

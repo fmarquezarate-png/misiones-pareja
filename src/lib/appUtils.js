@@ -181,5 +181,5 @@ export function syncCarryDone(data, weekKey, missionId) {
   const mission = week.missions.find(m => m.id === missionId);
   if (!mission?.carriedFrom || !mission?.carriedFromWeek) return data;
   const origWeek = data.weeks[mission.carriedFromWeek]; if (!origWeek) return data;
-  return { ...data, weeks: { ...data.weeks, [mission.carriedFromWeek]: { ...origWeek, missions: origWeek.missions.map(m => m.id === mission.carriedFrom ? { ...m, status: "DONE", completedAt: Date.now(), completedLate: true } : m) } } };
+  return { ...data, weeks: { ...data.weeks, [mission.carriedFromWeek]: { ...origWeek, missions: origWeek.missions.map(m => m.id === mission.carriedFrom ? { ...m, status: "DONE", completedAt: Date.now(), completedLate: m.status !== "ASAP" } : m) } } };
 }
