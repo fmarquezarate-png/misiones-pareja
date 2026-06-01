@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { isValidAppData } from "./lib/validation.js";
+export { isValidAppData };
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -354,19 +356,6 @@ export async function saveData(appData, coupleId) {
     }
     throw new Error("Error al guardar: " + error.message);
   }
-}
-
-export function isValidAppData(d) {
-  if (!d || typeof d !== "object") return false;
-  if (!d.weeks || typeof d.weeks !== "object" || Array.isArray(d.weeks)) return false;
-  if (!d.settings || typeof d.settings !== "object" || Array.isArray(d.settings)) return false;
-  if (d.goals !== undefined && !Array.isArray(d.goals)) return false;
-  // Each week entry must be an object with missions as array (if present)
-  for (const week of Object.values(d.weeks)) {
-    if (!week || typeof week !== "object") return false;
-    if (week.missions !== undefined && !Array.isArray(week.missions)) return false;
-  }
-  return true;
 }
 
 /**
