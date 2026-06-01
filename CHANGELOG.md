@@ -7,6 +7,33 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.0] — 2026-06-01 · Rediseño de raíz del guardado (fin de la pérdida de datos)
+
+### Causa raíz (diagnóstico con evidencia de DB)
+
+El RPC `save_app_data_cas` en Supabase es **correcto** (verificado: el `WHERE version = p_version` garantiza que el trigger `trg_app_data_version` y el RPC calculan el mismo valor). El bug era **100% del cliente**, con dos caras que se combinaban para perder datos:
+
+1. **Desincronización de versión en realtime** — Cuando la pareja guardaba, `subscribeToUpdates` actualizaba `data` (`setData(remoteData)`) pero **nunca** `dataVersionRef`. La DB pasaba a la versión V+1 mientras el cliente seguía creyendo estar en V.
+2. **Descarte del cambio en conflicto** — El siguiente save local disparaba `saveWithCAS(next, V)` → el RPC no encontraba `version = V` (la DB estaba en V+1) → conflicto. Ante el conflicto, el cliente hacía `loadData()` + `setData(fresh)`, **tirando a la basura la edición del usuario**.
+
+→ Resultado en producción: cada vez que un miembro editaba después de que su pareja guardara, su primer cambio se perdía con un toast de "conflicto". En una app de pareja, constante.
+
+### Solución (rediseño, no parche)
+
+- **Un único camino de guardado serializado** (`runSave`) — Se eliminó la dualidad `saveWithCAS` ‖ `saveWithRetry` que corría caminos distintos. `isSavingRef` garantiza que nunca hay dos saves en vuelo; si llega un cambio durante un save, se reprograma.
+- **CAS con rebase-on-conflict** — Ante un conflicto, en vez de descartar, la app recarga los datos frescos de la pareja, **re-aplica los mutadores locales no confirmados encima** (`rebaseMutators`) y reintenta con la versión correcta. Nunca se pierde ni el cambio propio ni el de la pareja.
+- **Sincronización de versión en realtime** — `subscribeToUpdates` ahora propaga `payload.new.version`; el handler actualiza `dataVersionRef`. No más conflictos falsos.
+- **Reducers puros** — `cycleStatus`, `cycleStatusGlobal`, `runCarryOver` y `runRepair` movieron sus efectos secundarios (`track`, `insertNormalizedMission`, `alert`) fuera del `update(fn)`. Requisito del rebase: el reducer se re-ejecuta sobre datos frescos, así que no puede tener efectos.
+- **Fallback seguro** — Si CAS no está disponible (flag off o versión no cargada), cae a last-write-wins con resync de versión.
+- **Tests de regresión** — `src/__tests__/save.test.js` cubre el merge: el cambio local sobrevive junto al de la pareja, varios mutadores en orden, datos inválidos → fallback a fresco, mutador que lanza → se ignora.
+
+### Verificación
+
+- `npm run lint` 0 errores · 13 tests verdes · `npm run build` OK.
+- DB: versión actual 459, RPC y triggers de `app_data` inspeccionados y confirmados correctos.
+
+---
+
 ## [4.1.5] — 2026-05-30 · Fix syncCarryDone ASAP + comentario flags
 
 ### Bugs corregidos
