@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks } from "./supabase.js";
+import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, isValidAppData, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks } from "./supabase.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
 import HomeDashboard from "./components/HomeDashboard.jsx";
@@ -17,6 +17,7 @@ import MissionCard from "./components/MissionCard.jsx";
 import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
+import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
@@ -121,6 +122,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const pendingSaveRef  = useRef(false); // ref mirror of pendingSave state for stale-closure safety
   const dataRef         = useRef(null);
   const dataVersionRef  = useRef(null); // null = version not yet loaded from DB
+  const unconfirmedRef  = useRef([]);    // mutators applied locally but not yet confirmed persisted (para rebase-on-conflict)
+  const runSaveRef      = useRef(null);  // latest runSave closure, para que el timer de debounce siempre use coupleId actual
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
@@ -243,6 +246,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
       await saveWithRetry(data, coupleId);
+      // Resync de versión: saveWithRetry bypassa CAS, el trigger incrementó la versión.
+      await loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version ?? null; }).catch(() => { dataVersionRef.current = null; });
       // Read back updated_at — set by BEFORE UPDATE trigger, ground truth that the write landed
       const { data: row, error: readErr } = await supabase
         .from("app_data")
@@ -437,10 +442,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // Realtime: reload when partner saves (skipped if we have unsaved local changes)
   useEffect(() => {
     if (!coupleId) return;
-    const channel = subscribeToUpdates(coupleId, remoteData => {
+    const channel = subscribeToUpdates(coupleId, (remoteData, remoteVersion) => {
       // hasPendingSave guard in subscribeToUpdates ensures we only reach here when safe
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
+      // CRÍTICO: sincronizar la versión con la DB. Sin esto, el siguiente save
+      // dispara un conflicto CAS falso y se pierde la edición del usuario.
+      if (typeof remoteVersion === "number") dataVersionRef.current = remoteVersion;
       setSavingState("idle");
       if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
         showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
@@ -450,7 +458,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setTimeout(() => setPushNudgeVisible(false), 8000);
       }
       setData(() => remoteData);
-    }, () => pendingSaveRef.current || !!saveTimerRef.current || isSavingRef.current);
+    }, () => pendingSaveRef.current || !!saveTimerRef.current || isSavingRef.current || unconfirmedRef.current.length > 0);
     return () => { supabase.removeChannel(channel); };
   }, [coupleId]);
 
@@ -474,14 +482,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         flushPendingSave();
-      } else if (document.visibilityState === "visible" && !saveTimerRef.current && coupleId) {
+      } else if (document.visibilityState === "visible" && !saveTimerRef.current && !isSavingRef.current && unconfirmedRef.current.length === 0 && coupleId) {
         // Realtime no recupera eventos perdidos tras reconexión del WebSocket.
-        // Re-fetch silencioso para sincronizar datos que llegaron mientras la pestaña
-        // estaba en segundo plano (pareja guardó cambios, realtime no los recibió).
-        loadData(coupleId).then(fresh => {
+        // Re-fetch silencioso (data + version juntas) para sincronizar cambios que
+        // llegaron mientras la pestaña estaba en segundo plano. Solo si NO hay
+        // ediciones locales sin guardar — si las hay, el rebase-on-conflict las protege.
+        loadDataWithVersion(coupleId).then(({ data: fresh, version }) => {
           if (fresh && isValidAppData(fresh)) {
             setData(fresh);
-            loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => { dataVersionRef.current = null; });
+            dataVersionRef.current = version ?? null;
           }
         }).catch(() => {});
       }
@@ -503,12 +512,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => { window.removeEventListener("online", up); window.removeEventListener("offline", dn); };
   }, []);
 
-  // Retry pending save when reconnecting
+  // Retry pending save when reconnecting — vía el path unificado (CAS + rebase)
   useEffect(() => {
-    if (isOnline && pendingSave && data && coupleId && isValidAppData(data)) {
-      saveWithRetry(data, coupleId, { getLatestData: () => dataRef.current })
-        .then(() => { setPendingSave(false); setSyncError(null); showSyncMsg("✓ Cambios sincronizados"); })
-        .catch(e => { setSyncError(e.message); showSyncMsg("⚠ Sin conexión — reintentando…"); });
+    if (isOnline && coupleId && (pendingSave || unconfirmedRef.current.length > 0)) {
+      scheduleSave();
     }
   }, [isOnline]); // eslint-disable-line
 
@@ -540,77 +547,133 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     }
   };
 
+  // ─── Núcleo de guardado (rediseño v4.2.0) ────────────────────────────────
+  //
+  // Modelo: UN solo path serializado con CAS + rebase-on-conflict.
+  //
+  //  • Cada update(fn) aplica el cambio de forma optimista y guarda el mutador
+  //    en unconfirmedRef hasta que el save se confirma.
+  //  • runSave es el ÚNICO escritor; nunca corre en paralelo consigo mismo
+  //    (isSavingRef serializa; si está ocupado, reprograma).
+  //  • CAS detecta si la pareja guardó primero (versión desfasada). En vez de
+  //    DESCARTAR el cambio del usuario (bug histórico de pérdida de datos),
+  //    recarga los datos frescos de la pareja y RE-APLICA encima los mutadores
+  //    no confirmados (rebase). Así nunca se pierde ni el cambio propio ni el
+  //    de la pareja, y se reintenta con la versión correcta.
+  //  • Si CAS no está disponible (flag off o versión no cargada) cae a un
+  //    last-write-wins seguro con saveWithRetry y resincroniza la versión.
+  const scheduleSave = useCallback(() => {
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      if (runSaveRef.current) runSaveRef.current();
+    }, 700);
+  }, []);
+
+  const runSave = useCallback(async () => {
+    if (!coupleId) return;
+    // Serializar: nunca dos saves en vuelo a la vez.
+    if (isSavingRef.current) { scheduleSave(); return; }
+    const cur = dataRef.current;
+    if (!cur || !isValidAppData(cur)) return;
+
+    isSavingRef.current = true;
+    let toSave = cur;
+    // Snapshot de los mutadores que intentamos confirmar en esta ronda.
+    let confirming = unconfirmedRef.current.slice();
+    try {
+      const casOn = isEnabled("cas_version_check");
+      if (casOn && dataVersionRef.current === null) {
+        const { version } = await loadDataWithVersion(coupleId);
+        dataVersionRef.current = version ?? null;
+      }
+
+      if (!casOn || dataVersionRef.current === null) {
+        // Fallback seguro: last-write-wins + resync de versión.
+        await saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current });
+        const { version } = await loadDataWithVersion(coupleId).catch(() => ({ version: null }));
+        dataVersionRef.current = version ?? null;
+        saveLocalBackup(toSave, coupleId);
+      } else {
+        let saved = false;
+        for (let attempt = 0; attempt < 6 && !saved; attempt++) {
+          const result = await saveWithCAS(coupleId, toSave, dataVersionRef.current);
+          if (result.success) {
+            dataVersionRef.current = result.newVersion;
+            saveLocalBackup(toSave, coupleId);
+            saved = true;
+          } else if (result.conflict) {
+            // La pareja guardó primero. Recargar fresco y RE-APLICAR nuestros
+            // mutadores encima — no descartamos nada.
+            track("cas_conflict", { couple_id: coupleId });
+            const { data: fresh, version } = await loadDataWithVersion(coupleId);
+            if (!fresh || !isValidAppData(fresh) || version == null) {
+              throw new Error("No se pudo recargar para fusionar tus cambios");
+            }
+            dataVersionRef.current = version;
+            confirming = unconfirmedRef.current.slice(); // incluye edits llegados durante el save
+            const rebased = rebaseMutators(fresh, confirming, isValidAppData);
+            toSave = rebased;
+            setData(rebased); // reflejar el merge en la UI
+          } else {
+            // casDisabled / error transitorio del RPC → last-write-wins.
+            await saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current });
+            const { version } = await loadDataWithVersion(coupleId).catch(() => ({ version: null }));
+            dataVersionRef.current = version ?? null;
+            saveLocalBackup(toSave, coupleId);
+            saved = true;
+          }
+        }
+        if (!saved) throw new Error("Conflictos repetidos al guardar — reintentando");
+      }
+
+      // Confirmado: quitar de unconfirmedRef exactamente los mutadores persistidos.
+      const done = new Set(confirming);
+      unconfirmedRef.current = unconfirmedRef.current.filter(m => !done.has(m));
+      setSyncError(null);
+      if (unconfirmedRef.current.length === 0) setPendingSave(false);
+      setSavingState("saved");
+      setTimeout(() => setSavingState("idle"), 2000);
+    } catch (e) {
+      setSyncError(e.message);
+      setPendingSave(true);
+      setSavingState("error");
+      showSyncMsg("⚠ Error al guardar — reintentando…");
+    } finally {
+      isSavingRef.current = false;
+    }
+    // Si llegaron más cambios mientras guardábamos (o falló), reprogramar.
+    if (unconfirmedRef.current.length) scheduleSave();
+  }, [coupleId, scheduleSave]);
+
+  useEffect(() => { runSaveRef.current = runSave; }, [runSave]);
+
+  // IMPORTANTE: el `fn` pasado a update DEBE ser puro (sin efectos secundarios).
+  // runSave lo re-aplica sobre datos frescos en un conflicto CAS (rebase), así que
+  // cualquier efecto dentro de `fn` se dispararía de nuevo. Los efectos (track, push,
+  // dual-write, alert) van en el handler que llama a update, nunca dentro del reducer.
   const update = useCallback(fn => {
     setData(prev => {
       const next = fn(prev);
       if (!isValidAppData(next)) {
-        // guard: skip save if state looks corrupt — but notify instead of silently dropping
-        console.error("[save] isValidAppData failed — datos no guardados. Tamaño:", JSON.stringify(next).length);
+        console.error("[save] isValidAppData failed — cambio descartado. Tamaño:", JSON.stringify(next).length);
         track("save_validation_failed", {
           size: JSON.stringify(next).length,
           keys: Object.keys(next || {}).join(",").slice(0, 100),
         });
-        pushToast({ kind: "error", text: "⚠️ Error de validación — los cambios no se guardaron. Recarga la app si el problema persiste." });
-        return next;
+        pushToast({ kind: "error", text: "⚠️ Error de validación — el cambio no se aplicó. Recarga la app si el problema persiste." });
+        return prev; // conservar el último estado bueno; no registrar ni guardar
       }
-      // Debounced save: 700ms after last change, with exponential backoff on failure
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(() => {
-        saveTimerRef.current = null;
-        isSavingRef.current = true;
-        const doSaveWithRetry = () => {
-          saveWithRetry(next, coupleId, { getLatestData: () => dataRef.current })
-            .then(() => {
-              isSavingRef.current = false;
-              setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000);
-              // Resync version: doSaveWithRetry bypasses CAS so the DB trigger incremented the version
-              // without our knowledge. Without a resync the next CAS save sends a stale version,
-              // gets a false conflict, downloads old data and silently discards the user's change.
-              loadDataWithVersion(coupleId)
-                .then(({ version }) => { dataVersionRef.current = version ?? null; })
-                .catch(() => { dataVersionRef.current = null; });
-            })
-            .catch(e => { isSavingRef.current = false; setSyncError(e.message); setPendingSave(true); setSavingState("error"); showSyncMsg("⚠ Error al guardar — reintentando…"); });
-        };
-
-        // CAS: solo activo si el flag está ON y la versión ya fue cargada de DB.
-        // Si la versión es null (aún no cargada), se usa saveWithRetry como fallback seguro.
-        if (isEnabled("cas_version_check") && dataVersionRef.current !== null) {
-          saveWithCAS(coupleId, next, dataVersionRef.current).then(result => {
-            if (result.success) {
-              isSavingRef.current = false;
-              dataVersionRef.current = result.newVersion;
-              setSyncError(null); setPendingSave(false); setSavingState("saved"); setTimeout(() => setSavingState("idle"), 2000);
-            } else if (result.conflict) {
-              isSavingRef.current = false;
-              // Conflicto real: otro cliente guardó primero. NO sobreescribir.
-              track("cas_conflict", { couple_id: coupleId });
-              pushToast({ kind: "error", text: "⚠ Conflicto: tu pareja guardó al mismo tiempo. Cargando su versión — revisa si falta algún cambio tuyo." });
-              loadData(coupleId).then(fresh => {
-                if (fresh && isValidAppData(fresh)) {
-                  setData(fresh);
-                  loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version; }).catch(() => { dataVersionRef.current = null; });
-                }
-              }).catch(() => {});
-              setSavingState("idle");
-              setPendingSave(false);
-            } else {
-              // casDisabled o error de red → fallback a saveWithRetry
-              doSaveWithRetry();
-            }
-          }).catch(() => {
-            // Error inesperado en el propio RPC → fallback seguro
-            doSaveWithRetry();
-          });
-        } else {
-          doSaveWithRetry();
-        }
-      }, 700);
+      // Registrar el mutador para rebase-on-conflict + programar el save, solo en
+      // el camino válido. Dedupe defensivo contra el doble-invoke de StrictMode.
+      const list = unconfirmedRef.current;
+      if (list[list.length - 1] !== fn) list.push(fn);
+      scheduleSave();
       return next;
     });
     setSavingState("saving");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coupleId]);
+  }, [scheduleSave]);
 
   // These must be declared before any early return so useSwipe (which calls
   // useRef internally) is always called in the same order — Rules of Hooks.
@@ -696,15 +759,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wCur = data.weeks[wkey];
     const mCur = wCur?.missions?.find(x => x.id === id);
     const nx = mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null;
+    // Reducer puro (se re-aplica en rebase): los efectos van fuera.
     update(d => {
       const w = d.weeks[wkey]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
       const nxx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
-      if (nxx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
       let next = { ...d, weeks: { ...d.weeks, [wkey]: { ...w, missions: w.missions.map(x => x.id===id ? {...x, status:nxx, completedAt:nxx==="DONE"?Date.now():null} : x) } } };
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, wkey, id);
       return next;
     });
+    if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
     if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
@@ -719,18 +783,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
   const runCarryOver = () => {
-    const currKey = isoWeekKey(data.currentWeekNumber, data.currentYear);
-    const beforeIds = new Set((data.weeks[currKey]?.missions || []).map(m => m.id));
-    update(d => {
-      const after = applyCarryOver(d);
-      for (const m of (after.weeks[currKey]?.missions || [])) {
-        if (!beforeIds.has(m.id)) {
-          insertNormalizedMission(coupleId, currKey, d.currentWeekNumber, d.currentYear, m)
-            .catch(e => console.error("[dual_write] carry insert:", e));
-        }
+    const base = dataRef.current || data;
+    const currKey = isoWeekKey(base.currentWeekNumber, base.currentYear);
+    const beforeIds = new Set((base.weeks[currKey]?.missions || []).map(m => m.id));
+    const after = applyCarryOver(base);
+    update(() => after); // reducer puro
+    // Dual-write fuera del reducer (efecto secundario).
+    for (const m of (after.weeks[currKey]?.missions || [])) {
+      if (!beforeIds.has(m.id)) {
+        insertNormalizedMission(coupleId, currKey, after.currentWeekNumber, after.currentYear, m)
+          .catch(e => console.error("[dual_write] carry insert:", e));
       }
-      return after;
-    });
+    }
   };
   const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
     update(d => {
@@ -760,11 +824,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const w = d.weeks[key]; if (!w) return d;
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
       const nxx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
-      if (nxx==="DONE") track("mission_completed", { who: m.who, hasGoal: !!m.goalId, week: w.weekNumber });
       let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nxx,completedAt:nxx==="DONE"?Date.now():null}:x) } } };
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, key, id);
       return next;
     });
+    if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
@@ -786,12 +850,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     });
   };
   const runRepair = () => {
-    update(d => {
-      const { data: fixed, moved } = repairMisplacedMissions(d);
-      if (moved === 0) alert("✅ Todo en orden — ningún evento fuera de su semana.");
-      else alert(`✅ ${moved} evento${moved>1?"s":""} reubicado${moved>1?"s":""} a su semana correcta.`);
-      return fixed;
-    });
+    const { data: fixed, moved } = repairMisplacedMissions(dataRef.current || data);
+    if (moved === 0) { alert("✅ Todo en orden — ningún evento fuera de su semana."); return; }
+    alert(`✅ ${moved} evento${moved>1?"s":""} reubicado${moved>1?"s":""} a su semana correcta.`);
+    update(() => fixed); // reducer puro
   };
 
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));

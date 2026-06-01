@@ -128,7 +128,7 @@ export async function joinCouple(code, personName) {
 
 /* ── localStorage helpers ──────────────────────────────────────────────── */
 
-function saveLocalBackup(appData, coupleId) {
+export function saveLocalBackup(appData, coupleId) {
   try {
     localStorage.setItem(localKey(coupleId), JSON.stringify(appData));
     localStorage.setItem(localTsKey(coupleId), new Date().toISOString());
@@ -427,16 +427,20 @@ export function subscribeToUpdates(coupleId, onUpdate, hasPendingSave) {
       payload => {
         const newData = payload.new?.data;
         if (!newData || !isValidAppData(newData)) return;
+        // La versión viene en el payload de realtime — la propagamos para mantener
+        // dataVersionRef en sync con la DB y evitar conflictos CAS falsos.
+        const newVersion = typeof payload.new?.version === "number" ? payload.new.version : null;
 
         // FIX 3: Si hay un guardado pendiente local, ignorar la actualización remota.
         // El guardado pendiente prevalece — es el estado más reciente del usuario local.
+        // (El rebase-on-conflict de saveWithCAS recupera los cambios de la pareja igualmente.)
         if (typeof hasPendingSave === "function" && hasPendingSave()) {
           console.debug("[Realtime] Ignorando update remoto: hay guardado local pendiente.");
           return;
         }
 
         saveLocalBackup(newData, coupleId);
-        onUpdate(newData);
+        onUpdate(newData, newVersion);
       }
     )
     .subscribe();
