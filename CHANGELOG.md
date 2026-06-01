@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.1] — 2026-06-01 · Flip read_from_normalized — tabla missions como fuente de verdad
+
+### Activado
+
+- **`read_from_normalized: true`** — La tabla `missions` es ahora la fuente de verdad para lectura de misiones y metas. El Externo confirmó la eliminación de **9 filas huérfanas** (01/06); la tabla está al 100% consistente con el blob.
+- Todos los paths de escritura sincronizan la tabla desde v4.1.3: `addMission`, `deleteMissionGlobal`, `cycleStatus`, `cycleStatusGlobal`, `patchMissionGlobal`, `patchAllFutureSeries`, `runCarryOver`.
+- **Safety check activo** en `loadFromNormalized`: si la tabla tiene 0 filas o menos del 80% de las misiones del blob, la app hace fallback al blob automáticamente — sin intervención del usuario.
+
+### Protocolo de flip completado
+
+- ✅ Externo: 9 huérfanas eliminadas — tabla limpia
+- ✅ Externo: triggers push en `app_data` deshabilitados (28/05, E-P0-1 + E-P0-2)
+- ✅ Programador: dual-write completo (3 black holes cerrados en v4.1.3)
+- ✅ Scanner: sign-off del path de lectura (`loadFromNormalized`, `missionRowToBlob`, `goalRowToBlob`, safety checks)
+- ✅ Redactor: CHANGELOG y constants.js sincronizados
+
+---
+
 ## [4.2.0] — 2026-06-01 · Rediseño de raíz del guardado (fin de la pérdida de datos)
 
 ### Causa raíz (diagnóstico con evidencia de DB)
