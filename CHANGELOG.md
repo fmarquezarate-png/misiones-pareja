@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.1.5] — 2026-05-30 · Fix syncCarryDone ASAP + comentario flags
+
+### Bugs corregidos
+
+- **`syncCarryDone` marcaba `completedLate: true` para misiones ASAP** — Las misiones con estado `ASAP` se diseñaron para completarse "cuando se pueda"; si se completan en la semana siguiente no es una tardanza. Ahora se verifica el status de la misión original: `completedLate: m.status !== "ASAP"`. Las misiones `TBC`, `IN_PROGRESS` y otras siguen marcándose como tardanza al completarse vía carry. (C-P1-4)
+
+### Docs
+
+- **Comentario obsoleto en `flags.js`** — El bloque de 5 líneas citaba los 3 black holes de dual-write (`patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver`) como razón para mantener `read_from_normalized: false`. Esos paths ya tienen dual-write desde v4.1.3. Comentario actualizado para reflejar el estado real: pendiente verificación blob↔tabla antes del flip.
+
+---
+
 ## [4.1.4] — 2026-05-28 · Activado CAS + tareas Externo completadas
 
 ### Activado
