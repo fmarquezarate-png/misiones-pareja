@@ -1019,6 +1019,8 @@ ${sorted.map(m=>{
         *:focus { outline: none; }
         *:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; border-radius: 4px; }
         .sc-nav-btn:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: -2px; border-radius: 10px; }
+        .sc-menu-header:hover { background: linear-gradient(135deg, var(--t-accent-soft,rgba(167,139,250,0.18)), transparent 80%) !important; }
+        .sc-menu-header:active { transform: scale(0.99); }
         button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; }
         @keyframes mc-pop { 0%{transform:scale(1)} 50%{transform:scale(1.28)} 100%{transform:scale(1)} }
         @keyframes sc-dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
@@ -1077,6 +1079,7 @@ ${sorted.map(m=>{
         coupleEmoji={data.settings?.coupleEmoji}
         p1={p1} p2={p2}
         syncMsg={syncMsg}
+        onShowProfile={() => { setShowProfile(true); setMenuOpen(false); }}
       />
 
       <Topbar
@@ -1087,7 +1090,6 @@ ${sorted.map(m=>{
         onCheckUpdate={checkUpdate} onSmartSync={smartSync} syncing={syncing}
         onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
         onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
-        onShowProfile={() => setShowProfile(true)}
         onExport={() => exportData(data)}
         importFileRef={importFileRef} onSignOut={onSignOut}
         colors={colors}

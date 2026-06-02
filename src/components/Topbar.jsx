@@ -8,7 +8,7 @@ export default function Topbar({
   isDark, onToggleDark,
   onCheckUpdate, onSmartSync, syncing,
   onDownloadICS, onDownloadPDF,
-  onShowProfile, onExport, importFileRef, onSignOut,
+  onExport, importFileRef, onSignOut,
   colors,
 }) {
   const [popOpen,      setPopOpen]      = useState(false);
@@ -95,7 +95,6 @@ export default function Topbar({
           <div onClick={() => setSettingsOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
           <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
             {[
-              { icon:"👤", label:"Mi perfil",  action:() => { onShowProfile(); setSettingsOpen(false); } },
               { icon:"📥", label:"Exportar",   action:() => { onExport(); setSettingsOpen(false); } },
               { icon:"📤", label:"Importar",   action:() => { importFileRef.current?.click(); setSettingsOpen(false); } },
               { icon:"🔄", label:syncing?"Sincronizando…":"Sincronizar datos", action:() => { onSmartSync(); setSettingsOpen(false); } },

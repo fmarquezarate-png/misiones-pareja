@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.5] — 2026-06-02 · Rediseño del acceso al perfil + hero del modal
+
+### UX
+
+- **El perfil se abre desde la foto de pareja en el menú lateral** — Antes el perfil estaba escondido como una opción más dentro del dropdown del engrane ⚙️. Ahora el header del menú hamburguesa (que ya mostraba la foto de pareja y los nombres) es un botón completo con affordance clara: hover, etiqueta "✏️ Editar perfil" y chevron `›`. Tocarlo abre el perfil y cierra el menú. Se eliminó "Mi perfil" del dropdown del engrane para no duplicar el acceso.
+
+### UI
+
+- **Rediseño del modal de perfil con header "hero"** — El header plano (`👤 Mi Perfil` + ×) se reemplazó por un hero centrado: foto de pareja a 88px con doble halo y sombra, badge de cámara flotante (📷) que dispara la subida con un toque, nombres en tipografía Fraunces serif con `&` en color de acento, y un degradado radial de fondo. El botón de cerrar pasó a ser un círculo flotante en la esquina superior derecha, más drag-handle visual. El selector de emoji de pareja se movió a un bloque compacto debajo del hero.
+
+### Limpieza
+
+- **Label obsoleto "Shared Calendar"** corregido en el header del menú lateral (el nombre del proyecto es "Misiones de Pareja").
+
+---
+
 ## [4.2.4] — 2026-06-02 · Bug scan — 4 fixes + limpieza
 
 ### Bugs corregidos
