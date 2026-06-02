@@ -27,12 +27,14 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
   const compressAvatar = (file) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Tiempo de espera procesando imagen")), 10000);
+    const done = (fn) => (...args) => { clearTimeout(timer); fn(...args); };
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("No se pudo leer el archivo de imagen"));
+    reader.onerror = done(() => reject(new Error("No se pudo leer el archivo de imagen")));
     reader.onload = e => {
       const img = new Image();
-      img.onerror = () => reject(new Error("Formato de imagen no válido"));
-      img.onload = () => {
+      img.onerror = done(() => reject(new Error("Formato de imagen no válido")));
+      img.onload = done(() => {
         const size = 180;
         const canvas = document.createElement("canvas");
         canvas.width = size; canvas.height = size;
@@ -41,7 +43,7 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
         const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
         ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
         resolve(canvas.toDataURL("image/jpeg", 0.8));
-      };
+      });
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);

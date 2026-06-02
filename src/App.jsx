@@ -742,14 +742,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     try {
       const imported = await importData(file);
       update(() => imported);
-      // Delay version reload until after debounce+save (700ms) so we read the post-import version
-      if (coupleId) {
-        setTimeout(() => {
-          loadDataWithVersion(coupleId)
-            .then(({ version }) => { dataVersionRef.current = version; })
-            .catch(() => { dataVersionRef.current = null; });
-        }, 1200);
-      }
+      // Sincronizar la versión DESPUÉS de que el save confirmado llegue a la DB,
+      // no con un delay fijo. Evita el CAS conflict falso si el save tarda más de 1.2s.
+      if (coupleId) runAfterSave(() => {
+        loadDataWithVersion(coupleId)
+          .then(({ version }) => { dataVersionRef.current = version; })
+          .catch(() => { dataVersionRef.current = null; });
+      });
       setImportMsg("✅ Datos restaurados correctamente");
       setTimeout(() => setImportMsg(null), 2500);
     } catch (err) { setImportMsg("❌ " + err.message); setTimeout(() => setImportMsg(null), 3500); }

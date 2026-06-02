@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.4] — 2026-06-02 · Bug scan — 4 fixes + limpieza
+
+### Bugs corregidos
+
+- **P1 — `handleImport` setTimeout(1200ms) reemplazado por `runAfterSave`** — Tras un import de datos, `dataVersionRef` se sincronizaba con un delay fijo de 1.2s. Si el save tardaba más (rebase CAS, red lenta), el siguiente guardado detectaba un falso conflicto y el import se revertía silenciosamente. Ahora usa `runAfterSave`, que espera la confirmación real del save antes de recargar la versión. Mismo patrón ya aplicado al push en v4.2.3.
+
+- **P2 — `isFirstWeekOfMonth` falla en semana 1 con lunes en diciembre** — Cuando la semana 1 ISO de un año comienza en diciembre del año anterior (ej. sem 1/2025 empieza el 30/12/2024), `weekStart.getDate() = 30 > 7` y las misiones mensuales de enero no se generaban. Nuevo check: si `weekStart.getFullYear() < cyr`, la semana es por definición la primera de enero; en el resto de casos usa `getDate() ≤ 7`.
+
+- **P2 — `ProfileModal.compressAvatar` Promise sin timeout** — Si el navegador aceptaba el src de imagen pero nunca disparaba `onload` ni `onerror` (imagen corrupta con cabecera válida), la Promise colgaba indefinidamente — el spinner de avatar subiendo nunca desaparecía. Añadido timeout de 10s con `clearTimeout` en todos los paths de resolución.
+
+### Limpieza
+
+- **Eliminado `src/helpers/carryHelpers.js`** — Copia muerta de `applyCarryOver` + `repairMisplacedMissions` que ningún archivo importaba (App.jsx usa `src/lib/appUtils.js`). Contenía además el bug de `new Date()` ya corregido en v4.2.2.
+
+---
+
 ## [4.2.3] — 2026-06-02 · Push post-save + CI/CD
 
 ### Deuda saldada — timing del push (Sprint E-2)
