@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { S, catBadgeStyle } from "../styles.js";
-import { CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS } from "../constants.js";
+import { CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS, STATUS } from "../constants.js";
 import { googleCalendarUrl } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 import StatusOrb from "./StatusOrb.jsx";
@@ -46,6 +46,9 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
         </div>
       )}
       <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+        <div style={{ width:26, height:26, borderRadius:"50%", background:`linear-gradient(135deg, ${whoColor}, ${whoColor}aa)`, border:"1.5px solid rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:mission.who==="together"?11:11, fontWeight:700, color:"#ffffff", userSelect:"none" }}>
+          {mission.who==="together"?"👫":mission.who==="person1"?(p1||"?")[0].toUpperCase():(p2||"?")[0].toUpperCase()}
+        </div>
         <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
         <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>
           <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
@@ -62,7 +65,10 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
-        <StatusOrb status={mission.status} color={whoColor} onClick={handleCycle} animated={popping} />
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
+          <StatusOrb status={mission.status} color={whoColor} onClick={handleCycle} animated={popping} />
+          <span style={{ fontSize:9, fontWeight:600, color:STATUS[mission.status].color, whiteSpace:"nowrap", lineHeight:1 }}>{STATUS[mission.status].label}</span>
+        </div>
         <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
       </div>

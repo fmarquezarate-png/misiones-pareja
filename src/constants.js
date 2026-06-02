@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.4.0";
+export const APP_VERSION = "4.5.0";
 export const LAST_UPDATE = "2026-06-02";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,9 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.5.0", date:"2026-06-02", notes:["Fix: ediciones de eventos no se persistían al recargar. allDated usaba w.weekNumber (undefined en semanas pre-v4.x) → isoWeekKey generaba '2026-Wundefined' → patchMissionGlobal no encontraba la semana y retornaba sin tocar el blob. Ahora se extrae el número de semana desde la clave ISO como fallback.", "UX: StatusOrb ahora muestra el label del estado debajo del orbe (TBC / ASAP / En curso / Hecho) en el color del estado. Mantiene la metáfora lunar pero añade contexto textual para usuarios nuevos.", "P2: avatar de dueño — círculo de 26px con la inicial de la persona (o 👫 para Juntos) antes del emoji de misión, con el color del dueño independiente del tema activo.", "P3: confirmación de guardado — tras cada save exitoso aparece un pill '✅ Guardado' verde en el sistema de toasts.", "P4: contraste textMuted en temas claros — los 6 temas claros (Mañana Clara, Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave) tienen valores textMuted más oscuros para asegurar contraste WCAG AA contra fondos claros."] },
+  { v:"4.4.2", date:"2026-06-02", notes:["Elimina WeekArc del inicio (arco de misiones como esferas). La visualización era poco intuitiva: los círculos no identificaban qué misión representaban. Se elimina el componente y se recupera el espacio para la tira semanal."] },
+  { v:"4.4.1", date:"2026-06-02", notes:["Fix: eventos multi-día perdían endDate/endTime al cargar desde tabla normalizada. missionRowToBlob no incluía esos campos (columnas aún no añadidas al schema). loadFromNormalized ahora fusiona los campos faltantes desde el blob, preservando la duración de eventos en cada sesión.","Fix: patchMissionGlobal guardaba contra posible w.missions undefined (semanas muy antiguas sin array de misiones)."] },
   { v:"4.4.0", date:"2026-06-02", notes:["Diseño: Fase 3 — La semana como arco vivo. Nuevo componente WeekArc en Inicio: las misiones de la semana se posan sobre un arco con gradiente firma — lo de persona1 a la izquierda, lo compartido en el centro (más alto y grande), lo de persona2 a la derecha. De un vistazo ves quién está cargando la semana. Las hechas se muestran translúcidas; las pendientes, sólidas. Tocar un punto cicla el estado de esa misión. Debajo, un resumen de balance (ej. 'semana equilibrada ⚖️').", "Diseño: Fase 4 — Números de revista + momento Juntos. Las stats dejan el grid plano de 4 celdas: el % completado ahora es portada — número gigante en Fraunces serif con el gradiente de la pareja — y semanas/misiones/racha lo acompañan como datos secundarios. En Inicio, cuando completáis una misión compartida aparece un 'momento Juntos': los dos colores de la pareja se fusionan con una chispa, recompensando la colaboración y no solo la productividad.", "Emojis: el selector pasa de 10 a 16 grupos y casi duplica el catálogo. Nuevos grupos: 👕 Ropa, 🌦️ Clima, 🚗 Transporte, 💰 Dinero, 😀 Emociones y 🔣 Símbolos. Se ampliaron también los 10 grupos existentes (Deporte, Casa, Comida, Naturaleza, etc.) y se limpiaron duplicados internos."] },
   { v:"4.3.0", date:"2026-06-02", notes:["Diseño: Fase 1 — Gradiente firma. Se inyectan 9 variables CSS de pareja (--t-p1, --t-p2, --t-together, --t-thread, variantes de opacidad) desde ThemeInjector con los colores reales de la pareja. Antes, todos los degradados de la app usaban los colores por defecto del tema (rosa/violeta hardcodeados) aunque la pareja hubiera elegido otros colores. Ahora la barra de progreso del hero, el fondo de la tarjeta hero, los anillos del SVG de Pulso, el banner de Wrapped, el indicador de guardado en Topbar y el marcador de 'hoy' en WeekStrip responden al color real de cada persona.", "Diseño: Fase 2 — Orbe de estado. El badge de texto (TBC/ASAP/IN_PROGRESS/DONE) en MissionCard es reemplazado por un orbe circular de relleno progresivo — como las fases de la luna. TBC=vacío, ASAP=28% relleno, IN_PROGRESS=62%, DONE=100% verde. El color de relleno refleja de quién es la misión (persona1, persona2 o juntos). Toca el orbe para ciclar el estado, igual que antes."] },
   { v:"4.2.6", date:"2026-06-02", notes:["Fix CI: el workflow de GitHub Actions fallaba en setup-node porque package-lock.json estaba en .gitignore y nunca se versionó — 'cache: npm' y 'npm ci' requieren el lockfile en el repo. Sacado de .gitignore y commiteado para builds reproducibles."] },
@@ -368,7 +371,7 @@ export const THEMES = [
     accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
     fontBody:"'Nunito',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    text:"#1e0d3c", textMuted:"#5a4a7a", textDim:"#6e5c8a", error:"#c0392b",
+    text:"#1e0d3c", textMuted:"#3d2c5e", textDim:"#6e5c8a", error:"#c0392b",
   },
   // ── Temas claros ──────────────────────────────────────────────────────────
   {
@@ -381,7 +384,7 @@ export const THEMES = [
     accent:"#e91e8c", accentSoft:"rgba(233,30,140,0.1)",
     fontBody:"'Nunito',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap",
-    text:"#3d0028", textMuted:"#7a2d58", textDim:"#8c4472", error:"#b52042",
+    text:"#3d0028", textMuted:"#5c1840", textDim:"#8c4472", error:"#b52042",
   },
   {
     id:"sky", name:"Cielo Azul", preview:["#0ea5e9","#38bdf8","#7dd3fc"], dark:false, pair:"ocean",
@@ -393,7 +396,7 @@ export const THEMES = [
     accent:"#0ea5e9", accentSoft:"rgba(14,165,233,0.1)",
     fontBody:"'DM Sans',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
-    text:"#0c2a48", textMuted:"#1e5c96", textDim:"#2c6898", error:"#b52d20",
+    text:"#0c2a48", textMuted:"#0f3d6e", textDim:"#2c6898", error:"#b52d20",
   },
   {
     id:"mint", name:"Menta Fresca", preview:["#059669","#10b981","#34d399"], dark:false, pair:"sage",
@@ -404,7 +407,7 @@ export const THEMES = [
     btnGrad:"linear-gradient(135deg,#059669,#10b981)",
     accent:"#059669", accentSoft:"rgba(5,150,105,0.1)",
     fontBody:"'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif", googleFonts:null,
-    text:"#0a2e1e", textMuted:"#1a6040", textDim:"#1d7045", error:"#a52d14",
+    text:"#0a2e1e", textMuted:"#0d4429", textDim:"#1d7045", error:"#a52d14",
   },
   {
     id:"peach", name:"Melocotón", preview:["#ea7026","#f97316","#fb923c"], dark:false, pair:"sunset",
@@ -416,7 +419,7 @@ export const THEMES = [
     accent:"#ea7026", accentSoft:"rgba(234,112,38,0.1)",
     fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-    text:"#3d1500", textMuted:"#6e3010", textDim:"#7a3e12", error:"#a02010",
+    text:"#3d1500", textMuted:"#4d1f08", textDim:"#7a3e12", error:"#a02010",
   },
   {
     id:"lavender", name:"Lavanda Suave", preview:["#7c3aed","#8b5cf6","#a78bfa"], dark:false, pair:"violet",
@@ -428,7 +431,7 @@ export const THEMES = [
     accent:"#7c3aed", accentSoft:"rgba(124,58,237,0.1)",
     fontBody:"'Space Grotesk',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
-    text:"#1e0b4b", textMuted:"#5a3a8a", textDim:"#6b4fa8",
+    text:"#1e0b4b", textMuted:"#3c2070", textDim:"#6b4fa8",
   },
   {
     id:"coffee", name:"Café Oscuro", preview:["#f59e0b","#92400e","#fde68a"], dark:true, pair:"peach",

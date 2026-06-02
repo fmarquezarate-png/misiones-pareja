@@ -635,6 +635,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       setSyncError(null);
       if (unconfirmedRef.current.length === 0) setPendingSave(false);
       setSavingState("saved");
+      pushToast({ kind: "success", text: "✅ Guardado" });
       setTimeout(() => setSavingState("idle"), 2000);
       // El blob ya está en la DB: ahora sí es seguro disparar push/efectos que
       // dependen de que la pareja pueda leer los datos frescos. Reemplaza el
@@ -654,7 +655,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     }
     // Si llegaron más cambios mientras guardábamos (o falló), reprogramar.
     if (unconfirmedRef.current.length) scheduleSave();
-  }, [coupleId, scheduleSave]);
+  }, [coupleId, scheduleSave, pushToast]);
 
   useEffect(() => { runSaveRef.current = runSave; }, [runSave]);
 
@@ -862,7 +863,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const key = isoWeekKey(wn, yr);
     update(d => {
       const w = d.weeks[key]; if (!w) return d;
-      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,...patch}:x) } } };
+      const ms = w.missions || [];
+      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: ms.map(x=>x.id===id?{...x,...patch}:x) } } };
     });
     updateNormalizedMission(coupleId, id, patch).catch(e => console.error("[dual_write] patch:", e));
   };
@@ -1009,7 +1011,7 @@ ${sorted.map(m=>{
   const carriedCount = week.missions?.filter(m=>m.carriedFrom).length||0;
 
   const pct = total>0?(done/total)*100:0;
-  const allDated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber,_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
+  const allDated = Object.entries(data.weeks).flatMap(([key,w])=>(w.missions||[]).filter(m=>m.date).map(m=>({...m,weekNumber:w.weekNumber??parseInt(key.split("-W")[1]),_yr:parseInt(key.split("-W")[0])||w.year||new Date().getFullYear()})));
 
   return (
     <div style={{ minHeight:"100vh", overflowX:"hidden", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
