@@ -5,6 +5,7 @@ import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS } from "../constants.js";
 import { PHRASES } from "../phrases.js";
 import WeekStrip from "./WeekStrip.jsx";
+import WeekArc from "./WeekArc.jsx";
 
 const W = {
   background: "var(--t-card,#1d1733)",
@@ -333,6 +334,10 @@ export default function HomeDashboard({
   const todayMs = missions.filter(m => m.date === todayStr);
   const asapMs  = missions.filter(m => m.status === "ASAP");
 
+  // Momento "Juntos": última misión compartida completada esta semana
+  const togetherWins = missions.filter(m => m.who === "together" && m.status === "DONE" && m.type !== "event");
+  const lastTogetherWin = togetherWins[togetherWins.length - 1] || null;
+
   const allMissions = weeksData
     ? Object.values(weeksData).flatMap(w => (w.missions || []).map(m => ({ ...m, weekNumber: w.weekNumber, year: w.year })))
     : missions;
@@ -414,6 +419,17 @@ export default function HomeDashboard({
           fontSize:26, border:"2px solid rgba(255,255,255,0.15)",
         }}>{!photo && "💞"}</div>
       </div>
+
+      {/* Arco vivo de la semana — quién carga qué */}
+      {missions.filter(m => m.type !== "event").length > 0 && (
+        <div style={{ ...W, padding:"12px 14px 8px" }}>
+          <div style={{ ...eyebrow, fontSize:8.5, marginBottom:2, textAlign:"center" }}>🪡 La semana a dos hilos</div>
+          <WeekArc
+            missions={missions} colors={clr} p1Name={p1} p2Name={p2}
+            onSelectMission={m => onCycleStatus && onCycleStatus(m.id)}
+          />
+        </div>
+      )}
 
       {/* WeekStrip */}
       <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} colors={colors} />
@@ -521,6 +537,24 @@ export default function HomeDashboard({
           onClick={() => setPersonSheet("p2")}
         />
       </div>
+
+      {/* Momento "Juntos" — recompensa a la colaboración */}
+      {lastTogetherWin && (
+        <div style={{
+          margin:"2px 0", padding:"10px 14px 12px", borderRadius:14,
+          background:`linear-gradient(135deg, ${clr.person1}14, ${clr.person2}14)`,
+          border:`1px solid ${clr.together}33`, textAlign:"center",
+        }}>
+          <div style={{ position:"relative", height:46, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person1, animation:"hd-merge1 3s ease-in-out infinite" }} />
+            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person2, animation:"hd-merge2 3s ease-in-out infinite", mixBlendMode:"screen" }} />
+            <span style={{ position:"absolute", fontSize:18, animation:"hd-spark 3s ease-in-out infinite" }}>✨</span>
+          </div>
+          <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginTop:4 }}>
+            Completasteis <span style={{ color:clr.together, fontWeight:600 }}>{lastTogetherWin.emoji} {lastTogetherWin.title}</span> — momento Juntos
+          </div>
+        </div>
+      )}
 
       {/* Daily phrase */}
       <div style={{ textAlign:"center", padding:"2px 16px 4px" }}>

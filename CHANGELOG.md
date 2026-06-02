@@ -7,6 +7,27 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.4.0] — 2026-06-02 · Diseño: Arco vivo + stats editorial + emojis
+
+### UI/UX — Fase 3: La semana como arco vivo
+
+- **`WeekArc`** — nuevo componente en Inicio. Las misiones de la semana actual se posan sobre un arco con el gradiente firma de la pareja: lo de `person1` a la izquierda, lo `together` en el centro (más alto y con círculo mayor), lo de `person2` a la derecha. De un vistazo se ve **quién está cargando la semana**.
+  - Las misiones hechas (`DONE`) se muestran translúcidas (opacity 0.4); las pendientes, sólidas con borde sutil.
+  - Tocar un punto cicla el estado de esa misión (consistente con el resto de targets del home).
+  - Resumen de balance debajo: contadores por persona/juntos + mensaje (`semana equilibrada ⚖️` / `<nombre> carga un poco más`).
+  - Máximo 4 por lado + 3 al centro; se priorizan las pendientes.
+
+### UI/UX — Fase 4: Números de revista + momento "Juntos"
+
+- **KPIs editoriales en StatsView** — el grid plano de 4 celdas se reemplaza por una jerarquía tipo portada: el **% completado** es el héroe (número gigante en Fraunces serif con el gradiente firma `var(--t-thread)`), y semanas / misiones / racha récord lo acompañan como minis a la derecha.
+- **Momento "Juntos"** — en Inicio, cuando hay una misión compartida (`who === "together"`) completada esta semana, aparece una banda celebratoria: los dos colores de la pareja se fusionan con una chispa ✨ (animaciones `hd-merge1/2/spark`). Recompensa la **colaboración**, no la productividad individual.
+
+### Emojis
+
+- **Catálogo casi duplicado y 6 grupos nuevos** — el selector pasa de 10 a 16 grupos. Nuevos: **👕 Ropa**, **🌦️ Clima**, **🚗 Transporte**, **💰 Dinero**, **😀 Emociones**, **🔣 Símbolos**. Se ampliaron también los 10 grupos existentes (Deporte, Casa, Bienestar, Viajes, Comida, Pareja, Trabajo, Ocio, Natura, Cultura) y se eliminaron duplicados internos (las claves de React usan el emoji, así que los duplicados rompían el render — origen del fix histórico de 🧗 en v2.5).
+
+---
+
 ## [4.3.0] — 2026-06-02 · Diseño: Gradiente firma + Orbe de estado
 
 ### UI/UX — Fase 1: Gradiente firma

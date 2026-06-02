@@ -107,7 +107,7 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
     return { allW, allM, total, done, pct, wc, bestStreak, currStreakNow, bySt, maxSt, catStats, ph1, ph2, phT, totalWork1, totalWork2, series, rangedEntries, pctColor, filterLabel, wrappedInsights, donutSegments, insights };
   }, [weeks, stWho, stRange, p1, p2, todayKey]);
 
-  const { allW, total, done, pct, wc, bestStreak, bySt, maxSt, catStats, ph1, ph2, phT, totalWork1, totalWork2, series, pctColor, filterLabel, wrappedInsights, donutSegments, insights } = computed;
+  const { allW, total, done, pct, wc, bestStreak, bySt, maxSt, catStats, ph1, ph2, phT, totalWork1, totalWork2, series, filterLabel, wrappedInsights, donutSegments, insights } = computed;
 
   const barPersonColor = stWho==="person1"?clr.person1:stWho==="person2"?clr.person2:stWho==="together"?clr.together:null;
 
@@ -261,24 +261,32 @@ export default function StatsView({ weeks, p1, p2, colors, onGoToWeek }) {
         </div>;
       })()}
 
-      {/* KPIs */}
-      <div>
-        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:7 }}>
+      {/* KPIs — editorial: el % manda como portada, el resto acompaña */}
+      <div style={{ ...S.card, padding:"16px 18px" }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:6 }}>
           <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:99, padding:"2px 10px" }}>{filterLabel}</span>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8 }}>
-          {[
-            {label:"Semanas",value:wc,icon:"📅",color:null},
-            {label:"Misiones",value:total,icon:"📝",color:null},
-            {label:"Completadas",value:`${pct}%`,icon:"🏆",color:pctColor},
-            {label:"Racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",icon:"⚡",color:bestStreak>=3?"#fbbf24":null},
-          ].map(s=>(
-            <div key={s.label} style={{ ...S.card, textAlign:"center", padding:"14px 6px", borderColor:s.color?`${s.color}55`:undefined }}>
-              <div style={{ fontSize:22, marginBottom:3 }}>{s.icon}</div>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, color:s.color||"var(--t-text,#f8f4ff)", lineHeight:1 }}>{s.value}</div>
-              <div style={{ fontSize:9, color:"var(--t-text-dim,#6b5f88)", textTransform:"uppercase", letterSpacing:1, marginTop:4 }}>{s.label}</div>
-            </div>
-          ))}
+        <div style={{ display:"flex", gap:14, alignItems:"flex-end" }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{
+              fontFamily:"'Fraunces',serif", fontSize:64, fontWeight:600, lineHeight:0.9,
+              background:"var(--t-thread,linear-gradient(135deg,#f472b6,#a78bfa))",
+              WebkitBackgroundClip:"text", backgroundClip:"text", WebkitTextFillColor:"transparent",
+            }}>{pct}<span style={{ fontSize:28 }}>%</span></div>
+            <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", letterSpacing:1, textTransform:"uppercase", marginTop:6 }}>completado</div>
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8, flexShrink:0 }}>
+            {[
+              {label:"semanas",value:wc,color:null},
+              {label:"misiones",value:total,color:null},
+              {label:"racha récord",value:bestStreak>0?`${bestStreak}🔥`:"—",color:bestStreak>=3?"#fbbf24":null},
+            ].map(s=>(
+              <div key={s.label} style={{ textAlign:"right" }}>
+                <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:600, color:s.color||"var(--t-text,#f8f4ff)", lineHeight:1 }}>{s.value}</div>
+                <div style={{ fontSize:9.5, color:"var(--t-text-dim,#6b5f88)" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
