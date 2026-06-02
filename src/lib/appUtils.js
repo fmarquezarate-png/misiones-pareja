@@ -148,8 +148,8 @@ export function applyCarryOver(data) {
   );
   const allSeriesSources = [...prevSeries, ...biweeklyFromPrev2];
 
-  const today = new Date();
-  const isFirstWeekOfMonth = cwn === getWeekAndYear(new Date(today.getFullYear(), today.getMonth(), 1)).week;
+  const weekStart = weekStartDate(cwn, cyr);
+  const isFirstWeekOfMonth = cwn === getWeekAndYear(new Date(weekStart.getFullYear(), weekStart.getMonth(), 1)).week;
   const seriesEndOk = m => {
     if (!m.seriesEndDate) return true;
     const { week: eWn, year: eYr } = getWeekAndYear(new Date(m.seriesEndDate));

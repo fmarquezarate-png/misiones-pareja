@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.2.1";
-export const LAST_UPDATE = "2026-06-01";
+export const APP_VERSION = "4.2.2";
+export const LAST_UPDATE = "2026-06-02";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.2.2", date:"2026-06-02", notes:["Fix C-P2-2: applyCarryOver usaba new Date() para calcular isFirstWeekOfMonth — funcionaba bien con el reloj del dispositivo pero fallaba offline o si la semana del blob no coincidía con la semana real. Ahora usa el lunes de la semana cwn/cyr del blob (weekStartDate) para derivar el mes. Fix C-P2-4: loadFromNormalized añade console.warn explícito cuando hace fallback por error de red (además de los warnings de 0 filas y umbral 80% que ya existían). Docs: README actualizado a v4.2.x — refleja la arquitectura real (CAS, tablas normalizadas, componentes modulares, push), elimina secciones de v1.8.0 obsoletas."] },
   { v:"4.2.1", date:"2026-06-01", notes:["read_from_normalized activado: la tabla missions es ahora fuente de verdad para lectura. El Externo eliminó 9 filas huérfanas — tabla 100% consistente con el blob. Todos los paths de escritura sincronizan la tabla (dual-write completo desde v4.1.3). Safety check activo: si la tabla tiene menos del 80% de las misiones del blob, la app hace fallback al blob automáticamente."] },
   { v:"4.2.0", date:"2026-06-01", notes:["Rediseño de raíz del guardado — fin de la pérdida de datos. Causa encontrada: (1) cuando tu pareja guardaba, el realtime actualizaba los datos pero NO la versión interna (dataVersionRef), así que tu siguiente guardado disparaba un conflicto FALSO; (2) ante cualquier conflicto, la app DESCARTABA tu cambio y cargaba la versión de la pareja. Resultado: cada vez que editabas después de tu pareja, tu primer cambio se perdía. Solución definitiva: un único camino de guardado serializado con CAS + 'rebase-on-conflict'. Ahora, si hay conflicto, la app recarga los datos frescos de tu pareja y RE-APLICA tus cambios encima en vez de descartarlos — nunca se pierde ni tu cambio ni el de tu pareja. Además: la versión se sincroniza en cada evento de realtime (no más conflictos falsos), los reducers de estado se volvieron puros (sin efectos secundarios que se dispararan dos veces), y se añadieron tests de regresión del merge. Verificado: el RPC save_app_data_cas en Supabase es correcto; el bug era 100% del cliente."] },
   { v:"4.1.5", date:"2026-05-30", notes:["Fix C-P1-4: syncCarryDone marcaba completedLate:true en toda misión completada vía carry, incluso en misiones ASAP — que por definición se hacen 'cuando se puede' y completarlas en la semana siguiente no es tardanza. Ahora completedLate se fija en false si la misión original tenía status ASAP.", "Fix comentario obsoleto en flags.js: el texto explicaba por qué read_from_normalized era false mencionando 3 black holes (patchMissionGlobal, patchAllFutureSeries, applyCarryOver). Esos paths ya tienen dual-write desde v4.1.3. Comentario actualizado."] },

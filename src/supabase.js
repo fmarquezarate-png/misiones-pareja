@@ -277,10 +277,12 @@ export async function loadFromNormalized(coupleId) {
 
   if (mErr) {
     console.error("[loadFromNormalized] missions error:", mErr.message);
+    console.warn("[loadFromNormalized] fallback → blob (error de red en missions)");
     return blob;
   }
   if (gErr) {
     console.error("[loadFromNormalized] goals error:", gErr.message);
+    console.warn("[loadFromNormalized] fallback → blob (error de red en goals)");
     return blob;
   }
 

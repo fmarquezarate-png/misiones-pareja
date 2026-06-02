@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.2] — 2026-06-02 · Fix carry-over offline + README v4.x
+
+### Bugs corregidos
+
+- **C-P2-2: `applyCarryOver` usaba `new Date()` para `isFirstWeekOfMonth`** — La lógica de misiones mensuales calculaba si la semana actual es la primera del mes usando el reloj del dispositivo en lugar de las semanas del blob. Si el dispositivo estaba offline, la semana del blob no coincidía con la real, o la app se usaba en un contexto desfasado, el filtro mensual se disparaba en la semana equivocada. Fix: `isFirstWeekOfMonth` ahora compara el mes del lunes de la semana `cwn/cyr` del blob (`weekStartDate(cwn, cyr)`) contra la primera semana ISO de ese mismo mes. Determinista, no depende del reloj. (C-P2-2)
+
+- **C-P2-4: `loadFromNormalized` no logueaba fallback por error de red** — Los paths de error de `missions` y `goals` tenían `console.error` pero no indicaban explícitamente que se había activado el fallback al blob. Añadido `console.warn("[loadFromNormalized] fallback → blob")` en ambos paths para tener trazabilidad completa en DevTools/logs. (C-P2-4)
+
+### Docs
+
+- **README reescrito para v4.x** — El README documentaba v1.8.0 (monolito, sin auth, sin tests, "features planeadas" que ya están implementadas). Ahora refleja el estado real: arquitectura modular (`components/`, `lib/`, `helpers/`, `hooks/`), CAS con rebase-on-conflict, tablas normalizadas, push notifications, auth por código de pareja, Vitest, y deuda técnica actualizada. (C-P2-3)
+
+---
+
 ## [4.2.1] — 2026-06-01 · Flip read_from_normalized — tabla missions como fuente de verdad
 
 ### Activado
