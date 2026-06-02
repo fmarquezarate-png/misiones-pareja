@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.5.0] — 2026-06-02 · Fix eventos + UX orbe + avatar dueño + toasts + contraste
+
+### Fixes
+
+- **Ediciones de eventos no se persistían al recargar** — `allDated` usaba `w.weekNumber` que puede ser `undefined` en semanas creadas antes de v4.x. `isoWeekKey(undefined, yr)` generaba la clave `"2026-Wundefined"`, no encontrada en `data.weeks`, y `patchMissionGlobal` retornaba sin tocar el blob. Los cambios se mostraban localmente pero desaparecían al recargar. Ahora el número de semana se extrae de la clave ISO como fallback (`parseInt(key.split("-W")[1])`).
+
+### UX / UI
+
+- **StatusOrb con label** — el orbe de estado (lunar-phase) ahora muestra el nombre del estado debajo del círculo (`TBC` / `ASAP` / `En curso` / `Hecho`) en el color del estado. Mantiene la metáfora visual pero añade contexto textual para usuarios que no han memorizado los colores.
+- **Avatar de dueño (P2)** — círculo de 26px con la inicial de la persona (o `👫` para *Juntos*) antes del emoji de la misión. El color del avatar es el del dueño, independiente del tema de color activo. Elimina la ambigüedad de la barra de color izquierda en temas donde `person2` (violeta) coincidía con el acento del tema.
+- **Confirmación de guardado (P3)** — tras cada save exitoso aparece un pill `✅ Guardado` verde (~2s) en el sistema de toasts, complementando el punto verde ya existente en la Topbar. Confirmación explícita de que el cambio se persistió.
+- **Contraste `textMuted` en temas claros (P4)** — los 6 temas claros (Mañana Clara, Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave) tienen valores `textMuted` más oscuros para garantizar contraste WCAG AA (~4.5:1) contra fondos claros de tarjeta y página.
+
+---
+
 ## [4.4.2] — 2026-06-02 · Elimina WeekArc (arco de esferas)
 
 ### Eliminado
