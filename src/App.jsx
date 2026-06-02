@@ -1013,7 +1013,7 @@ ${sorted.map(m=>{
 
   return (
     <div style={{ minHeight:"100vh", overflowX:"hidden", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
-      <ThemeInjector themeId={themeId} fontId={fontId} />
+      <ThemeInjector themeId={themeId} fontId={fontId} colors={colors} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <style>{`
         *:focus { outline: none; }
@@ -1026,6 +1026,9 @@ ${sorted.map(m=>{
         @keyframes sc-dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
         @keyframes sc-saved-fade { 0%{opacity:1} 100%{opacity:0} }
         @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes hd-merge1 { 0%,100%{transform:translateX(-22px)} 45%,55%{transform:translateX(-7px)} }
+        @keyframes hd-merge2 { 0%,100%{transform:translateX(22px)} 45%,55%{transform:translateX(7px)} }
+        @keyframes hd-spark { 0%,40%,60%,100%{opacity:0;transform:scale(0.5)} 50%{opacity:1;transform:scale(1.15)} }
       `}</style>
 
       {/* Hidden file input for import */}

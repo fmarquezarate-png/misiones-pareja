@@ -5,6 +5,7 @@ import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS } from "../constants.js";
 import { PHRASES } from "../phrases.js";
 import WeekStrip from "./WeekStrip.jsx";
+import WeekArc from "./WeekArc.jsx";
 
 const W = {
   background: "var(--t-card,#1d1733)",
@@ -333,6 +334,10 @@ export default function HomeDashboard({
   const todayMs = missions.filter(m => m.date === todayStr);
   const asapMs  = missions.filter(m => m.status === "ASAP");
 
+  // Momento "Juntos": última misión compartida completada esta semana
+  const togetherWins = missions.filter(m => m.who === "together" && m.status === "DONE" && m.type !== "event");
+  const lastTogetherWin = togetherWins[togetherWins.length - 1] || null;
+
   const allMissions = weeksData
     ? Object.values(weeksData).flatMap(w => (w.missions || []).map(m => ({ ...m, weekNumber: w.weekNumber, year: w.year })))
     : missions;
@@ -369,8 +374,8 @@ export default function HomeDashboard({
       {/* Wrapped banner */}
       {hasWrappedAvailable && (
         <button onClick={onOpenWrapped} style={{
-          background:"linear-gradient(135deg,rgba(244,114,182,0.16),rgba(167,139,250,0.16))",
-          border:"1px solid rgba(244,114,182,0.4)", borderRadius:14, padding:"11px 14px",
+          background:"linear-gradient(135deg, var(--t-p1-10,rgba(244,114,182,0.16)), var(--t-p2-10,rgba(167,139,250,0.16)))",
+          border:"1px solid var(--t-p1-15,rgba(244,114,182,0.4))", borderRadius:14, padding:"11px 14px",
           display:"flex", alignItems:"center", gap:10, cursor:"pointer",
           fontFamily:"inherit", color:"var(--t-text,#f8f4ff)", textAlign:"left", width:"100%", boxSizing:"border-box",
         }}>
@@ -397,7 +402,7 @@ export default function HomeDashboard({
           }}>{week?.epicGoal || "Define el objetivo de la semana"}</div>
           <div style={{ height:5, background:"rgba(128,128,128,0.12)", borderRadius:99, overflow:"hidden", marginBottom:5 }}>
             <div style={{ height:"100%", width:`${pct}%`,
-              background:"linear-gradient(90deg,#f472b6,#a78bfa,#34d399)",
+              background:"linear-gradient(90deg, var(--t-p1,#f472b6), var(--t-p2,#a78bfa))",
               borderRadius:99, transition:"width .6s ease" }}/>
           </div>
           <div style={{display:"flex", justifyContent:"space-between", fontSize:10.5, color:"var(--t-text-muted,#8b7fa8)", fontWeight:600}}>
@@ -415,8 +420,19 @@ export default function HomeDashboard({
         }}>{!photo && "💞"}</div>
       </div>
 
+      {/* Arco vivo de la semana — quién carga qué */}
+      {missions.filter(m => m.type !== "event").length > 0 && (
+        <div style={{ ...W, padding:"12px 14px 8px" }}>
+          <div style={{ ...eyebrow, fontSize:8.5, marginBottom:2, textAlign:"center" }}>🪡 La semana a dos hilos</div>
+          <WeekArc
+            missions={missions} colors={clr} p1Name={p1} p2Name={p2}
+            onSelectMission={m => onCycleStatus && onCycleStatus(m.id)}
+          />
+        </div>
+      )}
+
       {/* WeekStrip */}
-      <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} />
+      <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} colors={colors} />
       <div style={{ fontSize:9.5, color:"var(--t-text-dim,#4a4166)", textAlign:"center", marginTop:-6 }}>Toca un día para ver sus actividades</div>
 
       {/* Row 1: Próximos | Atrasadas */}
@@ -461,8 +477,8 @@ export default function HomeDashboard({
               <circle cx="18" cy="18" r="15" fill="none" stroke="url(#hd-pulse)" strokeWidth="4"
                 strokeDasharray={`${pct} 100`} strokeLinecap="round" transform="rotate(-90 18 18)"/>
               <defs><linearGradient id="hd-pulse">
-                <stop offset="0%" stopColor="#f472b6"/>
-                <stop offset="100%" stopColor="#34d399"/>
+                <stop offset="0%" stopColor={clr.person1}/>
+                <stop offset="100%" stopColor={clr.person2}/>
               </linearGradient></defs>
             </svg>
             <div>
@@ -521,6 +537,24 @@ export default function HomeDashboard({
           onClick={() => setPersonSheet("p2")}
         />
       </div>
+
+      {/* Momento "Juntos" — recompensa a la colaboración */}
+      {lastTogetherWin && (
+        <div style={{
+          margin:"2px 0", padding:"10px 14px 12px", borderRadius:14,
+          background:`linear-gradient(135deg, ${clr.person1}14, ${clr.person2}14)`,
+          border:`1px solid ${clr.together}33`, textAlign:"center",
+        }}>
+          <div style={{ position:"relative", height:46, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person1, animation:"hd-merge1 3s ease-in-out infinite" }} />
+            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person2, animation:"hd-merge2 3s ease-in-out infinite", mixBlendMode:"screen" }} />
+            <span style={{ position:"absolute", fontSize:18, animation:"hd-spark 3s ease-in-out infinite" }}>✨</span>
+          </div>
+          <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginTop:4 }}>
+            Completasteis <span style={{ color:clr.together, fontWeight:600 }}>{lastTogetherWin.emoji} {lastTogetherWin.title}</span> — momento Juntos
+          </div>
+        </div>
+      )}
 
       {/* Daily phrase */}
       <div style={{ textAlign:"center", padding:"2px 16px 4px" }}>

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { S, badgeStyle, catBadgeStyle } from "../styles.js";
-import { CATEGORIES, CAT_MAP, getMCats, STATUS, DEFAULT_COLORS } from "../constants.js";
+import { S, catBadgeStyle } from "../styles.js";
+import { CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS } from "../constants.js";
 import { googleCalendarUrl } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
+import StatusOrb from "./StatusOrb.jsx";
 
 export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
   const [expanded, setExpanded] = useState(false);
@@ -61,7 +62,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
           </div>
         </div>
-        <button onClick={handleCycle} style={{ ...badgeStyle(mission.status), animation:popping?"mc-pop 0.22s ease-out":"none" }}>{STATUS[mission.status].icon}</button>
+        <StatusOrb status={mission.status} color={whoColor} onClick={handleCycle} animated={popping} />
         <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
       </div>

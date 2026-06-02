@@ -7,6 +7,45 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.4.0] — 2026-06-02 · Diseño: Arco vivo + stats editorial + emojis
+
+### UI/UX — Fase 3: La semana como arco vivo
+
+- **`WeekArc`** — nuevo componente en Inicio. Las misiones de la semana actual se posan sobre un arco con el gradiente firma de la pareja: lo de `person1` a la izquierda, lo `together` en el centro (más alto y con círculo mayor), lo de `person2` a la derecha. De un vistazo se ve **quién está cargando la semana**.
+  - Las misiones hechas (`DONE`) se muestran translúcidas (opacity 0.4); las pendientes, sólidas con borde sutil.
+  - Tocar un punto cicla el estado de esa misión (consistente con el resto de targets del home).
+  - Resumen de balance debajo: contadores por persona/juntos + mensaje (`semana equilibrada ⚖️` / `<nombre> carga un poco más`).
+  - Máximo 4 por lado + 3 al centro; se priorizan las pendientes.
+
+### UI/UX — Fase 4: Números de revista + momento "Juntos"
+
+- **KPIs editoriales en StatsView** — el grid plano de 4 celdas se reemplaza por una jerarquía tipo portada: el **% completado** es el héroe (número gigante en Fraunces serif con el gradiente firma `var(--t-thread)`), y semanas / misiones / racha récord lo acompañan como minis a la derecha.
+- **Momento "Juntos"** — en Inicio, cuando hay una misión compartida (`who === "together"`) completada esta semana, aparece una banda celebratoria: los dos colores de la pareja se fusionan con una chispa ✨ (animaciones `hd-merge1/2/spark`). Recompensa la **colaboración**, no la productividad individual.
+
+### Emojis
+
+- **Catálogo casi duplicado y 6 grupos nuevos** — el selector pasa de 10 a 16 grupos. Nuevos: **👕 Ropa**, **🌦️ Clima**, **🚗 Transporte**, **💰 Dinero**, **😀 Emociones**, **🔣 Símbolos**. Se ampliaron también los 10 grupos existentes (Deporte, Casa, Bienestar, Viajes, Comida, Pareja, Trabajo, Ocio, Natura, Cultura) y se eliminaron duplicados internos (las claves de React usan el emoji, así que los duplicados rompían el render — origen del fix histórico de 🧗 en v2.5).
+
+---
+
+## [4.3.0] — 2026-06-02 · Diseño: Gradiente firma + Orbe de estado
+
+### UI/UX — Fase 1: Gradiente firma
+
+- **Tokens de color de pareja** — `ThemeInjector` ahora inyecta 9 CSS custom properties derivadas de los colores reales de cada pareja: `--t-p1`, `--t-p2`, `--t-together`, `--t-thread` (gradiente 135°), y variantes de opacidad (`--t-p1-10`, `--t-p1-15`, `--t-p2-10`, `--t-p2-15`, `--t-together-10`). Antes todos los degradados de la app usaban colores hardcodeados del tema.
+- **Barra de progreso del hero** — ahora usa `var(--t-p1) → var(--t-p2)` en lugar de `#f472b6 → #a78bfa` fijos.
+- **Tarjeta hero del dashboard** — fondo y borde responden a los colores de persona1/persona2 vía CSS vars.
+- **SVG Pulso** — el gradiente del arco circular usa `clr.person1` → `clr.person2` dinámicos.
+- **Banner Wrapped** — fondo y borde adaptados a los colores de la pareja.
+- **WeekStrip** — el día de hoy se resalta con el color de persona1; los puntos de actividad usan persona2.
+- **Topbar guardando** — el punto de guardado pulsante usa `var(--t-p2)` y el punto de guardado confirmado usa `var(--t-together)`.
+
+### UI/UX — Fase 2: Orbe de estado
+
+- **StatusOrb** — nuevo componente que reemplaza el badge de texto en `MissionCard`. Círculo de relleno progresivo al estilo fases lunares: TBC = vacío (solo borde), ASAP = 28% relleno, IN_PROGRESS = 62%, DONE = 100% verde con checkmark. El color de relleno refleja la asignación de la misión (persona1, persona2 o juntos). El toque sigue ciclando el estado como antes.
+
+---
+
 ## [4.2.6] — 2026-06-02 · Fix CI — lockfile versionado
 
 ### Infraestructura
