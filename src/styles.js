@@ -87,7 +87,7 @@ export const cardV3 = (whoColor) => ({
 });
 
 export const weekHero = {
-  background: "linear-gradient(135deg, rgba(167,139,250,0.10), rgba(244,114,182,0.06))",
+  background: "linear-gradient(135deg, var(--t-p2-10,rgba(167,139,250,0.10)), var(--t-p1-10,rgba(244,114,182,0.06)))",
   border: "1px solid var(--t-card-border,rgba(167,139,250,0.30))",
   borderRadius: 16,
   padding: 14,
@@ -97,8 +97,8 @@ export const weekHero = {
 };
 
 export const homeHero = {
-  background: "linear-gradient(135deg, rgba(244,114,182,0.10), rgba(167,139,250,0.10))",
-  border: "1px solid rgba(244,114,182,0.25)",
+  background: "linear-gradient(135deg, var(--t-p1-10,rgba(244,114,182,0.10)), var(--t-p2-10,rgba(167,139,250,0.10)))",
+  border: "1px solid var(--t-p1-15,rgba(244,114,182,0.25))",
   borderRadius: 16,
   padding: 14,
   display: "flex",

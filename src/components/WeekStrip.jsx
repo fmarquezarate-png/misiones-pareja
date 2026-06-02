@@ -17,7 +17,8 @@ function buildWeekDays(refDate = new Date()) {
 
 const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
-export default function WeekStrip({ missions = [], onSelectDay, selected }) {
+export default function WeekStrip({ missions = [], onSelectDay, selected, colors }) {
+  const clr = { person1: "#f472b6", person2: "#a78bfa", together: "#34d399", ...colors };
   const today = new Date();
   const todayStr = fmtDate(today);
   const days = buildWeekDays(today);
@@ -46,18 +47,18 @@ export default function WeekStrip({ missions = [], onSelectDay, selected }) {
               fontFamily:"inherit",
               transition:"all .15s",
               background: isToday
-                ? "rgba(244,114,182,0.14)"
+                ? `${clr.person1}22`
                 : isSel
-                  ? "rgba(167,139,250,0.18)"
+                  ? `${clr.person2}22`
                   : has
-                    ? "rgba(167,139,250,0.06)"
+                    ? `${clr.person2}0a`
                     : "rgba(255,255,255,0.03)",
-              border: `1px solid ${isToday ? "rgba(244,114,182,0.45)" : isSel ? "rgba(167,139,250,0.5)" : has ? "rgba(167,139,250,0.18)" : "rgba(255,255,255,0.05)"}`,
+              border: `1px solid ${isToday ? clr.person1 + "66" : isSel ? clr.person2 + "77" : has ? clr.person2 + "2e" : "rgba(255,255,255,0.05)"}`,
             }}>
             <div style={{
               fontSize: 9,
               letterSpacing: 1.5,
-              color: isToday ? T.pink : T.faint,
+              color: isToday ? clr.person1 : T.faint,
               fontWeight: 700,
               marginBottom: 2,
             }}>{DOW[i]}</div>
@@ -65,14 +66,14 @@ export default function WeekStrip({ missions = [], onSelectDay, selected }) {
               fontSize: 14,
               fontWeight: 600,
               fontFamily: T.fontDisplay,
-              color: isToday ? T.pink : T.fg2,
+              color: isToday ? clr.person1 : T.fg2,
               lineHeight: 1,
             }}>{d.getDate()}</div>
             {has && (
               <div style={{
                 margin:"3px auto 0",
                 width: 4, height: 4, borderRadius: 99,
-                background: isToday ? T.pink : T.purple,
+                background: isToday ? clr.person1 : clr.person2,
                 opacity: 0.7,
               }}/>
             )}

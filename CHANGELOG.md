@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.3.0] — 2026-06-02 · Diseño: Gradiente firma + Orbe de estado
+
+### UI/UX — Fase 1: Gradiente firma
+
+- **Tokens de color de pareja** — `ThemeInjector` ahora inyecta 9 CSS custom properties derivadas de los colores reales de cada pareja: `--t-p1`, `--t-p2`, `--t-together`, `--t-thread` (gradiente 135°), y variantes de opacidad (`--t-p1-10`, `--t-p1-15`, `--t-p2-10`, `--t-p2-15`, `--t-together-10`). Antes todos los degradados de la app usaban colores hardcodeados del tema.
+- **Barra de progreso del hero** — ahora usa `var(--t-p1) → var(--t-p2)` en lugar de `#f472b6 → #a78bfa` fijos.
+- **Tarjeta hero del dashboard** — fondo y borde responden a los colores de persona1/persona2 vía CSS vars.
+- **SVG Pulso** — el gradiente del arco circular usa `clr.person1` → `clr.person2` dinámicos.
+- **Banner Wrapped** — fondo y borde adaptados a los colores de la pareja.
+- **WeekStrip** — el día de hoy se resalta con el color de persona1; los puntos de actividad usan persona2.
+- **Topbar guardando** — el punto de guardado pulsante usa `var(--t-p2)` y el punto de guardado confirmado usa `var(--t-together)`.
+
+### UI/UX — Fase 2: Orbe de estado
+
+- **StatusOrb** — nuevo componente que reemplaza el badge de texto en `MissionCard`. Círculo de relleno progresivo al estilo fases lunares: TBC = vacío (solo borde), ASAP = 28% relleno, IN_PROGRESS = 62%, DONE = 100% verde con checkmark. El color de relleno refleja la asignación de la misión (persona1, persona2 o juntos). El toque sigue ciclando el estado como antes.
+
+---
+
 ## [4.2.6] — 2026-06-02 · Fix CI — lockfile versionado
 
 ### Infraestructura

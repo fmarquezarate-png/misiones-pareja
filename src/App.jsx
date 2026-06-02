@@ -1013,7 +1013,7 @@ ${sorted.map(m=>{
 
   return (
     <div style={{ minHeight:"100vh", overflowX:"hidden", background:"var(--t-bg,#0a0714)", backgroundImage:"var(--t-bg-grad)", fontFamily:"var(--t-font-body,'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif)", color:"var(--t-text,#f8f4ff)" }}>
-      <ThemeInjector themeId={themeId} fontId={fontId} />
+      <ThemeInjector themeId={themeId} fontId={fontId} colors={colors} />
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <style>{`
         *:focus { outline: none; }

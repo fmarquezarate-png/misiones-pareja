@@ -369,8 +369,8 @@ export default function HomeDashboard({
       {/* Wrapped banner */}
       {hasWrappedAvailable && (
         <button onClick={onOpenWrapped} style={{
-          background:"linear-gradient(135deg,rgba(244,114,182,0.16),rgba(167,139,250,0.16))",
-          border:"1px solid rgba(244,114,182,0.4)", borderRadius:14, padding:"11px 14px",
+          background:"linear-gradient(135deg, var(--t-p1-10,rgba(244,114,182,0.16)), var(--t-p2-10,rgba(167,139,250,0.16)))",
+          border:"1px solid var(--t-p1-15,rgba(244,114,182,0.4))", borderRadius:14, padding:"11px 14px",
           display:"flex", alignItems:"center", gap:10, cursor:"pointer",
           fontFamily:"inherit", color:"var(--t-text,#f8f4ff)", textAlign:"left", width:"100%", boxSizing:"border-box",
         }}>
@@ -397,7 +397,7 @@ export default function HomeDashboard({
           }}>{week?.epicGoal || "Define el objetivo de la semana"}</div>
           <div style={{ height:5, background:"rgba(128,128,128,0.12)", borderRadius:99, overflow:"hidden", marginBottom:5 }}>
             <div style={{ height:"100%", width:`${pct}%`,
-              background:"linear-gradient(90deg,#f472b6,#a78bfa,#34d399)",
+              background:"linear-gradient(90deg, var(--t-p1,#f472b6), var(--t-p2,#a78bfa))",
               borderRadius:99, transition:"width .6s ease" }}/>
           </div>
           <div style={{display:"flex", justifyContent:"space-between", fontSize:10.5, color:"var(--t-text-muted,#8b7fa8)", fontWeight:600}}>
@@ -416,7 +416,7 @@ export default function HomeDashboard({
       </div>
 
       {/* WeekStrip */}
-      <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} />
+      <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} colors={colors} />
       <div style={{ fontSize:9.5, color:"var(--t-text-dim,#4a4166)", textAlign:"center", marginTop:-6 }}>Toca un día para ver sus actividades</div>
 
       {/* Row 1: Próximos | Atrasadas */}
@@ -461,8 +461,8 @@ export default function HomeDashboard({
               <circle cx="18" cy="18" r="15" fill="none" stroke="url(#hd-pulse)" strokeWidth="4"
                 strokeDasharray={`${pct} 100`} strokeLinecap="round" transform="rotate(-90 18 18)"/>
               <defs><linearGradient id="hd-pulse">
-                <stop offset="0%" stopColor="#f472b6"/>
-                <stop offset="100%" stopColor="#34d399"/>
+                <stop offset="0%" stopColor={clr.person1}/>
+                <stop offset="100%" stopColor={clr.person2}/>
               </linearGradient></defs>
             </svg>
             <div>

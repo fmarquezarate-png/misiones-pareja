@@ -59,7 +59,7 @@ export default function Topbar({
           style={{
             width:savingState==="error"?20:7, height:savingState==="error"?20:7, borderRadius:99, flexShrink:0,
             cursor:savingState==="error"?"pointer":"default", display:"flex", alignItems:"center", justifyContent:"center",
-            background: savingState==="saving"?"#a78bfa":savingState==="saved"?"#34d399":"rgba(248,113,113,0.15)",
+            background: savingState==="saving"?"var(--t-p2,#a78bfa)":savingState==="saved"?"var(--t-together,#34d399)":"rgba(248,113,113,0.15)",
             border: savingState==="error"?"1.5px solid #f87171":"none",
             animation: savingState==="saving"?"sc-dot-pulse 1s ease-in-out infinite":savingState==="saved"?"sc-saved-fade 2s ease-out 0.5s forwards":"none",
             boxShadow: savingState==="saving"?"0 0 6px rgba(167,139,250,0.6)":savingState==="saved"?"0 0 6px rgba(52,211,153,0.6)":"0 0 4px rgba(248,113,113,0.4)",
