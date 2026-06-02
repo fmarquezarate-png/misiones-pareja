@@ -862,7 +862,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const key = isoWeekKey(wn, yr);
     update(d => {
       const w = d.weeks[key]; if (!w) return d;
-      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,...patch}:x) } } };
+      const ms = w.missions || [];
+      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: ms.map(x=>x.id===id?{...x,...patch}:x) } } };
     });
     updateNormalizedMission(coupleId, id, patch).catch(e => console.error("[dual_write] patch:", e));
   };

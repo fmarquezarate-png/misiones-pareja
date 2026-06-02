@@ -308,6 +308,16 @@ export async function loadFromNormalized(coupleId) {
     (goalRows || []).filter(r => r.blob_id).map(r => [r.id, r.blob_id])
   );
 
+  // Build blob mission index to restore fields the normalized table doesn't have yet
+  // (endDate, endTime, createdAt, seriesStartWeek/Year). Without this, events lose
+  // their multi-day duration on every load because end_date/end_time columns don't exist.
+  const blobMissionMap = new Map();
+  for (const wdata of Object.values(blob.weeks ?? {})) {
+    for (const m of (wdata.missions ?? [])) {
+      if (m.id) blobMissionMap.set(m.id, m);
+    }
+  }
+
   const weeks = {};
   for (const [wkey, wdata] of Object.entries(blob.weeks ?? {})) {
     weeks[wkey] = { ...wdata, missions: [] };
@@ -317,7 +327,16 @@ export async function loadFromNormalized(coupleId) {
     if (!weeks[wkey]) {
       weeks[wkey] = { weekNumber: row.week_number, year: row.year, label: "", epicObjective: "", workHours: { person1: 0, person2: 0 }, createdAt: Date.now(), missions: [] };
     }
-    weeks[wkey].missions.push(missionRowToBlob(row, goalIdMap));
+    const m = missionRowToBlob(row, goalIdMap);
+    const blobM = blobMissionMap.get(m.id);
+    if (blobM) {
+      if (blobM.endDate        != null) m.endDate        = blobM.endDate;
+      if (blobM.endTime        != null) m.endTime        = blobM.endTime;
+      if (blobM.createdAt      != null) m.createdAt      = blobM.createdAt;
+      if (blobM.seriesStartWeek != null) m.seriesStartWeek = blobM.seriesStartWeek;
+      if (blobM.seriesStartYear != null) m.seriesStartYear = blobM.seriesStartYear;
+    }
+    weeks[wkey].missions.push(m);
   }
 
   const goals = goalRows.map(goalRowToBlob);

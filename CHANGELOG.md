@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.4.1] — 2026-06-02 · Fix: eventos multi-día perdían duración al cargar desde tabla
+
+### Fixes
+
+- **Eventos multi-día restaurados correctamente** — `missionRowToBlob` no incluía `endDate`/`endTime` porque las columnas `end_date`/`end_time` aún no existen en la tabla `missions`. Con `read_from_normalized: true` activo, todos los eventos perdían su fecha de fin al cargar la sesión. Ahora `loadFromNormalized` fusiona estos campos desde el blob, preservando la duración de eventos multi-día incluso antes de que el Externo añada las columnas.
+- **Guarda defensiva en `patchMissionGlobal`** — el reducer protege contra `w.missions` siendo `undefined` en semanas muy antiguas (usa `w.missions || []`).
+
+---
+
 ## [4.4.0] — 2026-06-02 · Diseño: Arco vivo + stats editorial + emojis
 
 ### UI/UX — Fase 3: La semana como arco vivo
