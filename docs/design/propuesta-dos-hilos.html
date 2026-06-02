@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Misiones de Pareja — Propuesta de diseño "Dos hilos, un tejido"</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Tema real "Noche Violeta" + colores de pareja reales de constants.js */
+    --p1:#f472b6;          /* person1 */
+    --p2:#a78bfa;          /* person2 */
+    --together:#34d399;    /* together */
+    --bg:#080512;
+    --card:#130d2a;
+    --card-border:rgba(167,139,250,0.18);
+    --accent:#a78bfa;
+    --accent-soft:rgba(167,139,250,0.14);
+    --fg1:#f8f4ff; --fg3:#c4b8ff; --muted:#8b7fa8; --dim:#6b5f88; --faint:#4a4166;
+    --thread:linear-gradient(135deg,var(--p1),var(--p2)); /* GRADIENTE FIRMA */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+    background:
+      radial-gradient(ellipse at -5% 105%,rgba(167,139,250,0.40) 0%,transparent 52%),
+      radial-gradient(ellipse at 105% -5%,rgba(244,114,182,0.35) 0%,transparent 52%),
+      var(--bg);
+    color:var(--fg1);
+    min-height:100vh;
+    padding:40px 20px 80px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  .display{font-family:'Fraunces',serif}
+
+  /* ── Cabecera del documento ───────────────────────── */
+  .doc-head{text-align:center;margin-bottom:14px}
+  .doc-head .eyebrow{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:10px}
+  .doc-head h1{font-family:'Fraunces',serif;font-size:42px;font-weight:600;line-height:1.05;margin-bottom:14px}
+  .doc-head h1 .amp{background:var(--thread);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .doc-head p{color:var(--muted);font-size:15px;max-width:640px;margin:0 auto;line-height:1.6}
+  .thread-rule{height:3px;width:120px;background:var(--thread);border-radius:99px;margin:26px auto 50px}
+
+  /* ── Secciones ───────────────────────── */
+  .section{margin-bottom:70px}
+  .section-title{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .section-title .n{font-family:'Fraunces',serif;font-size:15px;color:var(--accent);font-weight:600;background:var(--accent-soft);width:34px;height:34px;border-radius:99px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .section-title h2{font-family:'Fraunces',serif;font-size:26px;font-weight:600}
+  .section-sub{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 28px 48px;max-width:680px}
+
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:760px){.cmp{grid-template-columns:1fr}}
+  .pane{border-radius:20px;padding:24px;position:relative;overflow:hidden}
+  .pane.before{background:rgba(255,255,255,0.02);border:1px dashed rgba(255,255,255,0.12)}
+  .pane.after{background:var(--card);border:1px solid var(--card-border)}
+  .pane.after::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--thread)}
+  .pane-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:18px;display:inline-block}
+  .pane.before .pane-tag{color:var(--faint)}
+  .pane.after .pane-tag{color:var(--accent)}
+
+  /* ── Misión: badge actual vs orbe ───────────────────────── */
+  .mission{display:flex;align-items:center;gap:13px;padding:14px 16px;border-radius:14px;background:rgba(128,128,128,0.05);margin-bottom:10px}
+  .mission .emoji{font-size:20px}
+  .mission .body{flex:1;min-width:0}
+  .mission .ttl{font-size:14px;font-weight:500;color:var(--fg3)}
+  .mission .meta{font-size:11px;color:var(--dim);margin-top:2px}
+  .rail{border-left:3px solid var(--p1);padding-left:13px}
+  .rail.p2{border-left-color:var(--p2)}
+  .rail.tg{border-left:3px solid transparent;border-image:var(--thread) 1}
+
+  /* badge texto (antes) */
+  .badge{font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:3px 8px;border-radius:99px;flex-shrink:0}
+  .badge.tbc{background:rgba(139,127,168,0.18);color:#b6a8d4}
+  .badge.asap{background:rgba(251,146,60,0.18);color:#fb923c}
+  .badge.prog{background:rgba(96,165,250,0.18);color:#60a5fa}
+  .badge.done{background:rgba(52,211,153,0.18);color:#34d399}
+
+  /* orbe (después) — fase lunar */
+  .orb{width:22px;height:22px;border-radius:99px;flex-shrink:0;position:relative;border:2px solid var(--accent)}
+  .orb .fill{position:absolute;inset:1px;border-radius:99px;background:var(--accent)}
+  .orb.tbc .fill{clip-path:inset(0 100% 0 0)}        /* 0% */
+  .orb.asap{border-color:#fb923c}.orb.asap .fill{background:#fb923c;clip-path:inset(0 66% 0 0)}  /* ~33% */
+  .orb.prog{border-color:#60a5fa}.orb.prog .fill{background:#60a5fa;clip-path:inset(0 33% 0 0)}  /* ~66% */
+  .orb.done{border-color:#34d399;animation:orbglow 2.4s ease-in-out infinite}.orb.done .fill{background:#34d399;clip-path:inset(0 0 0 0)}
+  @keyframes orbglow{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0.0)}50%{box-shadow:0 0 0 4px rgba(52,211,153,0.18)}}
+  .orb.breathe{animation:breathe 3s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  .done .ttl{text-decoration:line-through;color:var(--dim)}
+
+  /* ── Progreso: barra plana vs gradiente firma ───────────────────────── */
+  .prog-demo{margin-bottom:18px}
+  .prog-demo .lbl{font-size:11px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between}
+  .bar{height:10px;border-radius:99px;background:rgba(255,255,255,0.06);overflow:hidden}
+  .bar .f-flat{height:100%;width:68%;background:var(--accent);border-radius:99px}
+  .bar .f-thread{height:100%;width:68%;background:var(--thread);border-radius:99px;box-shadow:0 0 12px rgba(167,139,250,0.4)}
+
+  /* ── Arco vivo de la semana ───────────────────────── */
+  .arc-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0}
+  .arc-names{display:flex;justify-content:space-between;width:100%;font-size:12px;font-weight:600;margin-bottom:4px}
+  .arc-names .a{color:var(--p1)} .arc-names .b{color:var(--p2)}
+  .arc-svg{width:100%;height:auto}
+  .balance{font-size:12px;color:var(--muted);margin-top:6px;text-align:center}
+  .balance b{color:var(--fg3)}
+
+  /* ── Stats editorial ───────────────────────── */
+  .stat-flat{display:flex;gap:24px}
+  .stat-flat .s{flex:1;background:rgba(128,128,128,0.05);border-radius:12px;padding:14px;text-align:center}
+  .stat-flat .s .v{font-size:22px;font-weight:700;color:var(--fg1)}
+  .stat-flat .s .k{font-size:11px;color:var(--muted);margin-top:4px}
+  .stat-mag{display:flex;gap:10px;align-items:flex-end}
+  .stat-mag .hero{flex:1}
+  .stat-mag .hero .v{font-family:'Fraunces',serif;font-size:72px;font-weight:600;line-height:.9;background:var(--thread);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .stat-mag .hero .k{font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:6px}
+  .stat-mag .mini{display:flex;flex-direction:column;gap:10px}
+  .stat-mag .mini .m{text-align:right}
+  .stat-mag .mini .m .v{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--fg1)}
+  .stat-mag .mini .m .k{font-size:10px;color:var(--dim)}
+
+  /* ── Momento Juntos ───────────────────────── */
+  .union{display:flex;align-items:center;justify-content:center;gap:0;padding:18px 0;position:relative;height:80px}
+  .union .dot{width:40px;height:40px;border-radius:99px;position:absolute}
+  .union .d1{background:var(--p1);animation:merge1 3s ease-in-out infinite}
+  .union .d2{background:var(--p2);animation:merge2 3s ease-in-out infinite}
+  @keyframes merge1{0%,100%{transform:translateX(-40px)}45%,55%{transform:translateX(-8px)}}
+  @keyframes merge2{0%,100%{transform:translateX(40px)}45%,55%{transform:translateX(8px)}}
+  .union .spark{position:absolute;font-size:22px;opacity:0;animation:spark 3s ease-in-out infinite}
+  @keyframes spark{0%,40%,60%,100%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1.2)}}
+
+  /* ── Notas al pie de cada sección ───────────────────────── */
+  .note{margin:22px 0 0 48px;font-size:13px;color:var(--muted);line-height:1.65;border-left:2px solid var(--accent-soft);padding-left:14px;max-width:680px}
+  .note b{color:var(--fg3);font-weight:600}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--accent-soft);color:var(--accent);margin-left:8px}
+
+  /* ── Cierre ───────────────────────── */
+  .closing{text-align:center;margin-top:80px;padding:40px;border-radius:24px;background:var(--card);border:1px solid var(--card-border);position:relative;overflow:hidden}
+  .closing::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--thread)}
+  .closing h3{font-family:'Fraunces',serif;font-size:24px;margin-bottom:12px}
+  .closing p{color:var(--muted);font-size:14px;line-height:1.7;max-width:560px;margin:0 auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <div class="eyebrow">Propuesta de diseño · v4.x</div>
+    <h1>Dos hilos, <span class="amp">&</span> un tejido</h1>
+    <p>La dualidad de la pareja deja de ser tres colores en un borde y se vuelve el corazón visual de la app. Un <b>gradiente firma</b> generado de vuestros dos colores: ninguna pareja tiene la misma app.</p>
+    <div class="thread-rule"></div>
+  </div>
+
+  <!-- 1 · GRADIENTE FIRMA -->
+  <div class="section">
+    <div class="section-title"><span class="n">1</span><h2>El gradiente firma</h2></div>
+    <p class="section-sub">La barra de progreso, la semana activa, el pulso de guardado y las cards "Juntos" dejan de usar un acento plano y adoptan el gradiente <code>person1 → person2</code>. Ya tienes los colores; solo dejamos de usarlos planos.</p>
+    <div class="cmp">
+      <div class="pane before">
+        <span class="pane-tag">Hoy</span>
+        <div class="prog-demo">
+          <div class="lbl"><span>Progreso de la semana</span><span>68%</span></div>
+          <div class="bar"><div class="f-flat"></div></div>
+        </div>
+        <div class="prog-demo">
+          <div class="lbl"><span>Acento único, plano</span><span></span></div>
+          <div class="bar"><div class="f-flat" style="width:42%"></div></div>
+        </div>
+      </div>
+      <div class="pane after">
+        <span class="pane-tag">Propuesta</span>
+        <div class="prog-demo">
+          <div class="lbl"><span>Progreso de la semana</span><span>68%</span></div>
+          <div class="bar"><div class="f-thread"></div></div>
+        </div>
+        <div class="prog-demo">
+          <div class="lbl"><span>El hilo de vosotros dos</span><span></span></div>
+          <div class="bar"><div class="f-thread" style="width:42%"></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>Por qué importa:</b> es un cambio de bajo riesgo y altísimo impacto — toca tokens, no lógica. La identidad se vuelve <b>generativa</b>: derivada de quiénes sois, no diseñada genéricamente.</p>
+  </div>
+
+  <!-- 2 · ORBE DE ESTADO -->
+  <div class="section">
+    <div class="section-title"><span class="n">2</span><h2>El estado como presencia</h2></div>
+    <p class="section-sub">Los badges de texto (TBC / ASAP / EN CURSO / HECHO) se reemplazan por un orbe que se llena como una fase lunar. La misma información, sin ruido textual — el color ya dice de quién es.</p>
+    <div class="cmp">
+      <div class="pane before">
+        <span class="pane-tag">Hoy</span>
+        <div class="mission rail"><span class="emoji">🛒</span><div class="body"><div class="ttl">Compra semanal</div><div class="meta">Ana</div></div><span class="badge tbc">TBC</span></div>
+        <div class="mission rail p2"><span class="emoji">🏃</span><div class="body"><div class="ttl">Salir a correr</div><div class="meta">Bob</div></div><span class="badge asap">ASAP</span></div>
+        <div class="mission rail p2"><span class="emoji">📞</span><div class="body"><div class="ttl">Llamar al fontanero</div><div class="meta">Bob</div></div><span class="badge prog">EN CURSO</span></div>
+        <div class="mission rail tg done"><span class="emoji">🎬</span><div class="body"><div class="ttl">Noche de peli</div><div class="meta">Juntos</div></div><span class="badge done">HECHO</span></div>
+      </div>
+      <div class="pane after">
+        <span class="pane-tag">Propuesta</span>
+        <div class="mission rail"><span class="emoji">🛒</span><div class="body"><div class="ttl">Compra semanal</div><div class="meta">Ana · por empezar</div></div><div class="orb tbc breathe"><div class="fill"></div></div></div>
+        <div class="mission rail p2"><span class="emoji">🏃</span><div class="body"><div class="ttl">Salir a correr</div><div class="meta">Bob · cuanto antes</div></div><div class="orb asap"><div class="fill"></div></div></div>
+        <div class="mission rail p2"><span class="emoji">📞</span><div class="body"><div class="ttl">Llamar al fontanero</div><div class="meta">Bob · en curso</div></div><div class="orb prog"><div class="fill"></div></div></div>
+        <div class="mission rail tg done"><span class="emoji">🎬</span><div class="body"><div class="ttl">Noche de peli</div><div class="meta">Juntos · hecho ✓</div></div><div class="orb done"><div class="fill"></div></div></div>
+      </div>
+    </div>
+    <p class="note"><b>Táctil:</b> un toque avanza la fase; completar dispara un llenado con glow. El orbe "por empezar" respira suavemente para invitar a la acción. <span class="pill">prefers-reduced-motion respetado</span></p>
+  </div>
+
+  <!-- 3 · ARCO VIVO -->
+  <div class="section">
+    <div class="section-title"><span class="n">3</span><h2>La semana como arco vivo</h2></div>
+    <p class="section-sub">El inicio deja de ser una lista. La semana es un arco: lo de cada persona se posa en su lado, lo compartido se encuentra en el centro. De un vistazo ves <b>quién está cargando la semana</b> — algo que ninguna app de tareas muestra, porque ninguna es de a dos.</p>
+    <div class="cmp">
+      <div class="pane before">
+        <span class="pane-tag">Hoy</span>
+        <div class="mission rail"><span class="emoji">🛒</span><div class="body"><div class="ttl">Compra semanal</div></div><span class="badge tbc">TBC</span></div>
+        <div class="mission rail"><span class="emoji">🧹</span><div class="body"><div class="ttl">Limpiar cocina</div></div><span class="badge done">HECHO</span></div>
+        <div class="mission rail p2"><span class="emoji">🏃</span><div class="body"><div class="ttl">Salir a correr</div></div><span class="badge asap">ASAP</span></div>
+        <div class="mission rail tg"><span class="emoji">🎬</span><div class="body"><div class="ttl">Noche de peli</div></div><span class="badge done">HECHO</span></div>
+        <div style="font-size:12px;color:var(--dim);text-align:center;margin-top:10px">…una lista plana no dice quién carga más</div>
+      </div>
+      <div class="pane after">
+        <span class="pane-tag">Propuesta</span>
+        <div class="arc-wrap">
+          <div class="arc-names"><span class="a">● Ana</span><span style="color:var(--together)">● Juntos</span><span class="b">Bob ●</span></div>
+          <svg class="arc-svg" viewBox="0 0 400 150" fill="none">
+            <defs>
+              <linearGradient id="thread" x1="0" y1="0" x2="400" y2="0">
+                <stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+            <!-- arco base -->
+            <path d="M20,130 Q200,10 380,130" stroke="url(#thread)" stroke-width="2.5" opacity="0.5"/>
+            <!-- puntos de Ana (izquierda) -->
+            <circle cx="55" cy="108" r="11" fill="#f472b6"/><text x="55" y="113" font-size="11" text-anchor="middle">🛒</text>
+            <circle cx="95" cy="75" r="11" fill="#f472b6" opacity="0.45"/><text x="95" y="80" font-size="11" text-anchor="middle">🧹</text>
+            <!-- juntos (centro) -->
+            <circle cx="200" cy="42" r="13" fill="#34d399"/><text x="200" y="47" font-size="12" text-anchor="middle">🎬</text>
+            <!-- Bob (derecha) -->
+            <circle cx="305" cy="75" r="11" fill="#a78bfa"/><text x="305" y="80" font-size="11" text-anchor="middle">🏃</text>
+            <circle cx="345" cy="108" r="11" fill="#a78bfa" opacity="0.45"/><text x="345" y="113" font-size="11" text-anchor="middle">📞</text>
+          </svg>
+          <div class="balance"><b>Ana</b> lleva 2 · <b>Juntos</b> 1 · <b>Bob</b> 2 — semana equilibrada ⚖️</div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>El opaco = hecho</b>, el sólido = pendiente. La altura en el arco da jerarquía; el centro celebra lo compartido. Tocar un punto abre la misión.</p>
+  </div>
+
+  <!-- 4 · STATS EDITORIAL + MOMENTO JUNTOS -->
+  <div class="section">
+    <div class="section-title"><span class="n">4</span><h2>Emoción: números de revista &amp; momentos "Juntos"</h2></div>
+    <p class="section-sub">Llevamos Fraunces serif a los números emocionales — la racha se siente portada de revista, no celda de Excel. Y cuando ambos completáis vuestra parte de algo compartido, los dos colores se fusionan.</p>
+    <div class="cmp">
+      <div class="pane before">
+        <span class="pane-tag">Hoy · stats planas</span>
+        <div class="stat-flat">
+          <div class="s"><div class="v">12</div><div class="k">Racha</div></div>
+          <div class="s"><div class="v">68%</div><div class="k">Completado</div></div>
+          <div class="s"><div class="v">47</div><div class="k">Misiones</div></div>
+        </div>
+        <div style="margin-top:24px;text-align:center;font-size:12px;color:var(--dim)">Completar = un check silencioso</div>
+      </div>
+      <div class="pane after">
+        <span class="pane-tag">Propuesta · editorial + unión</span>
+        <div class="stat-mag">
+          <div class="hero"><div class="v">12</div><div class="k">semanas de racha</div></div>
+          <div class="mini">
+            <div class="m"><div class="v">68%</div><div class="k">completado</div></div>
+            <div class="m"><div class="v">47</div><div class="k">misiones</div></div>
+          </div>
+        </div>
+        <div class="union">
+          <div class="dot d1"></div>
+          <div class="dot d2"></div>
+          <div class="spark">✨</div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:-6px">Ambos completasteis "Noche de peli" — momento Juntos</div>
+      </div>
+    </div>
+    <p class="note"><b>Jerarquía emocional:</b> el dato que da orgullo (la racha) manda; los demás acompañan. El momento de unión recompensa la <b>colaboración</b>, no la productividad.</p>
+  </div>
+
+  <div class="closing">
+    <h3>Minimalismo, pero vivo</h3>
+    <p>Una sola animación protagonista por pantalla. El color como lenguaje en vez de texto. Cada movimiento comunica estado o autoría — nunca decora por decorar. La app se siente <b>vuestra</b>, moderna y única, sin perder la calma que ya tiene.</p>
+  </div>
+
+</div>
+</body>
+</html>
