@@ -148,8 +148,13 @@ export function applyCarryOver(data) {
   );
   const allSeriesSources = [...prevSeries, ...biweeklyFromPrev2];
 
-  const today = new Date();
-  const isFirstWeekOfMonth = cwn === getWeekAndYear(new Date(today.getFullYear(), today.getMonth(), 1)).week;
+  const weekStart = weekStartDate(cwn, cyr);
+  // Primer lunes del mes → primera semana mensual. Edge case: en ISO semana 1, el lunes
+  // puede caer en diciembre del año anterior (ej. sem 1/2025 empieza el 30/12/2024).
+  // En ese caso weekStart.getFullYear() < cyr → lo tratamos como primera semana de enero.
+  const isFirstWeekOfMonth = weekStart.getFullYear() < cyr
+    ? cwn === 1
+    : weekStart.getDate() <= 7;
   const seriesEndOk = m => {
     if (!m.seriesEndDate) return true;
     const { week: eWn, year: eYr } = getWeekAndYear(new Date(m.seriesEndDate));

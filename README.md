@@ -1,14 +1,14 @@
-# Shared Calendar 
+# Misiones de Pareja
 
-> Tracker semanal de misiones y actividades para parejas. Planificad juntos, medid el progreso, construid hábitos.
+> PWA de planificación semanal para parejas. Organizad misiones, metas y actividades juntos — en tiempo real, desde cualquier dispositivo.
 
 ---
 
 ## ¿Qué es?
 
-Misiones de Pareja es una PWA (Progressive Web App) diseñada para que dos personas gestionen conjuntamente sus objetivos semanales, eventos, metas y estadísticas de pareja. Funciona como un tablero compartido donde cada tarea puede asignarse a una persona o a los dos, con seguimiento de estado, categorías, historial y análisis de tendencias.
+Misiones de Pareja es una Progressive Web App diseñada para que dos personas gestionen conjuntamente sus objetivos semanales, eventos, metas y estadísticas. Funciona como un tablero compartido donde cada tarea puede asignarse a una persona o a los dos, con seguimiento de estado, categorías, historial y análisis de tendencias.
 
-La app no requiere registro: una sola instancia de datos compartida, pensada para uso en pareja con acceso desde cualquier dispositivo.
+Acceso por código de pareja — sin email, sin contraseña. Instalable en iOS, Android y escritorio.
 
 ---
 
@@ -18,10 +18,14 @@ La app no requiere registro: una sola instancia de datos compartida, pensada par
 |------|-----------|
 | UI | React 18 (hooks, sin router) |
 | Build | Vite 5 + `@vitejs/plugin-react` |
-| PWA | `vite-plugin-pwa` 0.17 (service worker, offline, instalable) |
-| Persistencia | Supabase (PostgreSQL via REST, upsert de un blob JSON) |
-| Despliegue | Netlify (CI/CD desde rama `main`) |
-| Estilos | CSS-in-JS inline (sin librería de estilos) |
+| PWA | `vite-plugin-pwa` (service worker, offline, instalable) |
+| Auth | Supabase Auth (email + magic link) |
+| Persistencia | Supabase — blob JSON en `app_data` + tablas normalizadas (`missions`, `goals`, `couple_settings`) |
+| Guardado | CAS (Compare-And-Swap) con rebase-on-conflict — nunca se pierden datos en edición concurrente |
+| Push | Web Push API + Edge Function `send-push` en Supabase |
+| Despliegue | Netlify (deploy automático desde `main`) |
+| CI | GitHub Actions — lint + test + build en cada push y PR |
+| Tests | Vitest |
 
 **Dependencias de producción:**
 - `react` / `react-dom` ^18.2
@@ -29,229 +33,179 @@ La app no requiere registro: una sola instancia de datos compartida, pensada par
 
 ---
 
-## Estructura de carpetas
+## Estructura del proyecto
 
 ```
 misiones-pareja/
 ├── src/
-│   ├── App.jsx          # Toda la aplicación (componentes, lógica, estilos)
-│   ├── main.jsx         # Punto de entrada React
-│   └── supabase.js      # Cliente Supabase + loadData / saveData
+│   ├── App.jsx                  # Orquestador principal, estado global de negocio
+│   ├── main.jsx                 # Punto de entrada React + service worker
+│   ├── supabase.js              # Cliente Supabase: auth, carga, guardado, realtime
+│   ├── components/              # Componentes UI reutilizables
+│   │   ├── MissionCard.jsx
+│   │   ├── AddMissionForm.jsx
+│   │   ├── StatsView.jsx
+│   │   ├── CalendarView.jsx
+│   │   ├── HistoryView.jsx
+│   │   ├── ProfileModal.jsx
+│   │   └── ...
+│   ├── views/                   # Vistas de sección completas
+│   │   └── GoalsView.jsx
+│   ├── lib/                     # Lógica pura y servicios
+│   │   ├── appUtils.js          # carry-over, repair, scheduling
+│   │   ├── flags.js             # Feature flags con overrides por localStorage
+│   │   ├── repo.js              # Operaciones normalizadas (missions, goals)
+│   │   ├── save.js              # rebaseMutators — merge de cambios concurrentes
+│   │   ├── validation.js        # isValidAppData — gate de integridad
+│   │   ├── push.js              # sendContextualPush
+│   │   └── track.js             # Telemetría de eventos
+│   ├── helpers/                 # Helpers de dominio
+│   │   ├── carryHelpers.js
+│   │   ├── dateHelpers.js
+│   │   └── goalHelpers.js
+│   ├── hooks/
+│   │   └── useNotifications.js
+│   ├── constants.js             # APP_VERSION, CHANGELOG, VAPID_PUBLIC_KEY
+│   ├── utils.js                 # ISO week, isoWeekKey, uid, getWeekAndYear
+│   └── __tests__/               # Tests unitarios e integración (Vitest)
+│       ├── save.test.js
+│       ├── save-integration.test.js
+│       └── utils.test.js
 ├── public/
-│   ├── icon-192.png     # Icono PWA
-│   └── icon-512.png     # Icono PWA maskable
-├── dist/                # Build de producción (generado)
-├── index.html           # HTML raíz
-├── vite.config.js       # Config Vite + PWA manifest
-├── netlify.toml         # Build command + SPA redirect
+│   ├── sw.js                    # Service worker (vite-plugin-pwa + skipWaiting)
+│   └── version.json             # Versión para detección de updates
+├── index.html
+├── vite.config.js
+├── netlify.toml
 └── package.json
 ```
 
-> **Nota:** Toda la lógica vive en un único archivo `App.jsx` (~1700 líneas). Esta decisión fue intencional para simplificar el desarrollo inicial, pero es el principal punto de deuda técnica a resolver en v2.0.
-
 ---
 
-## Features actuales — v1.8.0
+## Features — v4.2.1
 
-### 🎯 P1 — Semana actual
+### Semana actual
 - Objetivo épico editable de la semana
-- Lista de misiones con estado ciclable: `TBC → ASAP → En curso → Hecho`
-- Multi-categoría por misión (Pareja, Deporte, Casa, Salud, Trabajo, Ocio, Social, Viaje)
+- Misiones con estado ciclable: `TBC → ASAP → En curso → Hecho`
+- Multi-categoría (Pareja, Deporte, Casa, Salud, Trabajo, Ocio, Social, Viaje)
 - Asignación por persona: Persona 1 / Persona 2 / Juntos
-- Tipos: Tarea o Evento (con fecha/hora/duración)
-- Tareas recurrentes (Semanal / Mensual) con generación automática cada lunes
-- Carry-over automático: misiones pendientes se arrastran a la semana siguiente
-- Registro de horas laborales por persona
+- Tipos: Tarea o Evento (con fecha / hora / duración / reminder)
+- Series recurrentes: Semanal / Quincenal / Mensual con fecha de fin
+- Carry-over automático de misiones pendientes a la semana siguiente
 - Filtro global por persona (persiste entre tabs)
 
-### 📅 P2 — Calendario
+### Historial
+- Semanas pasadas con progreso visual y foto de recuerdo
+- Exportar a PDF por rango
+
+### Calendario
 - Vista mensual con emojis por día
-- Panel lateral con detalle del día seleccionado
-- Ciclar estado de misiones directamente desde el día
-- Filtro de persona sincronizado con el filtro global
-- Exportar a Google Calendar (.ics) / PDF de semana
+- Ciclar estado de misiones desde el día
+- Exportar a Google Calendar (.ics)
 
-### 🗂️ P3 — Historial
-- Listado de semanas pasadas con progreso visual
-- Foto de recuerdo por semana
-- Filtros: Esta semana / 4 últimas / 8 últimas / Todas
-- Exportar PDF del rango filtrado
-- Filtro de persona global aplicado
+### Metas
+- Periodicidad: Semanal / Mensual / Anual
+- Tipo: Mínimo (hacer al menos X) / Máximo (no más de X)
+- Deadline con countdown en tiempo real
+- Progreso del período + historial de períodos anteriores
+- Vinculación de misiones a metas
 
-### 🏅 P4 — Metas
-- Metas con periodicidad: Semanal / Mensual / Anual
-- Tipo de límite: Mínimo (hacer al menos X) o Máximo (no más de X)
-- Deadline opcional con countdown en tiempo real (HH:MM:SS cuando quedan <24h)
-- Progreso del período actual + historial de períodos anteriores
-- Archivar / reactivar metas
-- Vinculación de misiones a metas desde el formulario de tarea
+### Stats
+- KPIs: semanas, misiones completadas, % completitud, racha récord
+- Gráficos de progreso, distribución por estado, participación por persona
+- 7 insights algorítmicos: tendencia, mejor/peor semana, categoría estrella, equilibrio de carga, etc.
 
-### 📊 P5 — Stats
-- Filtros: Quién (Todos / P1 / P2 / Juntos) × Rango (Siempre / Esta sem. / 4 / 8 / 12 sem.)
-- KPIs: semanas, misiones, % completitud, racha récord
-- Gráfico de progreso semanal normalizado al máximo real
-- Distribución de estados (donut SVG + barras)
-- Participación por persona con % de completitud
-- Gráfico de categorías: toggle Actividades / Horas (Trabajo en escala independiente)
-- 7 insights algorítmicos: tendencia, mejor/peor semana, categoría estrella, punto débil, equilibrio de carga, ratio vida-trabajo, racha perfecta, velocidad semanal
-- Detalle colapsable por semana con navegación directa
+### Gastos
+- Registro compartido de gastos con categorías
 
-### ⚙️ General
-- Versión dorada con fecha y popup de changelog
-- Configuración de nombres y colores por persona
-- "Distribuir eventos": mueve misiones con fecha a su semana correcta
+### Chat
+- Mensajes rápidos entre los dos miembros
+
+### Links
+- Repositorio compartido de URLs con título y descripción
+
+### Notificaciones push
+- Notificaciones en iOS, Android y escritorio
+- Alertas contextuales al completar misiones, avanzar al siguiente día, etc.
+
+### General
+- Auth por código de pareja (sin email/contraseña)
+- Perfil por persona: nombre, avatar comprimido, color
 - Instalable como PWA (funciona offline en modo lectura)
-
----
-
-## Features planeadas — v2.0
-
-### Alta prioridad
-- **Autenticación OAuth** (Google / Apple) — actualmente bloqueante para multi-pareja
-- **Multi-pareja / multi-usuario**: cada pareja con su propio espacio de datos aislado
-- **Notificaciones push**: recordatorio del objetivo épico los lunes
-- **Split en archivos**: descomponer `App.jsx` en componentes modulares
-
-### Media prioridad
-- **Menú principal / navegación lateral**: acceso rápido entre secciones
-- **Modo oscuro/claro** configurable
-- **Plantillas de semana**: semanas predefinidas por tipo (viaje, trabajo intenso, etc.)
-- **Fotos múltiples** por semana (actualmente solo 1)
-- **Compartir semana**: URL pública de solo lectura para una semana concreta
-
-### Baja prioridad / Exploración
-- **Claude API para insights reales**: análisis narrativo generado por IA (base algorítmica ya en v1.8)
-- **Widget nativo iOS/Android** via Shortcuts
-- **Gamificación**: badges, logros por rachas, niveles de pareja
-- **Sync bidireccional con Google Calendar**
+- Guardado en tiempo real con CAS + rebase — no se pierden cambios en edición simultánea
+- Sincronización instantánea entre dispositivos via Supabase Realtime
+- Changelog en-app con historial de versiones
 
 ---
 
 ## Arquitectura de datos
 
-### Supabase — tabla `app_data`
+### Blob JSON (`app_data.data`)
 
-```
-app_data
-├── id          TEXT PRIMARY KEY   -- fijo: "couple-missions"
-├── data        JSONB              -- todo el estado de la app serializado
-└── updated_at  TIMESTAMPTZ
-```
-
-La app serializa y deserializa un único objeto JSON. No hay relaciones entre tablas. Toda la lógica de negocio vive en el cliente.
-
-### Estructura del blob JSON (`data`)
+Fuente de escritura. Contiene el estado completo de la app serializado como JSONB.
 
 ```
 {
-  seedVersion: number,              -- versión del schema (actualmente 5)
-  currentWeekNumber: number,        -- semana ISO activa
+  currentWeekNumber: number,
   currentYear: number,
-  settings: {
-    person1: string,                -- nombre Persona 1
-    person2: string,                -- nombre Persona 2
-    colors: {                       -- colores hex por persona
-      person1, person2, together
-    }
-  },
+  settings: { person1, person2, colors },
   goals: Goal[],
   weeks: {
-    "YYYY-Www": Week               -- clave ISO (ej. "2026-W14")
+    "YYYY-Www": {
+      weekNumber, year, epicObjective,
+      missions: Mission[],
+      workHours: { person1, person2 },
+      photo?: string        -- base64 comprimida
+    }
   }
 }
 ```
 
-**Week:**
-```
-{
-  weekNumber: number,
-  year: number,
-  epicObjective: string,
-  missions: Mission[],
-  workHours: { person1: number, person2: number },
-  photo?: string,                   -- base64 comprimida
-  createdAt: timestamp
-}
-```
+### Tabla `missions`
 
-**Mission:**
-```
-{
-  id: string,
-  emoji: string,
-  title: string,
-  status: "TBC" | "ASAP" | "IN_PROGRESS" | "DONE",
-  type: "task" | "event",
-  who: "person1" | "person2" | "together",
-  categories: string[],             -- ids de CATEGORIES (multi desde v1.8)
-  category?: string,                -- campo legacy (pre v1.8, mantenido por compatibilidad)
-  date?: string,                    -- ISO date "YYYY-MM-DD"
-  time?: string,
-  duration?: number,                -- horas
-  goalId?: string,
-  carriedFrom?: string,             -- id de misión original si fue arrastrada
-  carriedFromWeek?: string,         -- clave de semana origen
-  seriesId?: string,                -- id compartido para tareas recurrentes
-  seriesPattern?: "weekly" | "monthly",
-  createdAt: timestamp,
-  completedAt?: timestamp
-}
-```
+Fuente de verdad para lectura desde v4.2.1. Dual-write activo: cada mutación del blob propaga los cambios a esta tabla. Permite consultas SQL eficientes por misión individual.
 
-**Goal:**
-```
-{
-  id: string,
-  emoji: string,
-  title: string,
-  who: "person1" | "person2" | "together",
-  period: "weekly" | "monthly" | "annual",
-  goalType: "min" | "max",          -- desde v1.8
-  target: number,
-  deadline?: string,                -- ISO date
-  active: boolean,
-  createdAt: timestamp
-}
-```
+Columnas clave: `blob_id` (nanoid — ID del blob), `couple_id`, `week_key`, `status`, `series_blob_id`, `carried_from_blob_id`.
 
----
+### Safety check de lectura
 
-## Flujo de autenticación
+`loadFromNormalized` hace fallback automático al blob si:
+- La tabla tiene 0 filas pero el blob tiene misiones
+- La tabla tiene < 80% de las misiones del blob
 
-### Estado actual — Sin auth
+### Guardado CAS
 
-La app usa una única fila fija (`id = "couple-missions"`) en Supabase. Cualquiera con la URL puede leer y escribir los datos. La seguridad depende de que la URL no sea pública.
+`save_app_data_cas` RPC con `WHERE version = p_version`. Si hay conflicto (otra persona guardó antes), el cliente recarga los datos frescos y re-aplica sus cambios locales encima (`rebaseMutators`) — nunca se descarta ningún cambio.
 
-Las claves de Supabase (`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`) están expuestas en el cliente (son públicas por diseño en Supabase cuando Row Level Security está activo). Actualmente RLS no está configurado.
+### Otras tablas
 
-### Lo que falta para OAuth
-
-1. **Habilitar Auth en Supabase**: activar proveedor Google/Apple en el dashboard
-2. **Añadir columna `couple_id`** a `app_data`: vincular cada fila a una pareja
-3. **Tabla `couples`**: `{ id, user1_id, user2_id, invite_token }`
-4. **Flujo de invitación**: Persona 1 crea la pareja → genera token → Persona 2 se une con el token
-5. **Row Level Security**: política `SELECT/UPDATE WHERE couple_id = auth.uid()` o relación vía `couples`
-6. **Pantalla de login** en la app (actualmente no existe ningún componente de auth)
-7. **Migración de datos**: opción de importar datos existentes al crear cuenta
-
-**Bloqueante principal:** La decisión de arquitectura de invitación (¿cómo vinculan sus cuentas dos usuarios?) no está definida. El resto es implementación directa.
+| Tabla | Contenido |
+|-------|-----------|
+| `couples` | Pareja: código de acceso, nombre |
+| `couple_members` | Miembros de la pareja con auth.uid |
+| `goals` | Metas normalizadas con `blob_id` |
+| `couple_settings` | Ajustes de configuración normalizados |
+| `push_subscriptions` | Endpoints Web Push por dispositivo |
+| `app_data_backups` | Snapshots antes de cada save (retención: últimos 12) |
+| `events` | Telemetría de eventos de la app |
 
 ---
 
 ## Variables de entorno
 
-Crear `.env.local` en la raíz del proyecto:
+Crear `.env.local` en la raíz:
 
 ```
 VITE_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+VITE_VAPID_PUBLIC_KEY=<clave pública VAPID>
 ```
 
-En Netlify: **Site settings → Environment variables** — añadir las mismas dos variables.
+En Netlify: **Site settings → Environment variables**.
 
 ---
 
-## Correr en local
+## Desarrollo local
 
 **Requisitos:** Node.js 18+, npm
 
@@ -265,55 +219,11 @@ npm run dev
 
 La app corre en `http://localhost:5173`.
 
-Para build de producción:
 ```bash
-npm run build
-npm run preview   # sirve el build en :4173
+npm run build    # build de producción (incluye lint)
+npm run test     # tests unitarios (Vitest)
+npm run lint     # ESLint — 0 errores requeridos para build
 ```
-
----
-
-## Known Issues / Technical debt
-
-| Severidad | Issue |
-|-----------|-------|
-| Alta | `App.jsx` monolítico (~1700 líneas) — difícil de mantener y testear |
-| Alta | Sin autenticación — datos accesibles para quien conozca la URL |
-| Alta | Sin tests (unitarios ni e2e) |
-| Media | SVG del donut tiene atributo `r` duplicado (warning en build, no falla) |
-| Media | `maxH` variable huérfana en StatsView (no causa error, residuo de refactor) |
-| Media | El campo legacy `mission.category` (string) coexiste con `mission.categories` (array) — la migración se hace en runtime pero no hay script de limpieza |
-| Baja | `compressImage` no tiene límite de tamaño — imágenes muy grandes pueden saturar el JSONB |
-| Baja | `applyCarryOver` se ejecuta solo si `isTodayMonday()` — si se pierde el lunes no hay retry |
-| Baja | Toda la persistencia es un upsert de blob completo — sin diff, sin historial, sin rollback |
-
----
-
-## Próximos pasos bloqueadores para v2.0
-
-### 1. Decisión de arquitectura multi-usuario
-Antes de cualquier código de auth hay que definir:
-- ¿Un usuario puede pertenecer a más de una pareja?
-- ¿Qué pasa con los datos existentes al migrar?
-- ¿Flujo de invitación por link, código, o email?
-
-### 2. Refactor de `App.jsx`
-La monolitización actual hace inviable añadir auth, tests o features complejas sin riesgo de regresión. Propuesta de división mínima:
-- `hooks/useAppData.js` — lógica de persistencia y estado global
-- `components/MissionCard.jsx`, `AddMissionForm.jsx`, `CalendarView.jsx`, etc.
-- `views/WeekView.jsx`, `StatsView.jsx`, `GoalsView.jsx`, `HistoryView.jsx`
-- `lib/weekHelpers.js` — funciones ISO week, carry-over, repair
-
-### 3. Schema de Supabase v2
-Requiere migración con script antes de activar auth:
-```sql
-ALTER TABLE app_data ADD COLUMN couple_id UUID REFERENCES couples(id);
-CREATE TABLE couples (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), ...);
--- Migrar fila "couple-missions" a couple_id generado
-```
-
-### 4. RLS en Supabase
-Actualmente desactivado. Activarlo sin auth rompería la app. Debe hacerse en paralelo con el flujo de OAuth.
 
 ---
 
@@ -321,11 +231,20 @@ Actualmente desactivado. Activarlo sin auth rompería la app. Debe hacerse en pa
 
 - **Plataforma:** Netlify
 - **Rama de producción:** `main`
-- **Build command:** `npm run build`
+- **Build command:** `npm run build` (incluye `eslint --max-warnings 0`)
 - **Publish directory:** `dist`
 - **Deploy automático:** sí, en cada push/merge a `main`
-- **SPA redirect:** configurado en `netlify.toml` (`/* → /index.html`)
 
 ---
 
-*Versión actual: **v1.8.0** — Última actualización: 2026-03-30*
+## Deuda técnica conocida
+
+| Severidad | Item |
+|-----------|------|
+| Media | `applyCarryOver` no tiene retry si se pierde la ejecución del lunes |
+| Baja | `expenses_v2_enabled` e `idb_offline_queue` — flags sin implementación activa |
+| Baja | Push server-side vía tabla `push_queue` — alternativa a futuro (el timing ya está resuelto con `runAfterSave` en v4.2.3) |
+
+---
+
+*Versión actual: **v4.2.1** — Última actualización: 2026-06-01*

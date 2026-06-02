@@ -7,6 +7,90 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.6] — 2026-06-02 · Fix CI — lockfile versionado
+
+### Infraestructura
+
+- **`package-lock.json` ahora versionado** — El workflow de CI (v4.2.3) fallaba en el paso `setup-node` con `Dependencies lock file is not found`. Causa: el lockfile estaba en `.gitignore`, así que nunca llegó al repo, y tanto `cache: "npm"` como `npm ci` lo requieren. Sacado de `.gitignore` y commiteado — builds de CI reproducibles y deterministas.
+
+---
+
+## [4.2.5] — 2026-06-02 · Rediseño del acceso al perfil + hero del modal
+
+### UX
+
+- **El perfil se abre desde la foto de pareja en el menú lateral** — Antes el perfil estaba escondido como una opción más dentro del dropdown del engrane ⚙️. Ahora el header del menú hamburguesa (que ya mostraba la foto de pareja y los nombres) es un botón completo con affordance clara: hover, etiqueta "✏️ Editar perfil" y chevron `›`. Tocarlo abre el perfil y cierra el menú. Se eliminó "Mi perfil" del dropdown del engrane para no duplicar el acceso.
+
+### UI
+
+- **Rediseño del modal de perfil con header "hero"** — El header plano (`👤 Mi Perfil` + ×) se reemplazó por un hero centrado: foto de pareja a 88px con doble halo y sombra, badge de cámara flotante (📷) que dispara la subida con un toque, nombres en tipografía Fraunces serif con `&` en color de acento, y un degradado radial de fondo. El botón de cerrar pasó a ser un círculo flotante en la esquina superior derecha, más drag-handle visual. El selector de emoji de pareja se movió a un bloque compacto debajo del hero.
+
+### Limpieza
+
+- **Label obsoleto "Shared Calendar"** corregido en el header del menú lateral (el nombre del proyecto es "Misiones de Pareja").
+
+---
+
+## [4.2.4] — 2026-06-02 · Bug scan — 4 fixes + limpieza
+
+### Bugs corregidos
+
+- **P1 — `handleImport` setTimeout(1200ms) reemplazado por `runAfterSave`** — Tras un import de datos, `dataVersionRef` se sincronizaba con un delay fijo de 1.2s. Si el save tardaba más (rebase CAS, red lenta), el siguiente guardado detectaba un falso conflicto y el import se revertía silenciosamente. Ahora usa `runAfterSave`, que espera la confirmación real del save antes de recargar la versión. Mismo patrón ya aplicado al push en v4.2.3.
+
+- **P2 — `isFirstWeekOfMonth` falla en semana 1 con lunes en diciembre** — Cuando la semana 1 ISO de un año comienza en diciembre del año anterior (ej. sem 1/2025 empieza el 30/12/2024), `weekStart.getDate() = 30 > 7` y las misiones mensuales de enero no se generaban. Nuevo check: si `weekStart.getFullYear() < cyr`, la semana es por definición la primera de enero; en el resto de casos usa `getDate() ≤ 7`.
+
+- **P2 — `ProfileModal.compressAvatar` Promise sin timeout** — Si el navegador aceptaba el src de imagen pero nunca disparaba `onload` ni `onerror` (imagen corrupta con cabecera válida), la Promise colgaba indefinidamente — el spinner de avatar subiendo nunca desaparecía. Añadido timeout de 10s con `clearTimeout` en todos los paths de resolución.
+
+### Limpieza
+
+- **Eliminado `src/helpers/carryHelpers.js`** — Copia muerta de `applyCarryOver` + `repairMisplacedMissions` que ningún archivo importaba (App.jsx usa `src/lib/appUtils.js`). Contenía además el bug de `new Date()` ya corregido en v4.2.2.
+
+---
+
+## [4.2.3] — 2026-06-02 · Push post-save + CI/CD
+
+### Deuda saldada — timing del push (Sprint E-2)
+
+- **`sendContextualPush` ya no usa `setTimeout(1500ms)`** — El parche anterior asumía que el debounce (700ms) + red del save terminaban en menos de 1.5s. En conexiones lentas el push llegaba a la pareja **antes** de que el blob estuviera persistido en la DB → la pareja abría la app y veía datos desactualizados. Solución de raíz: cola de callbacks post-save (`afterSaveRef` + `runAfterSave`) que se vacía en el bloque de éxito de `runSave`, justo después de confirmar que el blob está en la DB. El push se dispara cuando los datos frescos ya son legibles, sin depender del reloj. Si no hay nada pendiente de guardar, el callback corre en el siguiente tick. Aplica a los 3 paths: `addMission`, `cycleStatus`, `cycleStatusGlobal`.
+
+### Infraestructura
+
+- **CI/CD con GitHub Actions** — Nuevo `.github/workflows/ci.yml`: corre `lint` + `test` + `build` en cada push y pull request. Cierra el hueco histórico de "sin CI/CD". El build usa env vars placeholder (o secrets del repo si existen) para verificar que compila sin necesidad de credenciales reales de Supabase.
+
+---
+
+## [4.2.2] — 2026-06-02 · Fix carry-over offline + README v4.x
+
+### Bugs corregidos
+
+- **C-P2-2: `applyCarryOver` usaba `new Date()` para `isFirstWeekOfMonth`** — La lógica de misiones mensuales calculaba si la semana actual es la primera del mes usando el reloj del dispositivo en lugar de las semanas del blob. Si el dispositivo estaba offline, la semana del blob no coincidía con la real, o la app se usaba en un contexto desfasado, el filtro mensual se disparaba en la semana equivocada. Fix: `isFirstWeekOfMonth` ahora compara el mes del lunes de la semana `cwn/cyr` del blob (`weekStartDate(cwn, cyr)`) contra la primera semana ISO de ese mismo mes. Determinista, no depende del reloj. (C-P2-2)
+
+- **C-P2-4: `loadFromNormalized` no logueaba fallback por error de red** — Los paths de error de `missions` y `goals` tenían `console.error` pero no indicaban explícitamente que se había activado el fallback al blob. Añadido `console.warn("[loadFromNormalized] fallback → blob")` en ambos paths para tener trazabilidad completa en DevTools/logs. (C-P2-4)
+
+### Docs
+
+- **README reescrito para v4.x** — El README documentaba v1.8.0 (monolito, sin auth, sin tests, "features planeadas" que ya están implementadas). Ahora refleja el estado real: arquitectura modular (`components/`, `lib/`, `helpers/`, `hooks/`), CAS con rebase-on-conflict, tablas normalizadas, push notifications, auth por código de pareja, Vitest, y deuda técnica actualizada. (C-P2-3)
+
+---
+
+## [4.2.1] — 2026-06-01 · Flip read_from_normalized — tabla missions como fuente de verdad
+
+### Activado
+
+- **`read_from_normalized: true`** — La tabla `missions` es ahora la fuente de verdad para lectura de misiones y metas. El Externo confirmó la eliminación de **9 filas huérfanas** (01/06); la tabla está al 100% consistente con el blob.
+- Todos los paths de escritura sincronizan la tabla desde v4.1.3: `addMission`, `deleteMissionGlobal`, `cycleStatus`, `cycleStatusGlobal`, `patchMissionGlobal`, `patchAllFutureSeries`, `runCarryOver`.
+- **Safety check activo** en `loadFromNormalized`: si la tabla tiene 0 filas o menos del 80% de las misiones del blob, la app hace fallback al blob automáticamente — sin intervención del usuario.
+
+### Protocolo de flip completado
+
+- ✅ Externo: 9 huérfanas eliminadas — tabla limpia
+- ✅ Externo: triggers push en `app_data` deshabilitados (28/05, E-P0-1 + E-P0-2)
+- ✅ Programador: dual-write completo (3 black holes cerrados en v4.1.3)
+- ✅ Scanner: sign-off del path de lectura (`loadFromNormalized`, `missionRowToBlob`, `goalRowToBlob`, safety checks)
+- ✅ Redactor: CHANGELOG y constants.js sincronizados
+
+---
+
 ## [4.2.0] — 2026-06-01 · Rediseño de raíz del guardado (fin de la pérdida de datos)
 
 ### Causa raíz (diagnóstico con evidencia de DB)

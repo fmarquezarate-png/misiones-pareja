@@ -124,6 +124,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const dataRef         = useRef(null);
   const dataVersionRef  = useRef(null); // null = version not yet loaded from DB
   const unconfirmedRef  = useRef([]);    // mutators applied locally but not yet confirmed persisted (para rebase-on-conflict)
+  const afterSaveRef    = useRef([]);    // callbacks que corren tras el PRÓXIMO save confirmado (push, etc.) — reemplaza setTimeout frágil
   const runSaveRef      = useRef(null);  // latest runSave closure, para que el timer de debounce siempre use coupleId actual
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
@@ -635,6 +636,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (unconfirmedRef.current.length === 0) setPendingSave(false);
       setSavingState("saved");
       setTimeout(() => setSavingState("idle"), 2000);
+      // El blob ya está en la DB: ahora sí es seguro disparar push/efectos que
+      // dependen de que la pareja pueda leer los datos frescos. Reemplaza el
+      // antiguo setTimeout(1500) frágil — esto espera la confirmación real.
+      if (afterSaveRef.current.length) {
+        const cbs = afterSaveRef.current;
+        afterSaveRef.current = [];
+        for (const cb of cbs) { try { cb(); } catch (err) { console.error("[afterSave]", err); } }
+      }
     } catch (e) {
       setSyncError(e.message);
       setPendingSave(true);
@@ -675,6 +684,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSavingState("saving");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleSave]);
+
+  // Encola un efecto que solo debe correr DESPUÉS de que el blob esté persistido
+  // en la DB (ej. push a la pareja — necesita que pueda leer los datos frescos).
+  // Si no hay nada pendiente de guardar, corre en el siguiente tick.
+  const runAfterSave = useCallback(fn => {
+    afterSaveRef.current.push(fn);
+    if (!isSavingRef.current && !saveTimerRef.current && unconfirmedRef.current.length === 0) {
+      // Nada que guardar — no habrá ciclo de save que vacíe la cola; correr ya.
+      const cbs = afterSaveRef.current;
+      afterSaveRef.current = [];
+      for (const cb of cbs) { try { cb(); } catch (err) { console.error("[afterSave]", err); } }
+    }
+  }, []);
 
   // These must be declared before any early return so useSwipe (which calls
   // useRef internally) is always called in the same order — Rules of Hooks.
@@ -720,14 +742,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     try {
       const imported = await importData(file);
       update(() => imported);
-      // Delay version reload until after debounce+save (700ms) so we read the post-import version
-      if (coupleId) {
-        setTimeout(() => {
-          loadDataWithVersion(coupleId)
-            .then(({ version }) => { dataVersionRef.current = version; })
-            .catch(() => { dataVersionRef.current = null; });
-        }, 1200);
-      }
+      // Sincronizar la versión DESPUÉS de que el save confirmado llegue a la DB,
+      // no con un delay fijo. Evita el CAS conflict falso si el save tarda más de 1.2s.
+      if (coupleId) runAfterSave(() => {
+        loadDataWithVersion(coupleId)
+          .then(({ version }) => { dataVersionRef.current = version; })
+          .catch(() => { dataVersionRef.current = null; });
+      });
       setImportMsg("✅ Datos restaurados correctamente");
       setTimeout(() => setImportMsg(null), 2500);
     } catch (err) { setImportMsg("❌ " + err.message); setTimeout(() => setImportMsg(null), 3500); }
@@ -750,8 +771,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), mission] }));
     insertNormalizedMission(coupleId, wkey, data.currentWeekNumber, data.currentYear, mission).catch(e => console.error("[dual_write] insert:", e));
-    // Delay push until after the 700ms debounce + save completes so partner data is ready
-    setTimeout(() => sendContextualPush(coupleId, { body:`${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`, tag:isEv?"mp-event-add":"mp-mission-add" }, sessionUserId), 1500);
+    // Push tras el save confirmado: la pareja recibe la notificación solo cuando
+    // los datos frescos ya están en la DB y puede leerlos (no antes).
+    const pushBody = `${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`;
+    const pushTag = isEv?"mp-event-add":"mp-mission-add";
+    runAfterSave(() => sendContextualPush(coupleId, { body:pushBody, tag:pushTag }, sessionUserId));
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -770,7 +794,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       return next;
     });
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
-    if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
   };
@@ -832,7 +856,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
-    if (nx === "DONE" && mCur) setTimeout(() => sendContextualPush(coupleId, { body:`${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`, tag:"mp-mission-done" }, sessionUserId), 1500);
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const key = isoWeekKey(wn, yr);
@@ -995,6 +1019,8 @@ ${sorted.map(m=>{
         *:focus { outline: none; }
         *:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; border-radius: 4px; }
         .sc-nav-btn:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: -2px; border-radius: 10px; }
+        .sc-menu-header:hover { background: linear-gradient(135deg, var(--t-accent-soft,rgba(167,139,250,0.18)), transparent 80%) !important; }
+        .sc-menu-header:active { transform: scale(0.99); }
         button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--t-accent,#a78bfa); outline-offset: 2px; }
         @keyframes mc-pop { 0%{transform:scale(1)} 50%{transform:scale(1.28)} 100%{transform:scale(1)} }
         @keyframes sc-dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
@@ -1053,6 +1079,7 @@ ${sorted.map(m=>{
         coupleEmoji={data.settings?.coupleEmoji}
         p1={p1} p2={p2}
         syncMsg={syncMsg}
+        onShowProfile={() => { setShowProfile(true); setMenuOpen(false); }}
       />
 
       <Topbar
@@ -1063,7 +1090,6 @@ ${sorted.map(m=>{
         onCheckUpdate={checkUpdate} onSmartSync={smartSync} syncing={syncing}
         onDownloadICS={() => downloadWeekICS(week, wkey, p1, p2)}
         onDownloadPDF={() => downloadWeekPDF(week, wkey, p1, p2)}
-        onShowProfile={() => setShowProfile(true)}
         onExport={() => exportData(data)}
         importFileRef={importFileRef} onSignOut={onSignOut}
         colors={colors}

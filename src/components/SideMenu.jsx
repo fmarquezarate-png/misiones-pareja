@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { id:"links",    label:"Links de Interés", icon:"🔗" },
 ];
 
-export default function SideMenu({ open, onClose, activeTab, onNavigate, couplePhoto, coupleEmoji, p1, p2, syncMsg }) {
+export default function SideMenu({ open, onClose, activeTab, onNavigate, couplePhoto, coupleEmoji, p1, p2, syncMsg, onShowProfile }) {
   const [showChangelog, setShowChangelog] = useState(false);
 
   return (
@@ -24,17 +24,24 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, coupleP
 
       {/* Slide-out panel */}
       <div style={{ position:"fixed", top:0, left:0, bottom:0, width:248, background:"var(--t-menu-bg,rgba(12,8,26,0.97))", borderRight:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", zIndex:100, transform:open?"translateX(0)":"translateX(-100%)", transition:"transform 0.26s cubic-bezier(0.4,0,0.2,1)", display:"flex", flexDirection:"column", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)" }}>
-        {/* Header */}
-        <div style={{ paddingTop:"calc(18px + env(safe-area-inset-top))", paddingLeft:20, paddingRight:20, paddingBottom:14, borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12 }}>
+        {/* Header — clickable, abre el perfil */}
+        <button
+          onClick={onShowProfile}
+          aria-label="Abrir mi perfil"
+          className="sc-menu-header"
+          style={{ paddingTop:"calc(18px + env(safe-area-inset-top))", paddingLeft:20, paddingRight:16, paddingBottom:16, borderBottom:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", display:"flex", alignItems:"center", gap:12, background:"linear-gradient(135deg, var(--t-accent-soft,rgba(167,139,250,0.10)), transparent 80%)", border:"none", borderRadius:0, cursor:"pointer", fontFamily:"inherit", textAlign:"left", width:"100%", transition:"background 0.18s" }}>
           {couplePhoto
-            ? <img src={couplePhoto} style={{ width:44, height:44, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0 }} alt="pareja" />
-            : <div style={{ width:44, height:44, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"1px solid var(--t-card-border)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>{coupleEmoji||"💞"}</div>
+            ? <img src={couplePhoto} style={{ width:48, height:48, borderRadius:99, objectFit:"cover", border:"2px solid var(--t-accent,#a78bfa)", flexShrink:0, boxShadow:"0 0 0 3px var(--t-accent-soft,rgba(167,139,250,0.12))" }} alt="pareja" />
+            : <div style={{ width:48, height:48, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.1))", border:"2px solid var(--t-accent,#a78bfa)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0, boxShadow:"0 0 0 3px var(--t-accent-soft,rgba(167,139,250,0.12))" }}>{coupleEmoji||"💞"}</div>
           }
-          <div>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, textTransform:"uppercase" }}>Shared Calendar</div>
-            <div style={{ fontSize:14, color:"var(--t-accent,#c4b8ff)", fontWeight:600, marginTop:1 }}>{p1} & {p2}</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:14, color:"var(--t-text,#f8f4ff)", fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{p1} & {p2}</div>
+            <div style={{ fontSize:10.5, color:"var(--t-accent,#a78bfa)", marginTop:2, display:"flex", alignItems:"center", gap:4, fontWeight:500 }}>
+              <span aria-hidden="true">✏️</span> Editar perfil
+            </div>
           </div>
-        </div>
+          <span aria-hidden="true" style={{ fontSize:14, color:"var(--t-text-dim,#4a4166)", flexShrink:0 }}>›</span>
+        </button>
 
         {/* Nav items */}
         <nav aria-label="Navegación principal" style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:2, overflowY:"auto" }}>

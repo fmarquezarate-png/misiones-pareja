@@ -14,9 +14,9 @@ const DEFAULTS = {
   dual_write_normalized: true,
   cas_version_check: true,
   idb_offline_queue: false,
-  // false por precaución: dual-write cerrado en v4.1.3 (patchMissionGlobal, patchAllFutureSeries,
-  // applyCarryOver ya sincronizan la tabla). Pendiente: verificación blob↔tabla antes del flip.
-  read_from_normalized: false,
+  // true desde v4.2.1: 9 huérfanas eliminadas por Externo (01/06), tabla 100% consistente con blob.
+  // Dual-write cubre todos los paths (v4.1.3). Safety check 80% activo en loadFromNormalized.
+  read_from_normalized: true,
 };
 
 function loadOverrides() {

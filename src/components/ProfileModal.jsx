@@ -27,12 +27,14 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
   const compressAvatar = (file) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Tiempo de espera procesando imagen")), 10000);
+    const done = (fn) => (...args) => { clearTimeout(timer); fn(...args); };
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error("No se pudo leer el archivo de imagen"));
+    reader.onerror = done(() => reject(new Error("No se pudo leer el archivo de imagen")));
     reader.onload = e => {
       const img = new Image();
-      img.onerror = () => reject(new Error("Formato de imagen no válido"));
-      img.onload = () => {
+      img.onerror = done(() => reject(new Error("Formato de imagen no válido")));
+      img.onload = done(() => {
         const size = 180;
         const canvas = document.createElement("canvas");
         canvas.width = size; canvas.height = size;
@@ -41,7 +43,7 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
         const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
         ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
         resolve(canvas.toDataURL("image/jpeg", 0.8));
-      };
+      });
       img.src = e.target.result;
     };
     reader.readAsDataURL(file);
@@ -101,44 +103,35 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:150, display:"flex", flexDirection:"column", overflow:"hidden" }} onClick={onClose}>
       <div style={{ background:"var(--t-menu-bg,#0f0a1e)", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:"20px 20px 0 0", marginTop:"auto", maxHeight:"92vh", overflow:"hidden", display:"flex", flexDirection:"column" }} onClick={e=>e.stopPropagation()}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 20px 0" }}>
-          <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, fontWeight:600, color:"#f8f4ff" }}>👤 Mi Perfil</span>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", fontSize:22, cursor:"pointer", lineHeight:1 }}>×</button>
-        </div>
-        <div style={{ overflowY:"auto", padding:"16px 20px 20px", flex:1 }}>
-
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>Foto de pareja</div>
-          <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24, padding:"14px 16px", background:"var(--t-accent-soft,rgba(167,139,250,0.06))", borderRadius:14, border:"1px solid var(--t-card-border)" }}>
-            <label style={{ cursor:"pointer", flexShrink:0 }}>
-              <div style={{ width:72, height:72, borderRadius:99, background:"var(--t-accent-soft)", border:`2px solid var(--t-accent,#a78bfa)`, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", position:"relative" }}>
-                {photos.couple
-                  ? <img src={photos.couple} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
-                  : <span style={{ fontSize:32 }}>{coupleEmoji}</span>}
-              </div>
-              <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
-            </label>
-            <div>
-              <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500, marginBottom:4 }}>Vuestra foto juntos</div>
-              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8, lineHeight:1.5 }}>Aparece en la pantalla de inicio y en el menú lateral</div>
-              <div style={{ display:"flex", gap:8 }}>
-                <label style={{ ...S.btnSecondary, fontSize:11, cursor:"pointer", padding:"5px 12px", display:"inline-block" }}>
-                  📷 Cambiar
-                  <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
-                </label>
-                {photos.couple && <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px" }}>✕ Quitar</button>}
-              </div>
-              <div style={{ marginTop:10 }}>
-                <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginBottom:6 }}>Emoji cuando no hay foto</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
-                  {COUPLE_EMOJIS.map(e=>(
-                    <button key={e} onClick={()=>setCoupleEmoji(e)}
-                      style={{ fontSize:19, background:coupleEmoji===e?"rgba(167,139,250,0.22)":"rgba(128,128,128,0.06)", border:`1px solid ${coupleEmoji===e?"rgba(167,139,250,0.55)":"rgba(255,255,255,0.08)"}`, borderRadius:8, padding:"4px 5px", cursor:"pointer", lineHeight:1, outline:"none" }}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        {/* Hero — foto de pareja grande + nombres */}
+        <div style={{ position:"relative", padding:"28px 20px 22px", background:"radial-gradient(120% 100% at 50% 0%, var(--t-accent-soft,rgba(167,139,250,0.18)), transparent 70%)", borderRadius:"20px 20px 0 0", textAlign:"center", flexShrink:0 }}>
+          <button onClick={onClose} aria-label="Cerrar" style={{ position:"absolute", top:16, right:16, background:"rgba(128,128,128,0.12)", border:"none", color:"var(--t-text-muted,#8b7fa8)", fontSize:20, width:32, height:32, borderRadius:99, cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+          {/* Drag handle */}
+          <div style={{ width:36, height:4, borderRadius:99, background:"rgba(255,255,255,0.15)", margin:"0 auto 20px" }} />
+          <label style={{ cursor:"pointer", display:"inline-block", position:"relative" }}>
+            <div style={{ width:88, height:88, borderRadius:99, background:"var(--t-accent-soft,rgba(167,139,250,0.12))", border:"2px solid var(--t-accent,#a78bfa)", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", margin:"0 auto", boxShadow:"0 0 0 5px var(--t-accent-soft,rgba(167,139,250,0.1)), 0 8px 24px rgba(0,0,0,0.3)" }}>
+              {photos.couple
+                ? <img src={photos.couple} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt="" />
+                : <span style={{ fontSize:40 }}>{coupleEmoji}</span>}
             </div>
+            <div aria-hidden="true" style={{ position:"absolute", bottom:0, right:"calc(50% - 50px)", width:30, height:30, borderRadius:99, background:"var(--t-accent,#a78bfa)", border:"3px solid var(--t-menu-bg,#0f0a1e)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13 }}>📷</div>
+            <input type="file" accept="image/*" onChange={e=>handlePhoto("couple",e)} style={{ display:"none" }} />
+          </label>
+          <div style={{ fontFamily:"'Fraunces',serif", fontSize:21, fontWeight:600, color:"#f8f4ff", marginTop:14 }}>{p1} <span style={{ color:"var(--t-accent,#a78bfa)" }}>&</span> {p2}</div>
+          <div style={{ fontSize:11.5, color:"var(--t-text-dim,#8b7fa8)", marginTop:3 }}>Toca la foto para cambiarla</div>
+          {photos.couple && <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"4px 12px", marginTop:10 }}>✕ Quitar foto</button>}
+        </div>
+
+        <div style={{ overflowY:"auto", padding:"4px 20px 20px", flex:1 }}>
+
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:8, marginTop:8 }}>Emoji sin foto</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:24 }}>
+            {COUPLE_EMOJIS.map(e=>(
+              <button key={e} onClick={()=>setCoupleEmoji(e)}
+                style={{ fontSize:20, background:coupleEmoji===e?"rgba(167,139,250,0.22)":"rgba(128,128,128,0.06)", border:`1px solid ${coupleEmoji===e?"rgba(167,139,250,0.55)":"rgba(255,255,255,0.08)"}`, borderRadius:9, padding:"5px 7px", cursor:"pointer", lineHeight:1, outline:"none" }}>
+                {e}
+              </button>
+            ))}
           </div>
 
           <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Personas</div>
