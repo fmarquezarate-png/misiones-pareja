@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.4.2] — 2026-06-02 · Elimina WeekArc (arco de esferas)
+
+### Eliminado
+
+- **WeekArc** — se retira el componente del inicio. Los círculos en el arco eran poco intuitivos: no era evidente qué misión representaba cada esfera sin explorar. Se recupera el espacio en el home para la tira semanal.
+
+---
+
 ## [4.4.1] — 2026-06-02 · Fix: eventos multi-día perdían duración al cargar desde tabla
 
 ### Fixes

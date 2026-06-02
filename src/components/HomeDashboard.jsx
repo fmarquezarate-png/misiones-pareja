@@ -5,7 +5,6 @@ import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS } from "../constants.js";
 import { PHRASES } from "../phrases.js";
 import WeekStrip from "./WeekStrip.jsx";
-import WeekArc from "./WeekArc.jsx";
 
 const W = {
   background: "var(--t-card,#1d1733)",
@@ -419,17 +418,6 @@ export default function HomeDashboard({
           fontSize:26, border:"2px solid rgba(255,255,255,0.15)",
         }}>{!photo && "💞"}</div>
       </div>
-
-      {/* Arco vivo de la semana — quién carga qué */}
-      {missions.filter(m => m.type !== "event").length > 0 && (
-        <div style={{ ...W, padding:"12px 14px 8px" }}>
-          <div style={{ ...eyebrow, fontSize:8.5, marginBottom:2, textAlign:"center" }}>🪡 La semana a dos hilos</div>
-          <WeekArc
-            missions={missions} colors={clr} p1Name={p1} p2Name={p2}
-            onSelectMission={m => onCycleStatus && onCycleStatus(m.id)}
-          />
-        </div>
-      )}
 
       {/* WeekStrip */}
       <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} colors={colors} />
