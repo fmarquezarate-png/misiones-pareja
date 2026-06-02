@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.3] — 2026-06-02 · Push post-save + CI/CD
+
+### Deuda saldada — timing del push (Sprint E-2)
+
+- **`sendContextualPush` ya no usa `setTimeout(1500ms)`** — El parche anterior asumía que el debounce (700ms) + red del save terminaban en menos de 1.5s. En conexiones lentas el push llegaba a la pareja **antes** de que el blob estuviera persistido en la DB → la pareja abría la app y veía datos desactualizados. Solución de raíz: cola de callbacks post-save (`afterSaveRef` + `runAfterSave`) que se vacía en el bloque de éxito de `runSave`, justo después de confirmar que el blob está en la DB. El push se dispara cuando los datos frescos ya son legibles, sin depender del reloj. Si no hay nada pendiente de guardar, el callback corre en el siguiente tick. Aplica a los 3 paths: `addMission`, `cycleStatus`, `cycleStatusGlobal`.
+
+### Infraestructura
+
+- **CI/CD con GitHub Actions** — Nuevo `.github/workflows/ci.yml`: corre `lint` + `test` + `build` en cada push y pull request. Cierra el hueco histórico de "sin CI/CD". El build usa env vars placeholder (o secrets del repo si existen) para verificar que compila sin necesidad de credenciales reales de Supabase.
+
+---
+
 ## [4.2.2] — 2026-06-02 · Fix carry-over offline + README v4.x
 
 ### Bugs corregidos

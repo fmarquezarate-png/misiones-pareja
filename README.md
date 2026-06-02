@@ -23,7 +23,8 @@ Acceso por código de pareja — sin email, sin contraseña. Instalable en iOS, 
 | Persistencia | Supabase — blob JSON en `app_data` + tablas normalizadas (`missions`, `goals`, `couple_settings`) |
 | Guardado | CAS (Compare-And-Swap) con rebase-on-conflict — nunca se pierden datos en edición concurrente |
 | Push | Web Push API + Edge Function `send-push` en Supabase |
-| Despliegue | Netlify (CI/CD automático desde `main`) |
+| Despliegue | Netlify (deploy automático desde `main`) |
+| CI | GitHub Actions — lint + test + build en cada push y PR |
 | Tests | Vitest |
 
 **Dependencias de producción:**
@@ -241,9 +242,8 @@ npm run lint     # ESLint — 0 errores requeridos para build
 | Severidad | Item |
 |-----------|------|
 | Media | `applyCarryOver` no tiene retry si se pierde la ejecución del lunes |
-| Media | `sendContextualPush` usa `setTimeout(1500ms)` como guardia de timing — frágil en red lenta |
-| Media | Sin CI/CD automatizado (GitHub Actions) |
 | Baja | `expenses_v2_enabled` e `idb_offline_queue` — flags sin implementación activa |
+| Baja | Push server-side vía tabla `push_queue` — alternativa a futuro (el timing ya está resuelto con `runAfterSave` en v4.2.3) |
 
 ---
 
