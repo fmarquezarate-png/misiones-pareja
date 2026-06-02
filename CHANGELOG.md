@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.2.6] — 2026-06-02 · Fix CI — lockfile versionado
+
+### Infraestructura
+
+- **`package-lock.json` ahora versionado** — El workflow de CI (v4.2.3) fallaba en el paso `setup-node` con `Dependencies lock file is not found`. Causa: el lockfile estaba en `.gitignore`, así que nunca llegó al repo, y tanto `cache: "npm"` como `npm ci` lo requieren. Sacado de `.gitignore` y commiteado — builds de CI reproducibles y deterministas.
+
+---
+
 ## [4.2.5] — 2026-06-02 · Rediseño del acceso al perfil + hero del modal
 
 ### UX
