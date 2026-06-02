@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.5.0";
+export const APP_VERSION = "4.5.1";
 export const LAST_UPDATE = "2026-06-02";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.5.1", date:"2026-06-02", notes:["Fix: patchMissionGlobal, cycleStatusGlobal y deleteMissionGlobal fallaban silenciosamente si la clave de semana no coincidía con la misión (ej. hint wn/yr incorrecto, o semana antigua sin weekNumber). Añadido resolveWeekKey: usa la clave hint como fast path, y si la misión no está ahí, escanea todas las semanas por ID. Cero pérdidas silenciosas desde esta versión."] },
   { v:"4.5.0", date:"2026-06-02", notes:["Fix: ediciones de eventos no se persistían al recargar. allDated usaba w.weekNumber (undefined en semanas pre-v4.x) → isoWeekKey generaba '2026-Wundefined' → patchMissionGlobal no encontraba la semana y retornaba sin tocar el blob. Ahora se extrae el número de semana desde la clave ISO como fallback.", "UX: StatusOrb ahora muestra el label del estado debajo del orbe (TBC / ASAP / En curso / Hecho) en el color del estado. Mantiene la metáfora lunar pero añade contexto textual para usuarios nuevos.", "P2: avatar de dueño — círculo de 26px con la inicial de la persona (o 👫 para Juntos) antes del emoji de misión, con el color del dueño independiente del tema activo.", "P3: confirmación de guardado — tras cada save exitoso aparece un pill '✅ Guardado' verde en el sistema de toasts.", "P4: contraste textMuted en temas claros — los 6 temas claros (Mañana Clara, Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave) tienen valores textMuted más oscuros para asegurar contraste WCAG AA contra fondos claros."] },
   { v:"4.4.2", date:"2026-06-02", notes:["Elimina WeekArc del inicio (arco de misiones como esferas). La visualización era poco intuitiva: los círculos no identificaban qué misión representaban. Se elimina el componente y se recupera el espacio para la tira semanal."] },
   { v:"4.4.1", date:"2026-06-02", notes:["Fix: eventos multi-día perdían endDate/endTime al cargar desde tabla normalizada. missionRowToBlob no incluía esos campos (columnas aún no añadidas al schema). loadFromNormalized ahora fusiona los campos faltantes desde el blob, preservando la duración de eventos en cada sesión.","Fix: patchMissionGlobal guardaba contra posible w.missions undefined (semanas muy antiguas sin array de misiones)."] },
