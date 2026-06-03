@@ -20,6 +20,8 @@ import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import WrappedModal from "./components/WrappedModal.jsx";
+import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
+import BirthdaysView from "./components/BirthdaysView.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
@@ -165,6 +167,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const { ConfirmDialog } = useConfirm();
   const [juntosMoment, setJuntosMoment] = useState(null);  // { mission, p1Name, p2Name, p1Color, p2Color }
   const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
+  const [specialDay,  setSpecialDay]   = useState(null);   // { type:"birthday"|"anniversary", name?, years? }
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -333,6 +336,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         const goalRepaired = await repairGoalIdLinks(coupleId, base);
         if (goalRepaired) { base = goalRepaired; didMigrate = true; }
 
+        if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
+
         setData(base);
 
         if (isRealData && didMigrate) await saveData(base, coupleId);
@@ -382,6 +387,49 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId]);
+
+  // Special day detection (birthday / anniversary)
+  useEffect(() => {
+    if (loading || !coupleId || !data?.settings) return;
+    const today = new Date();
+    const mmdd  = `${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const key   = `mp-special-${today.toDateString()}`;
+    if (localStorage.getItem(key)) return;
+    const s = data.settings;
+    let event = null;
+    if (s.person1Birthday === mmdd) event = { type:"birthday", name: p1, who:"person1" };
+    else if (s.person2Birthday === mmdd) event = { type:"birthday", name: p2, who:"person2" };
+    else if (s.anniversaryDate) {
+      const aMMDD = s.anniversaryDate.slice(5);
+      if (aMMDD === mmdd) {
+        const years = today.getFullYear() - parseInt(s.anniversaryDate.slice(0,4));
+        event = { type:"anniversary", years: years > 0 ? years : null };
+      }
+    }
+    if (!event) return;
+    localStorage.setItem(key, "1");
+    const t = setTimeout(() => setSpecialDay(event), 900);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, coupleId, data?.settings?.person1Birthday, data?.settings?.person2Birthday, data?.settings?.anniversaryDate]);
+
+  // Birthday reminders (toast: today + day before)
+  useEffect(() => {
+    if (loading || !data?.birthdays?.length) return;
+    const today = new Date();
+    const todayStr    = `${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const tomorrowD   = new Date(today); tomorrowD.setDate(today.getDate()+1);
+    const tomorrowStr = `${String(tomorrowD.getMonth()+1).padStart(2,"0")}-${String(tomorrowD.getDate()).padStart(2,"0")}`;
+    const toastKey    = `mp-bday-toast-${today.toDateString()}`;
+    if (localStorage.getItem(toastKey)) return;
+    const todays    = data.birthdays.filter(b => b.date === todayStr);
+    const tomorrows = data.birthdays.filter(b => b.date === tomorrowStr);
+    if (!todays.length && !tomorrows.length) return;
+    localStorage.setItem(toastKey, "1");
+    todays.forEach(b => pushToast({ kind:"success", text:`🎂 ¡Hoy es el cumpleaños de ${b.name}!` }));
+    tomorrows.forEach(b => pushToast({ kind:"info", text:`🎂 Mañana es el cumpleaños de ${b.name}` }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, data?.birthdays]);
 
   // Navigate to tab when tutorial step changes
   useEffect(() => {
@@ -1115,7 +1163,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} />}
+      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} />}
 
 
 
@@ -1317,6 +1365,12 @@ ${sorted.map(m=>{
 
         {activeTab==="links" && <LinksView links={data.links||[]} onSave={links=>update(d=>({...d,links}))} />}
 
+        {activeTab==="birthdays" && <BirthdaysView
+          birthdays={data.birthdays||[]}
+          onAdd={b => update(d => ({ ...d, birthdays: [...(d.birthdays||[]), b] }))}
+          onDelete={id => update(d => ({ ...d, birthdays: (d.birthdays||[]).filter(b => b.id !== id) }))}
+        />}
+
         {activeTab==="pending" && <PendingView
           weeks={data.weeks}
           currentWeekNumber={data.currentWeekNumber}
@@ -1365,6 +1419,15 @@ ${sorted.map(m=>{
             if (wrappedConfig.monthKey) localStorage.setItem(`mp-wrapped-mo-${wrappedConfig.monthKey}`, "1");
             setWrappedConfig(null);
           }}
+        />
+      )}
+
+      {/* Evento especial — cumpleaños y aniversario */}
+      {specialDay && (
+        <SpecialDayOverlay
+          event={specialDay}
+          p1={p1} p2={p2}
+          onDone={() => setSpecialDay(null)}
         />
       )}
 
