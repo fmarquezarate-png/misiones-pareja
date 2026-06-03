@@ -7,6 +7,28 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.2] — 2026-06-03 · Tema dorado todo el día + Botón flotante + Fix selectores cumpleaños
+
+### ✦ Días especiales — tema dorado todo el día
+
+Cuando es el cumpleaños de alguien o el aniversario de la pareja, los colores de acento de **toda la app** cambian a dorado/plateado durante la jornada entera (no solo mientras el overlay inicial está visible). Implementado con `SpecialDayTheme`, que inyecta `!important` en `:root` para sobreescribir `ThemeInjector`.
+
+Además, **cada click en cualquier lugar** lanza destellos dorados y plateados (DOM particles con CSS keyframes, se eliminan solos a los 720ms).
+
+### 🎯 Botón flotante de celebración
+
+Un botón dorado aparece flotando en la pantalla durante todo el día especial. Cada 26 segundos cambia de posición y de texto:
+
+> _¿Curiosidad? ✨ · ¡A que no me aprietas! 😏 · ¡Hola! 👋 · Yo sólo estoy de paso 🌟 · ¿Deberías apretarme? 🤔 · ¡Cucu! 🎊_
+
+Al tocarlo se reabre la pantalla de celebración (overlay de cumpleaños o aniversario). El botón desaparece mientras el overlay está abierto.
+
+### Fix: selectores de cumpleaños en Perfil
+
+Las fechas de cumpleaños en Perfil ahora usan **selectores de mes + día** en lugar de `<input type="date">`, que bloqueaba la selección de años anteriores al 2000 y confundía al usuario con un año "fantasma" (2000). Ahora se elige directamente el mes y el día, sin año — igual que en la pestaña Cumpleaños.
+
+---
+
 ## [4.6.1] — 2026-06-03 · Cumpleaños + Días Especiales + Revivir Wrapped
 
 ### 🎂 Tab Cumpleaños
