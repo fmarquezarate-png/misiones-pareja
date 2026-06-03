@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.5.2] — 2026-06-03 · FIX RAÍZ: pérdida de ediciones de fecha en la vista de semana
+
+### El bug real (que v4.5.0 y v4.5.1 NO tocaban)
+
+Editar la fecha/hora/persona de una tarea desde la **vista de semana actual** (no el CalendarView) y recargar → el cambio desaparecía. Causa:
+
+- `patchM` (`App.jsx`) — el mutador de campos de la vista principal — era el **único** que NO llamaba a `updateNormalizedMission`. Un **4º black hole de dual-write** que no estaba en la lista documentada (los otros 3: `patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver`).
+- Con `read_from_normalized: true`, la app leía las misiones de la tabla `missions` al cargar. Como `patchM` solo escribía al blob, la tabla quedaba con la fecha vieja → al recargar, la edición "desaparecía".
+- v4.5.0 arregló `allDated` y v4.5.1 arregló `patchMissionGlobal` — ambos del **CalendarView**, no de la vista de semana. Por eso el bug seguía en producción.
+
+### Fixes
+
+- **`read_from_normalized` → `false`** — el blob (que siempre tuvo todas las ediciones) vuelve a ser la fuente de lectura. Restaura instantáneamente todo lo editado y cierra TODOS los black holes a la vez. Es el estado documentado como seguro (la tabla es "analytics futura, no fuente de verdad").
+- **`patchM` ahora hace dual-write** (`updateNormalizedMission`) — hardening para que la tabla no se desfase a futuro.
+- La tabla `missions` además carece de columnas `endDate`/`endTime`/`goalId`, por lo que no puede ser fuente de verdad completa sin cambios de schema del Externo.
+
+---
+
 ## [4.5.1] — 2026-06-02 · Fix definitivo: pérdidas silenciosas al actualizar eventos
 
 ### Fixes

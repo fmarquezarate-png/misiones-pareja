@@ -14,9 +14,13 @@ const DEFAULTS = {
   dual_write_normalized: true,
   cas_version_check: true,
   idb_offline_queue: false,
-  // true desde v4.2.1: 9 huérfanas eliminadas por Externo (01/06), tabla 100% consistente con blob.
-  // Dual-write cubre todos los paths (v4.1.3). Safety check 80% activo en loadFromNormalized.
-  read_from_normalized: true,
+  // ⚠️ false desde v4.5.2: `patchM` (edición de campos en la vista de semana actual)
+  // NO sincronizaba la tabla `missions` — 4º black hole no documentado. Con el flag en
+  // true, toda edición de fecha/hora/persona desde la vista principal desaparecía al
+  // recargar (la app leía la versión vieja de la tabla). Además la tabla carece de
+  // columnas endDate/endTime/goalId. El blob es la única fuente de verdad completa.
+  // No reactivar hasta: (1) todos los mutadores dual-write, (2) schema completo, (3) Scanner sign-off.
+  read_from_normalized: false,
 };
 
 function loadOverrides() {

@@ -804,7 +804,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
     patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
   };
-  const patchM = (id, patch) => patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
+  const patchM = (id, patch) => {
+    patchWeek(w => ({ ...w, missions:w.missions.map(m=>m.id===id?{...m,...patch}:m) }));
+    // Dual-write: sin esto, las ediciones de campos (fecha/hora/persona/etc.) desde la
+    // vista de semana actual nunca llegaban a la tabla `missions` y desaparecían al
+    // recargar cuando read_from_normalized estaba activo. (Fix v4.5.2.)
+    updateNormalizedMission(coupleId, id, patch).catch(e => console.error("[dual_write] patchM:", e));
+  };
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
   const goToToday = () => { update(s=>({...s,currentWeekNumber:todayWeek,currentYear:todayYear})); setActiveTab("current"); };
