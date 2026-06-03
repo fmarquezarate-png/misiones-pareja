@@ -7,6 +7,28 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.6] — 2026-06-03 · Cotillón completo en días especiales
+
+### 🎊 Ambiente festivo todo el día
+
+En cumpleaños y aniversario, la app se transforma visualmente durante toda la jornada:
+
+**Confetti cayendo** (canvas, 42 piezas):
+- Mezcla de oro, plata y colores fiesta (rosa, lavanda, verde, naranja, celeste).
+- Piezas cuadradas y circulares, cada una con rotación propia y deriva horizontal.
+- 32fps con pausa automática si la app pasa a segundo plano (batería).
+- Se regeneran desde arriba cuando salen por el fondo.
+
+**Globos subiendo** (7 globos 🎈🎉🎊):
+- Salen desde abajo de la pantalla en bucle continuo.
+- Cada uno con posición horizontal, tamaño, duración y arranque distintos.
+- Los delays negativos aseguran que la pantalla se vea llena desde el primer segundo.
+- Oscilan levemente mientras suben (rotación sinusoidal en keyframes).
+
+Ambas capas son `pointer-events: none` — los clicks y scrolls funcionan con normalidad. Se apilan a z-index 450/451, por debajo del botón flotante y los overlays.
+
+---
+
 ## [4.6.5] — 2026-06-03 · Fix: micro-festejo usa el anillo personal, no la barra global
 
 ### Fix de fórmula
