@@ -907,10 +907,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (mCur.who === "together") {
         setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
-        const weekMissions = data.weeks?.[wkey]?.missions || [];
-        const total = weekMissions.length;
-        if (total > 0) {
-          const doneBefore = weekMissions.filter(m => m.status === "DONE").length;
+        // Usar siempre la semana real de hoy — idéntico a HomeDashboard
+        const { week: tWn, year: tYr } = getWeekAndYear(new Date());
+        const todayMs = data.weeks?.[isoWeekKey(tWn, tYr)]?.missions || [];
+        const total = todayMs.length;
+        if (total > 0 && todayMs.some(m => m.id === mCur.id)) {
+          const doneBefore = todayMs.filter(m => m.status === "DONE").length;
           const beforePct  = Math.round((doneBefore / total) * 100);
           const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
           const color = mCur.who === "person1" ? clr.person1 : clr.person2;
@@ -990,10 +992,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (mCur.who === "together") {
         setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
-        const weekMissions = (data.weeks?.[hint] ?? Object.values(data.weeks).find(w => (w.missions||[]).some(m => m.id === id)))?.missions || [];
-        const total = weekMissions.length;
-        if (total > 0) {
-          const doneBefore = weekMissions.filter(m => m.status === "DONE").length;
+        // Usar siempre la semana real de hoy — idéntico a HomeDashboard
+        const { week: tWn, year: tYr } = getWeekAndYear(new Date());
+        const todayMs = data.weeks?.[isoWeekKey(tWn, tYr)]?.missions || [];
+        const total = todayMs.length;
+        if (total > 0 && todayMs.some(m => m.id === mCur.id)) {
+          const doneBefore = todayMs.filter(m => m.status === "DONE").length;
           const beforePct  = Math.round((doneBefore / total) * 100);
           const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
           const color = mCur.who === "person1" ? clr.person1 : clr.person2;
