@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.5.3] — 2026-06-03 · Unificación de paths de mutación: vista de semana = vista de calendario
+
+### Contexto
+
+El usuario identificó que la vista de semana (WeekTimeline + lista) y el CalendarView tenían **dos funciones distintas** para editar campos de misiones: `patchM` y `patchMissionGlobal`. Cualquier fix o mejora en una no llegaba a la otra, creando divergencias invisibles. Con `patchM` eliminado y ambas vistas usando `patchMissionGlobal`, son 100% coordinadas.
+
+### Cambios
+
+- **Unificación arquitectónica:** `WeekTimeline` y lista semanal ahora llaman a `patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)` en lugar de `patchM(m.id, p)`. Misma función, mismo `resolveWeekKey`, mismo dual-write para ambas vistas.
+- **`patchM` eliminado** — ya no existe la función separada. Cualquier edición de campo de misión, sin importar desde qué vista, usa el mismo path de código.
+
+### Garantías
+
+- Si `patchMissionGlobal` tiene un fix en el futuro, las dos vistas se benefician automáticamente.
+- `resolveWeekKey` (fallback de escaneo por ID) protege ambas vistas contra misiones cuya semana no coincide con el hint.
+- Dual-write a `missions` funciona igual para ambas vistas.
+
+---
+
 ## [4.5.2] — 2026-06-03 · FIX RAÍZ: pérdida de ediciones de fecha en la vista de semana
 
 ### El bug real (que v4.5.0 y v4.5.1 NO tocaban)
