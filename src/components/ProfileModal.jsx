@@ -3,12 +3,18 @@ import { S } from "../styles.js";
 import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 
+const PM_MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+const PM_DAYS   = [31,29,31,30,31,30,31,31,30,31,30,31]; // days per month (feb=29 for picker)
+
 export default function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
-  const [bday1,   setBday1]   = useState(settings.person1Birthday||"");
-  const [bday2,   setBday2]   = useState(settings.person2Birthday||"");
+  const _sb = mmdd => { const p=(mmdd||"").split("-"); return p.length===2 ? p : ["","01"]; };
+  const [bday1M, setBday1M] = useState(() => _sb(settings.person1Birthday)[0]);
+  const [bday1D, setBday1D] = useState(() => _sb(settings.person1Birthday)[1]);
+  const [bday2M, setBday2M] = useState(() => _sb(settings.person2Birthday)[0]);
+  const [bday2D, setBday2D] = useState(() => _sb(settings.person2Birthday)[1]);
   const [anniv,   setAnniv]   = useState(settings.anniversaryDate||"");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const _pm_uprefs = getUserPrefs(sessionUserId);
@@ -70,21 +76,14 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
     setNotifPermission(result);
   };
 
-  const extractMMDD = (dateStr) => {
-    if (!dateStr) return "";
-    const parts = dateStr.split("-");
-    if (parts.length === 3) return `${parts[1]}-${parts[2]}`;
-    return dateStr;
-  };
-
   const save = () => {
     const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
     if (sessionUserId) saveUserPrefs(sessionUserId, { themeId, fontId });
     update(d=>({...d, settings:{...d.settings,
       person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2",
       colors, coupleEmoji, photos, notifications,
-      person1Birthday: extractMMDD(bday1),
-      person2Birthday: extractMMDD(bday2),
+      person1Birthday: bday1M ? `${bday1M}-${bday1D}` : "",
+      person2Birthday: bday2M ? `${bday2M}-${bday2D}` : "",
       anniversaryDate: anniv || null,
     }}));
     onClose();
@@ -173,13 +172,39 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
             </div>
             <div style={{ marginBottom:10 }}>
               <label style={{ ...S.label, color:"rgba(212,160,23,0.8)" }}>🎂 Cumpleaños de {p1||"Persona 1"}</label>
-              <input type="date" value={bday1 ? `2000-${bday1}` : ""} onChange={e => setBday1(extractMMDD(e.target.value))}
-                style={{ ...S.input, colorScheme:"dark" }} />
+              <div style={{ display:"flex", gap:8 }}>
+                <select value={bday1M} onChange={e => { setBday1M(e.target.value); if (!e.target.value) setBday1D("01"); }}
+                  style={{ ...S.input, flex:1, colorScheme:"dark" }}>
+                  <option value="">— Sin configurar —</option>
+                  {PM_MONTHS.map((name,i) => <option key={i} value={String(i+1).padStart(2,"0")}>{name}</option>)}
+                </select>
+                {bday1M && (
+                  <select value={bday1D} onChange={e => setBday1D(e.target.value)}
+                    style={{ ...S.input, width:72, colorScheme:"dark" }}>
+                    {Array.from({length: PM_DAYS[parseInt(bday1M)-1]||31}, (_,i) => (
+                      <option key={i+1} value={String(i+1).padStart(2,"0")}>{i+1}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
             <div style={{ marginBottom:10 }}>
               <label style={{ ...S.label, color:"rgba(212,160,23,0.8)" }}>🎂 Cumpleaños de {p2||"Persona 2"}</label>
-              <input type="date" value={bday2 ? `2000-${bday2}` : ""} onChange={e => setBday2(extractMMDD(e.target.value))}
-                style={{ ...S.input, colorScheme:"dark" }} />
+              <div style={{ display:"flex", gap:8 }}>
+                <select value={bday2M} onChange={e => { setBday2M(e.target.value); if (!e.target.value) setBday2D("01"); }}
+                  style={{ ...S.input, flex:1, colorScheme:"dark" }}>
+                  <option value="">— Sin configurar —</option>
+                  {PM_MONTHS.map((name,i) => <option key={i} value={String(i+1).padStart(2,"0")}>{name}</option>)}
+                </select>
+                {bday2M && (
+                  <select value={bday2D} onChange={e => setBday2D(e.target.value)}
+                    style={{ ...S.input, width:72, colorScheme:"dark" }}>
+                    {Array.from({length: PM_DAYS[parseInt(bday2M)-1]||31}, (_,i) => (
+                      <option key={i+1} value={String(i+1).padStart(2,"0")}>{i+1}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
             <div>
               <label style={{ ...S.label, color:"rgba(212,160,23,0.8)" }}>💍 Aniversario</label>

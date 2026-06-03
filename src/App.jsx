@@ -21,6 +21,8 @@ import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNo
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import WrappedModal from "./components/WrappedModal.jsx";
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
+import SpecialDayTheme from "./components/SpecialDayTheme.jsx";
+import SpecialDayButton from "./components/SpecialDayButton.jsx";
 import BirthdaysView from "./components/BirthdaysView.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
@@ -167,7 +169,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const { ConfirmDialog } = useConfirm();
   const [juntosMoment, setJuntosMoment] = useState(null);  // { mission, p1Name, p2Name, p1Color, p2Color }
   const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
-  const [specialDay,  setSpecialDay]   = useState(null);   // { type:"birthday"|"anniversary", name?, years? }
+  const [specialDay,      setSpecialDay]      = useState(null);   // overlay open state — null when dismissed
+  const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -388,7 +391,27 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId]);
 
-  // Special day detection (birthday / anniversary)
+  // Special day detection — all-day theme + floating button (no localStorage gate)
+  useEffect(() => {
+    if (loading || !coupleId || !data?.settings) return;
+    const today = new Date();
+    const mmdd  = `${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const s = data.settings;
+    let event = null;
+    if (s.person1Birthday === mmdd) event = { type:"birthday", name: p1, who:"person1" };
+    else if (s.person2Birthday === mmdd) event = { type:"birthday", name: p2, who:"person2" };
+    else if (s.anniversaryDate) {
+      const aMMDD = s.anniversaryDate.slice(5);
+      if (aMMDD === mmdd) {
+        const years = today.getFullYear() - parseInt(s.anniversaryDate.slice(0,4));
+        event = { type:"anniversary", years: years > 0 ? years : null };
+      }
+    }
+    setSpecialDayEvent(event);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, coupleId, data?.settings?.person1Birthday, data?.settings?.person2Birthday, data?.settings?.anniversaryDate]);
+
+  // Special day overlay — shown once per calendar day
   useEffect(() => {
     if (loading || !coupleId || !data?.settings) return;
     const today = new Date();
@@ -1422,7 +1445,15 @@ ${sorted.map(m=>{
         />
       )}
 
-      {/* Evento especial — cumpleaños y aniversario */}
+      {/* Tema dorado todo el día en fechas especiales */}
+      {specialDayEvent && <SpecialDayTheme />}
+
+      {/* Botón flotante que permite re-ver la celebración durante el día */}
+      {specialDayEvent && !specialDay && (
+        <SpecialDayButton onReplay={() => setSpecialDay(specialDayEvent)} />
+      )}
+
+      {/* Evento especial — cumpleaños y aniversario (se puede re-abrir) */}
       {specialDay && (
         <SpecialDayOverlay
           event={specialDay}
