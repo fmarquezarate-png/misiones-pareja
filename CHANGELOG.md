@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.5.1] — 2026-06-02 · Fix definitivo: pérdidas silenciosas al actualizar eventos
+
+### Fixes
+
+- **`patchMissionGlobal`, `cycleStatusGlobal`, `deleteMissionGlobal` nunca más fallan silenciosamente** — las tres funciones usaban `data.weeks[isoWeekKey(wn, yr)]` y si la clave no coincidía (semana antigua sin `weekNumber`, hint incorrecto) devolvían `d` sin tocar nada. Ahora hay un helper `resolveWeekKey` que primero intenta el fast path (clave hint) y, si la misión no está en esa semana, escanea todas las semanas por ID como fallback. Costo: O(n·m) donde n≈100 semanas y m≈15 misiones/semana — negligible. Cero pérdidas silenciosas desde esta versión.
+
+---
+
 ## [4.5.0] — 2026-06-02 · Fix eventos + UX orbe + avatar dueño + toasts + contraste
 
 ### Fixes

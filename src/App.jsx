@@ -841,13 +841,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
     }
   };
+  // If the hint key misses (e.g. old week without weekNumber field), scan all weeks.
+  const resolveWeekKey = (d, hintKey, id) => {
+    if (d.weeks[hintKey]?.missions?.some(m => m.id === id)) return hintKey;
+    return Object.keys(d.weeks).find(k => d.weeks[k]?.missions?.some(m => m.id === id)) ?? null;
+  };
+
   const cycleStatusGlobal = (wn, yr, id) => {
-    const key = isoWeekKey(wn, yr);
-    const wCur = data.weeks[key];
-    const mCur = wCur?.missions?.find(x => x.id === id);
+    const hint = isoWeekKey(wn, yr);
+    const wCur = data.weeks[hint];
+    const mCur = wCur?.missions?.find(x => x.id === id)
+      ?? Object.values(data.weeks).flatMap(w => w.missions||[]).find(m => m.id === id);
     const nx = mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null;
     update(d => {
-      const w = d.weeks[key]; if (!w) return d;
+      const key = resolveWeekKey(d, hint, id); if (!key) return d;
+      const w = d.weeks[key];
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
       const nxx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
       let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nxx,completedAt:nxx==="DONE"?Date.now():null}:x) } } };
@@ -860,19 +868,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
-    const key = isoWeekKey(wn, yr);
+    const hint = isoWeekKey(wn, yr);
     update(d => {
-      const w = d.weeks[key]; if (!w) return d;
-      const ms = w.missions || [];
-      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: ms.map(x=>x.id===id?{...x,...patch}:x) } } };
+      const key = resolveWeekKey(d, hint, id); if (!key) return d;
+      const w = d.weeks[key];
+      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: (w.missions||[]).map(x=>x.id===id?{...x,...patch}:x) } } };
     });
     updateNormalizedMission(coupleId, id, patch).catch(e => console.error("[dual_write] patch:", e));
   };
   const deleteMissionGlobal = (wn, yr, id) => {
-    const key = isoWeekKey(wn, yr);
+    const hint = isoWeekKey(wn, yr);
     deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
     update(d => {
-      const w = d.weeks[key]; if (!w) return d;
+      const key = resolveWeekKey(d, hint, id); if (!key) return d;
+      const w = d.weeks[key];
       return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.filter(x=>x.id!==id) } } };
     });
   };
