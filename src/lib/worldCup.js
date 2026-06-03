@@ -143,3 +143,8 @@ export function wcMatchesForMonth(matches, year, month) {
 export function isWCMonth(year, month) {
   return year === 2026 && (month === 5 || month === 6); // June=5, July=6
 }
+
+// True after the Final (July 19 2026) — mode auto-disables
+export function isWCOver() {
+  return new Date() > new Date("2026-07-19T23:59:59Z");
+}

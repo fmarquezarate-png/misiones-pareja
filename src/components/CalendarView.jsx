@@ -4,7 +4,7 @@ import { S, badgeStyle, catBadgeStyle } from "../styles.js";
 import { DEFAULT_COLORS, STATUS, STATUS_ORDER, CATEGORIES, CAT_MAP, getMCats } from "../constants.js";
 import { getMissionDates } from "../lib/appUtils.js";
 import { isoWeekKey } from "../utils.js";
-import { fetchWCMatches, wcMatchesForDate, isWCMonth } from "../lib/worldCup.js";
+import { fetchWCMatches, wcMatchesForDate, isWCMonth, isWCOver } from "../lib/worldCup.js";
 
 export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter = [], catFilter = [], goals = [] }) {
   const { confirm, ConfirmDialog } = useConfirm();
@@ -29,8 +29,16 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
     localStorage.setItem("mp-wc-mode", next ? "1" : "0");
   };
 
+  // Auto-disable once the Final is over — no manual cleanup needed
   useEffect(() => {
-    if (!wcMode) return;
+    if (wcMode && isWCOver()) {
+      setWcMode(false);
+      localStorage.removeItem("mp-wc-mode");
+    }
+  }, [wcMode]);
+
+  useEffect(() => {
+    if (!wcMode || isWCOver()) return;
     if (wcMatches !== null) return;
     setWcLoading(true);
     setWcError(false);
@@ -113,9 +121,11 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
           {(calYear !== today.getFullYear() || calMonth !== today.getMonth()) && (
             <button onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setSelectedDay(null); }} style={{ background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 99, color: "var(--t-accent,#a78bfa)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit" }}>⟲ Volver a hoy</button>
           )}
-          <button onClick={toggleWC} style={{ background: wcMode ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcMode ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcMode ? "#34d399" : "var(--t-text-dim,#6b5f88)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
-            🏆 Mundial 2026{wcMode ? (wcLoading ? " ·⌛" : wcError ? " · sin datos" : " · ON") : ""}
-          </button>
+          {!isWCOver() && (
+            <button onClick={toggleWC} style={{ background: wcMode ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcMode ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcMode ? "#34d399" : "var(--t-text-dim,#6b5f88)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+              🏆 Mundial 2026{wcMode ? (wcLoading ? " ·⌛" : wcError ? " · sin datos" : " · ON") : ""}
+            </button>
+          )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 3 }}>
           {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: numSz, color: "var(--t-text-dim,#4a4166)", fontWeight: 600, padding: "3px 0" }}>{d}</div>)}
