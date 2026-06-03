@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.5] — 2026-06-03 · Fix: micro-festejo usa el anillo personal, no la barra global
+
+### Fix de fórmula
+
+El porcentaje del `TaskCongrat` ahora muestra el **% del anillo personal** (el ring de la persona), no el % de la barra global de la semana:
+
+| Antes (barra global) | Ahora (anillo personal) |
+|---|---|
+| `total = missions de la semana actual` (incluye eventos) | últimos 15 días, solo tareas (no eventos) |
+| `done / total * 100` sin filtros | exluye `completedLate`, fechas futuras |
+| resultado: 22% → 28% en el screenshot | incluye "juntos" + tareas propias → coincide con el ring |
+
+La fórmula es idéntica a `HomeDashboard PersonStats`: `buildStats(active)` donde `active = personMs.filter(m => !m.completedLate)`.
+
+---
+
 ## [4.6.4] — 2026-06-03 · Fix: porcentaje del micro-festejo sincronizado con el home
 
 ### Fix de sincronización
