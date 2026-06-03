@@ -4,6 +4,7 @@ import { S, badgeStyle, catBadgeStyle } from "../styles.js";
 import { DEFAULT_COLORS, STATUS, STATUS_ORDER, CATEGORIES, CAT_MAP, getMCats } from "../constants.js";
 import { getMissionDates } from "../lib/appUtils.js";
 import { isoWeekKey } from "../utils.js";
+import { fetchWCMatches, wcMatchesForDate, isWCMonth, isWCOver } from "../lib/worldCup.js";
 
 export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter = [], catFilter = [], goals = [] }) {
   const { confirm, ConfirmDialog } = useConfirm();
@@ -15,6 +16,38 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
   const [dragOver, setDragOver] = useState(null);
   const [cellPx, setCellPx] = useState(44);
   const calRef = useRef(null);
+
+  // ── Mundial 2026 ──────────────────────────────────────────────────────────
+  const [wcMode, setWcMode] = useState(() => localStorage.getItem("mp-wc-mode") === "1");
+  const [wcMatches, setWcMatches] = useState(null);  // null=not loaded, []=loaded
+  const [wcLoading, setWcLoading] = useState(false);
+  const [wcError, setWcError] = useState(false);
+
+  const toggleWC = () => {
+    const next = !wcMode;
+    setWcMode(next);
+    localStorage.setItem("mp-wc-mode", next ? "1" : "0");
+  };
+
+  // Auto-disable once the Final is over — no manual cleanup needed
+  useEffect(() => {
+    if (wcMode && isWCOver()) {
+      setWcMode(false);
+      localStorage.removeItem("mp-wc-mode");
+    }
+  }, [wcMode]);
+
+  useEffect(() => {
+    if (!wcMode || isWCOver()) return;
+    if (wcMatches !== null) return;
+    setWcLoading(true);
+    setWcError(false);
+    fetchWCMatches().then(m => {
+      setWcMatches(m || []);
+      setWcLoading(false);
+      setWcError(!m);
+    });
+  }, [wcMode, wcMatches]);
 
   const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const DAYS = ["L","M","X","J","V","S","D"];
@@ -59,6 +92,8 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
   const cells = [...Array(firstDow).fill(null), ...Array.from({ length: daysInM }, (_, i) => i + 1)];
   const selStr = selectedDay ? `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` : null;
   const selMs = selStr ? (byDate[selStr] || []) : [];
+  const wcForSelDay = (wcMode && wcMatches && selStr) ? wcMatchesForDate(wcMatches, selStr) : [];
+  const showWCMonth = wcMode && isWCMonth(calYear, calMonth);
 
   const onDragStart = (e, m) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", JSON.stringify({ id: m.id, wn: m.weekNumber, yr: m._yr })); };
   const onDropDay = (e, dateStr) => {
@@ -82,11 +117,16 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
           <div style={{ fontFamily: "'Fraunces',serif", fontSize: 20, fontWeight: 600, minWidth: 160, textAlign: "center" }}>{MONTHS[calMonth]} {calYear}</div>
           <button onClick={nextM} style={S.btnNav}>›</button>
         </div>
-        {(calYear !== today.getFullYear() || calMonth !== today.getMonth()) && (
-          <div style={{ textAlign: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          {(calYear !== today.getFullYear() || calMonth !== today.getMonth()) && (
             <button onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setSelectedDay(null); }} style={{ background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 99, color: "var(--t-accent,#a78bfa)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit" }}>⟲ Volver a hoy</button>
-          </div>
-        )}
+          )}
+          {!isWCOver() && (
+            <button onClick={toggleWC} style={{ background: wcMode ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcMode ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcMode ? "#34d399" : "var(--t-text-dim,#6b5f88)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+              🏆 Mundial 2026{wcMode ? (wcLoading ? " ·⌛" : wcError ? " · sin datos" : " · ON") : ""}
+            </button>
+          )}
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 3 }}>
           {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: numSz, color: "var(--t-text-dim,#4a4166)", fontWeight: 600, padding: "3px 0" }}>{d}</div>)}
         </div>
@@ -97,10 +137,17 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
             const ms = byDate[ds] || [], isTd = ds === todayStr, isSel = day === selectedDay, isDO = dragOver === ds;
             const multiMs = ms.filter(m => spanOf(m).length > 1);
             const singleMs = ms.filter(m => spanOf(m).length <= 1);
+            const wcDay = (showWCMonth && wcMatches) ? wcMatchesForDate(wcMatches, ds) : [];
+            const hasAny = ms.length > 0 || wcDay.length > 0;
+            // slots: show user missions first, then WC emojis in remaining slots
+            const shownSingle = singleMs.slice(0, maxPerCell);
+            const wcSlots = Math.max(0, maxPerCell - shownSingle.length);
+            const shownWC = wcDay.slice(0, wcSlots);
+            const overflow = (singleMs.length - shownSingle.length) + (wcDay.length - shownWC.length);
             return (
               <div key={day} onClick={() => setSelectedDay(isSel ? null : day)}
                 onDragEnter={e => { e.preventDefault(); setDragOver(ds); }} onDragOver={e => e.preventDefault()} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(null); }} onDrop={e => onDropDay(e, ds)}
-                style={{ borderRadius: 6, minHeight: cellH, overflow: "hidden", cursor: "pointer", background: isDO ? "rgba(167,139,250,0.3)" : isSel ? "rgba(167,139,250,0.22)" : ms.length > 0 ? "rgba(167,139,250,0.06)" : "rgba(255,255,255,0.02)", border: isDO ? "1px solid rgba(167,139,250,0.7)" : isSel ? "1px solid rgba(167,139,250,0.55)" : "1px solid rgba(255,255,255,0.04)", transition: "all 0.12s" }}>
+                style={{ borderRadius: 6, minHeight: cellH, overflow: "hidden", cursor: "pointer", background: isDO ? "rgba(167,139,250,0.3)" : isSel ? "rgba(167,139,250,0.22)" : ms.length > 0 ? "rgba(167,139,250,0.06)" : wcDay.length > 0 ? "rgba(52,211,153,0.04)" : "rgba(255,255,255,0.02)", border: isDO ? "1px solid rgba(167,139,250,0.7)" : isSel ? "1px solid rgba(167,139,250,0.55)" : wcDay.length > 0 && ms.length === 0 ? "1px solid rgba(52,211,153,0.18)" : "1px solid rgba(255,255,255,0.04)", transition: "all 0.12s" }}>
                 {multiMs.map(m => {
                   const mDates = spanOf(m);
                   const isFirst = mDates[0] === ds, isLast = mDates[mDates.length - 1] === ds;
@@ -115,11 +162,22 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                 <div style={{ padding: "2px 3px" }}>
                   <div style={{ fontSize: numSz, fontWeight: 600, marginBottom: 2, textAlign: "center", color: isTd ? "#f472b6" : isSel ? "#c4b8ff" : "#4a4166", width: 18, height: 18, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 2px", border: isTd ? "1.5px solid #f472b6" : "1.5px solid transparent", lineHeight: 1 }}>{day}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center" }}>
-                    {singleMs.slice(0, maxPerCell).map(m => { const bg = m.who === "person1" ? clrC.person1 : m.who === "person2" ? clrC.person2 : clrC.together; return <span key={`${m.id}-${ds}`} draggable onDragStart={e => { e.stopPropagation(); onDragStart(e, m); }} onDragEnd={() => setDragOver(null)} title={m.title} style={{ fontSize: emojiSz, lineHeight: 1, background: `${bg}30`, border: `1px solid ${bg}55`, borderRadius: 3, padding: "1px 2px", opacity: m.status === "DONE" ? 0.4 : 1, cursor: "grab" }}>{m.emoji}</span>; })}
-                    {singleMs.length > maxPerCell && <span style={{ fontSize: 8, color: "var(--t-text-dim,#4a4166)" }}>+{singleMs.length - maxPerCell}</span>}
+                    {shownSingle.map(m => { const bg = m.who === "person1" ? clrC.person1 : m.who === "person2" ? clrC.person2 : clrC.together; return <span key={`${m.id}-${ds}`} draggable onDragStart={e => { e.stopPropagation(); onDragStart(e, m); }} onDragEnd={() => setDragOver(null)} title={m.title} style={{ fontSize: emojiSz, lineHeight: 1, background: `${bg}30`, border: `1px solid ${bg}55`, borderRadius: 3, padding: "1px 2px", opacity: m.status === "DONE" ? 0.4 : 1, cursor: "grab" }}>{m.emoji}</span>; })}
+                    {shownWC.map(wm => <span key={wm.id} title={`⚽ ${wm.home} vs ${wm.away}`} style={{ fontSize: emojiSz, lineHeight: 1, background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 3, padding: "1px 2px" }}>⚽</span>)}
+                    {overflow > 0 && <span style={{ fontSize: 8, color: "var(--t-text-dim,#4a4166)" }}>+{overflow}</span>}
                   </div>
                 </div>
-                {ms.length > 0 && (() => { const p1c = ms.filter(m => m.who === "person1").length, p2c = ms.filter(m => m.who === "person2").length, tg = ms.filter(m => m.who === "together").length; return <div style={{ height: 2, display: "flex", gap: 0, overflow: "hidden" }}>{p1c > 0 && <i style={{ background: clrC.person1, flex: p1c, height: "100%" }} />}{p2c > 0 && <i style={{ background: clrC.person2, flex: p2c, height: "100%" }} />}{tg > 0 && <i style={{ background: clrC.together, flex: tg, height: "100%" }} />}</div>; })()}
+                {hasAny && (() => {
+                  const p1c = ms.filter(m => m.who === "person1").length, p2c = ms.filter(m => m.who === "person2").length, tg = ms.filter(m => m.who === "together").length;
+                  return (
+                    <div style={{ height: 2, display: "flex", gap: 0, overflow: "hidden" }}>
+                      {p1c > 0 && <i style={{ background: clrC.person1, flex: p1c, height: "100%" }} />}
+                      {p2c > 0 && <i style={{ background: clrC.person2, flex: p2c, height: "100%" }} />}
+                      {tg > 0 && <i style={{ background: clrC.together, flex: tg, height: "100%" }} />}
+                      {wcDay.length > 0 && <i style={{ background: "#34d399", flex: wcDay.length, height: "100%" }} />}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -134,8 +192,31 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
               {onAddForDay && <button onClick={() => onAddForDay(selStr)} style={{ ...S.btnPrimary, fontSize: 11, padding: "5px 10px" }}>+ Añadir</button>}
             </div>
           </div>
-          {selMs.length === 0
+
+          {/* WC matches for this day */}
+          {wcForSelDay.length > 0 && (
+            <div style={{ marginBottom: selMs.length > 0 ? 10 : 0, paddingBottom: selMs.length > 0 ? 10 : 0, borderBottom: selMs.length > 0 ? "1px solid rgba(52,211,153,0.12)" : "none" }}>
+              {wcForSelDay.map(wm => (
+                <div key={wm.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(52,211,153,0.07)" }}>
+                  <span style={{ fontSize: 22, flexShrink: 0 }}>⚽</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#34d399", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {wm.homeFlag} {wm.home} vs {wm.away} {wm.awayFlag}
+                    </div>
+                    <div style={{ fontSize: 10, color: "rgba(52,211,153,0.65)", marginTop: 2 }}>
+                      {wm.round}{wm.time ? ` · ${wm.time} h. España` : ""}
+                      {wm.score1 !== null ? ` · ${wm.score1}–${wm.score2}` : ""}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, background: "rgba(52,211,153,0.1)", color: "#34d399", border: "1px solid rgba(52,211,153,0.28)", padding: "2px 8px", borderRadius: 99, flexShrink: 0 }}>WC26</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {selMs.length === 0 && wcForSelDay.length === 0
             ? <div style={{ color: "var(--t-text-dim,#3d3360)", fontStyle: "italic", fontSize: 13 }}>Sin misiones para este día</div>
+            : selMs.length === 0 ? null
             : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {selMs.map(m => {
