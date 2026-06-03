@@ -907,12 +907,26 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (mCur.who === "together") {
         setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
-        // Usar siempre la semana real de hoy — idéntico a HomeDashboard
+        // Fórmula idéntica al anillo personal de HomeDashboard:
+        // últimos 15 días, excluyendo eventos / futuras / completedLate,
+        // incluyendo misiones del dueño + "together"
+        const td = new Date();
+        const todayStr = `${td.getFullYear()}-${String(td.getMonth()+1).padStart(2,"0")}-${String(td.getDate()).padStart(2,"0")}`;
         const { week: tWn, year: tYr } = getWeekAndYear(new Date());
-        const todayMs = data.weeks?.[isoWeekKey(tWn, tYr)]?.missions || [];
-        const total = todayMs.length;
-        if (total > 0 && todayMs.some(m => m.id === mCur.id)) {
-          const doneBefore = todayMs.filter(m => m.status === "DONE").length;
+        const todayWkey = isoWeekKey(tWn, tYr);
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
+        const { week: cWn, year: cYr } = getWeekAndYear(cutoff);
+        const cutoffWkey = isoWeekKey(cWn, cYr);
+        const last15 = Object.entries(data.weeks)
+          .filter(([k]) => k >= cutoffWkey && k <= todayWkey)
+          .flatMap(([,w]) => (w.missions||[]).filter(m => m.type !== "event" && (!m.date || m.date <= todayStr)));
+        const personMs = last15.filter(m => mCur.who === "person1"
+          ? (m.who === "person1" || m.who === "together")
+          : (m.who === "person2" || m.who === "together"));
+        const active = personMs.filter(m => !m.completedLate);
+        const total = active.length;
+        if (total > 0 && active.some(m => m.id === mCur.id)) {
+          const doneBefore = active.filter(m => m.status === "DONE").length;
           const beforePct  = Math.round((doneBefore / total) * 100);
           const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
           const color = mCur.who === "person1" ? clr.person1 : clr.person2;
@@ -992,12 +1006,24 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (mCur.who === "together") {
         setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
-        // Usar siempre la semana real de hoy — idéntico a HomeDashboard
+        // Fórmula idéntica al anillo personal de HomeDashboard
+        const td = new Date();
+        const todayStr = `${td.getFullYear()}-${String(td.getMonth()+1).padStart(2,"0")}-${String(td.getDate()).padStart(2,"0")}`;
         const { week: tWn, year: tYr } = getWeekAndYear(new Date());
-        const todayMs = data.weeks?.[isoWeekKey(tWn, tYr)]?.missions || [];
-        const total = todayMs.length;
-        if (total > 0 && todayMs.some(m => m.id === mCur.id)) {
-          const doneBefore = todayMs.filter(m => m.status === "DONE").length;
+        const todayWkey = isoWeekKey(tWn, tYr);
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
+        const { week: cWn, year: cYr } = getWeekAndYear(cutoff);
+        const cutoffWkey = isoWeekKey(cWn, cYr);
+        const last15 = Object.entries(data.weeks)
+          .filter(([k]) => k >= cutoffWkey && k <= todayWkey)
+          .flatMap(([,w]) => (w.missions||[]).filter(m => m.type !== "event" && (!m.date || m.date <= todayStr)));
+        const personMs = last15.filter(m => mCur.who === "person1"
+          ? (m.who === "person1" || m.who === "together")
+          : (m.who === "person2" || m.who === "together"));
+        const active = personMs.filter(m => !m.completedLate);
+        const total = active.length;
+        if (total > 0 && active.some(m => m.id === mCur.id)) {
+          const doneBefore = active.filter(m => m.status === "DONE").length;
           const beforePct  = Math.round((doneBefore / total) * 100);
           const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
           const color = mCur.who === "person1" ? clr.person1 : clr.person2;
