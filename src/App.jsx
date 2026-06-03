@@ -18,6 +18,8 @@ import MissionCard from "./components/MissionCard.jsx";
 import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
+import JuntosMoment from "./components/JuntosMoment.jsx";
+import WrappedModal from "./components/WrappedModal.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
@@ -161,6 +163,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [weekViewMode,  setWeekViewMode]  = useState("timeline"); // "list" | "timeline"
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
   const { ConfirmDialog } = useConfirm();
+  const [juntosMoment, setJuntosMoment] = useState(null);  // { mission, p1Name, p2Name, p1Color, p2Color }
+  const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -350,6 +354,33 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const t = setTimeout(() => setTutorialStep(0), 700);
       return () => clearTimeout(t);
     }
+  }, [loading, coupleId]);
+
+  // Weekly / Monthly Wrapped gate
+  useEffect(() => {
+    if (loading || !coupleId || !data) return;
+    const today = new Date();
+    const isMonday      = today.getDay() === 1;
+    const isFirstOfMonth = today.getDate() === 1;
+    if (!isMonday && !isFirstOfMonth) return;
+    // Previous week key
+    const prevDate = new Date(today); prevDate.setDate(today.getDate() - 7);
+    const { week: pw, year: py } = getWeekAndYear(prevDate);
+    const prevKey  = isoWeekKey(pw, py);
+    const monthKey = `${today.getFullYear()}-${today.getMonth()}`;
+    const weeklyDue   = isMonday && !localStorage.getItem(`mp-wrapped-wk-${prevKey}`);
+    const monthlyDue  = isFirstOfMonth && !localStorage.getItem(`mp-wrapped-mo-${monthKey}`);
+    if (!weeklyDue && !monthlyDue) return;
+    // Only show weekly if there's actual data for that week
+    const hasPrevWeek = (data.weeks[prevKey]?.missions?.length || 0) > 0;
+    if (!hasPrevWeek && !monthlyDue) return;
+    const t = setTimeout(() => setWrappedConfig({
+      showWeekly: weeklyDue && hasPrevWeek,
+      showMonthlyOption: monthlyDue,
+      prevKey, monthKey,
+    }), 600);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId]);
 
   // Navigate to tab when tutorial step changes
@@ -798,6 +829,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
+    if (nx === "DONE" && mCur?.who === "together") {
+      const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
+      setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+    }
   };
 
   const delMission = id => {
@@ -865,6 +900,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
+    if (nx === "DONE" && mCur?.who === "together") {
+      const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
+      setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+    }
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const hint = isoWeekKey(wn, yr);
@@ -1313,6 +1352,33 @@ ${sorted.map(m=>{
         <DevBackfillPanel coupleId={coupleId} blobData={data} />
       )}
       <ConfirmDialog />
+
+      {/* Wrapped gate — appears Monday mornings and 1st of month */}
+      {wrappedConfig && (
+        <WrappedModal
+          showWeekly={wrappedConfig.showWeekly}
+          showMonthlyOption={wrappedConfig.showMonthlyOption}
+          weeks={data?.weeks || {}}
+          p1={p1} p2={p2} colors={data?.settings?.colors}
+          onClose={() => {
+            if (wrappedConfig.prevKey) localStorage.setItem(`mp-wrapped-wk-${wrappedConfig.prevKey}`, "1");
+            if (wrappedConfig.monthKey) localStorage.setItem(`mp-wrapped-mo-${wrappedConfig.monthKey}`, "1");
+            setWrappedConfig(null);
+          }}
+        />
+      )}
+
+      {/* Momento Juntos — aparece al completar una tarea/evento compartido */}
+      {juntosMoment && (
+        <JuntosMoment
+          mission={juntosMoment.mission}
+          p1Name={juntosMoment.p1Name}
+          p2Name={juntosMoment.p2Name}
+          p1Color={juntosMoment.p1Color}
+          p2Color={juntosMoment.p2Color}
+          onDone={() => setJuntosMoment(null)}
+        />
+      )}
     </div>
   );
 }

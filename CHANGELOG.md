@@ -7,6 +7,43 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.0] — 2026-06-03 · Momento Juntos + Wrapped Semanal/Mensual
+
+### Momento Juntos
+
+Al completar cualquier tarea o evento compartido (`who=together`), aparece un overlay de pantalla completa:
+
+- Los dos círculos de color de cada persona (colores reales de la pareja) se deslizan desde fuera del frame y se encuentran en el centro.
+- En la zona de intersección se produce una **mezcla real de colores** via `mix-blend-mode: screen` sobre `isolation: isolate` — no un solapado donde un círculo tapa al otro.
+- Un destello blanco en el punto de unión, seguido de 8 partículas de color que salen en todas direcciones.
+- El emoji de la misión, el título y "¡Tarea/Evento Completada!" aparecen con animación desde abajo.
+- Nombres de ambas personas en la parte inferior.
+- **Funciona desde ambas vistas:** vista de semana actual y CalendarView.
+- Se descarta tocando en cualquier parte (o auto-descarta a los 3.5s).
+
+### Wrapped Semanal
+
+Todos los **lunes** al cargar la app, aparece un modal con el resumen de la semana anterior:
+- % de completitud en número gigante (Fraunces serif, color según el rango: verde/amarillo/rosa).
+- Desglose: `p1 X/Y`, `p2 X/Y`, `Juntos X/Y`.
+- Categoría top de la semana.
+- Frase motivacional aleatoria.
+- CTA "¡A por esta semana!".
+- Solo se muestra **una vez por semana** (marcado en localStorage).
+- Si no hay datos para la semana anterior, se omite silenciosamente.
+
+### Wrapped Mensual
+
+El **día 1 de cada mes**, el modal ofrece también el resumen del mes anterior:
+- Total de misiones completadas, %, número de semanas.
+- Mejor semana del mes.
+- Misiones Juntos del mes.
+- CTA adaptado al nuevo mes.
+
+En días que son **lunes Y 1 del mes a la vez**, un gate inicial ofrece las dos opciones ("Ver Wrapped Semanal" / "Ver Wrapped Mensual") con un tercer botón "Entrar directamente".
+
+---
+
 ## [4.5.3] — 2026-06-03 · Unificación de paths de mutación: vista de semana = vista de calendario
 
 ### Contexto
