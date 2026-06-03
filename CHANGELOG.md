@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.3] — 2026-06-03 · Micro-festejo de tarea individual
+
+### 🎯 Tarjeta de felicitación sutil
+
+Al completar una tarea individual (no "juntos" — esas siguen con JuntosMoment), aparece una tarjeta que sube desde el borde inferior con:
+
+- **Título** de la tarea con su emoji.
+- **Barra de progreso** de la semana que se anima del porcentaje anterior al nuevo.
+- **Badge** "+X% · al Y%" en el color del dueño de la tarea.
+- **Mensaje** que varía según avance de la semana:
+  - **0-27%** — Muy animador: _"¡Primer paso! Así se empieza 💪"_, _"El camino empieza aquí ✨"_
+  - **28-54%** — Empujador: _"¡Vas bien! No pares ahora ⚡"_, _"Cada tarea suma. Esta también 💡"_
+  - **55-79%** — Tranquilo: _"Gran semana hasta ahora ✨"_, _"La constancia tiene nombre: el tuyo 🎯"_
+  - **80-100%** — Maduro/confiado: _"Tú ya sé que sabes 😌"_, _"Eso. Sin más ✦"_, _"No me sorprende. Para nada 😏"_
+
+Se auto-cierra a los 4 segundos o al tocar. Las tareas "juntos" siguen usando la pantalla completa JuntosMoment.
+
+---
+
 ## [4.6.2] — 2026-06-03 · Tema dorado todo el día + Botón flotante + Fix selectores cumpleaños
 
 ### ✦ Días especiales — tema dorado todo el día

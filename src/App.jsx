@@ -19,6 +19,7 @@ import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 import JuntosMoment from "./components/JuntosMoment.jsx";
+import TaskCongrat from "./components/TaskCongrat.jsx";
 import WrappedModal from "./components/WrappedModal.jsx";
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
 import SpecialDayTheme from "./components/SpecialDayTheme.jsx";
@@ -168,6 +169,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
   const { ConfirmDialog } = useConfirm();
   const [juntosMoment, setJuntosMoment] = useState(null);  // { mission, p1Name, p2Name, p1Color, p2Color }
+  const [taskCongrat,  setTaskCongrat]  = useState(null);  // { mission, beforePct, afterPct, delta, color }
   const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
   const [specialDay,      setSpecialDay]      = useState(null);   // overlay open state — null when dismissed
   const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
@@ -900,9 +902,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
-    if (nx === "DONE" && mCur?.who === "together") {
+    if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
-      setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+      if (mCur.who === "together") {
+        setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+      } else {
+        const weekMissions = data.weeks?.[wkey]?.missions || [];
+        const total = weekMissions.length;
+        if (total > 0) {
+          const doneBefore = weekMissions.filter(m => m.status === "DONE").length;
+          const beforePct  = Math.round((doneBefore / total) * 100);
+          const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
+          const color = mCur.who === "person1" ? clr.person1 : clr.person2;
+          setTaskCongrat({ mission: mCur, beforePct, afterPct, delta: afterPct - beforePct, color });
+        }
+      }
     }
   };
 
@@ -971,9 +985,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
-    if (nx === "DONE" && mCur?.who === "together") {
+    if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
-      setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+      if (mCur.who === "together") {
+        setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+      } else {
+        const weekMissions = (data.weeks?.[hint] ?? Object.values(data.weeks).find(w => (w.missions||[]).some(m => m.id === id)))?.missions || [];
+        const total = weekMissions.length;
+        if (total > 0) {
+          const doneBefore = weekMissions.filter(m => m.status === "DONE").length;
+          const beforePct  = Math.round((doneBefore / total) * 100);
+          const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
+          const color = mCur.who === "person1" ? clr.person1 : clr.person2;
+          setTaskCongrat({ mission: mCur, beforePct, afterPct, delta: afterPct - beforePct, color });
+        }
+      }
     }
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
@@ -1460,6 +1486,11 @@ ${sorted.map(m=>{
           p1={p1} p2={p2}
           onDone={() => setSpecialDay(null)}
         />
+      )}
+
+      {/* Micro-festejo individual — sutil, con % de semana y mensaje por banda */}
+      {taskCongrat && (
+        <TaskCongrat key={taskCongrat.mission.id + taskCongrat.afterPct} info={taskCongrat} onDone={() => setTaskCongrat(null)} />
       )}
 
       {/* Momento Juntos — aparece al completar una tarea/evento compartido */}
