@@ -1,9 +1,8 @@
 // World Cup 2026 – fetch, parse, cache
-// Source: openfootball/worldcup.json (GitHub raw, no API key needed, CORS-friendly)
-// Times are displayed as-is from the source with "(h. local)" label —
-// venues span ET/CT/MT/PT so per-match conversion would need venue data.
+// Source: openfootball/worldcup.json (GitHub raw, no API key, CORS-friendly)
+// Times in openfootball JSON are UTC. We convert to Spain/Barcelona (CEST = UTC+2) for June/July.
 
-const CACHE_KEY = "mp-wc2026";
+const CACHE_KEY = "mp-wc2026v2"; // v2: times converted to Spain time
 const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const SOURCES = [
@@ -11,15 +10,15 @@ const SOURCES = [
   "https://raw.githubusercontent.com/openfootball/worldcup.json/main/2026/worldcup.json",
 ];
 
-// Argentina is UTC-3, no DST in June/July.
-// Convert a UTC timeStr ("19:00") + ISO dateStr ("2026-06-11") → { date, time } in Argentina.
-export function toArgentineTime(dateStr, timeStr) {
+// Spain/Barcelona in June-July = CEST = UTC+2.
+// openfootball times are UTC, so add 2 hours.
+export function toSpainTime(dateStr, timeStr) {
   if (!dateStr || !timeStr) return { date: dateStr, time: timeStr };
   try {
     const utcMs = new Date(dateStr + "T" + timeStr + ":00Z").getTime();
     if (isNaN(utcMs)) return { date: dateStr, time: timeStr };
-    const arMs = utcMs - 3 * 60 * 60 * 1000;
-    const d = new Date(arMs);
+    const spMs = utcMs + 2 * 60 * 60 * 1000; // UTC+2 (CEST)
+    const d = new Date(spMs);
     const y = d.getUTCFullYear();
     const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
     const dy = String(d.getUTCDate()).padStart(2, "0");
@@ -49,7 +48,7 @@ function teamStr(t) {
   return (t.name || t.code || "TBD").trim();
 }
 
-// Build flag emoji from ISO country code (e.g. "MX" → 🇲🇽)
+// Build flag emoji from 2-letter ISO country code (e.g. "MX" → 🇲🇽)
 function flagEmoji(code) {
   if (!code || code.length !== 2) return "";
   return String.fromCodePoint(
@@ -61,28 +60,24 @@ function parseRounds(data) {
   const rounds = data.rounds || data.groups || [];
   const out = [];
   let autoNum = 1;
-  let timesAreUTC = !!data.utc; // some sources mark UTC explicitly
   for (const r of rounds) {
     const roundName = r.name || "";
     for (const m of (r.matches || [])) {
-      const date = parseDate(m.date);
-      if (!date) continue;
+      const rawDate = parseDate(m.date);
+      if (!rawDate) continue;
       const team1 = teamStr(m.team1);
       const team2 = teamStr(m.team2);
       const t1code = typeof m.team1 === "object" ? m.team1.code : null;
       const t2code = typeof m.team2 === "object" ? m.team2.code : null;
-      let matchDate = date;
-      let matchTime = m.time || null;
-      if (timesAreUTC && matchTime) {
-        const ar = toArgentineTime(date, matchTime);
-        matchDate = ar.date;
-        matchTime = ar.time;
-      }
+      // openfootball times are UTC → convert to Spain/Barcelona (CEST, UTC+2)
+      const rawTime = m.time || null;
+      const { date: matchDate, time: matchTime } = rawTime
+        ? toSpainTime(rawDate, rawTime)
+        : { date: rawDate, time: null };
       out.push({
         id: `wc26-${m.num ?? autoNum++}`,
         date: matchDate,
         time: matchTime,
-        timesAreUTC,
         home: team1,
         away: team2,
         homeFlag: t1code ? flagEmoji(t1code) : "",
@@ -90,7 +85,6 @@ function parseRounds(data) {
         round: roundName,
         score1: m.score1 ?? null,
         score2: m.score2 ?? null,
-        group: r.group || null,
       });
     }
   }

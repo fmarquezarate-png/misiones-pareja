@@ -194,7 +194,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                       {wm.homeFlag} {wm.home} vs {wm.away} {wm.awayFlag}
                     </div>
                     <div style={{ fontSize: 10, color: "rgba(52,211,153,0.65)", marginTop: 2 }}>
-                      {wm.round}{wm.time ? ` · ${wm.time} h. local` : ""}
+                      {wm.round}{wm.time ? ` · ${wm.time} h. España` : ""}
                       {wm.score1 !== null ? ` · ${wm.score1}–${wm.score2}` : ""}
                     </div>
                   </div>
