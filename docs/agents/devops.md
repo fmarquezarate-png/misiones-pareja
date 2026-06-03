@@ -70,6 +70,7 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 
 ## Checklist de deploy (pre-merge a main)
 
+- [ ] **`git fetch origin` antes de cualquier comparación de ramas** — el clone local puede tener estado stale. Sin fetch, `origin/main` refleja el momento del clone, no el estado real del remote.
 - [ ] `npm run build` pasa sin errores
 - [ ] `npm run lint` — 0 errores
 - [ ] APP_VERSION en `constants.js` coincide con la entrada más reciente de CHANGELOG
@@ -89,7 +90,17 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 
 > "No declaro un deploy exitoso hasta que `version.json` en producción devuelve la versión nueva y el SW está activo (no en waiting). El build puede pasar y el usuario seguir viendo la versión anterior."
 
+## Regla de paridad: verificar producción vs branch
+
+Antes de reportar qué versión corre en producción, el DevOps DEBE:
+1. `git fetch origin` — sin esto, `origin/main` es una foto del pasado
+2. Comparar `git log origin/main..origin/<branch> --oneline` para ver brecha real
+3. Verificar `version.json` en producción (NetworkOnly, nunca desde caché) para confirmar la versión realmente deployada
+
+**Error histórico (sesión 03/06/2026):** Se reportó "producción tiene v4.2.0" cuando el agente tenía un clone stale. En realidad, los PRs se iban mergeando continuamente y producción ya tenía versiones más nuevas. La causa fue no haber corrido `git fetch` antes de consultar `origin/main`. Regla permanente: **fetch antes de reportar**.
+
 ## Histórico de aportes
 - Contratado en Workshop v4.1 (28/05/2026)
 - Primer entregable: inventario de infraestructura v4.1.0 y checklist de deploy (sección arriba)
 - Detecta y documenta el antipatrón de "Edge Function en repo vs en producción" descubierto en v4.0.10
+- 03/06/2026: documenta regla de `git fetch` obligatorio antes de reportar estado de producción
