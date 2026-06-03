@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.6.6";
+export const APP_VERSION = "4.6.7";
 export const LAST_UPDATE = "2026-06-03";
 
 // Banner de mantenimiento — null = desactivado
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.6.7", date:"2026-06-03", notes:["Mundial 2026 en el calendario: botón '🏆 Mundial 2026' en la vista mensual. Al activarlo, el calendario superpone los partidos del Mundial sobre los días correspondientes: ⚽ verde en la celda del día y, al seleccionar ese día, se muestran los partidos con equipos, fase y horario (hora local del estadio). Los datos se obtienen automáticamente de openfootball/worldcup.json (sin API key), se cachean 6 horas en localStorage y se actualizan solos — así los cuartos, semis y final muestran los países reales a medida que se van conociendo. La preferencia ON/OFF persiste entre sesiones. Solo activo en junio y julio 2026."] },
   { v:"4.6.6", date:"2026-06-03", notes:["Días especiales — cotillón completo: en fechas especiales (cumpleaños y aniversario) la app luce un ambiente festivo permanente durante toda la jornada. Canvas con 42 piezas de confetti (mezcla de oro, plata y colores fiesta) cayendo con rotación suave a 32fps. 7 globos (🎈🎉🎊) suben desde el fondo de pantalla en bucle continuo, cada uno con duración y posición distintas y arranque escalonado para que la pantalla se vea llena en todo momento. Pausa automática cuando la app está en segundo plano para no consumir batería. Los destellos dorados al hacer click siguen activos."] },
   { v:"4.6.5", date:"2026-06-03", notes:["Fix: el micro-festejo ahora muestra el % del anillo personal (igual que el ring en el home), no el % de la barra global de la semana. El anillo usa: últimos 15 días, solo misiones de la persona + 'juntos', excluyendo eventos, fechas futuras y completedLate — fórmula idéntica a HomeDashboard PersonStats. Antes mostraba el % de la barra superior (total de misiones de la semana, incluyendo eventos), que siempre era un número muy diferente al anillo personal."] },
   { v:"4.6.4", date:"2026-06-03", notes:["Fix: el porcentaje del micro-festejo ahora usa exactamente la misma fuente que el home — siempre la semana real de hoy (isoWeekKey basado en getWeekAndYear(new Date())), no la semana que el usuario tiene navegada. Si se completa una tarea de otra semana desde el calendario, el congrat no aparece (para evitar mostrar un delta que no se reflejaría en el home). Antes usaba data.weeks[wkey] donde wkey podía ser cualquier semana navegada."] },
