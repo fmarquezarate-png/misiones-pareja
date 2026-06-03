@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.4] — 2026-06-03 · Fix: porcentaje del micro-festejo sincronizado con el home
+
+### Fix de sincronización
+
+El porcentaje que muestra `TaskCongrat` ahora usa **exactamente la misma fuente** que el home:
+
+- Siempre calcula sobre `data.weeks[isoWeekKey(getWeekAndYear(new Date()))]` — la semana real de hoy, no la semana que el usuario tiene navegada en el tab "Semana actual".
+- **Fórmula idéntica a `HomeDashboard`**: `total = missions.length`, `done = filter(DONE).length`, `pct = Math.round(done/total*100)` — incluye todos los tipos (tareas + eventos), sin filtros adicionales.
+- Si el usuario completa una tarea de una semana distinta (desde el calendario), el congrat no aparece, ya que el delta no se reflejaría en el home.
+
+Antes: `wkey = isoWeekKey(data.currentWeekNumber, currentYear)` — podía ser cualquier semana navegada → % diferente al home.
+
+---
+
 ## [4.6.3] — 2026-06-03 · Micro-festejo de tarea individual
 
 ### 🎯 Tarjeta de felicitación sutil
