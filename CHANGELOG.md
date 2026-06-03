@@ -7,6 +7,37 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.1] — 2026-06-03 · Cumpleaños + Días Especiales + Revivir Wrapped
+
+### 🎂 Tab Cumpleaños
+
+Nueva pestaña en el menú lateral para registrar cumpleaños de personas importantes:
+- Lista con emoji, nombre y fecha (solo día/mes, se repite cada año).
+- Ordenada por próxima ocurrencia.
+- **HOY** destacado en dorado, **MAÑANA** en rosa.
+- Toast de recordatorio al abrir la app: día del cumpleaños + día anterior.
+- Alta con selector de emoji, nombre libre y selectores de mes/día.
+- Eliminar con tap en ×.
+
+### ✦ Días especiales (negro y dorado)
+
+En Perfil → nueva sección "Fechas especiales":
+- Cumpleaños de persona 1 y persona 2.
+- Fecha de aniversario (con año para calcular "X años juntos").
+
+Al cargar la app en esa fecha, aparece un overlay negro con:
+- Texto con shimmer dorado animado.
+- Emoji flotante con glow.
+- 14 partículas de oro que se dispersan.
+- "¡Feliz Cumpleaños, [nombre]!" o "¡X años juntos! 💑".
+- Se muestra una sola vez por día (localStorage). Toca para cerrar.
+
+### 📋 Revivir Wrapped
+
+Botón en Perfil → "Revivir Wrapped (última semana)". Muestra el resumen de la semana anterior sin importar el día que sea.
+
+---
+
 ## [4.6.0] — 2026-06-03 · Momento Juntos + Wrapped Semanal/Mensual
 
 ### Momento Juntos

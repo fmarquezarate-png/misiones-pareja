@@ -3,10 +3,13 @@ import { S } from "../styles.js";
 import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 
-export default function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle }) {
+export default function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
+  const [bday1,   setBday1]   = useState(settings.person1Birthday||"");
+  const [bday2,   setBday2]   = useState(settings.person2Birthday||"");
+  const [anniv,   setAnniv]   = useState(settings.anniversaryDate||"");
   const [colors,  setColors]  = useState({ ...DEFAULT_COLORS, ...(settings.colors||{}) });
   const _pm_uprefs = getUserPrefs(sessionUserId);
   const [themeId,      setThemeId]      = useState(_pm_uprefs.themeId || settings.themeId || "violet");
@@ -67,10 +70,23 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
     setNotifPermission(result);
   };
 
+  const extractMMDD = (dateStr) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length === 3) return `${parts[1]}-${parts[2]}`;
+    return dateStr;
+  };
+
   const save = () => {
     const notifications = { chat: notifChat, partnerChanges: notifPartner, eventReminders: notifEvents, goalDeadlines: notifGoals, dailyBriefing: notifBriefing, briefingTime: notifBriefTime };
     if (sessionUserId) saveUserPrefs(sessionUserId, { themeId, fontId });
-    update(d=>({...d, settings:{...d.settings, person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2", colors, coupleEmoji, photos, notifications}}));
+    update(d=>({...d, settings:{...d.settings,
+      person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2",
+      colors, coupleEmoji, photos, notifications,
+      person1Birthday: extractMMDD(bday1),
+      person2Birthday: extractMMDD(bday2),
+      anniversaryDate: anniv || null,
+    }}));
     onClose();
   };
 
@@ -149,6 +165,29 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
               style={{ width:36, height:36, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
           </div>
           <button onClick={()=>setColors(DEFAULT_COLORS)} style={{ ...S.btnSecondary, fontSize:11, marginBottom:24 }}>↺ Restablecer colores</button>
+
+          <div style={{ fontSize:10, color:"#d4a017", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Fechas especiales ✦</div>
+          <div style={{ background:"rgba(212,160,23,0.06)", border:"1px solid rgba(212,160,23,0.2)", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
+            <div style={{ fontSize:12, color:"rgba(212,160,23,0.7)", marginBottom:12, lineHeight:1.5 }}>
+              En estas fechas la app te sorprende con un momento especial. El año solo importa para el aniversario.
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <label style={{ ...S.label, color:"rgba(212,160,23,0.8)" }}>🎂 Cumpleaños de {p1||"Persona 1"}</label>
+              <input type="date" value={bday1 ? `2000-${bday1}` : ""} onChange={e => setBday1(extractMMDD(e.target.value))}
+                style={{ ...S.input, colorScheme:"dark" }} />
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <label style={{ ...S.label, color:"rgba(212,160,23,0.8)" }}>🎂 Cumpleaños de {p2||"Persona 2"}</label>
+              <input type="date" value={bday2 ? `2000-${bday2}` : ""} onChange={e => setBday2(extractMMDD(e.target.value))}
+                style={{ ...S.input, colorScheme:"dark" }} />
+            </div>
+            <div>
+              <label style={{ ...S.label, color:"rgba(212,160,23,0.8)" }}>💍 Aniversario</label>
+              <input type="date" value={anniv||""} onChange={e => setAnniv(e.target.value)}
+                style={{ ...S.input, colorScheme:"dark" }} />
+              <div style={{ fontSize:10, color:"rgba(212,160,23,0.45)", marginTop:4 }}>El año se usa para calcular cuántos años lleváis juntos</div>
+            </div>
+          </div>
 
           <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Push en segundo plano</div>
           <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
@@ -282,6 +321,7 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
         </div>
         <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
           {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
+          {onShowWrapped && <button onClick={()=>{ onClose(); onShowWrapped(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>📋 Revivir Wrapped (última semana)</button>}
           <button onClick={()=>{ onClose(); onCheckUpdate && onCheckUpdate(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
           <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
             <button onClick={onClose} style={S.btnSecondary}>Cancelar</button>

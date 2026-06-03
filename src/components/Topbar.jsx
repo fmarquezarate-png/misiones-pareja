@@ -43,7 +43,8 @@ export default function Topbar({
               :activeTab==="stats"    ? "📊 Stats"
               :activeTab==="gastos"   ? "💸 Gastos Compartidos"
               :activeTab==="chat"     ? "💬 Chat"
-              :activeTab==="links"    ? "🔗 Links de Interés"
+              :activeTab==="links"      ? "🔗 Links de Interés"
+              :activeTab==="birthdays"  ? "🎂 Cumpleaños"
               : ""}
             </span>
         }
