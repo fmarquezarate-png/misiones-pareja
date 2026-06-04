@@ -47,7 +47,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
       if (m.away && m.away !== "TBD") wcTeamMap[m.away] = m.awayFlag || "";
     });
   }
-  const wcTeams = Object.entries(wcTeamMap).sort(([a], [b]) => a.localeCompare(b)).map(([name, flag]) => ({ name, flag }));
+  const wcTeams = Object.entries(wcTeamMap).filter(([, flag]) => flag !== "").sort(([a], [b]) => a.localeCompare(b)).map(([name, flag]) => ({ name, flag }));
 
   // Auto-disable once the Final is over — no manual cleanup needed
   useEffect(() => {
