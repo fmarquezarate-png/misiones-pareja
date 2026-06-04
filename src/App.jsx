@@ -25,12 +25,15 @@ import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
 import SpecialDayTheme from "./components/SpecialDayTheme.jsx";
 import SpecialDayButton from "./components/SpecialDayButton.jsx";
 import ClickSparkles from "./components/ClickSparkles.jsx";
+import MatchDayTheme from "./components/MatchDayTheme.jsx";
+import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
 import BirthdaysView from "./components/BirthdaysView.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 import GoalsView from "./views/GoalsView.jsx";
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
+import { fetchWCMatches, wcMatchesForDate, isWCOver } from "./lib/worldCup.js";
 import LoginScreen from "./components/LoginScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
@@ -174,6 +177,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
   const [specialDay,      setSpecialDay]      = useState(null);   // overlay open state — null when dismissed
   const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
+  const [matchDayMatches, setMatchDayMatches] = useState(null);   // WC matches today (filtered) — null = none
+  const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -438,6 +443,44 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId, data?.settings?.person1Birthday, data?.settings?.person2Birthday, data?.settings?.anniversaryDate]);
+
+  // Match day detection — check WC matches for today with the active filter
+  const checkMatchDay = useCallback(async () => {
+    if (isWCOver()) { setMatchDayMatches(null); return; }
+    const wcMode = localStorage.getItem("mp-wc-mode") === "1";
+    if (!wcMode) { setMatchDayMatches(null); return; }
+    const matches = await fetchWCMatches().catch(() => null);
+    if (!matches) { setMatchDayMatches(null); return; }
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    let todayMatches = wcMatchesForDate(matches, todayStr);
+    try {
+      const filter = JSON.parse(localStorage.getItem("mp-wc-filter") || "[]");
+      if (filter.length > 0) {
+        todayMatches = todayMatches.filter(m => filter.includes(m.home) || filter.includes(m.away));
+      }
+    } catch {}
+    if (todayMatches.length === 0) { setMatchDayMatches(null); return; }
+    setMatchDayMatches(todayMatches);
+    // Show overlay once per day
+    const key = `mp-matchday-${todayStr}`;
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, "1");
+      const t = setTimeout(() => setMatchDayOverlay(true), 1200);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkMatchDay();
+  }, [checkMatchDay]);
+
+  // Re-check when the user changes the filter or WC mode from CalendarView
+  useEffect(() => {
+    const handler = () => checkMatchDay();
+    window.addEventListener("wcFilterChange", handler);
+    return () => window.removeEventListener("wcFilterChange", handler);
+  }, [checkMatchDay]);
 
   // Birthday reminders (toast: today + day before)
   useEffect(() => {
@@ -1504,6 +1547,23 @@ ${sorted.map(m=>{
 
       {/* Destellos de los colores de la pareja en cada click — siempre activos */}
       <ClickSparkles colors={colors} />
+
+      {/* ─ Mundial: tema verde todo el día cuando juegan los equipos favoritos ─ */}
+      {matchDayMatches && !specialDayEvent && <MatchDayTheme />}
+
+      {/* Botón flotante para re-abrir el overlay de partido */}
+      {matchDayMatches && !matchDayOverlay && !specialDay && (
+        <button
+          onClick={() => setMatchDayOverlay(true)}
+          style={{ position:"fixed", bottom:80, right:16, zIndex:1200, background:"linear-gradient(135deg,#14532d,#16a34a)", border:"none", borderRadius:99, color:"#fff", fontSize:22, width:52, height:52, cursor:"pointer", boxShadow:"0 4px 20px rgba(34,197,94,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          title="Ver partidos de hoy"
+        >⚽</button>
+      )}
+
+      {/* Overlay de partido — aparece una vez al día, re-abrible */}
+      {matchDayMatches && matchDayOverlay && (
+        <MatchDayOverlay matches={matchDayMatches} onDone={() => setMatchDayOverlay(false)} />
+      )}
 
       {/* Tema dorado todo el día en fechas especiales */}
       {specialDayEvent && <SpecialDayTheme />}

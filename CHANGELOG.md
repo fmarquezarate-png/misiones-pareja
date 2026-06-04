@@ -7,6 +7,28 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.9] — 2026-06-04 · Filtro de países del Mundial + Día de partido
+
+### 🌍 Filtro de equipos favoritos
+
+Nuevo botón **"🌍 Filtrar"** junto al toggle del Mundial en la vista de calendario:
+
+- Al pulsarlo se abre un panel deslizante con todos los equipos participantes, buscable y con selección múltiple.
+- Solo se muestran los partidos en los que participe alguno de los equipos seleccionados (celda del calendario, panel de día y overlay de partido).
+- Sin selección = todos los partidos visibles (comportamiento anterior).
+- El filtro persiste entre sesiones (localStorage).
+
+### ⚽ Día de partido
+
+Cuando alguno de los equipos favoritos juega hoy:
+
+- **Overlay de bienvenida**: pantalla negra con ⚽ animado, "¡Día de partido!" en verde, lista de partidos con hora en España y botón "¡A verlo!". Aparece automáticamente una vez al día al abrir la app.
+- **Tema verde**: la app se cubre con confetti verde/blanco y balones ⚽/🏆/🎽 subiendo, idéntico al tema de días especiales pero en verde en lugar de dorado. Activo todo el día mientras quede el filtro.
+- **Botón flotante ⚽**: permite re-abrir el overlay en cualquier momento mientras dure el día de partido.
+- El tema dorado de cumpleaños/aniversario tiene prioridad sobre el tema verde del Mundial.
+
+---
+
 ## [4.6.8] — 2026-06-04 · Destellos permanentes con colores de la pareja
 
 ### ✨ Click sparkles siempre activos

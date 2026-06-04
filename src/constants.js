@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.6.8";
-export const LAST_UPDATE = "2026-06-03";
+export const APP_VERSION = "4.6.9";
+export const LAST_UPDATE = "2026-06-04";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
@@ -17,6 +17,7 @@ export const MAINTENANCE_WARNING = {
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 export const CHANGELOG = [
+  { v:"4.6.9", date:"2026-06-04", notes:["Filtro de países del Mundial: botón '🌍 Filtrar' junto al toggle del Mundial para seleccionar uno o varios equipos favoritos. Solo aparecen los partidos en los que jueguen esos equipos. Si no se selecciona ningún país, se ven todos los partidos como antes. El filtro persiste entre sesiones.", "Día de partido: cuando alguno de los equipos favoritos juega hoy, la app entra automáticamente en modo 'día de partido' — un overlay ⚽ con la lista de partidos, hora en España y un botón 'A verlo'. El overlay aparece una vez al día (localStorage gate). Un botón ⚽ flotante permite re-abrirlo en cualquier momento. El tema verde con confetti y globos ⚽ se activa durante todo el día. El tema dorado de días especiales (cumpleaños/aniversario) tiene prioridad."] },
   { v:"4.6.8", date:"2026-06-04", notes:["Destellos permanentes con los colores de la pareja: cada click en cualquier parte de la app lanza pequeñas partículas de luz en los colores de persona1, persona2 y juntos. Antes solo aparecían en días especiales (cumpleaños/aniversario) y en dorado. Ahora son siempre visibles y reflejan los colores del perfil de cada uno. Los días especiales siguen teniendo el tema dorado completo (CSS + confetti + globos), y los destellos del click en esos días usan igualmente los colores de la pareja."] },
   { v:"4.6.7", date:"2026-06-03", notes:["Mundial 2026 en el calendario: botón '🏆 Mundial 2026' en la vista mensual. Al activarlo, el calendario superpone los partidos del Mundial sobre los días correspondientes: ⚽ verde en la celda del día y, al seleccionar ese día, se muestran los partidos con equipos, fase y horario (hora local del estadio). Los datos se obtienen automáticamente de openfootball/worldcup.json (sin API key), se cachean 6 horas en localStorage y se actualizan solos — así los cuartos, semis y final muestran los países reales a medida que se van conociendo. La preferencia ON/OFF persiste entre sesiones. Solo activo en junio y julio 2026."] },
   { v:"4.6.6", date:"2026-06-03", notes:["Días especiales — cotillón completo: en fechas especiales (cumpleaños y aniversario) la app luce un ambiente festivo permanente durante toda la jornada. Canvas con 42 piezas de confetti (mezcla de oro, plata y colores fiesta) cayendo con rotación suave a 32fps. 7 globos (🎈🎉🎊) suben desde el fondo de pantalla en bucle continuo, cada uno con duración y posición distintas y arranque escalonado para que la pantalla se vea llena en todo momento. Pausa automática cuando la app está en segundo plano para no consumir batería. Los destellos dorados al hacer click siguen activos."] },
