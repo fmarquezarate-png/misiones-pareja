@@ -24,6 +24,7 @@ import WrappedModal from "./components/WrappedModal.jsx";
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
 import SpecialDayTheme from "./components/SpecialDayTheme.jsx";
 import SpecialDayButton from "./components/SpecialDayButton.jsx";
+import ClickSparkles from "./components/ClickSparkles.jsx";
 import BirthdaysView from "./components/BirthdaysView.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
@@ -1500,6 +1501,9 @@ ${sorted.map(m=>{
           }}
         />
       )}
+
+      {/* Destellos de los colores de la pareja en cada click — siempre activos */}
+      <ClickSparkles colors={colors} />
 
       {/* Tema dorado todo el día en fechas especiales */}
       {specialDayEvent && <SpecialDayTheme />}
