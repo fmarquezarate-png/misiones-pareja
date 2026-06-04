@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.8] — 2026-06-04 · Destellos permanentes con colores de la pareja
+
+### ✨ Click sparkles siempre activos
+
+Cada toque en cualquier parte de la app lanza pequeñas partículas de luz en los colores personales de la pareja (persona1, persona2 y juntos). Antes solo aparecían en días especiales y en dorado. Ahora son permanentes y se adaptan automáticamente si cambiáis vuestros colores en el perfil.
+
+Los días especiales (cumpleaños/aniversario) mantienen el tema dorado completo (CSS + confetti + globos flotantes); los destellos del click en esos días usan igualmente los colores de la pareja.
+
+---
+
 ## [4.6.7] — 2026-06-03 · Mundial 2026 en el calendario
 
 ### 🏆 Integración del Mundial de Fútbol 2026

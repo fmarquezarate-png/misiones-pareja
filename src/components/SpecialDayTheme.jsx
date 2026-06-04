@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 // ── Palettes ──────────────────────────────────────────────────────────────────
 const GOLD   = ["#f5d769","#d4a017","#c8910e","#fff4b2","#f0c040","#fde68a"];
 const SILVER = ["#e8e8e8","#c0c0c0","#b0b0b0","#f0f0f0","#d4d4d4"];
-const FIESTA = ["#f472b6","#a78bfa","#34d399","#fb923c","#38bdf8"]; // color variety
-const ALL_COLORS = [...GOLD, ...GOLD, ...SILVER, ...FIESTA]; // weight toward gold
+const FIESTA = ["#f472b6","#a78bfa","#34d399","#fb923c","#38bdf8"];
+const ALL_COLORS = [...GOLD, ...GOLD, ...SILVER, ...FIESTA];
 
 const STYLE_ID = "mp-special-day-theme";
 const N_PARTICLES = 42;
@@ -17,38 +17,6 @@ const BALLOONS = [
   { emoji:"🎈", x: 82 },
   { emoji:"🎈", x: 94 },
 ];
-
-// ── Click sparkles (DOM particles) ───────────────────────────────────────────
-function spawnSparkle(x, y) {
-  const COUNT = 8;
-  for (let i = 0; i < COUNT; i++) {
-    const el = document.createElement("div");
-    const palette = Math.random() > 0.38 ? GOLD : SILVER;
-    const color = palette[Math.floor(Math.random() * palette.length)];
-    const size = 3 + Math.random() * 7;
-    const angle = (i / COUNT) * 360 + Math.random() * 22;
-    const dist = 22 + Math.random() * 52;
-    const rad = (angle * Math.PI) / 180;
-    el.style.cssText = [
-      "position:fixed",
-      `left:${x}px`,
-      `top:${y}px`,
-      `width:${size}px`,
-      `height:${size}px`,
-      "border-radius:50%",
-      `background:${color}`,
-      `box-shadow:0 0 ${Math.round(size * 2)}px ${color}99`,
-      "pointer-events:none",
-      "z-index:9999",
-      "transform:translate(-50%,-50%)",
-      `--tx:${Math.cos(rad) * dist}px`,
-      `--ty:${Math.sin(rad) * dist}px`,
-      "animation:mp-spk 0.65s ease-out forwards",
-    ].join(";");
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 720);
-  }
-}
 
 // ── Confetti particle factory ────────────────────────────────────────────────
 function mkParticle(cw, ch, initial = false) {
@@ -78,13 +46,12 @@ export default function SpecialDayTheme() {
       ...b,
       fontSize: 26 + Math.floor(Math.random() * 20),
       duration: 9 + Math.random() * 7,
-      // Negative delay so each balloon starts mid-flight immediately
       delay: -(i * 2.3 + Math.random() * 1.5),
     }))
   );
 
   useEffect(() => {
-    // 1. Gold CSS variable overrides (beat ThemeInjector's inline setProperty)
+    // 1. Gold CSS variable overrides
     const style = document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
@@ -96,19 +63,10 @@ export default function SpecialDayTheme() {
         --t-thread: linear-gradient(135deg, #d4a017, #f5d769) !important;
         --t-together: #d4a017 !important;
       }
-      @keyframes mp-spk {
-        0%   { opacity:1; transform:translate(-50%,-50%) translate(0,0) scale(1); }
-        60%  { opacity:0.7; }
-        100% { opacity:0; transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(0.15); }
-      }
     `;
     document.head.appendChild(style);
 
-    // 2. Click sparkles
-    const handleClick = e => spawnSparkle(e.clientX, e.clientY);
-    document.addEventListener("click", handleClick, { capture: true });
-
-    // 3. Canvas confetti
+    // 2. Canvas confetti
     const canvas = canvasRef.current;
     let raf;
     let removeResize = null;
@@ -178,7 +136,6 @@ export default function SpecialDayTheme() {
 
     return () => {
       document.getElementById(STYLE_ID)?.remove();
-      document.removeEventListener("click", handleClick, { capture: true });
       if (raf) cancelAnimationFrame(raf);
       removeResize?.();
       removeVisibility?.();
