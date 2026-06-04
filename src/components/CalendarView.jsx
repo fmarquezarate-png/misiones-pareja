@@ -5,6 +5,7 @@ import { DEFAULT_COLORS, STATUS, STATUS_ORDER, CATEGORIES, CAT_MAP, getMCats } f
 import { getMissionDates } from "../lib/appUtils.js";
 import { isoWeekKey } from "../utils.js";
 import { fetchWCMatches, wcMatchesForDate, isWCMonth, isWCOver } from "../lib/worldCup.js";
+import WCCountryPicker from "./WCCountryPicker.jsx";
 
 export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter = [], catFilter = [], goals = [] }) {
   const { confirm, ConfirmDialog } = useConfirm();
@@ -19,15 +20,34 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
 
   // ── Mundial 2026 ──────────────────────────────────────────────────────────
   const [wcMode, setWcMode] = useState(() => localStorage.getItem("mp-wc-mode") === "1");
-  const [wcMatches, setWcMatches] = useState(null);  // null=not loaded, []=loaded
+  const [wcMatches, setWcMatches] = useState(null);
   const [wcLoading, setWcLoading] = useState(false);
   const [wcError, setWcError] = useState(false);
+  const [wcFilter, setWcFilter] = useState(() => { try { return JSON.parse(localStorage.getItem("mp-wc-filter") || "[]"); } catch { return []; } });
+  const [showPicker, setShowPicker] = useState(false);
 
   const toggleWC = () => {
     const next = !wcMode;
     setWcMode(next);
     localStorage.setItem("mp-wc-mode", next ? "1" : "0");
   };
+
+  const updateWCFilter = filter => {
+    setWcFilter(filter);
+    try { localStorage.setItem("mp-wc-filter", JSON.stringify(filter)); } catch {}
+    // Notify App.jsx so it can re-check match day
+    window.dispatchEvent(new CustomEvent("wcFilterChange", { detail: filter }));
+  };
+
+  // Build sorted team list from loaded matches
+  const wcTeamMap = {};
+  if (wcMode && wcMatches) {
+    wcMatches.forEach(m => {
+      if (m.home && m.home !== "TBD") wcTeamMap[m.home] = m.homeFlag || "";
+      if (m.away && m.away !== "TBD") wcTeamMap[m.away] = m.awayFlag || "";
+    });
+  }
+  const wcTeams = Object.entries(wcTeamMap).sort(([a], [b]) => a.localeCompare(b)).map(([name, flag]) => ({ name, flag }));
 
   // Auto-disable once the Final is over — no manual cleanup needed
   useEffect(() => {
@@ -92,7 +112,8 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
   const cells = [...Array(firstDow).fill(null), ...Array.from({ length: daysInM }, (_, i) => i + 1)];
   const selStr = selectedDay ? `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` : null;
   const selMs = selStr ? (byDate[selStr] || []) : [];
-  const wcForSelDay = (wcMode && wcMatches && selStr) ? wcMatchesForDate(wcMatches, selStr) : [];
+  const wcFilterMatches = ms => wcFilter.length > 0 ? ms.filter(m => wcFilter.includes(m.home) || wcFilter.includes(m.away)) : ms;
+  const wcForSelDay = wcFilterMatches((wcMode && wcMatches && selStr) ? wcMatchesForDate(wcMatches, selStr) : []);
   const showWCMonth = wcMode && isWCMonth(calYear, calMonth);
 
   const onDragStart = (e, m) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", JSON.stringify({ id: m.id, wn: m.weekNumber, yr: m._yr })); };
@@ -126,6 +147,11 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
               🏆 Mundial 2026{wcMode ? (wcLoading ? " ·⌛" : wcError ? " · sin datos" : " · ON") : ""}
             </button>
           )}
+          {wcMode && !isWCOver() && (
+            <button onClick={() => setShowPicker(true)} style={{ background: wcFilter.length > 0 ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcFilter.length > 0 ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcFilter.length > 0 ? "#34d399" : "var(--t-text-dim,#6b5f88)", fontSize: 11, fontWeight: 600, padding: "4px 12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+              🌍{wcFilter.length > 0 ? ` ${wcFilter.length} país${wcFilter.length !== 1 ? "es" : ""}` : " Filtrar"}
+            </button>
+          )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 3 }}>
           {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: numSz, color: "var(--t-text-dim,#4a4166)", fontWeight: 600, padding: "3px 0" }}>{d}</div>)}
@@ -137,7 +163,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
             const ms = byDate[ds] || [], isTd = ds === todayStr, isSel = day === selectedDay, isDO = dragOver === ds;
             const multiMs = ms.filter(m => spanOf(m).length > 1);
             const singleMs = ms.filter(m => spanOf(m).length <= 1);
-            const wcDay = (showWCMonth && wcMatches) ? wcMatchesForDate(wcMatches, ds) : [];
+            const wcDay = wcFilterMatches((showWCMonth && wcMatches) ? wcMatchesForDate(wcMatches, ds) : []);
             const hasAny = ms.length > 0 || wcDay.length > 0;
             // slots: show user missions first, then WC emojis in remaining slots
             const shownSingle = singleMs.slice(0, maxPerCell);
@@ -336,6 +362,15 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
         </div>
       )}
       <ConfirmDialog />
+
+      {showPicker && (
+        <WCCountryPicker
+          teams={wcTeams}
+          selected={wcFilter}
+          onChange={updateWCFilter}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }
