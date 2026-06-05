@@ -3,6 +3,17 @@ export const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const isoWeekKey = (wn, yr) => `${yr}-W${String(wn).padStart(2, "0")}`;
 
+// Parsea "YYYY-MM-DD" como medianoche LOCAL (no UTC). new Date("2026-05-01")
+// devuelve medianoche UTC, que en husos por delante de UTC (ej. España, UTC+2)
+// cae DESPUÉS de la medianoche local del día 1 → cualquier comparación contra
+// fechas construidas en local (new Date(yr, mo, 1)) excluye erróneamente el mes
+// de inicio. Misma clase de bug que el manejo dual de completedAt (ver CLAUDE.md).
+export const parseLocalDate = (s) => {
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
 export const getWeekAndYear = (date = new Date()) => {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const day = d.getUTCDay() || 7;
@@ -69,7 +80,7 @@ export function computeGoalHistory(goal, weeks, { includeMissions = false } = {}
       .map(m => ({ ...m, wn: w.weekNumber, wy: w.year || now.getFullYear() }))
   );
   const isMax = goal.goalType === "max";
-  const startDate = goal.startDate ? new Date(goal.startDate) : null;
+  const startDate = parseLocalDate(goal.startDate);
   const MONTHS_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
   const beforeStart = (periodDate) => startDate && periodDate < startDate;

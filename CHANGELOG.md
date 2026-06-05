@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.6.10] — 2026-06-05 · Fix definitivo del historial de metas (zona horaria)
+
+### 🐛 El mes/año de inicio de una meta se ocultaba como "sin datos"
+
+**Síntoma:** la meta "Hacer gestos por amigos" (mensual, *Analizar desde* 1 de mayo) tenía 7 gestos completados en mayo, pero aparecía vacía — el mes de mayo se mostraba como "–" (sin datos) en el historial.
+
+**Causa raíz (zona horaria):** la fecha `startDate` se parseaba con `new Date("2026-05-01")`, que devuelve **medianoche UTC**. En España (UTC+2) eso equivale a las 02:00 del 1 de mayo en hora local. Pero las fechas de cada periodo del historial se construyen en hora **local** (`new Date(2026, 4, 1)` = medianoche local del 1 de mayo = 22:00 del 30 de abril en UTC). La comparación `periodo < startDate` daba verdadero para el propio mes de inicio → se descartaba como anterior al inicio.
+
+**Fix:** nuevo helper `parseLocalDate(s)` que interpreta `"YYYY-MM-DD"` como medianoche **local**. Ahora la comparación es local-vs-local y el mes/año de inicio cuenta correctamente. Es la misma clase de bug que el manejo dual de `completedAt` documentado en `CLAUDE.md`.
+
+**Limpieza:** se eliminó `src/helpers/goalHelpers.js`, una copia muerta y duplicada de `computeGoalProgress`/`computeGoalHistory` que nadie importaba y que arrastraba el mismo bug. La única fuente de verdad es `src/utils.js`, así evitamos arreglar la copia equivocada en el futuro.
+
+---
+
 ## [4.6.9] — 2026-06-04 · Filtro de países del Mundial + Día de partido
 
 ### 🌍 Filtro de equipos favoritos
