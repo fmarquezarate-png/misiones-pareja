@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.6.9";
-export const LAST_UPDATE = "2026-06-04";
+export const APP_VERSION = "4.7.0";
+export const LAST_UPDATE = "2026-06-11";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.
@@ -16,7 +16,27 @@ export const MAINTENANCE_WARNING = {
 // Clave pública VAPID — segura en el cliente (no es un secreto)
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
+// ─── Mood / Ánimo ────────────────────────────────────────────────────────────
+export const EMOTIONS = [
+  { id:"alegre",      label:"Alegre",       emoji:"😄", valence:1  },
+  { id:"tranquilo",   label:"Tranquilo",    emoji:"😌", valence:1  },
+  { id:"emocionado",  label:"Emocionado",   emoji:"🤩", valence:1  },
+  { id:"energico",    label:"Energético",   emoji:"⚡", valence:1  },
+  { id:"carinoso",    label:"Cariñoso",     emoji:"🥰", valence:1  },
+  { id:"confiado",    label:"Confiado",     emoji:"💪", valence:1  },
+  { id:"agradecido",  label:"Agradecido",   emoji:"🙏", valence:1  },
+  { id:"triste",      label:"Triste",       emoji:"😢", valence:-1 },
+  { id:"ansioso",     label:"Ansioso",      emoji:"😰", valence:-1 },
+  { id:"irritable",   label:"Irritable",    emoji:"😤", valence:-1 },
+  { id:"agotado",     label:"Agotado",      emoji:"😩", valence:-1 },
+  { id:"entumecido",  label:"Entumecido",   emoji:"😶", valence:-1 },
+  { id:"melancolico", label:"Melancólico",  emoji:"😔", valence:-1 },
+  { id:"frustrado",   label:"Frustrado",    emoji:"😠", valence:-1 },
+];
+
 export const CHANGELOG = [
+  { v:"4.7.0", date:"2026-06-11", notes:["Nueva pestaña Ánimo: registro diario del estado emocional para seguimiento clínico de variaciones de humor (indicado para diagnóstico de trastorno del estado del ánimo). Cada día a las 18:00 aparece automáticamente una encuesta de 4 pasos: quién rellena, selección de emoción (14 opciones, 7 positivas + 7 negativas), intensidad 1–10 y nota libre. El estado emocional se representa internamente como puntuación −10 a +10 (valencia × intensidad). La pestaña Ánimo muestra: curva SVG con área verde (emociones positivas) y rosa (negativas), resumen estadístico (promedio, conteo positivos/negativos), tabla de registros filtrable por período (7d/30d/90d/todo) y persona, y exportación CSV con BOM UTF-8 para apertura directa en Excel.", "Cada persona solo puede registrar una entrada por día desde el popup automático. El popup solo se muestra una vez al día (gate por localStorage). El registro manual desde la pestaña siempre está disponible."] },
+  { v:"4.6.10", date:"2026-06-05", notes:["Fix definitivo del historial de metas: el mes (o año) de inicio de una meta se ocultaba como 'sin datos' aunque tuviera misiones completadas. Causa: la fecha 'Analizar desde' (startDate) se interpretaba en horario UTC mientras que las fechas de cada periodo se construían en horario local — en España (UTC+2) la medianoche local del día 1 caía ANTES de la medianoche UTC, así que el periodo de inicio se descartaba por error. Ejemplo real: la meta 'Hacer gestos por amigos' (mensual, desde 1 may) tenía 7 gestos en mayo pero aparecía vacía. Ahora startDate se parsea como fecha local (parseLocalDate) y el mes de inicio cuenta correctamente. Misma clase de bug que el manejo dual de completedAt.", "Limpieza: eliminado src/helpers/goalHelpers.js, una copia muerta y duplicada de computeGoalProgress/computeGoalHistory que nadie importaba y que tenía el mismo bug — para que no se arregle nunca la copia equivocada. La única fuente es src/utils.js."] },
   { v:"4.6.9", date:"2026-06-04", notes:["Filtro de países del Mundial: botón '🌍 Filtrar' junto al toggle del Mundial para seleccionar uno o varios equipos favoritos. Solo aparecen los partidos en los que jueguen esos equipos. Si no se selecciona ningún país, se ven todos los partidos como antes. El filtro persiste entre sesiones.", "Día de partido: cuando alguno de los equipos favoritos juega hoy, la app entra automáticamente en modo 'día de partido' — un overlay ⚽ con la lista de partidos, hora en España y un botón 'A verlo'. El overlay aparece una vez al día (localStorage gate). Un botón ⚽ flotante permite re-abrirlo en cualquier momento. El tema verde con confetti y globos ⚽ se activa durante todo el día. El tema dorado de días especiales (cumpleaños/aniversario) tiene prioridad."] },
   { v:"4.6.8", date:"2026-06-04", notes:["Destellos permanentes con los colores de la pareja: cada click en cualquier parte de la app lanza pequeñas partículas de luz en los colores de persona1, persona2 y juntos. Antes solo aparecían en días especiales (cumpleaños/aniversario) y en dorado. Ahora son siempre visibles y reflejan los colores del perfil de cada uno. Los días especiales siguen teniendo el tema dorado completo (CSS + confetti + globos), y los destellos del click en esos días usan igualmente los colores de la pareja."] },
   { v:"4.6.7", date:"2026-06-03", notes:["Mundial 2026 en el calendario: botón '🏆 Mundial 2026' en la vista mensual. Al activarlo, el calendario superpone los partidos del Mundial sobre los días correspondientes: ⚽ verde en la celda del día y, al seleccionar ese día, se muestran los partidos con equipos, fase y horario (hora local del estadio). Los datos se obtienen automáticamente de openfootball/worldcup.json (sin API key), se cachean 6 horas en localStorage y se actualizan solos — así los cuartos, semis y final muestran los países reales a medida que se van conociendo. La preferencia ON/OFF persiste entre sesiones. Solo activo en junio y julio 2026."] },

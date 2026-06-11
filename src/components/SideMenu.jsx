@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { id:"chat",     label:"Chat",             icon:"💬" },
   { id:"links",      label:"Links de Interés", icon:"🔗" },
   { id:"birthdays",  label:"Cumpleaños",       icon:"🎂" },
+  { id:"mood",       label:"Ánimo",            icon:"🧠" },
 ];
 
 export default function SideMenu({ open, onClose, activeTab, onNavigate, couplePhoto, coupleEmoji, p1, p2, syncMsg, onShowProfile }) {
