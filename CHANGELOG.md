@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.7.2] — 2026-06-11 · Fix de bugs adicionales + optimizaciones MoodView (code review exhaustivo)
+
+### 🐛 Correcciones
+
+- **Midnight rollover** (`App.jsx`): el trigger de las 18:00 era un único timer que no se reprogramaba. Si la app permanecía abierta más de un día, solo se mostraba el popup el primer día. Ahora el scheduler es recursivo: tras disparar, se reprograma automáticamente para las 18:00 del día siguiente.
+- **localStorage sin try-catch en mood gate** (`App.jsx`): `localStorage.getItem/setItem` en el trigger del popup no tenía try-catch. En modo privado de iOS Safari lanza `QuotaExceededError` silenciosamente. Todas las llamadas ahora van envueltas en helpers `lsGet/lsSet` con try-catch.
+- **isValidAppData no validaba entradas de ánimo individualmente** (`validation.js`): solo chequeaba que `moods` fuera un array. Una entrada corrupta `{id:'x'}` sin `valence`/`intensity` pasaba la validación y producía `NaN` en el chart. Ahora se validan los campos obligatorios de cada entrada.
+- **Timer de overlay de día de partido no se limpiaba** (`App.jsx`): el `setTimeout` de 1200ms para `setMatchDayOverlay` dentro de `checkMatchDay` devolvía una función de cleanup en una Promise que nadie consumía — timer sin limpiar al desmontar. Movido a `matchDayTimerRef`.
+
+### ⚡ Optimizaciones MoodView
+
+- Estadísticas calculadas en una sola pasada `reduce()` en lugar de 3 arrays separados (`map` + 2 `filter`) — envuelto en `useMemo`.
+- Lookup de emoción por ID cambiado de `EMOTIONS.find()` O(n) a `EMOTION_BY_ID[id]` O(1), eliminando el O(n×m) en exportCSV y el O(n) por punto en el chart.
+- Helper `personName(who)` extrae la selección `who==="person1"?p1:p2` antes repetida 5 veces.
+
+---
+
 ## [4.7.1] — 2026-06-11 · Fix de 8 bugs detectados en code review de Ánimo
 
 ### 🐛 Correcciones

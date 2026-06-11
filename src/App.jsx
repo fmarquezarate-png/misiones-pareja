@@ -140,6 +140,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const unconfirmedRef  = useRef([]);    // mutators applied locally but not yet confirmed persisted (para rebase-on-conflict)
   const afterSaveRef    = useRef([]);    // callbacks que corren tras el PRÓXIMO save confirmado (push, etc.) — reemplaza setTimeout frágil
   const runSaveRef      = useRef(null);  // latest runSave closure, para que el timer de debounce siempre use coupleId actual
+  const moodOuterTimerRef    = useRef(null); // outer 18:00 timer — stored in ref so recursive reschedule can clear it
+  const moodInnerTimerRef    = useRef(null); // inner 1400ms delay timer before showing popup
+  const matchDayTimerRef     = useRef(null); // 1200ms delay before showing match-day overlay
   const [activeTab,       setActiveTab]       = useState("home");
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
@@ -470,8 +473,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const key = `mp-matchday-${todayStr}`;
     if (!localStorage.getItem(key)) {
       localStorage.setItem(key, "1");
-      const t = setTimeout(() => setMatchDayOverlay(true), 1200);
-      return () => clearTimeout(t);
+      matchDayTimerRef.current = setTimeout(() => setMatchDayOverlay(true), 1200);
     }
   }, []);
 
@@ -507,32 +509,38 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // Mood survey auto-trigger: shows once per day after 18:00
   useEffect(() => {
     if (loading || !data) return;
-    let innerTimer = null;
+    const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
     const openSurvey = () => {
       const today = localDateStr();
-      const p1Done = localStorage.getItem(`mp-mood-done-person1-${today}`);
-      const p2Done = localStorage.getItem(`mp-mood-done-person2-${today}`);
+      const p1Done = lsGet(`mp-mood-done-person1-${today}`);
+      const p2Done = lsGet(`mp-mood-done-person2-${today}`);
       if (p1Done && p2Done) return;
       const autoKey = `mp-mood-autoshow-${today}`;
-      if (localStorage.getItem(autoKey)) return;
+      if (lsGet(autoKey)) return;
       const prefill = (!p1Done && p2Done) ? "person1" : (p1Done && !p2Done) ? "person2" : null;
       setMoodSurveyPrefill(prefill);
-      innerTimer = setTimeout(() => {
-        localStorage.setItem(autoKey, "1");
-        setMoodSurveyOpen(true);
-      }, 1400);
+      moodInnerTimerRef.current = setTimeout(() => { lsSet(autoKey, "1"); setMoodSurveyOpen(true); }, 1400);
     };
-    const now = new Date();
-    let outerTimer = null;
-    if (now.getHours() >= 18) {
-      openSurvey();
-    } else {
-      const fireAt = new Date(now); fireAt.setHours(18, 0, 0, 0);
-      outerTimer = setTimeout(openSurvey, fireAt - now);
-    }
+
+    // Recursive: after firing, reschedules for next day at 18:00 — keeps working across midnight
+    const scheduleFor18 = () => {
+      const now = new Date();
+      if (now.getHours() >= 18) {
+        openSurvey();
+        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(18, 0, 0, 0);
+        moodOuterTimerRef.current = setTimeout(scheduleFor18, tomorrow - now);
+      } else {
+        const fireAt = new Date(now); fireAt.setHours(18, 0, 0, 0);
+        moodOuterTimerRef.current = setTimeout(scheduleFor18, fireAt - now);
+      }
+    };
+    scheduleFor18();
     return () => {
-      if (outerTimer) clearTimeout(outerTimer);
-      if (innerTimer) clearTimeout(innerTimer);
+      clearTimeout(moodOuterTimerRef.current);
+      clearTimeout(moodInnerTimerRef.current);
+      clearTimeout(matchDayTimerRef.current);
     };
   }, [loading]); // eslint-disable-line
 

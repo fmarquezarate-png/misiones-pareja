@@ -1,6 +1,8 @@
-import { useState, useId } from "react";
+import { useState, useId, useMemo } from "react";
 import { EMOTIONS } from "../constants.js";
 import { dlBlob } from "../utils.js";
+
+const EMOTION_BY_ID = Object.fromEntries(EMOTIONS.map(e => [e.id, e]));
 
 const PERIODS = [["7d","7 días"],["30d","30 días"],["90d","90 días"],["all","Todo"]];
 
@@ -80,7 +82,7 @@ function MoodChart({ moods, p1, p2, colors }) {
         const score  = p.m.valence * p.m.intensity;
         const dotClr = score >= 0 ? "#34d399" : "#f43f5e";
         const pClr   = p.m.who === "person1" ? colors.person1 : colors.person2;
-        const em     = EMOTIONS.find(e => e.id === p.m.emotion);
+        const em     = EMOTION_BY_ID[p.m.emotion];
         return (
           <g key={i}>
             <circle cx={p.x} cy={p.y} r={4.5} fill={dotClr} stroke={pClr} strokeWidth={2} />
@@ -98,17 +100,23 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
   const [showTable, setShowTable] = useState(false);
 
   const filtered = filterMoods(moods, period, who);
-  const scores   = filtered.map(m => m.valence * m.intensity);
-  const avgScore = scores.length > 0 ? (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1) : null;
-  const posCount = filtered.filter(m => m.valence > 0).length;
-  const negCount = filtered.filter(m => m.valence < 0).length;
+  const { avgScore, posCount, negCount } = useMemo(() => {
+    if (filtered.length === 0) return { avgScore: null, posCount: 0, negCount: 0 };
+    const { sum, pos, neg } = filtered.reduce((acc, m) => {
+      const s = m.valence * m.intensity;
+      return { sum: acc.sum + s, pos: acc.pos + (m.valence > 0 ? 1 : 0), neg: acc.neg + (m.valence < 0 ? 1 : 0) };
+    }, { sum: 0, pos: 0, neg: 0 });
+    return { avgScore: (sum / filtered.length).toFixed(1), posCount: pos, negCount: neg };
+  }, [filtered]); // filtered is the only real dep; p1/p2 are string props that don't affect computation
+
+  const personName = (who) => who === "person1" ? p1 : p2;
 
   const exportCSV = () => {
     const header = ["fecha","quien","emocion","valencia","intensidad","puntuacion","nota"];
     const rows = [...filtered].sort((a,b) => a.ts-b.ts).map(m => [
       m.date,
-      m.who==="person1" ? p1 : p2,
-      EMOTIONS.find(e=>e.id===m.emotion)?.label || m.emotion,
+      personName(m.who),
+      EMOTION_BY_ID[m.emotion]?.label || m.emotion,
       m.valence > 0 ? "positiva" : "negativa",
       m.intensity,
       m.valence * m.intensity,
@@ -211,10 +219,10 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
           {filtered.length === 0
             ? <div style={{ textAlign:"center", padding:"24px 0", color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Sin registros en este período</div>
             : filtered.map(m => {
-                const em     = EMOTIONS.find(e => e.id === m.emotion);
+                const em     = EMOTION_BY_ID[m.emotion];
                 const score  = m.valence * m.intensity;
                 const pColor = m.who === "person1" ? colors.person1 : colors.person2;
-                const pLabel = m.who === "person1" ? p1 : p2;
+                const pLabel = personName(m.who);
                 return (
                   <div key={m.id || m.ts} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
