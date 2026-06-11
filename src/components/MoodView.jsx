@@ -1,6 +1,8 @@
-import { useState, useId } from "react";
+import { useState, useId, useMemo } from "react";
 import { EMOTIONS } from "../constants.js";
 import { dlBlob } from "../utils.js";
+
+const EMOTION_BY_ID = Object.fromEntries(EMOTIONS.map(e => [e.id, e]));
 
 const PERIODS = [["7d","7 días"],["30d","30 días"],["90d","90 días"],["all","Todo"]];
 
@@ -80,7 +82,7 @@ function MoodChart({ moods, p1, p2, colors }) {
         const score  = p.m.valence * p.m.intensity;
         const dotClr = score >= 0 ? "#34d399" : "#f43f5e";
         const pClr   = p.m.who === "person1" ? colors.person1 : colors.person2;
-        const em     = EMOTIONS.find(e => e.id === p.m.emotion);
+        const em     = EMOTION_BY_ID[p.m.emotion];
         return (
           <g key={i}>
             <circle cx={p.x} cy={p.y} r={4.5} fill={dotClr} stroke={pClr} strokeWidth={2} />
@@ -98,17 +100,41 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
   const [showTable, setShowTable] = useState(false);
 
   const filtered = filterMoods(moods, period, who);
-  const scores   = filtered.map(m => m.valence * m.intensity);
-  const avgScore = scores.length > 0 ? (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1) : null;
-  const posCount = filtered.filter(m => m.valence > 0).length;
-  const negCount = filtered.filter(m => m.valence < 0).length;
+  const { avgScore, posCount, negCount } = useMemo(() => {
+    if (filtered.length === 0) return { avgScore: null, posCount: 0, negCount: 0 };
+    const { sum, pos, neg } = filtered.reduce((acc, m) => {
+      const s = m.valence * m.intensity;
+      return { sum: acc.sum + s, pos: acc.pos + (m.valence > 0 ? 1 : 0), neg: acc.neg + (m.valence < 0 ? 1 : 0) };
+    }, { sum: 0, pos: 0, neg: 0 });
+    return { avgScore: (sum / filtered.length).toFixed(1), posCount: pos, negCount: neg };
+  }, [filtered]); // filtered is the only real dep; p1/p2 are string props that don't affect computation
+
+  // Per-person stats for comparativa (always uses full period, both people)
+  const personStats = useMemo(() => {
+    const all = filterMoods(moods, period, "all");
+    const calc = (personId) => {
+      const entries = all.filter(m => m.who === personId);
+      if (entries.length === 0) return { avg: null, pos: 0, neg: 0, last: null, count: 0 };
+      const sum = entries.reduce((s, m) => s + m.valence * m.intensity, 0);
+      return {
+        avg: (sum / entries.length).toFixed(1),
+        pos: entries.filter(m => m.valence > 0).length,
+        neg: entries.filter(m => m.valence < 0).length,
+        last: entries[0], // already sorted desc by ts
+        count: entries.length,
+      };
+    };
+    return { p1: calc("person1"), p2: calc("person2") };
+  }, [moods, period]); // p1/p2 strings don't affect computation
+
+  const personName = (who) => who === "person1" ? p1 : p2;
 
   const exportCSV = () => {
     const header = ["fecha","quien","emocion","valencia","intensidad","puntuacion","nota"];
     const rows = [...filtered].sort((a,b) => a.ts-b.ts).map(m => [
       m.date,
-      m.who==="person1" ? p1 : p2,
-      EMOTIONS.find(e=>e.id===m.emotion)?.label || m.emotion,
+      personName(m.who),
+      EMOTION_BY_ID[m.emotion]?.label || m.emotion,
       m.valence > 0 ? "positiva" : "negativa",
       m.intensity,
       m.valence * m.intensity,
@@ -193,6 +219,48 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
         <MoodChart moods={filtered} p1={p1} p2={p2} colors={colors} />
       </div>
 
+      {/* Comparativa */}
+      {moods.some(m => m.who === "person1") && moods.some(m => m.who === "person2") && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Comparativa</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            {[["person1", p1, colors.person1, personStats.p1], ["person2", p2, colors.person2, personStats.p2]].map(([pid, pname, pcolor, st]) => {
+              const avgNum = Number(st.avg);
+              const barPct = st.avg !== null ? Math.round(((avgNum + 10) / 20) * 100) : 50;
+              const lastEm = st.last ? EMOTION_BY_ID[st.last.emotion] : null;
+              return (
+                <div key={pid} style={{ background:`${pcolor}0a`, border:`1px solid ${pcolor}25`, borderRadius:16, padding:"12px 14px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:7, marginBottom:10 }}>
+                    <span style={{ width:10, height:10, borderRadius:"50%", background:pcolor, flexShrink:0, display:"inline-block" }} />
+                    <span style={{ fontSize:13, fontWeight:700, color:pcolor }}>{pname}</span>
+                    {st.count > 0 && <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginLeft:"auto" }}>{st.count} reg.</span>}
+                  </div>
+                  {st.avg === null ? (
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textAlign:"center", padding:"8px 0" }}>Sin datos</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize:28, fontFamily:"'Fraunces',serif", fontWeight:700, color: avgNum >= 0 ? "#34d399" : "#f43f5e", lineHeight:1, marginBottom:6 }}>
+                        {avgNum > 0 ? "+" : ""}{st.avg}
+                      </div>
+                      {/* Score bar */}
+                      <div style={{ height:4, borderRadius:99, background:"rgba(255,255,255,0.07)", marginBottom:8, position:"relative", overflow:"hidden" }}>
+                        <div style={{ position:"absolute", left:"50%", top:0, width:1, height:"100%", background:"rgba(255,255,255,0.15)" }} />
+                        <div style={{ position:"absolute", top:0, height:"100%", left: avgNum < 0 ? `${barPct}%` : "50%", right: avgNum >= 0 ? `${100-barPct}%` : "50%", background: avgNum >= 0 ? "#34d399" : "#f43f5e", borderRadius:99 }} />
+                      </div>
+                      <div style={{ display:"flex", gap:8, fontSize:10, color:"rgba(255,255,255,0.35)" }}>
+                        <span>😊 {st.pos}</span>
+                        <span>😔 {st.neg}</span>
+                        {lastEm && <span style={{ marginLeft:"auto" }}>Últ: {lastEm.emoji}</span>}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center" }}>
         <button onClick={() => setShowTable(!showTable)}
@@ -211,10 +279,10 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
           {filtered.length === 0
             ? <div style={{ textAlign:"center", padding:"24px 0", color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Sin registros en este período</div>
             : filtered.map(m => {
-                const em     = EMOTIONS.find(e => e.id === m.emotion);
+                const em     = EMOTION_BY_ID[m.emotion];
                 const score  = m.valence * m.intensity;
                 const pColor = m.who === "person1" ? colors.person1 : colors.person2;
-                const pLabel = m.who === "person1" ? p1 : p2;
+                const pLabel = personName(m.who);
                 return (
                   <div key={m.id || m.ts} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>

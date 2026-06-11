@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.7.1";
+export const APP_VERSION = "4.7.3";
 export const LAST_UPDATE = "2026-06-11";
 
 // Banner de mantenimiento — null = desactivado
@@ -18,23 +18,25 @@ export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
   ?? "BCoIIBdYxBOpjsCsqHRmNFP-gxfmPUB87qomsXW8wpptkV-FrCTLj-4cnfzDOnocuxjDO3oPY2NiS2Tv5m6k5QU";
 // ─── Mood / Ánimo ────────────────────────────────────────────────────────────
 export const EMOTIONS = [
-  { id:"alegre",      label:"Alegre",       emoji:"😄", valence:1  },
-  { id:"tranquilo",   label:"Tranquilo",    emoji:"😌", valence:1  },
-  { id:"emocionado",  label:"Emocionado",   emoji:"🤩", valence:1  },
-  { id:"energico",    label:"Energético",   emoji:"⚡", valence:1  },
-  { id:"carinoso",    label:"Cariñoso",     emoji:"🥰", valence:1  },
-  { id:"confiado",    label:"Confiado",     emoji:"💪", valence:1  },
-  { id:"agradecido",  label:"Agradecido",   emoji:"🙏", valence:1  },
-  { id:"triste",      label:"Triste",       emoji:"😢", valence:-1 },
-  { id:"ansioso",     label:"Ansioso",      emoji:"😰", valence:-1 },
-  { id:"irritable",   label:"Irritable",    emoji:"😤", valence:-1 },
-  { id:"agotado",     label:"Agotado",      emoji:"😩", valence:-1 },
-  { id:"entumecido",  label:"Entumecido",   emoji:"😶", valence:-1 },
-  { id:"melancolico", label:"Melancólico",  emoji:"😔", valence:-1 },
-  { id:"frustrado",   label:"Frustrado",    emoji:"😠", valence:-1 },
+  { id:"alegre",      label:"Alegre",       emoji:"😄", valence:1,  color:"#fbbf24" },
+  { id:"tranquilo",   label:"Tranquilo",    emoji:"😌", valence:1,  color:"#60a5fa" },
+  { id:"emocionado",  label:"Emocionado",   emoji:"🤩", valence:1,  color:"#f472b6" },
+  { id:"energico",    label:"Energético",   emoji:"⚡", valence:1,  color:"#fb923c" },
+  { id:"carinoso",    label:"Cariñoso",     emoji:"🥰", valence:1,  color:"#e879f9" },
+  { id:"confiado",    label:"Confiado",     emoji:"💪", valence:1,  color:"#a78bfa" },
+  { id:"agradecido",  label:"Agradecido",   emoji:"🙏", valence:1,  color:"#34d399" },
+  { id:"triste",      label:"Triste",       emoji:"😢", valence:-1, color:"#94a3b8" },
+  { id:"ansioso",     label:"Ansioso",      emoji:"😰", valence:-1, color:"#f43f5e" },
+  { id:"irritable",   label:"Irritable",    emoji:"😤", valence:-1, color:"#ef4444" },
+  { id:"agotado",     label:"Agotado",      emoji:"😩", valence:-1, color:"#6b7280" },
+  { id:"entumecido",  label:"Entumecido",   emoji:"😶", valence:-1, color:"#475569" },
+  { id:"melancolico", label:"Melancólico",  emoji:"😔", valence:-1, color:"#818cf8" },
+  { id:"frustrado",   label:"Frustrado",    emoji:"😠", valence:-1, color:"#f97316" },
 ];
 
 export const CHANGELOG = [
+  { v:"4.7.3", date:"2026-06-11", notes:["Popup de ánimo rediseñado: animación de entrada slide-up con easing spring, cada emoción tiene su propio color único (ya no solo verde/rojo — amber para Alegre, azul para Tranquilo, pink para Emocionado, etc.), botón de siguiente cambia de color según la emoción seleccionada con ring animation, slider de intensidad reemplazado por una barra visual con fill animado, step final muestra chip con emoji+nombre+puntuación en el color de la emoción, textarea enfoca en el color de la emoción. MoodView: sección Comparativa entre los dos — side-by-side cards con promedio, barra -10/+10, positivos, negativos y última emoción de cada persona; solo aparece cuando ambas personas tienen registros. Modo Mundial: botón 'Ver en DAZN' en cada partido del overlay de día de partido — abre la búsqueda de DAZN España con los equipos del partido para acceder directamente al stream."] },
+  { v:"4.7.2", date:"2026-06-11", notes:["Fix de 4 bugs adicionales detectados en code review exhaustivo (high-effort): (1) trigger de encuesta de ánimo ahora es recursivo — se reprograma solo para las 18:00 del día siguiente tras disparar, por lo que funciona correctamente aunque la app permanezca abierta varios días; (2) localStorage en el gate del popup envuelto en try-catch para compatibilidad con modo privado (iOS Safari lanza QuotaExceededError en setItem); (3) isValidAppData ahora valida la estructura individual de cada entrada de ánimo (campos who, emotion, date, valence, intensity obligatorios) — entradas corruptas ya no pasan el gate; (4) checkMatchDay: el clearTimeout del overlay de día de partido se almacena en ref y se limpia correctamente al desmontar. Optimizaciones en MoodView: cálculo de estadísticas en una sola pasada (reduce en lugar de 3 arrays separados), lookup de EMOTION_BY_ID en O(1) en lugar de EMOTIONS.find() por cada entrada, useMemo en estadísticas, helper personName() para eliminar 5 ternarios duplicados."] },
   { v:"4.7.1", date:"2026-06-11", notes:["Fix de 8 bugs de la pestaña Ánimo (code review post-lanzamiento): (1) gate diario del popup autoshow ahora se marca solo cuando el popup realmente aparece, no antes del delay de 1400ms; (2) gate per-persona ahora se escribe en runAfterSave, solo si el guardado confirma en DB; (3) exportCSV ahora exporta los datos filtrados activos, no todos los registros; (4) cleanup del timeout interno del trigger cuando el componente se desmonta; (5) handleSubmit de MoodSurvey añade guardia !selectedEmotion antes de acceder a .valence; (6) IDs de gradientes SVG ahora son únicos por instancia usando useId(); (7) contador de pasos corregido cuando prefillWho está activo (3 pasos, no 4); (8) helper localDateStr() extraído a utils.js y usado en los 4 puntos del código que lo duplicaban inline."] },
   { v:"4.7.0", date:"2026-06-11", notes:["Nueva pestaña Ánimo: registro diario del estado emocional para seguimiento clínico de variaciones de humor (indicado para diagnóstico de trastorno del estado del ánimo). Cada día a las 18:00 aparece automáticamente una encuesta de 4 pasos: quién rellena, selección de emoción (14 opciones, 7 positivas + 7 negativas), intensidad 1–10 y nota libre. El estado emocional se representa internamente como puntuación −10 a +10 (valencia × intensidad). La pestaña Ánimo muestra: curva SVG con área verde (emociones positivas) y rosa (negativas), resumen estadístico (promedio, conteo positivos/negativos), tabla de registros filtrable por período (7d/30d/90d/todo) y persona, y exportación CSV con BOM UTF-8 para apertura directa en Excel.", "Cada persona solo puede registrar una entrada por día desde el popup automático. El popup solo se muestra una vez al día (gate por localStorage). El registro manual desde la pestaña siempre está disponible."] },
   { v:"4.6.10", date:"2026-06-05", notes:["Fix definitivo del historial de metas: el mes (o año) de inicio de una meta se ocultaba como 'sin datos' aunque tuviera misiones completadas. Causa: la fecha 'Analizar desde' (startDate) se interpretaba en horario UTC mientras que las fechas de cada periodo se construían en horario local — en España (UTC+2) la medianoche local del día 1 caía ANTES de la medianoche UTC, así que el periodo de inicio se descartaba por error. Ejemplo real: la meta 'Hacer gestos por amigos' (mensual, desde 1 may) tenía 7 gestos en mayo pero aparecía vacía. Ahora startDate se parsea como fecha local (parseLocalDate) y el mes de inicio cuenta correctamente. Misma clase de bug que el manejo dual de completedAt.", "Limpieza: eliminado src/helpers/goalHelpers.js, una copia muerta y duplicada de computeGoalProgress/computeGoalHistory que nadie importaba y que tenía el mismo bug — para que no se arregle nunca la copia equivocada. La única fuente es src/utils.js."] },

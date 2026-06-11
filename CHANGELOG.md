@@ -7,6 +7,46 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.7.3] — 2026-06-11 · Popup de ánimo pulido · Comparativa · DAZN
+
+### ✨ Mejoras de diseño
+
+**Popup de ánimo rediseñado:**
+- Animación de entrada slide-up con easing spring (`cubic-bezier(0.16,1,0.3,1)`) en lugar de aparición instantánea
+- Cada emoción tiene su propio color único: amber (Alegre), azul (Tranquilo), pink (Emocionado), naranja (Energético), fucsia (Cariñoso), violeta (Confiado), esmeralda (Agradecido), slate (Triste), rosa (Ansioso), rojo (Irritable), gris (Agotado), índigo (Melancólico), naranja oscuro (Frustrado)
+- Botón "Siguiente" cambia de color y sombra según la emoción seleccionada, con ring animation al seleccionar
+- Slider de intensidad reemplazado por barra visual con fill animado superpuesta al input range invisible
+- Step de nota: chip con emoji + nombre + ×intensidad en el color de la emoción; textarea enfoca en el borde del color de la emoción
+- Barra de progreso: el segmento activo se ensancha y los completados se muestran a media opacidad
+
+**Comparativa entre personas (MoodView):**
+- Nueva sección "Comparativa" debajo del gráfico con dos cards lado a lado (p1 | p2)
+- Cada card muestra: promedio de puntuación con signo, barra visual -10/+10 con zona positiva/negativa coloreada, contador de positivos/negativos y última emoción registrada
+- Solo aparece cuando ambas personas tienen al menos un registro en el período seleccionado
+
+**DAZN en el overlay de día de partido:**
+- Botón "▶ Ver en DAZN" en cada partido del overlay — abre la búsqueda de DAZN España con los equipos del partido para acceder directamente al stream
+- El botón no cierra el overlay al hacer click (e.stopPropagation)
+
+---
+
+## [4.7.2] — 2026-06-11 · Fix de bugs adicionales + optimizaciones MoodView (code review exhaustivo)
+
+### 🐛 Correcciones
+
+- **Midnight rollover** (`App.jsx`): el trigger de las 18:00 era un único timer que no se reprogramaba. Si la app permanecía abierta más de un día, solo se mostraba el popup el primer día. Ahora el scheduler es recursivo: tras disparar, se reprograma automáticamente para las 18:00 del día siguiente.
+- **localStorage sin try-catch en mood gate** (`App.jsx`): `localStorage.getItem/setItem` en el trigger del popup no tenía try-catch. En modo privado de iOS Safari lanza `QuotaExceededError` silenciosamente. Todas las llamadas ahora van envueltas en helpers `lsGet/lsSet` con try-catch.
+- **isValidAppData no validaba entradas de ánimo individualmente** (`validation.js`): solo chequeaba que `moods` fuera un array. Una entrada corrupta `{id:'x'}` sin `valence`/`intensity` pasaba la validación y producía `NaN` en el chart. Ahora se validan los campos obligatorios de cada entrada.
+- **Timer de overlay de día de partido no se limpiaba** (`App.jsx`): el `setTimeout` de 1200ms para `setMatchDayOverlay` dentro de `checkMatchDay` devolvía una función de cleanup en una Promise que nadie consumía — timer sin limpiar al desmontar. Movido a `matchDayTimerRef`.
+
+### ⚡ Optimizaciones MoodView
+
+- Estadísticas calculadas en una sola pasada `reduce()` en lugar de 3 arrays separados (`map` + 2 `filter`) — envuelto en `useMemo`.
+- Lookup de emoción por ID cambiado de `EMOTIONS.find()` O(n) a `EMOTION_BY_ID[id]` O(1), eliminando el O(n×m) en exportCSV y el O(n) por punto en el chart.
+- Helper `personName(who)` extrae la selección `who==="person1"?p1:p2` antes repetida 5 veces.
+
+---
+
 ## [4.7.1] — 2026-06-11 · Fix de 8 bugs detectados en code review de Ánimo
 
 ### 🐛 Correcciones
