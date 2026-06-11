@@ -9,7 +9,7 @@ import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 import LinksView from "./components/LinksView.jsx";
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
-import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear } from "./utils.js";
+import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr } from "./utils.js";
 import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
 import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
@@ -456,8 +456,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (!wcMode) { setMatchDayMatches(null); return; }
     const matches = await fetchWCMatches().catch(() => null);
     if (!matches) { setMatchDayMatches(null); return; }
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const todayStr = localDateStr();
     let todayMatches = wcMatchesForDate(matches, todayStr);
     try {
       const filter = JSON.parse(localStorage.getItem("mp-wc-filter") || "[]");
@@ -508,27 +507,33 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // Mood survey auto-trigger: shows once per day after 18:00
   useEffect(() => {
     if (loading || !data) return;
+    let innerTimer = null;
     const openSurvey = () => {
-      const now   = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+      const today = localDateStr();
       const p1Done = localStorage.getItem(`mp-mood-done-person1-${today}`);
       const p2Done = localStorage.getItem(`mp-mood-done-person2-${today}`);
       if (p1Done && p2Done) return;
       const autoKey = `mp-mood-autoshow-${today}`;
       if (localStorage.getItem(autoKey)) return;
-      localStorage.setItem(autoKey, "1");
       const prefill = (!p1Done && p2Done) ? "person1" : (p1Done && !p2Done) ? "person2" : null;
       setMoodSurveyPrefill(prefill);
-      setTimeout(() => setMoodSurveyOpen(true), 1400);
+      innerTimer = setTimeout(() => {
+        localStorage.setItem(autoKey, "1");
+        setMoodSurveyOpen(true);
+      }, 1400);
     };
     const now = new Date();
+    let outerTimer = null;
     if (now.getHours() >= 18) {
       openSurvey();
-      return;
+    } else {
+      const fireAt = new Date(now); fireAt.setHours(18, 0, 0, 0);
+      outerTimer = setTimeout(openSurvey, fireAt - now);
     }
-    const fireAt = new Date(now); fireAt.setHours(18, 0, 0, 0);
-    const t = setTimeout(openSurvey, fireAt - now);
-    return () => clearTimeout(t);
+    return () => {
+      if (outerTimer) clearTimeout(outerTimer);
+      if (innerTimer) clearTimeout(innerTimer);
+    };
   }, [loading]); // eslint-disable-line
 
   // Navigate to tab when tutorial step changes
@@ -985,8 +990,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         // Fórmula idéntica al anillo personal de HomeDashboard:
         // últimos 15 días, excluyendo eventos / futuras / completedLate,
         // incluyendo misiones del dueño + "together"
-        const td = new Date();
-        const todayStr = `${td.getFullYear()}-${String(td.getMonth()+1).padStart(2,"0")}-${String(td.getDate()).padStart(2,"0")}`;
+        const todayStr = localDateStr();
         const { week: tWn, year: tYr } = getWeekAndYear(new Date());
         const todayWkey = isoWeekKey(tWn, tYr);
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
@@ -1082,8 +1086,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
         // Fórmula idéntica al anillo personal de HomeDashboard
-        const td = new Date();
-        const todayStr = `${td.getFullYear()}-${String(td.getMonth()+1).padStart(2,"0")}-${String(td.getDate()).padStart(2,"0")}`;
+        const todayStr = localDateStr();
         const { week: tWn, year: tYr } = getWeekAndYear(new Date());
         const todayWkey = isoWeekKey(tWn, tYr);
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
@@ -1140,8 +1143,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const saveMoodEntry = (entry) => {
     const id = uid();
     update(d => ({ ...d, moods: [...(d.moods||[]), { ...entry, id }] }));
-    // Per-person daily gate
-    localStorage.setItem(`mp-mood-done-${entry.who}-${entry.date}`, "1");
+    runAfterSave(() => localStorage.setItem(`mp-mood-done-${entry.who}-${entry.date}`, "1"));
     setMoodSurveyOpen(false);
     pushToast({ kind:"success", text:"🧠 Estado de ánimo guardado" });
   };

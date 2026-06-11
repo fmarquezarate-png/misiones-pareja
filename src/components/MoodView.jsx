@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useId } from "react";
 import { EMOTIONS } from "../constants.js";
 import { dlBlob } from "../utils.js";
 
@@ -16,6 +16,9 @@ function filterMoods(moods, period, who) {
 }
 
 function MoodChart({ moods, p1, p2, colors }) {
+  const uid = useId();
+  const posId = `${uid}-pos`;
+  const negId = `${uid}-neg`;
   if (moods.length === 0) {
     return (
       <div style={{ textAlign:"center", padding:"36px 0", color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>
@@ -43,19 +46,19 @@ function MoodChart({ moods, p1, p2, colors }) {
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible", display:"block" }}>
       <defs>
-        <linearGradient id="mv-pos" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={posId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#34d399" stopOpacity="0.28" />
           <stop offset="100%" stopColor="#34d399" stopOpacity="0.04" />
         </linearGradient>
-        <linearGradient id="mv-neg" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={negId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.04" />
           <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.28" />
         </linearGradient>
       </defs>
 
       {/* Background zones */}
-      <rect x={PAD.left} y={PAD.top} width={chartW} height={Math.max(0, yZero - PAD.top)} fill="url(#mv-pos)" rx="3" />
-      <rect x={PAD.left} y={yZero} width={chartW} height={Math.max(0, PAD.top + chartH - yZero)} fill="url(#mv-neg)" rx="3" />
+      <rect x={PAD.left} y={PAD.top} width={chartW} height={Math.max(0, yZero - PAD.top)} fill={`url(#${posId})`} rx="3" />
+      <rect x={PAD.left} y={yZero} width={chartW} height={Math.max(0, PAD.top + chartH - yZero)} fill={`url(#${negId})`} rx="3" />
 
       {/* Y axis ticks */}
       {[-10,-5,0,5,10].map(t => (
@@ -102,7 +105,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
 
   const exportCSV = () => {
     const header = ["fecha","quien","emocion","valencia","intensidad","puntuacion","nota"];
-    const rows = [...moods].sort((a,b) => a.ts-b.ts).map(m => [
+    const rows = [...filtered].sort((a,b) => a.ts-b.ts).map(m => [
       m.date,
       m.who==="person1" ? p1 : p2,
       EMOTIONS.find(e=>e.id===m.emotion)?.label || m.emotion,

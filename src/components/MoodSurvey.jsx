@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { EMOTIONS } from "../constants.js";
+import { localDateStr } from "../utils.js";
 
 // 4-step popup: 0=who, 1=emotion, 2=intensity, 3=note+submit
 export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, onClose }) {
@@ -16,10 +17,8 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
   const accentClr  = isPositive ? "#34d399" : "#f43f5e";
 
   const handleSubmit = () => {
-    if (!who || !emotion) return;
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
-    onSave({ who, emotion, valence: selectedEmotion.valence, intensity, note: note.trim(), date: dateStr, ts: Date.now() });
+    if (!who || !emotion || !selectedEmotion) return;
+    onSave({ who, emotion, valence: selectedEmotion.valence, intensity, note: note.trim(), date: localDateStr(), ts: Date.now() });
   };
 
   return (
@@ -31,7 +30,7 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
           <div>
             <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--t-text,#f8f4ff)" }}>🧠 ¿Cómo estás?</div>
             <div style={{ fontSize:12, color: who ? whoColor : "var(--t-text-muted,#8b7fa8)", marginTop:3 }}>
-              {who ? `${whoLabel} · Paso ${step + 1} de 4` : "Registro de ánimo diario"}
+              {who ? `${whoLabel} · Paso ${prefillWho ? step : step + 1} de ${prefillWho ? 3 : 4}` : "Registro de ánimo diario"}
             </div>
           </div>
           <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", fontSize:22, cursor:"pointer", lineHeight:1, padding:0 }}>×</button>
@@ -39,7 +38,7 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
 
         {/* Progress bar */}
         <div style={{ display:"flex", gap:5, marginBottom:20 }}>
-          {[0,1,2,3].map(i => (
+          {(prefillWho ? [1,2,3] : [0,1,2,3]).map(i => (
             <div key={i} style={{ height:4, borderRadius:99, flex: i === step ? 2 : 1, background: i <= step ? "var(--t-accent,#a78bfa)" : "rgba(255,255,255,0.08)", transition:"all 0.2s" }} />
           ))}
         </div>
