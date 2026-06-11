@@ -16,7 +16,7 @@ export async function signInWithGoogle() {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://the-shared-calendar.netlify.app",
+      redirectTo: window.location.origin,
       queryParams: { prompt: "select_account" },
     },
   });
