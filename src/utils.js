@@ -22,6 +22,9 @@ export const getWeekAndYear = (date = new Date()) => {
   return { week: Math.ceil((((d - ys) / 86400000) + 1) / 7), year: d.getUTCFullYear() };
 };
 
+export const localDateStr = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
 export const isTodayMonday    = () => new Date().getDay() === 1;
 export const isoWeeksInYear   = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 export const prevWeekFn       = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };

@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.7.1] — 2026-06-11 · Fix de 8 bugs detectados en code review de Ánimo
+
+### 🐛 Correcciones
+
+- **Gate autoshow race** (`App.jsx`): el localStorage de "popup ya mostrado hoy" ahora se escribe dentro del `setTimeout` de 1400ms, no antes. Un remonte en ese intervalo ya no bloquea el popup para todo el día.
+- **Gate per-persona antes de confirmar guardado** (`App.jsx`): `mp-mood-done-{who}-{date}` ahora se marca en `runAfterSave`, solo tras confirmación en DB. Si el guardado falla, el usuario puede volver a registrar.
+- **exportCSV ignoraba el filtro activo** (`MoodView.jsx`): el CSV ahora exporta los datos filtrados (`filtered`), no todos los registros.
+- **Timeout interno sin cleanup** (`App.jsx`): el `setTimeout` de 1400ms en la rama ≥18:00 ahora se limpia correctamente al desmontar el componente.
+- **Null guard en `handleSubmit`** (`MoodSurvey.jsx`): añadida guardia `!selectedEmotion` antes de acceder a `.valence`, evita crash si el ID de emoción no existe en `EMOTIONS`.
+- **Colisión de IDs SVG** (`MoodView.jsx`): los gradientes `mv-pos`/`mv-neg` usan ahora IDs únicos por instancia vía `useId()` de React 18.
+- **Contador de pasos incorrecto con prefillWho** (`MoodSurvey.jsx`): cuando la encuesta se abre prefijada para una persona, el contador muestra "Paso X de 3" (no de 4), y la barra de progreso muestra 3 segmentos.
+- **Helper `localDateStr()` extraído** (`utils.js`): eliminadas 4 duplicaciones inline del patrón `YYYY-MM-DD` en `App.jsx` y `MoodSurvey.jsx`.
+
+---
+
 ## [4.7.0] — 2026-06-11 · Nueva pestaña Ánimo — seguimiento de estado emocional
 
 ### 🧠 Registro diario de estado de ánimo
