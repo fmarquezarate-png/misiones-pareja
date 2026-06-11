@@ -59,23 +59,30 @@ export default function MatchDayOverlay({ matches, onDone }) {
 
       {/* Match list */}
       <div style={{ display:"flex", flexDirection:"column", gap:10, width:"100%", maxWidth:320, marginBottom:28, animation:"matchday-fade 0.5s 0.35s both" }}>
-        {matches.map(m => (
-          <div key={m.id} style={{
-            background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.25)",
-            borderRadius:12, padding:"10px 14px", display:"flex", alignItems:"center", justifyContent:"space-between",
-          }}>
-            <span style={{ fontSize:13, fontWeight:600, color:"#4ade80" }}>
-              {m.homeFlag} {m.home}
-            </span>
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", fontWeight:700 }}>VS</div>
-              {m.time && <div style={{ fontSize:10, color:"rgba(34,197,94,0.7)" }}>{m.time} h.España</div>}
+        {matches.map(m => {
+          const daznUrl = `https://www.dazn.com/es-ES/search?query=${encodeURIComponent(`${m.home} ${m.away} FIFA World Cup 2026`)}`;
+          return (
+            <div key={m.id} style={{ background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.25)", borderRadius:12, padding:"10px 14px" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:"#4ade80" }}>{m.homeFlag} {m.home}</span>
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", fontWeight:700 }}>VS</div>
+                  {m.time && <div style={{ fontSize:10, color:"rgba(34,197,94,0.7)" }}>{m.time} h.España</div>}
+                </div>
+                <span style={{ fontSize:13, fontWeight:600, color:"#4ade80" }}>{m.away} {m.awayFlag}</span>
+              </div>
+              <a
+                href={daznUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"linear-gradient(135deg,#1a56db,#1e40af)", borderRadius:8, color:"#fff", fontSize:12, fontWeight:700, padding:"7px 12px", textDecoration:"none", width:"100%", boxSizing:"border-box", letterSpacing:0.3 }}
+              >
+                <span style={{ fontSize:15 }}>▶</span> Ver en DAZN
+              </a>
             </div>
-            <span style={{ fontSize:13, fontWeight:600, color:"#4ade80" }}>
-              {m.away} {m.awayFlag}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div style={{ animation:"matchday-fade 0.5s 0.45s both" }}>

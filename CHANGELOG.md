@@ -7,6 +7,29 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.7.3] — 2026-06-11 · Popup de ánimo pulido · Comparativa · DAZN
+
+### ✨ Mejoras de diseño
+
+**Popup de ánimo rediseñado:**
+- Animación de entrada slide-up con easing spring (`cubic-bezier(0.16,1,0.3,1)`) en lugar de aparición instantánea
+- Cada emoción tiene su propio color único: amber (Alegre), azul (Tranquilo), pink (Emocionado), naranja (Energético), fucsia (Cariñoso), violeta (Confiado), esmeralda (Agradecido), slate (Triste), rosa (Ansioso), rojo (Irritable), gris (Agotado), índigo (Melancólico), naranja oscuro (Frustrado)
+- Botón "Siguiente" cambia de color y sombra según la emoción seleccionada, con ring animation al seleccionar
+- Slider de intensidad reemplazado por barra visual con fill animado superpuesta al input range invisible
+- Step de nota: chip con emoji + nombre + ×intensidad en el color de la emoción; textarea enfoca en el borde del color de la emoción
+- Barra de progreso: el segmento activo se ensancha y los completados se muestran a media opacidad
+
+**Comparativa entre personas (MoodView):**
+- Nueva sección "Comparativa" debajo del gráfico con dos cards lado a lado (p1 | p2)
+- Cada card muestra: promedio de puntuación con signo, barra visual -10/+10 con zona positiva/negativa coloreada, contador de positivos/negativos y última emoción registrada
+- Solo aparece cuando ambas personas tienen al menos un registro en el período seleccionado
+
+**DAZN en el overlay de día de partido:**
+- Botón "▶ Ver en DAZN" en cada partido del overlay — abre la búsqueda de DAZN España con los equipos del partido para acceder directamente al stream
+- El botón no cierra el overlay al hacer click (e.stopPropagation)
+
+---
+
 ## [4.7.2] — 2026-06-11 · Fix de bugs adicionales + optimizaciones MoodView (code review exhaustivo)
 
 ### 🐛 Correcciones
