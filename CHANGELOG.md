@@ -7,6 +7,29 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.7.0] — 2026-06-11 · Nueva pestaña Ánimo — seguimiento de estado emocional
+
+### 🧠 Registro diario de estado de ánimo
+
+Nueva pestaña **Ánimo** en el menú lateral, orientada al seguimiento clínico de variaciones emocionales.
+
+**Encuesta diaria (4 pasos):**
+1. **¿Quién rellena?** — persona 1 o persona 2
+2. **Estado de ánimo** — 14 emociones (7 positivas: Alegre, Tranquilo, Emocionado, Energético, Cariñoso, Confiado, Agradecido; 7 negativas: Triste, Ansioso, Irritable, Agotado, Entumecido, Melancólico, Frustrado)
+3. **Intensidad** — escala 1–10 con slider visual
+4. **Nota libre** — ¿por qué? ¿qué ha pasado? (máx. 500 chars, opcional)
+
+**Trigger automático:** el popup aparece una vez al día a las **18:00** (hora óptima para EMA clínico en trastornos del ánimo). Si una de las dos personas ya respondió ese día, el popup abre directamente para la otra. Gate por localStorage — no vuelve a aparecer hasta el día siguiente.
+
+**Pestaña Ánimo:**
+- **Curva SVG** con área verde (emociones positivas, puntuación 0→+10) y área rosa (negativas, 0→−10). Puntuación interna = valencia × intensidad
+- **Resumen estadístico** — promedio, total positivos, total negativos
+- **Filtros** — últimos 7/30/90 días o todo, filtrable por persona
+- **Tabla de registros** — expandible, muestra emoji, emoción, intensidad, puntuación, persona, fecha y nota
+- **Exportar CSV** — con BOM UTF-8 para apertura directa en Excel, compatible con análisis clínico externo
+
+---
+
 ## [4.6.10] — 2026-06-05 · Fix definitivo del historial de metas (zona horaria)
 
 ### 🐛 El mes/año de inicio de una meta se ocultaba como "sin datos"

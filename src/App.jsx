@@ -28,6 +28,8 @@ import ClickSparkles from "./components/ClickSparkles.jsx";
 import MatchDayTheme from "./components/MatchDayTheme.jsx";
 import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
 import BirthdaysView from "./components/BirthdaysView.jsx";
+import MoodSurvey from "./components/MoodSurvey.jsx";
+import MoodView from "./components/MoodView.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
@@ -66,6 +68,7 @@ const SEED = {
   currentWeekNumber: _seedWeek, currentYear: _seedYear,
   settings: DEFAULT_SETTINGS,
   goals: [],
+  moods: [],
   weeks: {},
 };
 
@@ -179,6 +182,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
   const [matchDayMatches, setMatchDayMatches] = useState(null);   // WC matches today (filtered) — null = none
   const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
+  const [moodSurveyOpen,    setMoodSurveyOpen]    = useState(false);
+  const [moodSurveyPrefill, setMoodSurveyPrefill] = useState(null); // null | "person1" | "person2"
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -499,6 +504,32 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     tomorrows.forEach(b => pushToast({ kind:"info", text:`🎂 Mañana es el cumpleaños de ${b.name}` }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, data?.birthdays]);
+
+  // Mood survey auto-trigger: shows once per day after 18:00
+  useEffect(() => {
+    if (loading || !data) return;
+    const openSurvey = () => {
+      const now   = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+      const p1Done = localStorage.getItem(`mp-mood-done-person1-${today}`);
+      const p2Done = localStorage.getItem(`mp-mood-done-person2-${today}`);
+      if (p1Done && p2Done) return;
+      const autoKey = `mp-mood-autoshow-${today}`;
+      if (localStorage.getItem(autoKey)) return;
+      localStorage.setItem(autoKey, "1");
+      const prefill = (!p1Done && p2Done) ? "person1" : (p1Done && !p2Done) ? "person2" : null;
+      setMoodSurveyPrefill(prefill);
+      setTimeout(() => setMoodSurveyOpen(true), 1400);
+    };
+    const now = new Date();
+    if (now.getHours() >= 18) {
+      openSurvey();
+      return;
+    }
+    const fireAt = new Date(now); fireAt.setHours(18, 0, 0, 0);
+    const t = setTimeout(openSurvey, fireAt - now);
+    return () => clearTimeout(t);
+  }, [loading]); // eslint-disable-line
 
   // Navigate to tab when tutorial step changes
   useEffect(() => {
@@ -1106,6 +1137,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const updateGoal = (id, patch) => patchGoals(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
   const deleteGoal = id => patchGoals(gs => gs.filter(g => g.id!==id));
 
+  const saveMoodEntry = (entry) => {
+    const id = uid();
+    update(d => ({ ...d, moods: [...(d.moods||[]), { ...entry, id }] }));
+    // Per-person daily gate
+    localStorage.setItem(`mp-mood-done-${entry.who}-${entry.date}`, "1");
+    setMoodSurveyOpen(false);
+    pushToast({ kind:"success", text:"🧠 Estado de ánimo guardado" });
+  };
+
   const compressImage = (file) => new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -1494,6 +1534,12 @@ ${sorted.map(m=>{
           onDelete={id => update(d => ({ ...d, birthdays: (d.birthdays||[]).filter(b => b.id !== id) }))}
         />}
 
+        {activeTab==="mood" && <MoodView
+          moods={data.moods||[]}
+          p1={p1} p2={p2} colors={colors}
+          onAddMood={() => { setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
+        />}
+
         {activeTab==="pending" && <PendingView
           weeks={data.weeks}
           currentWeekNumber={data.currentWeekNumber}
@@ -1596,6 +1642,16 @@ ${sorted.map(m=>{
           p1Color={juntosMoment.p1Color}
           p2Color={juntosMoment.p2Color}
           onDone={() => setJuntosMoment(null)}
+        />
+      )}
+
+      {/* Encuesta de ánimo — popup automático a las 18:00 o manual desde la pestaña */}
+      {moodSurveyOpen && (
+        <MoodSurvey
+          p1={p1} p2={p2} colors={colors}
+          prefillWho={moodSurveyPrefill}
+          onSave={saveMoodEntry}
+          onClose={() => setMoodSurveyOpen(false)}
         />
       )}
     </div>
