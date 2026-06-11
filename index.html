@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0714" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Shared Cal" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/misiones-pareja/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/misiones-pareja/icon-192.png" />
+    <title>Shared Calendar</title>
+    <!-- Prevent theme flash: apply last-used bg before React mounts -->
+    <script>try{
+      var _mp=JSON.parse(localStorage.getItem("mp_theme")||"null");
+      if(_mp){var _r=document.documentElement.style;for(var _k in _mp){_r.setProperty(_k,_mp[_k]);}}
+      else{var _b=localStorage.getItem("mp-quick-bg");if(_b)document.documentElement.style.background=_b;}
+    }catch(e){}</script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
+      body { background: transparent; color: #f8f4ff; }
+      html { background: #0a0714; }
+      #root { min-height: 100vh; }
+      /* Prevent zoom on input focus (iOS Safari + Chrome) — 16px minimum */
+      input, select, textarea { font-size: max(16px, 1em) !important; touch-action: manipulation; }
+
+      @keyframes mc-pop {
+        0%   { transform: scale(1); }
+        50%  { transform: scale(1.28); }
+        100% { transform: scale(1); }
+      }
+
+      @keyframes home-breathe {
+        0%, 100% { background-position: 0% 50%, 100% 50%; }
+        50%      { background-position: 10% 60%, 90% 40%; }
+      }
+
+      .home-breathe-bg {
+        animation: home-breathe 8s ease-in-out infinite;
+      }
+    </style>
+    <script type="module" crossorigin src="/misiones-pareja/assets/index-COsQ2zRQ.js"></script>
+  <link rel="manifest" href="/misiones-pareja/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/misiones-pareja/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
