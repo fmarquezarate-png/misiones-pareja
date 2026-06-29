@@ -239,8 +239,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(true);
     setSyncError(null);
     try {
-      const remote = await loadData(coupleId);
+      const { data: remote, version } = await loadDataWithVersion(coupleId);
       if (remote) {
+        // Sync version BEFORE setState so the next save uses the correct version
+        dataVersionRef.current = version ?? null;
         setData(prev => {
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
             showSyncMsg("✓ Ya estás al día");
@@ -646,7 +648,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (typeof remoteVersion === "number") dataVersionRef.current = remoteVersion;
       setSavingState("idle");
       if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
-        showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
+        showNotif("📅 Misiones de Pareja", "Tu pareja actualizó el calendario", {tag:"partner-update"});
       }
       if (isPushSupported() && !pushSubscribedRef.current && !pushNudgeDismissRef.current) {
         setPushNudgeVisible(true);
@@ -1054,8 +1056,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
       return { ...d, weeks: newWeeks };
     });
-    // Normalized: update each affected mission
-    for (const [wkey, w] of Object.entries(data.weeks)) {
+    // Normalized: update each affected mission — use dataRef.current (not stale closure)
+    for (const [wkey, w] of Object.entries(dataRef.current.weeks)) {
       if (wkey < fromWkey) continue;
       for (const m of (w.missions || [])) {
         if (m.seriesId === seriesId) {
@@ -1157,10 +1159,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     pushToast({ kind:"success", text:"🧠 Estado de ánimo guardado" });
   };
 
-  const compressImage = (file) => new Promise(resolve => {
+  const compressImage = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo de imagen"));
     reader.onload = e => {
       const img = new Image();
+      img.onerror = () => reject(new Error("El archivo no es una imagen válida"));
       img.onload = () => {
         const maxPx = 800;
         const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
@@ -1554,7 +1558,7 @@ ${sorted.map(m=>{
 
         {activeTab==="wishlist" && <WishlistView
           wishlist={data.wishlist||[]}
-          onSave={wishlist => update(d => ({ ...d, wishlist }))}
+          onSave={fn => update(d => ({ ...d, wishlist: fn(d.wishlist||[]) }))}
           pushToast={pushToast}
         />}
 

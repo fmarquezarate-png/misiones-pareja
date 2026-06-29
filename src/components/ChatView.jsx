@@ -37,7 +37,8 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
     try {
       await sendMessage(coupleId, personName, msgText);
       setInput("");
-      setTimeout(() => sendContextualPush(coupleId, { body: `${personName}: ${msgText.slice(0, 80)}`, tag: "mp-chat" }, sessionUserId), 1500);
+      // sendMessage is awaited — the message is already in DB at this point, safe to notify
+      sendContextualPush(coupleId, { body: `${personName}: ${msgText.slice(0, 80)}`, tag: "mp-chat" }, sessionUserId);
     } catch (e) { console.warn("send err", e); }
     finally { setSending(false); }
   };

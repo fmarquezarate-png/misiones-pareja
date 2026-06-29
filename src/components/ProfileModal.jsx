@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isEnabled } from "../lib/flags.js";
 import { S } from "../styles.js";
 import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
@@ -214,6 +215,7 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
             </div>
           </div>
 
+          {isEnabled('push_enabled') && <>
           <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Push en segundo plano</div>
           <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
             {!pushSupported ? (
@@ -241,6 +243,7 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
               </div>
             )}
           </div>
+          </>}
 
           <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:8 }}>Notificaciones en app</div>
           <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>

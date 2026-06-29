@@ -133,7 +133,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
     const header = ["fecha","quien","emocion","valencia","intensidad","puntuacion","nota"];
     const rows = [...filtered].sort((a,b) => a.ts-b.ts).map(m => [
       m.date,
-      personName(m.who),
+      `"${(personName(m.who)||"").replace(/"/g,'""')}"`,
       EMOTION_BY_ID[m.emotion]?.label || m.emotion,
       m.valence > 0 ? "positiva" : "negativa",
       m.intensity,

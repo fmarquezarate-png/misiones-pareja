@@ -327,19 +327,18 @@ export default function WishlistView({ wishlist = [], onSave, pushToast }) {
   const { confirm, ConfirmDialog } = useConfirm();
 
   const save = (cat) => {
-    const next = wishlist.find(c => c.id === cat.id)
-      ? wishlist.map(c => c.id === cat.id ? cat : c)
-      : [...wishlist, cat];
-    onSave(next);
+    onSave(prev => prev.find(c => c.id === cat.id)
+      ? prev.map(c => c.id === cat.id ? cat : c)
+      : [...prev, cat]);
     setForm(null);
   };
 
   const updateCat = (cat) => {
-    onSave(wishlist.map(c => c.id === cat.id ? cat : c));
+    onSave(prev => prev.map(c => c.id === cat.id ? cat : c));
   };
 
   const deleteCat = (id) => {
-    onSave(wishlist.filter(c => c.id !== id));
+    onSave(prev => prev.filter(c => c.id !== id));
   };
 
   const del = (id) => {

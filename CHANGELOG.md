@@ -7,6 +7,34 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.8.2] — 2026-06-29 · Limpieza y reparación general (14 bugs)
+
+### 🐛 Fixes — code review exhaustivo de toda la app
+
+**Riesgo de pérdida de datos (data-loss):**
+
+- **`smartSync` no sincronizaba `dataVersionRef`** (`App.jsx`): tras una sincronización manual, el siguiente save vía CAS comparaba contra una versión desactualizada → conflicto falso. Ahora usa `loadDataWithVersion` y actualiza el ref, igual que el resto de paths que tocan el estado remoto.
+- **`patchAllFutureSeries` dual-write con closure stale** (`App.jsx`): el bucle de dual-write a la tabla normalizada leía `data.weeks` (capturado al declarar la función) en vez de `dataRef.current.weeks` — podía escribir sobre una foto vieja del estado tras varias ediciones en la misma sesión.
+- **`WishlistView` ↔ `App.jsx` no era rebase-safe**: `onSave` recibía un snapshot de valor (`wishlist` completo) en vez de una función pura `fn(prev) => next`. Si los dos miembros de la pareja editaban la Lista de compras casi a la vez y había un conflicto CAS, el rebase reaplicaba el snapshot viejo y pisaba el cambio del otro. Ahora sigue el mismo patrón que el resto de mutadores: `onSave={fn => update(d => ({ ...d, wishlist: fn(d.wishlist) }))}`.
+
+**Push / notificaciones:**
+
+- **`ChatView` esperaba 1500ms con `setTimeout`** antes de notificar al enviar un mensaje — el mensaje ya estaba confirmado en DB tras el `await sendMessage(...)`, el delay no aportaba nada y es el patrón que la regla de `runAfterSave` prohíbe. Eliminado.
+- Notificación nativa de "tu pareja actualizó el calendario" decía **"📅 Shared Calendar"** — corregido a "Misiones de Pareja" (rename pendiente desde v3.8.23).
+- **`unsubscribePush` borraba la fila de Supabase antes de desuscribir el navegador** — si `sub.unsubscribe()` fallaba a mitad, el usuario quedaba sin suscripción push en el navegador pero también sin fila en DB para reintentar. Orden invertido: desuscribir primero, borrar después.
+- **`subscribePush` sin timeout en `navigator.serviceWorker.ready`** — si el Service Worker nunca pasa a `ready` (caso raro pero posible), la promesa colgaba para siempre. Ahora tiene el mismo guard de 5s que ya tenía `getCurrentSubscription`.
+- **`ProfileModal` mostraba el toggle de push aunque `push_enabled` estuviera desactivado** — `SettingsModal` ya respetaba el flag, `ProfileModal` no. Gateado igual ahora.
+
+**Otros:**
+
+- **`compressImage` (subida de fotos) usaba `new Promise` sin `reject`** — una imagen corrupta o un archivo no-imagen colgaba el Promise indefinidamente. Añadidos `reader.onerror` e `img.onerror`, ambos con `reject`.
+- **`MoodSurvey` permitía doble-submit** con doble tap en "Guardar" — guardia de estado `submitted` + botón `disabled`.
+- **`isValidAppData` no validaba la estructura de `wishlist`** — una entrada corrupta (sin `id`/`name`, o `items` no-array) podía pasar el gate de guardado y corromper el blob.
+- **Exportación CSV de Ánimo no escapaba `personName`** — un nombre con coma rompía las columnas del CSV. Ahora va entre comillas con escape de `"`.
+- **Cálculo de series quincenales asumía 52 semanas exactas por año** (`appUtils.js`): en años ISO de 53 semanas (ej. 2026), la cadencia par/impar de la serie se desincronizaba al cruzar ese año. Ahora suma las semanas ISO reales (`isoWeeksInYear`) de cada año intermedio en vez de multiplicar por 52.
+
+---
+
 ## [4.8.1] — 2026-06-29 · Fix: app tardaba en abrir (code-splitting)
 
 ### 🐛 Fix de rendimiento

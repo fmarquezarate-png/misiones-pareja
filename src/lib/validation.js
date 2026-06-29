@@ -6,6 +6,14 @@ export function isValidAppData(d) {
   if (!d.weeks || typeof d.weeks !== "object" || Array.isArray(d.weeks)) return false;
   if (!d.settings || typeof d.settings !== "object" || Array.isArray(d.settings)) return false;
   if (d.goals !== undefined && !Array.isArray(d.goals)) return false;
+  if (d.wishlist !== undefined) {
+    if (!Array.isArray(d.wishlist)) return false;
+    for (const cat of d.wishlist) {
+      if (!cat || typeof cat !== "object") return false;
+      if (!cat.id || !cat.name) return false;
+      if (cat.items !== undefined && !Array.isArray(cat.items)) return false;
+    }
+  }
   if (d.moods !== undefined) {
     if (!Array.isArray(d.moods)) return false;
     for (const m of d.moods) {

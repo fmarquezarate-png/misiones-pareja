@@ -26,6 +26,7 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
   const [emotion,   setEmotion]   = useState(null);
   const [intensity, setIntensity] = useState(5);
   const [note,      setNote]      = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => { const t = setTimeout(() => setPhase(1), 30); return () => clearTimeout(t); }, []);
 
@@ -35,7 +36,8 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
   const accentClr = selectedEmotion?.color ?? (selectedEmotion?.valence > 0 ? "#34d399" : "#f43f5e");
 
   const handleSubmit = () => {
-    if (!who || !emotion || !selectedEmotion) return;
+    if (!who || !emotion || !selectedEmotion || submitted) return;
+    setSubmitted(true);
     onSave({ who, emotion, valence: selectedEmotion.valence, intensity, note: note.trim(), date: localDateStr(), ts: Date.now() });
   };
 
@@ -183,7 +185,7 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
             <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textAlign:"right", marginBottom:16 }}>{note.length}/500</div>
             <div style={{ display:"flex", gap:10 }}>
               <button onClick={() => setStep(2)} style={{ flex:1, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"var(--t-text-muted,#8b7fa8)", padding:"10px", cursor:"pointer", fontFamily:"inherit", fontSize:14 }}>← Atrás</button>
-              <button onClick={handleSubmit} style={{ flex:2, background:`linear-gradient(135deg,${accentClr},${accentClr}bb)`, border:"none", borderRadius:12, color:"#fff", padding:"12px 24px", cursor:"pointer", fontFamily:"inherit", fontSize:15, fontWeight:700, boxShadow:`0 6px 20px ${accentClr}44` }}>✓ Guardar</button>
+              <button onClick={handleSubmit} disabled={submitted} style={{ flex:2, background:`linear-gradient(135deg,${accentClr},${accentClr}bb)`, border:"none", borderRadius:12, color:"#fff", padding:"12px 24px", cursor:submitted?"default":"pointer", fontFamily:"inherit", fontSize:15, fontWeight:700, boxShadow:`0 6px 20px ${accentClr}44`, opacity:submitted?0.6:1 }}>{submitted ? "Guardando…" : "✓ Guardar"}</button>
             </div>
           </div>
         )}
