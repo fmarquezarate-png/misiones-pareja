@@ -30,6 +30,7 @@ import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
 import BirthdaysView from "./components/BirthdaysView.jsx";
 import MoodSurvey from "./components/MoodSurvey.jsx";
 import MoodView from "./components/MoodView.jsx";
+import WishlistView from "./components/WishlistView.jsx";
 import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
@@ -1548,6 +1549,12 @@ ${sorted.map(m=>{
           moods={data.moods||[]}
           p1={p1} p2={p2} colors={colors}
           onAddMood={() => { setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
+        />}
+
+        {activeTab==="wishlist" && <WishlistView
+          wishlist={data.wishlist||[]}
+          onSave={wishlist => update(d => ({ ...d, wishlist }))}
+          pushToast={pushToast}
         />}
 
         {activeTab==="pending" && <PendingView

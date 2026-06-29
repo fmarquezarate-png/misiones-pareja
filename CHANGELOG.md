@@ -7,6 +7,32 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.8.0] — 2026-06-29 · Pestaña Lista de compras (Wishlist)
+
+### 🆕 Nueva funcionalidad
+
+**Nueva pestaña 🛍️ Lista de compras** (`data.wishlist`):
+
+- **Categorías**: vista raíz con botón `+ Categoría` para crear listas tipo *Supermercado*, *Amazon*, *Shein*, *Wishlist*, etc.
+- **Tipo de lista al crear**:
+  - 🔁 **Recurrente**: compra que se repite (ej. la del super). Permite "Limpiar lista" que desmarca todos los artículos hechos y deja la lista preparada para la próxima vez. Muestra fecha de última limpieza y un toast de recordatorio al limpiar.
+  - 💫 **Única**: wishlist ambiciosa (ej. cosas para ahorrar). Sin botón de limpieza.
+- **Detalle de categoría**: botón `+` para añadir artículos en línea, lista con scroll, checkbox cuadrado a la izquierda para marcar como hecho. Los artículos hechos se hunden al final con tachado y fondo verde claro.
+- **Edición inline** tocando el texto del artículo; eliminación con `×` por artículo.
+- **Eliminar categoría** con confirmación destructiva.
+- **Selector de emoji**: input libre + chips sugeridos (🛒 🛍️ 💻 👗 💍 📚 🎁 🔧 🌿 💄 🏠 🚗 ✈️ 📦).
+- **Persistencia**: `data.wishlist` se guarda en el blob (CAS) y se sincroniza entre la pareja vía Realtime — mismo patrón que `gastos`, `birthdays`, `links`.
+- **Integración con menú lateral**: nueva entrada `🛍️ Lista de compras` en `SideMenu`, registrada en `TABS` de `appConstants.js`.
+
+### 📦 Cambios técnicos
+
+- `src/components/WishlistView.jsx` — nuevo componente con `CategoryForm`, `CategoryCard`, `CategoryDetail` y vista raíz.
+- `App.jsx` — render condicional `activeTab==="wishlist"` con `update(d => ({...d, wishlist}))` y `pushToast` propagado para el toast de recordatorio.
+- `SideMenu.jsx` — nueva entrada de navegación al final de `NAV_ITEMS`.
+- `appConstants.js` — `wishlist` añadido al array `TABS`.
+
+---
+
 ## [4.7.3] — 2026-06-11 · Popup de ánimo pulido · Comparativa · DAZN
 
 ### ✨ Mejoras de diseño

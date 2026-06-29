@@ -3,7 +3,7 @@
 
 export const STATUS_ORDER = ["TBC", "ASAP", "IN_PROGRESS", "DONE"];
 
-export const TABS = ["home", "current", "calendar", "pending", "goals", "stats", "gastos", "chat"];
+export const TABS = ["home", "current", "calendar", "pending", "goals", "stats", "gastos", "chat", "wishlist"];
 
 export const TUTORIAL_STEPS = [
   { id:"welcome",      tab:null,       bubblePos:"center",  arrowType:null,
