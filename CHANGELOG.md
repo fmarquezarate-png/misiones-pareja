@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.8.1] — 2026-06-29 · Fix: app tardaba en abrir (code-splitting)
+
+### 🐛 Fix de rendimiento
+
+La app tardaba en abrir tras la migración a Vercel. Causa: todo el bundle JS (~894kB minificado / 255kB gzip) se descargaba y parseaba de una sola vez antes del primer render, incluyendo vistas y modales que no se ven al abrir la app.
+
+**Solución — code-splitting con `React.lazy()` + `Suspense`:**
+
+- Pestañas que ya no van en el bundle inicial, sino que cargan a demanda la primera vez que se abren: `CalendarView`, `HistoryView`, `GoalsView`, `StatsView`, `ChatView`, `GastosView`, `LinksView`, `BirthdaysView`, `MoodView`, `WishlistView`, `PendingView`.
+- Modales diferidos igual: `ProfileModal`, `WrappedModal`, `MoodSurvey`.
+- Cada bloque lazy-cargado está envuelto en `<Suspense>` con fallback (texto "Cargando…" para vistas, `null` para modales que ya tienen su propia animación de entrada).
+- `HomeDashboard` y la vista de semana actual (`current`) siguen cargando eager — son la pantalla por defecto al abrir.
+
+**Resultado**: bundle inicial bajó de 893.62kB (254.75kB gzip) a 685.01kB (206.02kB gzip) — el resto se reparte en 14 chunks de 3-41kB que solo se descargan si el usuario visita esa pestaña o abre ese modal.
+
+Archivos: `src/App.jsx` (imports a `lazy()`, bloques `<Suspense>`), `src/constants.js` (bump versión), `CHANGELOG.md`.
+
+---
+
 ## [4.8.0] — 2026-06-29 · Pestaña Lista de compras (Wishlist)
 
 ### 🆕 Nueva funcionalidad
