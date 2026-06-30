@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.10.1] — 2026-06-30 · Fixes de UX (chat, perfil, menú)
+
+### 🐛 Fixes
+
+- **Chat atascado**: a veces no se podía salir del Chat sin cerrar la app entera. Causa: usaba una altura fija `calc(100vh - 120px)` con scroll interno, un patrón que en mobile no se recalcula bien cuando aparece/desaparece el teclado en pantalla — el único view de la app con este patrón. Ahora el Chat fluye con el scroll normal de página (como el resto de pestañas) y el campo de escribir queda fijo abajo con `position:sticky`, igual que la barra superior (`Topbar`).
+- **Foto de pareja pegada la primera vez**: al abrir el perfil (foto/avatar de la pareja) por primera vez, la pantalla se quedaba en blanco hasta cerrar y reabrir la app. Causa: los modales con carga diferida (`ProfileModal`, `WrappedModal`, `MoodSurvey`) usaban `Suspense fallback={null}` — mientras se descargaba el chunk la primera vez, no se mostraba nada. Ahora muestran un indicador "Cargando…" visible.
+- **Gastos sin proyectos**: la sección de proyectos compartidos no mostraba ningún mensaje cuando el usuario todavía no había creado ninguno (devolvía `null` silenciosamente). Ahora invita a crear el primero.
+
+### ✨ Mejoras
+
+- **Reordenado el menú de hamburguesa** al orden: Inicio, Calendario, Semana, Pendientes, Metas, Stats, Histórico, Lista de compras, Ánimo, Gastos, Chat, Links de Interés, Cumpleaños.
+
+---
+
 ## [4.10.0] — 2026-06-30 · Reporte de Ánimo imprimible (PDF)
 
 ### ✨ Mejoras

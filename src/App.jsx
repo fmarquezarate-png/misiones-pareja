@@ -57,6 +57,17 @@ import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showN
 
 
 
+// Fallback visible para modales lazy (ProfileModal, WrappedModal, MoodSurvey) — sin esto,
+// la primera vez que se abren (chunk aún no cacheado) la pantalla no muestra nada hasta que
+// termina de descargar, y se percibe como que la app se quedó pegada.
+function ModalLoadingFallback() {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:150, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+    </div>
+  );
+}
+
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
 
@@ -1342,7 +1353,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <Suspense fallback={null}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} /></Suspense>}
+      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} /></Suspense>}
 
 
 
@@ -1603,7 +1614,7 @@ ${sorted.map(m=>{
 
       {/* Wrapped gate — appears Monday mornings and 1st of month */}
       {wrappedConfig && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ModalLoadingFallback />}>
           <WrappedModal
             showWeekly={wrappedConfig.showWeekly}
             showMonthlyOption={wrappedConfig.showMonthlyOption}
@@ -1674,7 +1685,7 @@ ${sorted.map(m=>{
 
       {/* Encuesta de ánimo — popup automático a las 18:00 o manual desde la pestaña */}
       {moodSurveyOpen && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ModalLoadingFallback />}>
           <MoodSurvey
             p1={p1} p2={p2} colors={colors}
             prefillWho={moodSurveyPrefill}

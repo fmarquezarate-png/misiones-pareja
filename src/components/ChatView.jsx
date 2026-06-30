@@ -44,8 +44,8 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 120px)", maxHeight: 680 }}>
-      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, padding: "4px 0 12px" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 220px)" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, padding: "4px 0 12px" }}>
         {messages.length === 0 && (
           <div style={{ textAlign: "center", color: "var(--t-text-dim,#3d3360)", padding: 40 }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>💬</div>
@@ -73,7 +73,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
         })}
         <div ref={bottomRef} />
       </div>
-      <div style={{ borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.1))", paddingTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ position: "sticky", bottom: "env(safe-area-inset-bottom)", background: "var(--t-bg,#0a0714)", borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.1))", paddingTop: 10, paddingBottom: 6, display: "flex", gap: 8, alignItems: "center" }}>
         <div style={{ flex: 1, position: "relative" }}>
           <input
             value={input}
