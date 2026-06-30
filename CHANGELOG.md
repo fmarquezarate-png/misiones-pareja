@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.9.0] — 2026-06-30 · Ánimo más privado + control de notificación
+
+### ✨ Mejoras
+
+- **Privacidad por registro**: `MoodSurvey` ahora pide, al guardar, si el registro es privado (por defecto) o compartido con la pareja. Los registros privados (`shared:false`) quedan excluidos de la vista "Ambos" y de la sección Comparativa de `MoodView` — solo aparecen filtrando explícitamente por esa persona, marcados con 🔒. Los registros guardados antes de esta versión no tienen el campo `shared` y se siguen mostrando igual que siempre (no hay cambio retroactivo de visibilidad).
+- **Toggle 🔔/🔕 en la pestaña Ánimo**: nuevo botón en la cabecera (visible incluso en el estado vacío, antes del primer registro) para activar/desactivar el popup automático de las 18:00. Es una preferencia local por persona/dispositivo guardada con `lib/userPrefs.js` (igual patrón que el tema/fuente), nunca se sincroniza al blob de la pareja.
+
+### Notas técnicas
+
+- `App.jsx`: el efecto de auto-trigger de las 18:00 (`openSurvey`) ahora comprueba `getUserPrefs(sessionUserId).moodNotifEnabled` antes de programar el popup.
+- No hubo cambios de esquema en Supabase ni en `app_data` — los campos nuevos viven dentro del blob de moods (`data.moods[].shared`) y en `localStorage` (`user-prefs-<id>.moodNotifEnabled`), consistente con la arquitectura actual.
+
+---
+
 ## [4.8.2] — 2026-06-29 · Limpieza y reparación general (14 bugs)
 
 ### 🐛 Fixes — code review exhaustivo de toda la app

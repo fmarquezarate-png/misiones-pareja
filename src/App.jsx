@@ -516,6 +516,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
     const openSurvey = () => {
+      if (sessionUserId && getUserPrefs(sessionUserId).moodNotifEnabled === false) return;
       const today = localDateStr();
       const p1Done = lsGet(`mp-mood-done-person1-${today}`);
       const p2Done = lsGet(`mp-mood-done-person2-${today}`);
@@ -1553,6 +1554,7 @@ ${sorted.map(m=>{
         {activeTab==="mood" && <MoodView
           moods={data.moods||[]}
           p1={p1} p2={p2} colors={colors}
+          sessionUserId={sessionUserId}
           onAddMood={() => { setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
         />}
 

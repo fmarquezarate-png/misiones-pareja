@@ -1,6 +1,7 @@
 import { useState, useId, useMemo } from "react";
 import { EMOTIONS } from "../constants.js";
 import { dlBlob } from "../utils.js";
+import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 
 const EMOTION_BY_ID = Object.fromEntries(EMOTIONS.map(e => [e.id, e]));
 
@@ -94,12 +95,21 @@ function MoodChart({ moods, p1, p2, colors }) {
   );
 }
 
-export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
+export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessionUserId }) {
   const [period,    setPeriod]    = useState("30d");
   const [who,       setWho]       = useState("all");
   const [showTable, setShowTable] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(() => getUserPrefs(sessionUserId).moodNotifEnabled !== false);
 
-  const filtered = filterMoods(moods, period, who);
+  const toggleNotif = () => {
+    const next = !notifEnabled;
+    setNotifEnabled(next);
+    if (sessionUserId) saveUserPrefs(sessionUserId, { moodNotifEnabled: next });
+  };
+
+  // Las entradas privadas (shared:false) no entran en la vista "Ambos" ni en la Comparativa —
+  // solo se ven filtrando explícitamente por esa persona.
+  const filtered = filterMoods(moods, period, who).filter(m => who === "all" ? m.shared !== false : true);
   const { avgScore, posCount, negCount } = useMemo(() => {
     if (filtered.length === 0) return { avgScore: null, posCount: 0, negCount: 0 };
     const { sum, pos, neg } = filtered.reduce((acc, m) => {
@@ -111,7 +121,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
 
   // Per-person stats for comparativa (always uses full period, both people)
   const personStats = useMemo(() => {
-    const all = filterMoods(moods, period, "all");
+    const all = filterMoods(moods, period, "all").filter(m => m.shared !== false);
     const calc = (personId) => {
       const entries = all.filter(m => m.who === personId);
       if (entries.length === 0) return { avg: null, pos: 0, neg: 0, last: null, count: 0 };
@@ -144,14 +154,23 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
     dlBlob(new Blob(["﻿" + csv], { type:"text/csv;charset=utf-8" }), "animo-export.csv");
   };
 
+  const notifToggle = (
+    <button onClick={toggleNotif}
+      title={notifEnabled ? "Recordatorio diario activado — toca para desactivar" : "Recordatorio diario desactivado — toca para activar"}
+      style={{ background: notifEnabled ? "rgba(167,139,250,0.14)" : "rgba(128,128,128,0.08)", border:`1px solid ${notifEnabled?"rgba(167,139,250,0.35)":"rgba(255,255,255,0.1)"}`, borderRadius:12, color: notifEnabled ? "#c4b8ff" : "var(--t-text-muted,#6b5f88)", padding:"7px 10px", cursor:"pointer", fontSize:15, lineHeight:1 }}>
+      {notifEnabled ? "🔔" : "🔕"}
+    </button>
+  );
+
   if (moods.length === 0) {
     return (
       <div style={{ textAlign:"center", padding:"56px 20px" }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:-12 }}>{notifToggle}</div>
         <div style={{ fontSize:52, marginBottom:14 }}>🧠</div>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, marginBottom:10, color:"var(--t-text,#f8f4ff)" }}>Seguimiento de ánimo</div>
         <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.7, marginBottom:28, maxWidth:300, margin:"0 auto 28px" }}>
-          Cada día a las <strong>18:00</strong> aparece un popup automático.<br />
-          También puedes registrar en cualquier momento.
+          Cada día a las <strong>18:00</strong> aparece un popup automático (si lo tienes activado con {notifEnabled ? "🔔" : "🔕"} arriba).<br />
+          También puedes registrar en cualquier momento. Por defecto tus registros son privados — solo los compartes si lo marcas al guardar.
         </div>
         <button onClick={onAddMood}
           style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:14, color:"#fff", padding:"13px 32px", cursor:"pointer", fontFamily:"inherit", fontSize:15, fontWeight:700 }}>
@@ -166,10 +185,13 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:26, fontWeight:700, color:"var(--t-text,#f8f4ff)" }}>🧠 Ánimo</div>
-        <button onClick={onAddMood}
-          style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:12, color:"#fff", padding:"8px 16px", cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:600 }}>
-          + Registrar
-        </button>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {notifToggle}
+          <button onClick={onAddMood}
+            style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:12, color:"#fff", padding:"8px 16px", cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:600 }}>
+            + Registrar
+          </button>
+        </div>
       </div>
 
       {/* Period filter */}
@@ -294,7 +316,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood }) {
                           <span style={{ fontSize:11, fontWeight:700, color: score >= 0 ? "#34d399" : "#f43f5e" }}>{score > 0 ? "+" : ""}{score}</span>
                         </div>
                         <div style={{ display:"flex", gap:10, marginTop:3 }}>
-                          <span style={{ fontSize:11, color:pColor, fontWeight:600 }}>{pLabel}</span>
+                          <span style={{ fontSize:11, color:pColor, fontWeight:600 }}>{pLabel}{m.shared === false && " 🔒"}</span>
                           <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{m.date}</span>
                         </div>
                       </div>
