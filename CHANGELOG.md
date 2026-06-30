@@ -7,6 +7,108 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.11.0] — 2026-06-30 · Stickers en el Chat
+
+### ✨ Mejoras
+
+- **Stickers en el Chat**: nuevo botón 😊 junto al campo de escribir que abre un panel con un pack propio de 32 stickers (`src/lib/stickers.js`) — sin API externa (Tenor/Giphy) ni nuevas dependencias, funciona offline. Al tocar un sticker se envía al instante y se muestra grande (52px) sin burbuja de fondo, igual que los mensajes de un solo emoji en WhatsApp.
+- Reutiliza la columna `emoji` ya existente en la tabla `messages` (antes siempre `"💬"` sin usarse) como marcador de tipo: `emoji:"sticker"` indica al cliente que `content` debe renderizarse como sticker grande en vez de burbuja de texto. No requirió ninguna migración de esquema.
+
+---
+
+## [4.10.1] — 2026-06-30 · Fixes de UX (chat, perfil, menú)
+
+### 🐛 Fixes
+
+- **Chat atascado**: a veces no se podía salir del Chat sin cerrar la app entera. Causa: usaba una altura fija `calc(100vh - 120px)` con scroll interno, un patrón que en mobile no se recalcula bien cuando aparece/desaparece el teclado en pantalla — el único view de la app con este patrón. Ahora el Chat fluye con el scroll normal de página (como el resto de pestañas) y el campo de escribir queda fijo abajo con `position:sticky`, igual que la barra superior (`Topbar`).
+- **Foto de pareja pegada la primera vez**: al abrir el perfil (foto/avatar de la pareja) por primera vez, la pantalla se quedaba en blanco hasta cerrar y reabrir la app. Causa: los modales con carga diferida (`ProfileModal`, `WrappedModal`, `MoodSurvey`) usaban `Suspense fallback={null}` — mientras se descargaba el chunk la primera vez, no se mostraba nada. Ahora muestran un indicador "Cargando…" visible.
+- **Gastos sin proyectos**: la sección de proyectos compartidos no mostraba ningún mensaje cuando el usuario todavía no había creado ninguno (devolvía `null` silenciosamente). Ahora invita a crear el primero.
+
+### ✨ Mejoras
+
+- **Reordenado el menú de hamburguesa** al orden: Inicio, Calendario, Semana, Pendientes, Metas, Stats, Histórico, Lista de compras, Ánimo, Gastos, Chat, Links de Interés, Cumpleaños.
+
+---
+
+## [4.10.0] — 2026-06-30 · Reporte de Ánimo imprimible (PDF)
+
+### ✨ Mejoras
+
+- **Reporte de Ánimo**: nuevo botón "📄 Generar reporte" en `MoodView` que abre un modal de informe pensado para compartir con un profesional (psicólogo/terapeuta). El propio modal incluye sus filtros de período (Semana/Mes/Año/Todo) y persona (Ambos/cada uno), y un botón "🖨️ Imprimir / Guardar como PDF" que usa el diálogo nativo de impresión del navegador — sin librerías nuevas, texto nítido y seleccionable en el PDF resultante.
+- **Gráfico mejorado** (`MoodTimelineChart`): eje Y de −10 a +10 centrado en 0, banda de variabilidad que sigue el ancho real de la fluctuación local (ventana de 2 puntos a cada lado) y cambia de color según el signo del valor (verde por encima de 0, rosa por debajo). Anotaciones automáticas: pico de subida, caída abrupta (umbral relativo al cambio medio) y día atípico (z-score ≥ 1.8 respecto a la media del período), marcadas con un círculo punteado y etiqueta sobre el punto.
+- **Agregación automática por densidad de datos**: ≤45 días cubiertos → un punto por día; ≤370 días → un punto por semana ISO; más → un punto por mes. Así un período "Todo" con años de datos sigue siendo legible en vez de mostrar cientos de puntos apretados.
+- **Estadísticas de variabilidad en la pestaña**: `MoodView` ahora muestra también "Variabilidad: Baja/Media/Alta (desviación X pts)" y "Mayor cambio entre períodos: ±X pts", usando el mismo cálculo que alimenta el reporte — la vista rápida y el PDF cuentan la misma historia.
+
+### Notas técnicas
+
+- Nuevo módulo puro `src/lib/moodAnalysis.js` (sin dependencias de React): `filterMoods` (período + privacidad), `aggregateMoods` (agrupación día/semana/mes), `rollingBand` (banda de variabilidad local), `detectAnnotations` (picos/caídas/anomalías), `summarizePoints` (desviación + mayor cambio).
+- `MoodChart` (SVG inline, vivía dentro de `MoodView.jsx`) se reemplaza por `src/components/MoodTimelineChart.jsx`, reutilizado tanto en la pestaña como en el reporte (con prop `light` para fondo blanco en impresión).
+- `src/components/MoodReport.jsx` se carga con `React.lazy()` desde `MoodView` — el código del reporte (y su CSS de impresión) no se descarga hasta que el usuario pulsa "Generar reporte".
+- CSS de impresión con `@media print` oculta todo excepto `.mp-report-root` y fuerza fondo blanco/márgenes A4 — no se tocó ningún estilo fuera del modal del reporte.
+
+---
+
+## [4.9.0] — 2026-06-30 · Ánimo más privado + control de notificación
+
+### ✨ Mejoras
+
+- **Privacidad por registro**: `MoodSurvey` ahora pide, al guardar, si el registro es privado (por defecto) o compartido con la pareja. Los registros privados (`shared:false`) quedan excluidos de la vista "Ambos" y de la sección Comparativa de `MoodView` — solo aparecen filtrando explícitamente por esa persona, marcados con 🔒. Los registros guardados antes de esta versión no tienen el campo `shared` y se siguen mostrando igual que siempre (no hay cambio retroactivo de visibilidad).
+- **Toggle 🔔/🔕 en la pestaña Ánimo**: nuevo botón en la cabecera (visible incluso en el estado vacío, antes del primer registro) para activar/desactivar el popup automático de las 18:00. Es una preferencia local por persona/dispositivo guardada con `lib/userPrefs.js` (igual patrón que el tema/fuente), nunca se sincroniza al blob de la pareja.
+
+### Notas técnicas
+
+- `App.jsx`: el efecto de auto-trigger de las 18:00 (`openSurvey`) ahora comprueba `getUserPrefs(sessionUserId).moodNotifEnabled` antes de programar el popup.
+- No hubo cambios de esquema en Supabase ni en `app_data` — los campos nuevos viven dentro del blob de moods (`data.moods[].shared`) y en `localStorage` (`user-prefs-<id>.moodNotifEnabled`), consistente con la arquitectura actual.
+
+---
+
+## [4.8.2] — 2026-06-29 · Limpieza y reparación general (14 bugs)
+
+### 🐛 Fixes — code review exhaustivo de toda la app
+
+**Riesgo de pérdida de datos (data-loss):**
+
+- **`smartSync` no sincronizaba `dataVersionRef`** (`App.jsx`): tras una sincronización manual, el siguiente save vía CAS comparaba contra una versión desactualizada → conflicto falso. Ahora usa `loadDataWithVersion` y actualiza el ref, igual que el resto de paths que tocan el estado remoto.
+- **`patchAllFutureSeries` dual-write con closure stale** (`App.jsx`): el bucle de dual-write a la tabla normalizada leía `data.weeks` (capturado al declarar la función) en vez de `dataRef.current.weeks` — podía escribir sobre una foto vieja del estado tras varias ediciones en la misma sesión.
+- **`WishlistView` ↔ `App.jsx` no era rebase-safe**: `onSave` recibía un snapshot de valor (`wishlist` completo) en vez de una función pura `fn(prev) => next`. Si los dos miembros de la pareja editaban la Lista de compras casi a la vez y había un conflicto CAS, el rebase reaplicaba el snapshot viejo y pisaba el cambio del otro. Ahora sigue el mismo patrón que el resto de mutadores: `onSave={fn => update(d => ({ ...d, wishlist: fn(d.wishlist) }))}`.
+
+**Push / notificaciones:**
+
+- **`ChatView` esperaba 1500ms con `setTimeout`** antes de notificar al enviar un mensaje — el mensaje ya estaba confirmado en DB tras el `await sendMessage(...)`, el delay no aportaba nada y es el patrón que la regla de `runAfterSave` prohíbe. Eliminado.
+- Notificación nativa de "tu pareja actualizó el calendario" decía **"📅 Shared Calendar"** — corregido a "Misiones de Pareja" (rename pendiente desde v3.8.23).
+- **`unsubscribePush` borraba la fila de Supabase antes de desuscribir el navegador** — si `sub.unsubscribe()` fallaba a mitad, el usuario quedaba sin suscripción push en el navegador pero también sin fila en DB para reintentar. Orden invertido: desuscribir primero, borrar después.
+- **`subscribePush` sin timeout en `navigator.serviceWorker.ready`** — si el Service Worker nunca pasa a `ready` (caso raro pero posible), la promesa colgaba para siempre. Ahora tiene el mismo guard de 5s que ya tenía `getCurrentSubscription`.
+- **`ProfileModal` mostraba el toggle de push aunque `push_enabled` estuviera desactivado** — `SettingsModal` ya respetaba el flag, `ProfileModal` no. Gateado igual ahora.
+
+**Otros:**
+
+- **`compressImage` (subida de fotos) usaba `new Promise` sin `reject`** — una imagen corrupta o un archivo no-imagen colgaba el Promise indefinidamente. Añadidos `reader.onerror` e `img.onerror`, ambos con `reject`.
+- **`MoodSurvey` permitía doble-submit** con doble tap en "Guardar" — guardia de estado `submitted` + botón `disabled`.
+- **`isValidAppData` no validaba la estructura de `wishlist`** — una entrada corrupta (sin `id`/`name`, o `items` no-array) podía pasar el gate de guardado y corromper el blob.
+- **Exportación CSV de Ánimo no escapaba `personName`** — un nombre con coma rompía las columnas del CSV. Ahora va entre comillas con escape de `"`.
+- **Cálculo de series quincenales asumía 52 semanas exactas por año** (`appUtils.js`): en años ISO de 53 semanas (ej. 2026), la cadencia par/impar de la serie se desincronizaba al cruzar ese año. Ahora suma las semanas ISO reales (`isoWeeksInYear`) de cada año intermedio en vez de multiplicar por 52.
+
+---
+
+## [4.8.1] — 2026-06-29 · Fix: app tardaba en abrir (code-splitting)
+
+### 🐛 Fix de rendimiento
+
+La app tardaba en abrir tras la migración a Vercel. Causa: todo el bundle JS (~894kB minificado / 255kB gzip) se descargaba y parseaba de una sola vez antes del primer render, incluyendo vistas y modales que no se ven al abrir la app.
+
+**Solución — code-splitting con `React.lazy()` + `Suspense`:**
+
+- Pestañas que ya no van en el bundle inicial, sino que cargan a demanda la primera vez que se abren: `CalendarView`, `HistoryView`, `GoalsView`, `StatsView`, `ChatView`, `GastosView`, `LinksView`, `BirthdaysView`, `MoodView`, `WishlistView`, `PendingView`.
+- Modales diferidos igual: `ProfileModal`, `WrappedModal`, `MoodSurvey`.
+- Cada bloque lazy-cargado está envuelto en `<Suspense>` con fallback (texto "Cargando…" para vistas, `null` para modales que ya tienen su propia animación de entrada).
+- `HomeDashboard` y la vista de semana actual (`current`) siguen cargando eager — son la pantalla por defecto al abrir.
+
+**Resultado**: bundle inicial bajó de 893.62kB (254.75kB gzip) a 685.01kB (206.02kB gzip) — el resto se reparte en 14 chunks de 3-41kB que solo se descargan si el usuario visita esa pestaña o abre ese modal.
+
+Archivos: `src/App.jsx` (imports a `lazy()`, bloques `<Suspense>`), `src/constants.js` (bump versión), `CHANGELOG.md`.
+
+---
+
 ## [4.8.0] — 2026-06-29 · Pestaña Lista de compras (Wishlist)
 
 ### 🆕 Nueva funcionalidad

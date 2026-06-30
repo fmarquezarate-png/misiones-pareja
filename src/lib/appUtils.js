@@ -1,6 +1,6 @@
 // appUtils.js — utility functions extracted from App.jsx (Monolito Fase 2c)
 import { useRef } from "react";
-import { uid, isoWeekKey, getWeekAndYear, prevWeekFn } from "../utils.js";
+import { uid, isoWeekKey, getWeekAndYear, prevWeekFn, isoWeeksInYear } from "../utils.js";
 
 // ─── Swipe hook ───────────────────────────────────────────────────────────────
 export function useSwipe(onLeft, onRight, minDist = 110) {
@@ -168,7 +168,10 @@ export function applyCarryOver(data) {
     if (m.seriesPattern === "monthly") return isFirstWeekOfMonth;
     if (m.seriesPattern === "biweekly") {
       if (m.seriesStartWeek != null && m.seriesStartYear != null) {
-        const weeksDiff = (cyr - m.seriesStartYear) * 52 + (cwn - m.seriesStartWeek);
+        // Suma semanas ISO reales de cada año intermedio — algunos años tienen 53, no 52
+        let weeksDiff = cwn - m.seriesStartWeek;
+        for (let y = m.seriesStartYear; y < cyr; y++) weeksDiff += isoWeeksInYear(y);
+        for (let y = cyr; y < m.seriesStartYear; y++) weeksDiff -= isoWeeksInYear(y);
         return weeksDiff % 2 === 0;
       }
       return !prevSeriesIds.has(m.seriesId);

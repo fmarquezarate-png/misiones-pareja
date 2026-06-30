@@ -3,18 +3,18 @@ import { APP_VERSION, LAST_UPDATE, CHANGELOG } from "../constants.js";
 
 const NAV_ITEMS = [
   { id:"home",     label:"Inicio",          icon:"🏠" },
+  { id:"calendar", label:"Calendario",       icon:"📅" },
   { id:"current",  label:"Semana",           icon:"🎯" },
   { id:"pending",  label:"Pendientes",       icon:"📋" },
-  { id:"calendar", label:"Calendario",       icon:"📅" },
-  { id:"history",  label:"Histórico",        icon:"🗂️" },
   { id:"goals",    label:"Metas",            icon:"🏅" },
   { id:"stats",    label:"Stats",            icon:"📊" },
+  { id:"history",  label:"Histórico",        icon:"🗂️" },
+  { id:"wishlist",   label:"Lista de compras", icon:"🛍️" },
+  { id:"mood",       label:"Ánimo",            icon:"🧠" },
   { id:"gastos",   label:"Gastos",           icon:"💸" },
   { id:"chat",     label:"Chat",             icon:"💬" },
   { id:"links",      label:"Links de Interés", icon:"🔗" },
   { id:"birthdays",  label:"Cumpleaños",       icon:"🎂" },
-  { id:"mood",       label:"Ánimo",            icon:"🧠" },
-  { id:"wishlist",   label:"Lista de compras", icon:"🛍️" },
 ];
 
 export default function SideMenu({ open, onClose, activeTab, onNavigate, couplePhoto, coupleEmoji, p1, p2, syncMsg, onShowProfile }) {

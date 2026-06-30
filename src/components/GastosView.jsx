@@ -149,7 +149,13 @@ export default function GastosView({ gastos, proyectos, p1, p2, colors, onUpdate
             <span style={{ color:"var(--t-text-dim,#4a4166)" }}>›</span>
           </button>
         );
-        if (!open.length && !closed.length) return null;
+        if (!open.length && !closed.length) return (
+          <div style={{ textAlign:"center", padding:40, color:"var(--t-text-dim,#3d3360)", marginBottom:14 }}>
+            <div style={{ fontSize:40, marginBottom:10 }}>🏖️</div>
+            <div style={{ fontStyle:"italic", fontSize:13 }}>Todavía no hay proyectos.<br/>Creá uno para agrupar gastos compartidos (viajes, mudanza...).</div>
+            <button onClick={openAddProject} style={{ marginTop:14, padding:"8px 16px", borderRadius:20, border:"1px dashed rgba(167,139,250,0.3)", cursor:"pointer", fontFamily:"inherit", fontSize:12, background:"transparent", color:"var(--t-text-dim,#6b5f88)" }}>+ Proyecto</button>
+          </div>
+        );
         return (
           <div style={{ marginBottom:14 }}>
             {open.length>0 && <>

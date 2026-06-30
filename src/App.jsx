@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks } from "./supabase.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
@@ -6,7 +6,7 @@ import Toast, { useToast } from "./components/Toast.jsx";
 import HomeDashboard from "./components/HomeDashboard.jsx";
 import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
-import LinksView from "./components/LinksView.jsx";
+const LinksView = lazy(() => import("./components/LinksView.jsx"));
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr } from "./utils.js";
@@ -20,42 +20,53 @@ import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import TaskCongrat from "./components/TaskCongrat.jsx";
-import WrappedModal from "./components/WrappedModal.jsx";
+const WrappedModal = lazy(() => import("./components/WrappedModal.jsx"));
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
 import SpecialDayTheme from "./components/SpecialDayTheme.jsx";
 import SpecialDayButton from "./components/SpecialDayButton.jsx";
 import ClickSparkles from "./components/ClickSparkles.jsx";
 import MatchDayTheme from "./components/MatchDayTheme.jsx";
 import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
-import BirthdaysView from "./components/BirthdaysView.jsx";
-import MoodSurvey from "./components/MoodSurvey.jsx";
-import MoodView from "./components/MoodView.jsx";
-import WishlistView from "./components/WishlistView.jsx";
+const BirthdaysView = lazy(() => import("./components/BirthdaysView.jsx"));
+const MoodSurvey = lazy(() => import("./components/MoodSurvey.jsx"));
+const MoodView = lazy(() => import("./components/MoodView.jsx"));
+const WishlistView = lazy(() => import("./components/WishlistView.jsx"));
 import { rebaseMutators } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
-import GoalsView from "./views/GoalsView.jsx";
+const GoalsView = lazy(() => import("./views/GoalsView.jsx"));
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
 import { fetchWCMatches, wcMatchesForDate, isWCOver } from "./lib/worldCup.js";
 import LoginScreen from "./components/LoginScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
-import StatsView from "./components/StatsView.jsx";
-import GastosView from "./components/GastosView.jsx";
-import ProfileModal from "./components/ProfileModal.jsx";
+const StatsView = lazy(() => import("./components/StatsView.jsx"));
+const GastosView = lazy(() => import("./components/GastosView.jsx"));
+const ProfileModal = lazy(() => import("./components/ProfileModal.jsx"));
 import { getUserPrefs, saveUserPrefs } from "./lib/userPrefs.js";
 import ThemeInjector from "./components/ThemeInjector.jsx";
 import MaintenanceBanner from "./components/MaintenanceBanner.jsx";
-import ChatView from "./components/ChatView.jsx";
-import CalendarView from "./components/CalendarView.jsx";
-import HistoryView from "./components/HistoryView.jsx";
-import PendingView from "./components/PendingView.jsx";
+const ChatView = lazy(() => import("./components/ChatView.jsx"));
+const CalendarView = lazy(() => import("./components/CalendarView.jsx"));
+const HistoryView = lazy(() => import("./components/HistoryView.jsx"));
+const PendingView = lazy(() => import("./components/PendingView.jsx"));
 import SideMenu from "./components/SideMenu.jsx";
 import Topbar from "./components/Topbar.jsx";
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
 
+
+// Fallback visible para modales lazy (ProfileModal, WrappedModal, MoodSurvey) — sin esto,
+// la primera vez que se abren (chunk aún no cacheado) la pantalla no muestra nada hasta que
+// termina de descargar, y se percibe como que la app se quedó pegada.
+function ModalLoadingFallback() {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:150, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+    </div>
+  );
+}
 
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = { person1: "Persona 1", person2: "Persona 2", colors: { person1:"#f472b6", person2:"#a78bfa", together:"#34d399" }, notifications: { chat:true, partnerChanges:true, eventReminders:true, goalDeadlines:true, dailyBriefing:false, briefingTime:"08:00" } };
@@ -239,8 +250,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(true);
     setSyncError(null);
     try {
-      const remote = await loadData(coupleId);
+      const { data: remote, version } = await loadDataWithVersion(coupleId);
       if (remote) {
+        // Sync version BEFORE setState so the next save uses the correct version
+        dataVersionRef.current = version ?? null;
         setData(prev => {
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
             showSyncMsg("✓ Ya estás al día");
@@ -514,6 +527,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 
     const openSurvey = () => {
+      if (sessionUserId && getUserPrefs(sessionUserId).moodNotifEnabled === false) return;
       const today = localDateStr();
       const p1Done = lsGet(`mp-mood-done-person1-${today}`);
       const p2Done = lsGet(`mp-mood-done-person2-${today}`);
@@ -646,7 +660,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (typeof remoteVersion === "number") dataVersionRef.current = remoteVersion;
       setSavingState("idle");
       if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
-        showNotif("📅 Shared Calendar", "Tu pareja actualizó el calendario", {tag:"partner-update"});
+        showNotif("📅 Misiones de Pareja", "Tu pareja actualizó el calendario", {tag:"partner-update"});
       }
       if (isPushSupported() && !pushSubscribedRef.current && !pushNudgeDismissRef.current) {
         setPushNudgeVisible(true);
@@ -1054,8 +1068,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
       return { ...d, weeks: newWeeks };
     });
-    // Normalized: update each affected mission
-    for (const [wkey, w] of Object.entries(data.weeks)) {
+    // Normalized: update each affected mission — use dataRef.current (not stale closure)
+    for (const [wkey, w] of Object.entries(dataRef.current.weeks)) {
       if (wkey < fromWkey) continue;
       for (const m of (w.missions || [])) {
         if (m.seriesId === seriesId) {
@@ -1157,10 +1171,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     pushToast({ kind:"success", text:"🧠 Estado de ánimo guardado" });
   };
 
-  const compressImage = (file) => new Promise(resolve => {
+  const compressImage = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo de imagen"));
     reader.onload = e => {
       const img = new Image();
+      img.onerror = () => reject(new Error("El archivo no es una imagen válida"));
       img.onload = () => {
         const maxPx = 800;
         const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
@@ -1337,7 +1353,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} />}
+      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} /></Suspense>}
 
 
 
@@ -1515,6 +1531,7 @@ ${sorted.map(m=>{
           </div>}
         </div>}
 
+        <Suspense fallback={<div style={{ textAlign:"center", padding:"60px 0", color:"var(--t-text-dim,#4a4166)", fontSize:13 }}>Cargando…</div>}>
         {activeTab==="calendar" && <CalendarView
           allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
           onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal} onPatchAllFutureSeries={patchAllFutureSeries}
@@ -1548,12 +1565,13 @@ ${sorted.map(m=>{
         {activeTab==="mood" && <MoodView
           moods={data.moods||[]}
           p1={p1} p2={p2} colors={colors}
+          sessionUserId={sessionUserId}
           onAddMood={() => { setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
         />}
 
         {activeTab==="wishlist" && <WishlistView
           wishlist={data.wishlist||[]}
-          onSave={wishlist => update(d => ({ ...d, wishlist }))}
+          onSave={fn => update(d => ({ ...d, wishlist: fn(d.wishlist||[]) }))}
           pushToast={pushToast}
         />}
 
@@ -1572,6 +1590,7 @@ ${sorted.map(m=>{
           onSync={smartSync}
           syncing={syncing}
         />}
+        </Suspense>
       </div>
 
       {/* Tutorial overlay */}
@@ -1595,17 +1614,19 @@ ${sorted.map(m=>{
 
       {/* Wrapped gate — appears Monday mornings and 1st of month */}
       {wrappedConfig && (
-        <WrappedModal
-          showWeekly={wrappedConfig.showWeekly}
-          showMonthlyOption={wrappedConfig.showMonthlyOption}
-          weeks={data?.weeks || {}}
-          p1={p1} p2={p2} colors={data?.settings?.colors}
-          onClose={() => {
-            if (wrappedConfig.prevKey) localStorage.setItem(`mp-wrapped-wk-${wrappedConfig.prevKey}`, "1");
-            if (wrappedConfig.monthKey) localStorage.setItem(`mp-wrapped-mo-${wrappedConfig.monthKey}`, "1");
-            setWrappedConfig(null);
-          }}
-        />
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <WrappedModal
+            showWeekly={wrappedConfig.showWeekly}
+            showMonthlyOption={wrappedConfig.showMonthlyOption}
+            weeks={data?.weeks || {}}
+            p1={p1} p2={p2} colors={data?.settings?.colors}
+            onClose={() => {
+              if (wrappedConfig.prevKey) localStorage.setItem(`mp-wrapped-wk-${wrappedConfig.prevKey}`, "1");
+              if (wrappedConfig.monthKey) localStorage.setItem(`mp-wrapped-mo-${wrappedConfig.monthKey}`, "1");
+              setWrappedConfig(null);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Destellos de los colores de la pareja en cada click — siempre activos */}
@@ -1664,12 +1685,14 @@ ${sorted.map(m=>{
 
       {/* Encuesta de ánimo — popup automático a las 18:00 o manual desde la pestaña */}
       {moodSurveyOpen && (
-        <MoodSurvey
-          p1={p1} p2={p2} colors={colors}
-          prefillWho={moodSurveyPrefill}
-          onSave={saveMoodEntry}
-          onClose={() => setMoodSurveyOpen(false)}
-        />
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <MoodSurvey
+            p1={p1} p2={p2} colors={colors}
+            prefillWho={moodSurveyPrefill}
+            onSave={saveMoodEntry}
+            onClose={() => setMoodSurveyOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

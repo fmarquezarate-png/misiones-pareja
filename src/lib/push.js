@@ -59,7 +59,10 @@ export async function subscribePush(coupleId) {
     }
   }
 
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 5000)),
+  ]);
   let sub;
   try {
     sub = await reg.pushManager.subscribe({
@@ -91,13 +94,17 @@ export async function subscribePush(coupleId) {
 }
 
 export async function unsubscribePush() {
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('SW ready timeout')), 5000)),
+  ]);
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return;
 
-  const { error: delErr } = await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-  if (delErr) console.warn('[push] unsubscribe: DB delete failed (orphan may remain):', delErr.message);
+  const endpoint = sub.endpoint;
   await sub.unsubscribe();
+  const { error: delErr } = await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  if (delErr) console.warn('[push] unsubscribe: DB delete failed (orphan may remain):', delErr.message);
 }
 
 // Envía una notificación push contextual directamente a la Edge Function.
