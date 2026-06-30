@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.11.1] — 2026-06-30 · Fix: gráfico de Ánimo invisible en temas claros
+
+### 🐛 Bugs corregidos
+
+- **Gráfico de Ánimo invisible en la pestaña principal**: `MoodTimelineChart` siempre usaba su paleta oscura (ejes, línea de cero y etiquetas en blanco translúcido) sin importar el tema activo de la app. Con cualquier tema claro (Mañana Clara, Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave) esos elementos quedaban casi invisibles sobre fondo claro — solo se distinguían los puntos de color. El Reporte imprimible (`MoodReport`) no tenía el problema porque fuerza su propio fondo blanco y paleta clara, independientes del tema de la app, lo que hacía parecer que "el gráfico solo funciona en el reporte". `MoodView` ahora calcula si el tema activo es claro (`THEMES[...].dark === false`) y se lo pasa al gráfico (`lightTheme` prop), igual que ya hace `MoodReport`.
+- **Modal de Reporte de Ánimo con pantalla en blanco al abrirlo por primera vez**: el `<Suspense>` que envuelve la carga diferida de `MoodReport` tenía `fallback={null}` — no mostraba nada mientras se descargaba el chunk. Ahora muestra el indicador "Cargando…" usado por el resto de modales con lazy loading.
+
+---
+
 ## [4.11.0] — 2026-06-30 · Stickers en el Chat
 
 ### ✨ Mejoras
