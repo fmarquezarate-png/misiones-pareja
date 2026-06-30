@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.10.0] — 2026-06-30 · Reporte de Ánimo imprimible (PDF)
+
+### ✨ Mejoras
+
+- **Reporte de Ánimo**: nuevo botón "📄 Generar reporte" en `MoodView` que abre un modal de informe pensado para compartir con un profesional (psicólogo/terapeuta). El propio modal incluye sus filtros de período (Semana/Mes/Año/Todo) y persona (Ambos/cada uno), y un botón "🖨️ Imprimir / Guardar como PDF" que usa el diálogo nativo de impresión del navegador — sin librerías nuevas, texto nítido y seleccionable en el PDF resultante.
+- **Gráfico mejorado** (`MoodTimelineChart`): eje Y de −10 a +10 centrado en 0, banda de variabilidad que sigue el ancho real de la fluctuación local (ventana de 2 puntos a cada lado) y cambia de color según el signo del valor (verde por encima de 0, rosa por debajo). Anotaciones automáticas: pico de subida, caída abrupta (umbral relativo al cambio medio) y día atípico (z-score ≥ 1.8 respecto a la media del período), marcadas con un círculo punteado y etiqueta sobre el punto.
+- **Agregación automática por densidad de datos**: ≤45 días cubiertos → un punto por día; ≤370 días → un punto por semana ISO; más → un punto por mes. Así un período "Todo" con años de datos sigue siendo legible en vez de mostrar cientos de puntos apretados.
+- **Estadísticas de variabilidad en la pestaña**: `MoodView` ahora muestra también "Variabilidad: Baja/Media/Alta (desviación X pts)" y "Mayor cambio entre períodos: ±X pts", usando el mismo cálculo que alimenta el reporte — la vista rápida y el PDF cuentan la misma historia.
+
+### Notas técnicas
+
+- Nuevo módulo puro `src/lib/moodAnalysis.js` (sin dependencias de React): `filterMoods` (período + privacidad), `aggregateMoods` (agrupación día/semana/mes), `rollingBand` (banda de variabilidad local), `detectAnnotations` (picos/caídas/anomalías), `summarizePoints` (desviación + mayor cambio).
+- `MoodChart` (SVG inline, vivía dentro de `MoodView.jsx`) se reemplaza por `src/components/MoodTimelineChart.jsx`, reutilizado tanto en la pestaña como en el reporte (con prop `light` para fondo blanco en impresión).
+- `src/components/MoodReport.jsx` se carga con `React.lazy()` desde `MoodView` — el código del reporte (y su CSS de impresión) no se descarga hasta que el usuario pulsa "Generar reporte".
+- CSS de impresión con `@media print` oculta todo excepto `.mp-report-root` y fuerza fondo blanco/márgenes A4 — no se tocó ningún estilo fuera del modal del reporte.
+
+---
+
 ## [4.9.0] — 2026-06-30 · Ánimo más privado + control de notificación
 
 ### ✨ Mejoras
