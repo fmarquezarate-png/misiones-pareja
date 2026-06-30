@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.11.0] — 2026-06-30 · Stickers en el Chat
+
+### ✨ Mejoras
+
+- **Stickers en el Chat**: nuevo botón 😊 junto al campo de escribir que abre un panel con un pack propio de 32 stickers (`src/lib/stickers.js`) — sin API externa (Tenor/Giphy) ni nuevas dependencias, funciona offline. Al tocar un sticker se envía al instante y se muestra grande (52px) sin burbuja de fondo, igual que los mensajes de un solo emoji en WhatsApp.
+- Reutiliza la columna `emoji` ya existente en la tabla `messages` (antes siempre `"💬"` sin usarse) como marcador de tipo: `emoji:"sticker"` indica al cliente que `content` debe renderizarse como sticker grande en vez de burbuja de texto. No requirió ninguna migración de esquema.
+
+---
+
 ## [4.10.1] — 2026-06-30 · Fixes de UX (chat, perfil, menú)
 
 ### 🐛 Fixes
