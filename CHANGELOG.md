@@ -7,6 +7,30 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.11.2] — 2026-07-01 · Splash screen para iOS
+
+### ✨ Mejoras
+
+- **Splash screen de carga**: en iOS la app tardaba ~5 segundos con pantalla en blanco antes de montar React (cold-start del motor JS en PWAs instaladas). Ahora aparece instantáneamente una pantalla de espera con:
+  - Dos orbes borrosos en los colores de la pareja flotando suavemente por el fondo.
+  - Dos círculos — uno por persona — rebotando con animación alternada. Si ya iniciaste sesión, muestran las iniciales (p.ej. "F" y "A") con los colores guardados. En primer uso, muestran 💗 y 💜 como fallback.
+  - El título "Misiones de Pareja" centrado con la fuente serif del sistema (carga inmediata, sin esperar Google Fonts).
+  - Tres puntos con animación de pulso escalonado.
+  - Se adapta automáticamente al tema claro u oscuro que tengas seleccionado (lee CSS vars ya guardadas en localStorage por el script anti-flash existente).
+  - Desaparece con fundido suave (0.35s) en cuanto React termina de montar la app.
+  - Implementado en HTML puro dentro de `index.html` — no hay un solo byte de JS que cargar para que aparezca.
+
+---
+
+## [4.11.1] — 2026-06-30 · Fix: gráfico de Ánimo invisible en temas claros
+
+### 🐛 Bugs corregidos
+
+- **Gráfico de Ánimo invisible en la pestaña principal**: `MoodTimelineChart` siempre usaba su paleta oscura (ejes, línea de cero y etiquetas en blanco translúcido) sin importar el tema activo de la app. Con cualquier tema claro (Mañana Clara, Rosa Pastel, Cielo Azul, Menta Fresca, Melocotón, Lavanda Suave) esos elementos quedaban casi invisibles sobre fondo claro — solo se distinguían los puntos de color. El Reporte imprimible (`MoodReport`) no tenía el problema porque fuerza su propio fondo blanco y paleta clara, independientes del tema de la app, lo que hacía parecer que "el gráfico solo funciona en el reporte". `MoodView` ahora calcula si el tema activo es claro (`THEMES[...].dark === false`) y se lo pasa al gráfico (`lightTheme` prop), igual que ya hace `MoodReport`.
+- **Modal de Reporte de Ánimo con pantalla en blanco al abrirlo por primera vez**: el `<Suspense>` que envuelve la carga diferida de `MoodReport` tenía `fallback={null}` — no mostraba nada mientras se descargaba el chunk. Ahora muestra el indicador "Cargando…" usado por el resto de modales con lazy loading.
+
+---
+
 ## [4.11.0] — 2026-06-30 · Stickers en el Chat
 
 ### ✨ Mejoras

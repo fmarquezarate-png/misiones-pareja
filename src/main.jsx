@@ -22,3 +22,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Fade out the pre-React splash screen once the JS bundle has loaded and
+// React has taken over. requestAnimationFrame ensures we wait for the first
+// painted frame so there's no gap between splash disappearing and app appearing.
+requestAnimationFrame(() => {
+  const splash = document.getElementById("mp-splash");
+  if (!splash) return;
+  splash.classList.add("mp-hidden");
+  setTimeout(() => splash.remove(), 380);
+});

@@ -11,7 +11,7 @@ const EMOTION_BY_ID = Object.fromEntries(EMOTIONS.map(e => [e.id, e]));
 
 const PERIODS = [["7d","Semana"],["30d","Mes"],["365d","Año"],["all","Todo"]];
 
-export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessionUserId }) {
+export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessionUserId, lightTheme = false }) {
   const [period,     setPeriod]     = useState("30d");
   const [who,        setWho]        = useState("all");
   const [showTable,  setShowTable]  = useState(false);
@@ -162,7 +162,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessio
 
       {/* Chart */}
       <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"12px 8px 8px", marginBottom:14 }}>
-        <MoodTimelineChart moods={filtered} />
+        <MoodTimelineChart moods={filtered} light={lightTheme} />
       </div>
 
       {/* Comparativa */}
@@ -258,7 +258,11 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessio
       )}
 
       {showReport && (
-        <Suspense fallback={null}>
+        <Suspense fallback={
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:150, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+          </div>
+        }>
           <MoodReport moods={moods} p1={p1} p2={p2} colors={colors} initialPeriod={period} initialWho={who} onClose={() => setShowReport(false)} />
         </Suspense>
       )}

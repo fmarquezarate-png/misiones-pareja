@@ -1566,6 +1566,7 @@ ${sorted.map(m=>{
           moods={data.moods||[]}
           p1={p1} p2={p2} colors={colors}
           sessionUserId={sessionUserId}
+          lightTheme={_activeTheme.dark === false}
           onAddMood={() => { setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
         />}
 
