@@ -13,7 +13,7 @@ const PERIODS = [["7d","Semana"],["30d","Mes"],["365d","Año"],["all","Todo"]];
 
 export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEditMood, onDeleteMood, sessionPersonId, sessionUserId, lightTheme = false }) {
   const [period,     setPeriod]     = useState("30d");
-  const [who,        setWho]        = useState("all");
+  const [who,        setWho]        = useState(sessionPersonId || "person1");
   const [showTable,  setShowTable]  = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -38,7 +38,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
 
   // Per-person stats for comparativa (always uses full period, both people)
   const personStats = useMemo(() => {
-    const all = filterMoods(moods, period, "all");
+    const all = filterMoods(moods, period, "all", sessionPersonId);
     const calc = (personId) => {
       const entries = all.filter(m => m.who === personId);
       if (entries.length === 0) return { avg: null, pos: 0, neg: 0, last: null, count: 0 };
@@ -52,7 +52,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
       };
     };
     return { p1: calc("person1"), p2: calc("person2") };
-  }, [moods, period]); // p1/p2 strings don't affect computation
+  }, [moods, period, sessionPersonId]);
 
   const personName = (who) => who === "person1" ? p1 : p2;
 
@@ -123,14 +123,11 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
 
       {/* Who filter */}
       <div style={{ display:"flex", gap:7, marginBottom:16 }}>
-        {[["all","Ambos",null],["person1",p1,colors.person1],["person2",p2,colors.person2]].map(([k,l,c]) => {
+        {[["person1",p1,colors.person1],["person2",p2,colors.person2]].map(([k,l,c]) => {
           const active = who === k;
-          const bg = active ? (c ? `${c}22` : "rgba(167,139,250,0.18)") : "rgba(128,128,128,0.07)";
-          const bd = active ? (c || "rgba(167,139,250,0.4)") : "rgba(255,255,255,0.07)";
-          const cl = active ? (c || "#c4b8ff") : "var(--t-text-muted,#6b5f88)";
           return (
             <button key={k} onClick={() => setWho(k)}
-              style={{ background:bg, border:`1px solid ${bd}`, borderRadius:99, color:cl, padding:"4px 12px", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:active?600:400 }}>
+              style={{ background:active?`${c}22`:"rgba(128,128,128,0.07)", border:`1px solid ${active?c:"rgba(255,255,255,0.07)"}`, borderRadius:99, color:active?c:"var(--t-text-muted,#6b5f88)", padding:"4px 12px", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:active?600:400 }}>
               {l}
             </button>
           );
