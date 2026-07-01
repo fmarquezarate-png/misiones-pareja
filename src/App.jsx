@@ -52,6 +52,7 @@ const HistoryView = lazy(() => import("./components/HistoryView.jsx"));
 const PendingView = lazy(() => import("./components/PendingView.jsx"));
 import SideMenu from "./components/SideMenu.jsx";
 import Topbar from "./components/Topbar.jsx";
+import BottomTabBar from "./components/BottomTabBar.jsx";
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -179,6 +180,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [globalCatFilter, setGlobalCatFilter] = useState([]); // [] = todas
   const [localThemeId, setLocalThemeId] = useState(null);
   const [localFontId,  setLocalFontId]  = useState(null);
+  const [bottomBar, setBottomBar] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("mp-bottom-bar") || "null") || { enabled: false, tabs: ["home","current","calendar","mood"] }; }
+    catch { return { enabled: false, tabs: ["home","current","calendar","mood"] }; }
+  });
+  const updateBottomBar = cfg => { setBottomBar(cfg); localStorage.setItem("mp-bottom-bar", JSON.stringify(cfg)); };
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
@@ -1369,7 +1375,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} /></Suspense>}
+      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} bottomBar={bottomBar} onBottomBarChange={updateBottomBar} /></Suspense>}
 
 
 
@@ -1401,7 +1407,11 @@ ${sorted.map(m=>{
         colors={colors}
       />
 
-      <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom:"calc(120px + env(safe-area-inset-bottom))" }}>
+      {bottomBar.enabled && bottomBar.tabs.length > 0 && (
+        <BottomTabBar tabs={bottomBar.tabs} activeTab={activeTab} onTabChange={tab => { setActiveTab(tab); setMenuOpen(false); }} />
+      )}
+
+      <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom: bottomBar.enabled && bottomBar.tabs.length > 0 ? "calc(176px + env(safe-area-inset-bottom))" : "calc(120px + env(safe-area-inset-bottom))" }}>
 
         {/* Global filters — show only for tabs that need them */}
         {(activeTab==="current"||activeTab==="calendar"||activeTab==="history"||activeTab==="pending") && (() => {
