@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.11.2";
+export const APP_VERSION = "4.11.3";
 export const LAST_UPDATE = "2026-06-30";
 
 // Banner de mantenimiento — null = desactivado
@@ -35,6 +35,7 @@ export const EMOTIONS = [
 ];
 
 export const CHANGELOG = [
+  { v:"4.11.3", date:"2026-07-01", notes:["Fix: la splash screen de iOS desaparecía demasiado pronto — en cuanto el bundle JS terminaba de parsear, React montaba el shell vacío y el splash se retiraba, dejando ~3 segundos de tarjetas blancas vacías mientras Supabase terminaba la autenticación y la carga de datos. Ahora la splash permanece visible hasta que los datos reales están listos: en usuarios con caché local desaparece casi de inmediato (zero network wait); en usuarios nuevos o sin caché espera a que la carga de Supabase se complete. Para el flujo de login/onboarding la splash también espera al cambio de paso. Resultado: la animación siempre se ve completa y la app aparece cuando ya tiene contenido real."] },
   { v:"4.11.2", date:"2026-07-01", notes:["Splash screen de carga para iOS: en vez de pantalla en blanco durante los ~5 segundos que tarda el cold-start en iOS, ahora aparece una pantalla de carga con los dos orbes de color de la pareja flotando suavemente en el fondo y dos círculos — uno por persona — rebotando con sus colores personalizados. Si ya has iniciado sesión, los círculos muestran las iniciales de cada persona (ej. 'F' y 'A') con los colores de la pareja guardados. Si no, muestran emojis de corazón de fallback. Se carga directamente del HTML puro (sin esperar a JS), se adapta al tema claro u oscuro seleccionado, y desaparece con fundido suave en cuanto React termina de montar la app."] },
   { v:"4.11.1", date:"2026-06-30", notes:["Fix: el gráfico de evolución de Ánimo no se veía en la pestaña principal con temas claros — los ejes, la línea de cero y las etiquetas de fecha usaban siempre la paleta oscura (texto casi blanco) sin importar el tema activo, quedando invisibles sobre fondo claro. El Reporte imprimible se veía bien porque fuerza paleta clara y fondo blanco propios, independientes del tema. Ahora MoodView pasa el modo claro/oscuro real del tema activo al gráfico.","Fix: el modal de Reporte de Ánimo (carga diferida) tenía fallback={null} mientras descargaba su chunk la primera vez — no mostraba nada en pantalla durante esa espera. Ahora muestra un indicador 'Cargando…' visible, igual que el resto de modales con lazy loading."] },
   { v:"4.11.0", date:"2026-06-30", notes:["Stickers en el Chat: nuevo botón 😊 junto al campo de escribir que abre un panel de 32 stickers (sin API externa ni librerías nuevas — pack propio en lib/stickers.js). Al tocar uno se envía al instante y se muestra grande en el chat, sin burbuja, como en WhatsApp."] },

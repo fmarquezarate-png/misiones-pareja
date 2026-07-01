@@ -86,6 +86,13 @@ const SEED = {
 
 
 
+function dismissSplash() {
+  const splash = document.getElementById("mp-splash");
+  if (!splash) return;
+  splash.classList.add("mp-hidden");
+  setTimeout(() => splash.remove(), 380);
+}
+
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
 const AUTH_CACHE_KEY = "shared-cal-auth-v1";
 
@@ -118,6 +125,10 @@ export default function AppWithAuth() {
     const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (authStep === "login" || authStep === "onboarding") dismissSplash();
+  }, [authStep]);
 
   const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); clearTrackContext(); signOut(); };
 
@@ -385,6 +396,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Dismiss the HTML splash screen once data is ready (covers the Supabase load wait)
+  useEffect(() => {
+    if (!loading) dismissSplash();
+  }, [loading]);
 
   // Auto-launch tutorial on first visit
   useEffect(() => {

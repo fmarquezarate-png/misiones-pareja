@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.11.3] — 2026-07-01 · Fix: splash desaparecía antes de que cargaran los datos
+
+### 🐛 Bugs corregidos
+
+- **Splash se retiraba demasiado pronto en iOS**: la animación duraba apenas ~0.5 s (solo el tiempo de parseo del bundle JS) y luego aparecían ~3 segundos de tarjetas blancas vacías mientras Supabase completaba la autenticación y la carga de datos. La splash ahora permanece visible hasta que los datos reales están disponibles:
+  - Si el usuario tiene datos en caché local, desaparece casi de inmediato (cero espera de red).
+  - Si no hay caché (primer uso o tras cerrar sesión), espera a que la carga de Supabase termine.
+  - En el flujo de login / onboarding espera hasta que el paso de autenticación cambia.
+  - El punto de retiro se movió de `main.jsx` (post-mount de React) a `App.jsx` (post-load de datos), controlado por `useEffect` sobre el estado `loading` de `CoupleMissions` y sobre `authStep` en `AppWithAuth`.
+
+---
+
 ## [4.11.2] — 2026-07-01 · Splash screen para iOS
 
 ### ✨ Mejoras
