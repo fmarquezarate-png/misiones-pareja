@@ -7,6 +7,29 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.12.0] — 2026-07-01 · Barra de navegación inferior configurable
+
+### ✨ Nuevas funciones
+
+- **Barra de acceso rápido**: en **Perfil → Acceso rápido** se puede activar una barra fija en la parte inferior de la pantalla. Cuando está activa, muestra entre 1 y 4 pestañas de acceso directo con su icono y nombre. Un indicador de línea en la pestaña activa la señala con los colores del tema.
+
+- **Totalmente configurable por el usuario**:
+  - **Activar / desactivar** con un toggle.
+  - **Elegir qué pestañas** aparecen (las 13 pestañas de la app están disponibles: Inicio, Semana, Calendario, Pendientes, Metas, Stats, Histórico, Lista, Ánimo, Gastos, Chat, Links, Cumpleaños).
+  - **Reordenarlas** con ↑ / ↓.
+  - **Eliminar** cualquiera con ×.
+  - Añadir nuevas con un toque mientras no se hayan alcanzado las 4.
+  - El cambio se **aplica al instante** — se puede previsualizar la barra mientras se configura en el perfil.
+
+- **Local por dispositivo**: la preferencia se guarda en `localStorage` (`mp-bottom-bar`), no en el blob compartido. Cada persona puede tener su propia selección de pestañas o no tener barra.
+
+### 🐛 Bugs corregidos
+
+- **Splash — avatares**: los círculos de espera ahora muestran solo el borde y el relleno con los colores de la pareja, sin emojis de corazón. Con sesión activa siguen mostrando las iniciales.
+- **Splash — texto**: cambiado de "Misiones de Pareja" a "Organizando tu semana ✦".
+
+---
+
 ## [4.11.3] — 2026-07-01 · Fix: splash desaparecía antes de que cargaran los datos
 
 ### 🐛 Bugs corregidos

@@ -160,10 +160,10 @@
       <div class="mp-orb mp-orb2"></div>
       <div class="mp-splash-center">
         <div class="mp-avatars">
-          <div class="mp-av mp-av1" id="mp-av1-emoji">💗</div>
-          <div class="mp-av mp-av2" id="mp-av2-emoji">💜</div>
+          <div class="mp-av mp-av1" id="mp-av1-emoji"></div>
+          <div class="mp-av mp-av2" id="mp-av2-emoji"></div>
         </div>
-        <div class="mp-splash-title">Misiones de Pareja</div>
+        <div class="mp-splash-title">Organizando tu semana ✦</div>
         <div class="mp-dots">
           <div class="mp-dot"></div>
           <div class="mp-dot"></div>
@@ -180,8 +180,9 @@
         var _n1=_s&&_s.person1;var _n2=_s&&_s.person2;
         var _e1=document.getElementById("mp-av1-emoji");
         var _e2=document.getElementById("mp-av2-emoji");
-        if(_n1&&_e1)_e1.textContent=_n1[0].toUpperCase();
-        if(_n2&&_e2)_e2.textContent=_n2[0].toUpperCase();
+        var _fs="26px";var _fw="700";var _ff="system-ui,sans-serif";
+        if(_n1&&_e1){_e1.textContent=_n1[0].toUpperCase();_e1.style.fontSize=_fs;_e1.style.fontWeight=_fw;_e1.style.fontFamily=_ff;}
+        if(_n2&&_e2){_e2.textContent=_n2[0].toUpperCase();_e2.style.fontSize=_fs;_e2.style.fontWeight=_fw;_e2.style.fontFamily=_ff;}
       }
     }catch(e){}</script>
     <script type="module" src="/src/main.jsx"></script>

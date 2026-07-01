@@ -3,11 +3,12 @@ import { isEnabled } from "../lib/flags.js";
 import { S } from "../styles.js";
 import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
+import { ALL_TABS } from "./BottomTabBar.jsx";
 
 const PM_MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const PM_DAYS   = [31,29,31,30,31,30,31,31,30,31,30,31]; // days per month (feb=29 for picker)
 
-export default function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped }) {
+export default function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped, bottomBar, onBottomBarChange }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -35,6 +36,14 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
   const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
+
+  const [bbEnabled, setBbEnabled] = useState(bottomBar?.enabled ?? false);
+  const [bbTabs,    setBbTabs]    = useState(bottomBar?.tabs ?? ["home","current","calendar","mood"]);
+  const updateBb = (enabled, tabs) => {
+    setBbEnabled(enabled);
+    setBbTabs(tabs);
+    onBottomBarChange?.({ enabled, tabs });
+  };
 
   const compressAvatar = (file) => new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Tiempo de espera procesando imagen")), 10000);
@@ -346,6 +355,56 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
               </div>
             )}
           </div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:16 }}>Acceso rápido</div>
+          <div style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: bbEnabled ? 16 : 0 }}>
+              <div>
+                <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>Barra de navegación inferior</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:2 }}>Accede a tus pestañas favoritas con un toque</div>
+              </div>
+              <button onClick={() => updateBb(!bbEnabled, bbTabs)}
+                style={{ width:40, height:22, borderRadius:99, background:bbEnabled?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                <span style={{ position:"absolute", top:3, left:bbEnabled?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+              </button>
+            </div>
+
+            {bbEnabled && (
+              <div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8 }}>Pestañas seleccionadas (máx. 4)</div>
+                {bbTabs.map((tabId, i) => {
+                  const def = ALL_TABS.find(t => t.id === tabId);
+                  if (!def) return null;
+                  return (
+                    <div key={tabId} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                      <span style={{ fontSize:18, width:24, textAlign:"center" }}>{def.icon}</span>
+                      <span style={{ flex:1, fontSize:13, color:"#c4b8ff" }}>{def.label}</span>
+                      <button onClick={() => { const t=[...bbTabs]; if(i>0){[t[i-1],t[i]]=[t[i],t[i-1]];updateBb(true,t);} }} disabled={i===0}
+                        style={{ background:"none", border:"none", color:i===0?"rgba(255,255,255,0.15)":"var(--t-text-muted,#8b7fa8)", cursor:i===0?"default":"pointer", fontSize:14, padding:"2px 6px", borderRadius:6 }}>↑</button>
+                      <button onClick={() => { const t=[...bbTabs]; if(i<t.length-1){[t[i],t[i+1]]=[t[i+1],t[i]];updateBb(true,t);} }} disabled={i===bbTabs.length-1}
+                        style={{ background:"none", border:"none", color:i===bbTabs.length-1?"rgba(255,255,255,0.15)":"var(--t-text-muted,#8b7fa8)", cursor:i===bbTabs.length-1?"default":"pointer", fontSize:14, padding:"2px 6px", borderRadius:6 }}>↓</button>
+                      <button onClick={() => updateBb(true, bbTabs.filter((_,j)=>j!==i))}
+                        style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:17, padding:"2px 6px", borderRadius:6 }}>×</button>
+                    </div>
+                  );
+                })}
+
+                {bbTabs.length < 4 && (
+                  <div style={{ marginTop:12 }}>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8 }}>Añadir pestaña</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {ALL_TABS.filter(t => !bbTabs.includes(t.id)).map(t => (
+                        <button key={t.id} onClick={() => updateBb(true, [...bbTabs, t.id])}
+                          style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", background:"rgba(128,128,128,0.08)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:99, cursor:"pointer", fontFamily:"inherit", fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>
+                          <span>{t.icon}</span><span>{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
         <div style={{ padding:"14px 20px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.1))", display:"flex", flexDirection:"column", gap:8 }}>
           {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"8px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
