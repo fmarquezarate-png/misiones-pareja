@@ -13,7 +13,8 @@ export const scoreOf = m => m.valence * m.intensity;
 // ven filtrando explícitamente por esa persona. Entradas sin el campo `shared`
 // (anteriores a esta función) se tratan como compartidas, para no ocultar
 // retroactivamente datos que ya eran visibles.
-export function filterMoods(moods, period, who) {
+// selfPersonId: when set, own private entries stay visible in the "all" view
+export function filterMoods(moods, period, who, selfPersonId = null) {
   let list = [...moods];
   if (period !== "all") {
     const days = parseInt(period);
@@ -21,7 +22,7 @@ export function filterMoods(moods, period, who) {
     list = list.filter(m => m.ts >= cutoff);
   }
   if (who !== "all") list = list.filter(m => m.who === who);
-  else list = list.filter(m => m.shared !== false);
+  else list = list.filter(m => m.shared !== false || (selfPersonId && m.who === selfPersonId));
   return list.sort((a, b) => b.ts - a.ts);
 }
 

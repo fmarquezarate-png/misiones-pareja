@@ -11,11 +11,12 @@ const EMOTION_BY_ID = Object.fromEntries(EMOTIONS.map(e => [e.id, e]));
 
 const PERIODS = [["7d","Semana"],["30d","Mes"],["365d","Año"],["all","Todo"]];
 
-export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessionUserId, lightTheme = false }) {
+export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEditMood, onDeleteMood, sessionPersonId, sessionUserId, lightTheme = false }) {
   const [period,     setPeriod]     = useState("30d");
   const [who,        setWho]        = useState("all");
   const [showTable,  setShowTable]  = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [notifEnabled, setNotifEnabled] = useState(() => getUserPrefs(sessionUserId).moodNotifEnabled !== false);
 
   const toggleNotif = () => {
@@ -24,7 +25,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessio
     if (sessionUserId) saveUserPrefs(sessionUserId, { moodNotifEnabled: next });
   };
 
-  const filtered = filterMoods(moods, period, who);
+  const filtered = filterMoods(moods, period, who, sessionPersonId);
   const varianceStats = useMemo(() => summarizePoints(aggregateMoods(filtered).points), [filtered]);
   const { avgScore, posCount, negCount } = useMemo(() => {
     if (filtered.length === 0) return { avgScore: null, posCount: 0, negCount: 0 };
@@ -233,8 +234,10 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessio
                 const score  = m.valence * m.intensity;
                 const pColor = m.who === "person1" ? colors.person1 : colors.person2;
                 const pLabel = personName(m.who);
+                const key    = m.id || m.ts;
+                const isConfirming = confirmDeleteId === key;
                 return (
-                  <div key={m.id || m.ts} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px" }}>
+                  <div key={key} style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                       <span style={{ fontSize:22, flexShrink:0 }}>{em?.emoji}</span>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -247,6 +250,19 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, sessio
                           <span style={{ fontSize:11, color:pColor, fontWeight:600 }}>{pLabel}{m.shared === false && " 🔒"}</span>
                           <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{m.date}</span>
                         </div>
+                      </div>
+                      <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                        {onEditMood && (
+                          <button onClick={() => onEditMood(m)}
+                            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:13, padding:"3px 8px", fontFamily:"inherit" }}>✏️</button>
+                        )}
+                        {onDeleteMood && (
+                          isConfirming
+                            ? <button onClick={() => { onDeleteMood(m.id || m.ts); setConfirmDeleteId(null); }}
+                                style={{ background:"rgba(244,63,94,0.15)", border:"1px solid rgba(244,63,94,0.4)", borderRadius:8, color:"#f43f5e", cursor:"pointer", fontSize:12, padding:"3px 8px", fontFamily:"inherit", fontWeight:600 }}>¿Borrar?</button>
+                            : <button onClick={() => setConfirmDeleteId(key)}
+                                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:13, padding:"3px 8px", fontFamily:"inherit" }}>🗑️</button>
+                        )}
                       </div>
                     </div>
                     {m.note ? <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.05)", lineHeight:1.55 }}>{m.note}</div> : null}
