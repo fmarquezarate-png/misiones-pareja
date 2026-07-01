@@ -39,10 +39,151 @@
       .home-breathe-bg {
         animation: home-breathe 8s ease-in-out infinite;
       }
+
+      /* ─── Splash screen — visible before React loads ─────────────────── */
+      #mp-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        background: var(--t-bg, #0a0714);
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        transition: opacity 0.35s ease;
+      }
+      #mp-splash.mp-hidden { opacity: 0; pointer-events: none; }
+
+      /* Two soft glowing orbs that drift across the screen */
+      .mp-orb {
+        position: absolute;
+        width: 260px; height: 260px;
+        border-radius: 50%;
+        filter: blur(72px);
+        opacity: 0.55;
+        will-change: transform;
+      }
+      .mp-orb1 {
+        background: var(--t-p1, #f472b6);
+        animation: mp-drift1 5s ease-in-out infinite;
+        top: 5%; left: -8%;
+      }
+      .mp-orb2 {
+        background: var(--t-p2, #a78bfa);
+        animation: mp-drift2 5.8s ease-in-out infinite;
+        bottom: 5%; right: -8%;
+      }
+
+      @keyframes mp-drift1 {
+        0%   { transform: translate(0, 0) scale(1); }
+        33%  { transform: translate(55px, 80px) scale(1.08); }
+        66%  { transform: translate(30px, 160px) scale(0.95); }
+        100% { transform: translate(0, 0) scale(1); }
+      }
+      @keyframes mp-drift2 {
+        0%   { transform: translate(0, 0) scale(1); }
+        40%  { transform: translate(-70px, -90px) scale(1.1); }
+        70%  { transform: translate(-30px, -160px) scale(0.92); }
+        100% { transform: translate(0, 0) scale(1); }
+      }
+
+      /* Center card */
+      .mp-splash-center {
+        position: relative; z-index: 1;
+        text-align: center;
+        display: flex; flex-direction: column; align-items: center; gap: 16px;
+      }
+
+      /* Couple avatars bouncing in front */
+      .mp-avatars {
+        display: flex; gap: 0; align-items: flex-end; justify-content: center;
+        margin-bottom: 4px;
+      }
+      .mp-av {
+        width: 72px; height: 72px; border-radius: 50%;
+        border: 3px solid rgba(255,255,255,0.18);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 36px; line-height: 1;
+        backdrop-filter: blur(6px);
+        background: rgba(255,255,255,0.08);
+        will-change: transform;
+      }
+      .mp-av1 {
+        background: rgba(244, 114, 182, 0.14);
+        border-color: var(--t-p1, #f472b6);
+        box-shadow: 0 0 18px rgba(244, 114, 182, 0.35);
+        animation: mp-bounce1 1.8s ease-in-out infinite;
+        transform-origin: bottom center;
+      }
+      .mp-av2 {
+        background: rgba(167, 139, 250, 0.14);
+        border-color: var(--t-p2, #a78bfa);
+        box-shadow: 0 0 18px rgba(167, 139, 250, 0.35);
+        animation: mp-bounce2 2.1s ease-in-out infinite;
+        transform-origin: bottom center;
+        margin-left: -10px;
+      }
+
+      @keyframes mp-bounce1 {
+        0%, 100% { transform: translateY(0) rotate(-4deg); }
+        45%      { transform: translateY(-22px) rotate(2deg); }
+      }
+      @keyframes mp-bounce2 {
+        0%, 100% { transform: translateY(0) rotate(4deg); }
+        55%      { transform: translateY(-18px) rotate(-3deg); }
+      }
+
+      /* Text */
+      .mp-splash-title {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: 22px; font-weight: 700; letter-spacing: 0.3px;
+        color: var(--t-text, #f8f4ff);
+        text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+      }
+
+      /* Animated loading dots */
+      .mp-dots { display: flex; gap: 7px; justify-content: center; margin-top: 4px; }
+      .mp-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--t-text-muted, #8b7fa8);
+        animation: mp-dot-pulse 1.4s ease-in-out infinite;
+      }
+      .mp-dot:nth-child(2) { animation-delay: 0.22s; }
+      .mp-dot:nth-child(3) { animation-delay: 0.44s; }
+      @keyframes mp-dot-pulse {
+        0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+        40%            { transform: scale(1.2); opacity: 1; }
+      }
     </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="mp-splash" aria-hidden="true">
+      <div class="mp-orb mp-orb1"></div>
+      <div class="mp-orb mp-orb2"></div>
+      <div class="mp-splash-center">
+        <div class="mp-avatars">
+          <div class="mp-av mp-av1" id="mp-av1-emoji">💗</div>
+          <div class="mp-av mp-av2" id="mp-av2-emoji">💜</div>
+        </div>
+        <div class="mp-splash-title">Misiones de Pareja</div>
+        <div class="mp-dots">
+          <div class="mp-dot"></div>
+          <div class="mp-dot"></div>
+          <div class="mp-dot"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Personalize splash with saved couple data before React loads -->
+    <script>try{
+      var _auth=JSON.parse(localStorage.getItem("shared-cal-auth-v1")||"null");
+      if(_auth&&_auth.couple_id){
+        var _d=JSON.parse(localStorage.getItem("couple-missions-"+_auth.couple_id)||"null");
+        var _s=_d&&_d.settings;
+        var _n1=_s&&_s.person1;var _n2=_s&&_s.person2;
+        var _e1=document.getElementById("mp-av1-emoji");
+        var _e2=document.getElementById("mp-av2-emoji");
+        if(_n1&&_e1)_e1.textContent=_n1[0].toUpperCase();
+        if(_n2&&_e2)_e2.textContent=_n2[0].toUpperCase();
+      }
+    }catch(e){}</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

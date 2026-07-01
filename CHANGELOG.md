@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.11.2] — 2026-07-01 · Splash screen para iOS
+
+### ✨ Mejoras
+
+- **Splash screen de carga**: en iOS la app tardaba ~5 segundos con pantalla en blanco antes de montar React (cold-start del motor JS en PWAs instaladas). Ahora aparece instantáneamente una pantalla de espera con:
+  - Dos orbes borrosos en los colores de la pareja flotando suavemente por el fondo.
+  - Dos círculos — uno por persona — rebotando con animación alternada. Si ya iniciaste sesión, muestran las iniciales (p.ej. "F" y "A") con los colores guardados. En primer uso, muestran 💗 y 💜 como fallback.
+  - El título "Misiones de Pareja" centrado con la fuente serif del sistema (carga inmediata, sin esperar Google Fonts).
+  - Tres puntos con animación de pulso escalonado.
+  - Se adapta automáticamente al tema claro u oscuro que tengas seleccionado (lee CSS vars ya guardadas en localStorage por el script anti-flash existente).
+  - Desaparece con fundido suave (0.35s) en cuanto React termina de montar la app.
+  - Implementado en HTML puro dentro de `index.html` — no hay un solo byte de JS que cargar para que aparezca.
+
+---
+
 ## [4.11.1] — 2026-06-30 · Fix: gráfico de Ánimo invisible en temas claros
 
 ### 🐛 Bugs corregidos
