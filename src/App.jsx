@@ -216,6 +216,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
   const [moodSurveyOpen,    setMoodSurveyOpen]    = useState(false);
   const [moodSurveyPrefill, setMoodSurveyPrefill] = useState(null); // null | "person1" | "person2"
+  const [moodEditEntry,     setMoodEditEntry]     = useState(null);  // mood entry being edited, or null
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -956,6 +957,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   const p1 = data.settings?.person1 || "Persona 1";
   const p2 = data.settings?.person2 || "Persona 2";
+  const sessionPersonId = personName === p1 ? "person1" : personName === p2 ? "person2" : null;
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const _uprefs = getUserPrefs(sessionUserId);
   const themeId = localThemeId || _uprefs.themeId || data.settings?.themeId || "violet";
@@ -1186,11 +1188,24 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const deleteGoal = id => patchGoals(gs => gs.filter(g => g.id!==id));
 
   const saveMoodEntry = (entry) => {
-    const id = uid();
-    update(d => ({ ...d, moods: [...(d.moods||[]), { ...entry, id }] }));
-    runAfterSave(() => localStorage.setItem(`mp-mood-done-${entry.who}-${entry.date}`, "1"));
+    if (entry.id) {
+      // Edit existing entry
+      update(d => ({ ...d, moods: (d.moods||[]).map(m => m.id === entry.id ? entry : m) }));
+      pushToast({ kind:"success", text:"🧠 Registro actualizado" });
+    } else {
+      // New entry
+      const id = uid();
+      update(d => ({ ...d, moods: [...(d.moods||[]), { ...entry, id }] }));
+      runAfterSave(() => localStorage.setItem(`mp-mood-done-${entry.who}-${entry.date}`, "1"));
+      pushToast({ kind:"success", text:"🧠 Estado de ánimo guardado" });
+    }
     setMoodSurveyOpen(false);
-    pushToast({ kind:"success", text:"🧠 Estado de ánimo guardado" });
+    setMoodSurveyPrefill(null);
+    setMoodEditEntry(null);
+  };
+
+  const deleteMoodEntry = (idOrTs) => {
+    update(d => ({ ...d, moods: (d.moods||[]).filter(m => m.id !== idOrTs && m.ts !== idOrTs) }));
   };
 
   const compressImage = (file) => new Promise((resolve, reject) => {
@@ -1592,8 +1607,11 @@ ${sorted.map(m=>{
           moods={data.moods||[]}
           p1={p1} p2={p2} colors={colors}
           sessionUserId={sessionUserId}
+          sessionPersonId={sessionPersonId}
           lightTheme={_activeTheme.dark === false}
-          onAddMood={() => { setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
+          onAddMood={() => { setMoodSurveyPrefill(null); setMoodEditEntry(null); setMoodSurveyOpen(true); }}
+          onEditMood={m => { setMoodEditEntry(m); setMoodSurveyPrefill(null); setMoodSurveyOpen(true); }}
+          onDeleteMood={deleteMoodEntry}
         />}
 
         {activeTab==="wishlist" && <WishlistView
@@ -1716,8 +1734,9 @@ ${sorted.map(m=>{
           <MoodSurvey
             p1={p1} p2={p2} colors={colors}
             prefillWho={moodSurveyPrefill}
+            editEntry={moodEditEntry}
             onSave={saveMoodEntry}
-            onClose={() => setMoodSurveyOpen(false)}
+            onClose={() => { setMoodSurveyOpen(false); setMoodEditEntry(null); }}
           />
         </Suspense>
       )}

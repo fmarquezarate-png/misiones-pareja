@@ -19,14 +19,17 @@ const ANIM_CSS = `
 `;
 
 // 4-step popup: 0=who, 1=emotion, 2=intensity, 3=note+submit
-export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, onClose }) {
+// editEntry: existing mood entry to prefill (skips who step, preserves id/ts)
+export default function MoodSurvey({ p1, p2, colors, prefillWho = null, editEntry = null, onSave, onClose }) {
+  const isEdit = !!editEntry;
   const [phase,     setPhase]     = useState(0); // 0=entering, 1=visible
-  const [step,      setStep]      = useState(prefillWho ? 1 : 0);
-  const [who,       setWho]       = useState(prefillWho || null);
-  const [emotion,   setEmotion]   = useState(null);
-  const [intensity, setIntensity] = useState(5);
-  const [note,      setNote]      = useState("");
-  const [shared,    setShared]    = useState(false); // privado por defecto — no entra en Comparativa ni vista "Ambos"
+  const [step,      setStep]      = useState(isEdit ? 1 : prefillWho ? 1 : 0);
+  const [who,       setWho]       = useState(isEdit ? editEntry.who : prefillWho || null);
+  const [emotion,   setEmotion]   = useState(isEdit ? editEntry.emotion : null);
+  const [intensity, setIntensity] = useState(isEdit ? editEntry.intensity : 5);
+  const [note,      setNote]      = useState(isEdit ? (editEntry.note || "") : "");
+  const [shared,    setShared]    = useState(isEdit ? (editEntry.shared ?? false) : false);
+  const [date,      setDate]      = useState(isEdit ? editEntry.date : localDateStr());
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => { const t = setTimeout(() => setPhase(1), 30); return () => clearTimeout(t); }, []);
@@ -40,12 +43,13 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
   const handleSubmit = () => {
     if (!who || !emotion || !selectedEmotion || submitted) return;
     setSubmitted(true);
-    onSave({ who, emotion, valence: selectedEmotion.valence, intensity, note: note.trim(), date: localDateStr(), ts: Date.now(), shared });
+    const base = isEdit ? { id: editEntry.id, ts: editEntry.ts } : { ts: Date.now() };
+    onSave({ ...base, who, emotion, valence: selectedEmotion.valence, intensity, note: note.trim(), date, shared });
   };
 
-  const totalSteps  = prefillWho ? 3 : 4;
-  const stepDisplay = prefillWho ? step : step + 1;
-  const barSteps    = prefillWho ? [1,2,3] : [0,1,2,3];
+  const totalSteps  = (isEdit || prefillWho) ? 3 : 4;
+  const stepDisplay = (isEdit || prefillWho) ? step : step + 1;
+  const barSteps    = (isEdit || prefillWho) ? [1,2,3] : [0,1,2,3];
 
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
@@ -69,7 +73,7 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
               <span style={{ fontSize:24 }}>🧠</span> ¿Cómo estás?
             </div>
             <div style={{ fontSize:12, color: who ? whoColor : "var(--t-text-muted,#8b7fa8)", marginTop:3, transition:"color 0.2s" }}>
-              {who ? `${whoLabel} · Paso ${stepDisplay} de ${totalSteps}` : "Registro de ánimo diario"}
+              {isEdit ? `Editando · ${whoLabel}` : who ? `${whoLabel} · Paso ${stepDisplay} de ${totalSteps}` : "Registro de ánimo diario"}
             </div>
           </div>
           <button onClick={onClose} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", fontSize:18, cursor:"pointer", lineHeight:1, padding:"4px 8px" }}>×</button>
@@ -184,7 +188,12 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
               onFocus={e => e.target.style.borderColor = accentClr}
               onBlur={e => e.target.style.borderColor = `${accentClr}30`}
             />
-            <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textAlign:"right", marginBottom:16 }}>{note.length}/500</div>
+            <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textAlign:"right", marginBottom:12 }}>{note.length}/500</div>
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginBottom:5 }}>Fecha del registro</div>
+              <input type="date" value={date} max={localDateStr()} onChange={e => setDate(e.target.value)}
+                style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:`1px solid ${accentClr}30`, borderRadius:10, color:"var(--t-text,#f8f4ff)", fontSize:14, padding:"9px 12px", fontFamily:"inherit", outline:"none", colorScheme:"dark", boxSizing:"border-box" }} />
+            </div>
             <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, padding:"10px 12px", marginBottom:16 }}>
               <input type="checkbox" checked={shared} onChange={e => setShared(e.target.checked)} style={{ width:17, height:17, flexShrink:0, accentColor:accentClr }} />
               <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.4 }}>
@@ -195,7 +204,7 @@ export default function MoodSurvey({ p1, p2, colors, prefillWho = null, onSave, 
             </label>
             <div style={{ display:"flex", gap:10 }}>
               <button onClick={() => setStep(2)} style={{ flex:1, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, color:"var(--t-text-muted,#8b7fa8)", padding:"10px", cursor:"pointer", fontFamily:"inherit", fontSize:14 }}>← Atrás</button>
-              <button onClick={handleSubmit} disabled={submitted} style={{ flex:2, background:`linear-gradient(135deg,${accentClr},${accentClr}bb)`, border:"none", borderRadius:12, color:"#fff", padding:"12px 24px", cursor:submitted?"default":"pointer", fontFamily:"inherit", fontSize:15, fontWeight:700, boxShadow:`0 6px 20px ${accentClr}44`, opacity:submitted?0.6:1 }}>{submitted ? "Guardando…" : "✓ Guardar"}</button>
+              <button onClick={handleSubmit} disabled={submitted} style={{ flex:2, background:`linear-gradient(135deg,${accentClr},${accentClr}bb)`, border:"none", borderRadius:12, color:"#fff", padding:"12px 24px", cursor:submitted?"default":"pointer", fontFamily:"inherit", fontSize:15, fontWeight:700, boxShadow:`0 6px 20px ${accentClr}44`, opacity:submitted?0.6:1 }}>{submitted ? "Guardando…" : isEdit ? "✓ Guardar cambios" : "✓ Guardar"}</button>
             </div>
           </div>
         )}

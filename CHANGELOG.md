@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.12.1] — 2026-07-01 · Fix ánimo: registros visibles, editar y eliminar + 6 emociones
+
+### 🐛 Bugs corregidos
+
+- **Registros de ánimo no aparecían al guardar**: al añadir un nuevo registro con la privacidad en 🔒 (valor por defecto), la vista "Ambos" lo filtraba y el registro desaparecía de la lista. El usuario lo intentaba de nuevo y creaba duplicados. Causa raíz: `filterMoods("all")` excluía todas las entradas con `shared: false`, sin distinguir si eran propias o de la pareja. Ahora `filterMoods` recibe el `personId` del usuario activo y mantiene sus propias entradas privadas siempre visibles, sea cual sea el filtro de persona activo. La privacidad solo afecta a lo que ve la pareja.
+
+### ✨ Nuevas funciones
+
+- **Editar registros de ánimo**: botón ✏️ en cada fila de "Ver registros". Abre el popup de encuesta pre-rellenado con la emoción, intensidad, nota y privacidad guardadas. Incluye un selector de fecha (máximo hoy) para poder corregir registros de días anteriores. Al guardar se actualiza el registro original preservando su `id` y timestamp.
+
+- **Eliminar registros de ánimo**: botón 🗑️ en cada fila con doble confirmación inline (primer toque: "¿Borrar?", segundo toque: borra). Sin modales extra.
+
+- **6 nuevas emociones** — el catálogo pasa de 14 a 20 (10 positivas + 10 negativas):
+  - Positivas: **Esperanzado** 🌱, **Orgulloso** 🏆, **En paz** 🕊️
+  - Negativas: **Solitario** 🫥, **Abrumado** 🤯, **Inseguro** 😟
+
+---
+
 ## [4.12.0] — 2026-07-01 · Barra de navegación inferior configurable
 
 ### ✨ Nuevas funciones
