@@ -9,7 +9,7 @@ export default function Topbar({
   onCheckUpdate, onSmartSync, syncing,
   onDownloadICS, onDownloadPDF,
   onExport, importFileRef, onSignOut,
-  colors,
+  colors, chatUnread = 0, onOpenSearch,
 }) {
   const [popOpen,      setPopOpen]      = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -19,11 +19,12 @@ export default function Topbar({
     <div style={{ height:52, display:"flex", alignItems:"center", gap:8, paddingLeft:12, paddingRight:12 }}>
 
       {/* Hamburger */}
-      <button onClick={() => setMenuOpen(v => !v)} aria-label="Menú"
-        style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8 }}>
+      <button onClick={() => setMenuOpen(v => !v)} aria-label={chatUnread > 0 ? `Menú — ${chatUnread} mensajes sin leer` : "Menú"}
+        style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8, position:"relative" }}>
         <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
         <span style={{ display:"block", width:13, height:1.5, background:"currentColor", borderRadius:99 }} />
         <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
+        {chatUnread > 0 && <span aria-hidden="true" style={{ position:"absolute", top:5, right:0, width:8, height:8, borderRadius:99, background:"#f43f5e", boxShadow:"0 0 5px rgba(244,63,94,0.7)" }} />}
       </button>
 
       {/* Home */}
@@ -49,6 +50,14 @@ export default function Topbar({
             </span>
         }
       </div>
+
+      {/* Global search */}
+      {onOpenSearch && (
+        <button onClick={onOpenSearch} aria-label="Buscar tareas y eventos" title="Buscar"
+          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
+          <span aria-hidden="true">🔍</span>
+        </button>
+      )}
 
       {/* Saving indicator dot */}
       {savingState !== "idle" && (

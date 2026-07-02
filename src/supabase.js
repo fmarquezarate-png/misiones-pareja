@@ -477,9 +477,12 @@ export async function sendMessage(coupleId, senderName, content, emoji = "💬")
   if (error) throw new Error("Send message failed: " + error.message);
 }
 
-export function subscribeToMessages(coupleId, onMessage) {
+// channelName debe ser único por suscriptor — dos canales con el mismo nombre
+// sobre el mismo cliente fallan al suscribirse (ChatView y el contador de
+// no-leídos en App conviven con nombres distintos).
+export function subscribeToMessages(coupleId, onMessage, channelName = `chat-${coupleId}`) {
   const channel = supabase
-    .channel(`chat-${coupleId}`)
+    .channel(channelName)
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "messages", filter: `couple_id=eq.${coupleId}` },

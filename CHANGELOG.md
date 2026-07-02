@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.13.0] — 2026-07-02 · Badge de chat no leído, búsqueda global y pull-to-refresh
+
+### ✨ Nuevas funciones
+
+- **Badge de mensajes no leídos 🔴**: cuando tu pareja escribe y no estás en el Chat, aparece un contador rojo en tres sitios: la pestaña Chat de la barra de navegación inferior, la fila "Chat" del menú lateral, y un punto rojo sobre el botón de menú (☰) para que se vea sin abrir nada. Se limpia al entrar al Chat. Detalles técnicos:
+  - El contador vive en `CoupleMissions` (no en `ChatView`) para que funcione desde cualquier pestaña, con su propia suscripción realtime (`chat-unread-{coupleId}`) separada de la del Chat.
+  - `subscribeToMessages` acepta ahora un `channelName` — dos canales con el mismo nombre sobre el mismo cliente Supabase fallan al suscribirse.
+  - Sigue la regla de closures de CLAUDE.md: el callback lee `activeTabRef` (ref espejo), no el estado directamente.
+  - Última lectura por dispositivo en `localStorage` (`mp-chat-lastread-{coupleId}`). Al estrenar la feature no marca el historial completo como no leído — arranca desde cero.
+
+- **Búsqueda global 🔍**: botón de lupa en la barra superior, siempre visible. Busca por título en las misiones y eventos de **todas** las semanas (pasadas y futuras). Insensible a mayúsculas y tildes («cañeria» encuentra «Cañería»). Resultados ordenados por fecha (más recientes primero, máx. 50), cada uno con emoji, título, dueño coloreado, semana/año, fecha y estado. Tocar un resultado navega a esa semana. Componente `SearchOverlay.jsx` con carga diferida (`React.lazy`) — no pesa en el bundle inicial.
+
+- **Pull-to-refresh ↻**: arrastrar hacia abajo desde el tope de la página fuerza la sincronización con Supabase (`smartSync`, el mismo del menú ⋯). Indicador circular con resistencia progresiva que gira mientras sincroniza. Solo se arma cuando el scroll está en 0 — no interfiere con el scroll normal. Componente `PullToRefresh.jsx`.
+
+---
+
 ## [4.12.2] — 2026-07-01 · Fix: gráfico de Ánimo mostraba registros incompletos
 
 ### 🐛 Bugs corregidos
