@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks } from "./supabase.js";
+import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -53,6 +53,8 @@ const PendingView = lazy(() => import("./components/PendingView.jsx"));
 import SideMenu from "./components/SideMenu.jsx";
 import Topbar from "./components/Topbar.jsx";
 import BottomTabBar from "./components/BottomTabBar.jsx";
+import PullToRefresh from "./components/PullToRefresh.jsx";
+const SearchOverlay = lazy(() => import("./components/SearchOverlay.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -168,7 +170,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const moodInnerTimerRef    = useRef(null); // inner 1400ms delay timer before showing popup
   const matchDayTimerRef     = useRef(null); // 1200ms delay before showing match-day overlay
   const [activeTab,       setActiveTab]       = useState("home");
+  const activeTabRef = useRef("home"); // ref espejo — regla de closures (CLAUDE.md): callbacks de larga vida no leen estado directamente
   const [menuOpen,        setMenuOpen]        = useState(false);
+  const [chatUnread,      setChatUnread]      = useState(0);
+  const [searchOpen,      setSearchOpen]      = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
@@ -408,6 +413,41 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   useEffect(() => {
     if (!loading) dismissSplash();
   }, [loading]);
+
+  // ─── Contador de mensajes de chat no leídos ────────────────────────────────
+  // Vive aquí (no en ChatView) para que el badge se vea desde cualquier pestaña.
+  useEffect(() => {
+    if (!coupleId) return;
+    const key = `mp-chat-lastread-${coupleId}`;
+    let lastRead = Number(localStorage.getItem(key));
+    if (!lastRead) {
+      // Primera vez con esta feature: no marcar todo el historial como no leído
+      lastRead = Date.now();
+      try { localStorage.setItem(key, String(lastRead)); } catch { /* modo privado */ }
+    }
+    loadMessages(coupleId).then(msgs => {
+      setChatUnread(msgs.filter(m => m.sender_name !== personName && new Date(m.created_at).getTime() > lastRead).length);
+    });
+    const ch = subscribeToMessages(coupleId, msg => {
+      if (msg.sender_name === personName) return;
+      if (activeTabRef.current === "chat" && document.visibilityState === "visible") {
+        try { localStorage.setItem(key, String(Date.now())); } catch { /* modo privado */ }
+        return; // lo está viendo en vivo — no cuenta como no leído
+      }
+      setChatUnread(u => u + 1);
+    }, `chat-unread-${coupleId}`);
+    return () => supabase.removeChannel(ch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coupleId]);
+
+  // Al abrir la pestaña de chat, marcar todo como leído
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    if (activeTab === "chat") {
+      setChatUnread(0);
+      try { localStorage.setItem(`mp-chat-lastread-${coupleId}`, String(Date.now())); } catch { /* modo privado */ }
+    }
+  }, [activeTab, coupleId]);
 
   // Auto-launch tutorial on first visit
   useEffect(() => {
@@ -1407,6 +1447,7 @@ ${sorted.map(m=>{
         p1={p1} p2={p2}
         syncMsg={syncMsg}
         onShowProfile={() => { setShowProfile(true); setMenuOpen(false); }}
+        chatUnread={chatUnread}
       />
 
       <Topbar
@@ -1420,12 +1461,15 @@ ${sorted.map(m=>{
         onExport={() => exportData(data)}
         importFileRef={importFileRef} onSignOut={onSignOut}
         colors={colors}
+        chatUnread={chatUnread}
+        onOpenSearch={() => setSearchOpen(true)}
       />
 
       {bottomBar.enabled && bottomBar.tabs.length > 0 && (
-        <BottomTabBar tabs={bottomBar.tabs} activeTab={activeTab} onTabChange={tab => { setActiveTab(tab); setMenuOpen(false); }} />
+        <BottomTabBar tabs={bottomBar.tabs} activeTab={activeTab} onTabChange={tab => { setActiveTab(tab); setMenuOpen(false); }} badges={{ chat: chatUnread }} />
       )}
 
+      <PullToRefresh onRefresh={smartSync} refreshing={syncing}>
       <div style={{ maxWidth:640, margin:"0 auto", padding:"18px 16px", paddingBottom: bottomBar.enabled && bottomBar.tabs.length > 0 ? "calc(176px + env(safe-area-inset-bottom))" : "calc(120px + env(safe-area-inset-bottom))" }}>
 
         {/* Global filters — show only for tabs that need them */}
@@ -1637,6 +1681,18 @@ ${sorted.map(m=>{
         />}
         </Suspense>
       </div>
+      </PullToRefresh>
+
+      {/* Búsqueda global de tareas y eventos */}
+      {searchOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <SearchOverlay
+            weeks={data.weeks} p1={p1} p2={p2} colors={colors}
+            onClose={() => setSearchOpen(false)}
+            onGoToWeek={(wn, yr) => { update(s => ({ ...s, currentWeekNumber: wn, currentYear: yr })); setActiveTab("current"); setSearchOpen(false); }}
+          />
+        </Suspense>
+      )}
 
       {/* Tutorial overlay */}
       {tutorialStep !== null && <TutorialOverlay step={tutorialStep} onNext={tutorialNext} onBack={tutorialBack} onSkip={tutorialSkip} onFinish={tutorialFinish} />}
