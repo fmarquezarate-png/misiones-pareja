@@ -18,7 +18,9 @@ export default function BottomTabBar({ tabs, activeTab, onTabChange, badges = {}
   const tabDefs = tabs.map(id => ALL_TABS.find(t => t.id === id)).filter(Boolean);
   return (
     <nav style={{
-      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100,
+      // z-index por debajo del SideMenu (100) y su backdrop (90): al abrir el
+      // menú hamburguesa, el menú y su footer (changelog) quedan por encima.
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 70,
       background: "var(--t-menu-bg, #0f0a1e)",
       borderTop: "1px solid var(--t-card-border, rgba(167,139,250,0.15))",
       display: "flex", alignItems: "stretch",

@@ -14,6 +14,13 @@ export function isValidAppData(d) {
       if (cat.items !== undefined && !Array.isArray(cat.items)) return false;
     }
   }
+  if (d.templates !== undefined) {
+    if (!Array.isArray(d.templates)) return false;
+    for (const t of d.templates) {
+      if (!t || typeof t !== "object") return false;
+      if (!t.id || !t.title) return false;
+    }
+  }
   if (d.moods !== undefined) {
     if (!Array.isArray(d.moods)) return false;
     for (const m of d.moods) {

@@ -55,6 +55,7 @@ import Topbar from "./components/Topbar.jsx";
 import BottomTabBar from "./components/BottomTabBar.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
 const SearchOverlay = lazy(() => import("./components/SearchOverlay.jsx"));
+const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -174,6 +175,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [menuOpen,        setMenuOpen]        = useState(false);
   const [chatUnread,      setChatUnread]      = useState(0);
   const [searchOpen,      setSearchOpen]      = useState(false);
+  const [availOpen,       setAvailOpen]       = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
@@ -1463,6 +1465,7 @@ ${sorted.map(m=>{
         colors={colors}
         chatUnread={chatUnread}
         onOpenSearch={() => setSearchOpen(true)}
+        onOpenAvailability={() => setAvailOpen(true)}
       />
 
       {bottomBar.enabled && bottomBar.tabs.length > 0 && (
@@ -1579,7 +1582,16 @@ ${sorted.map(m=>{
               </button>
             </>}
           </div>
-          {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} />}
+          {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]}
+            templates={data.templates||[]}
+            onSaveTemplate={tpl => {
+              const exists = (data.templates||[]).some(t => t.title.toLowerCase() === tpl.title.toLowerCase() && t.who === tpl.who);
+              if (exists) { pushToast({ kind:"error", text:"Ya existe una plantilla con ese nombre" }); return; }
+              update(d => ({ ...d, templates: [...(d.templates||[]), tpl] }));
+              pushToast({ kind:"success", text:`⚡ Plantilla «${tpl.title}» guardada` });
+            }}
+            onDeleteTemplate={id => update(d => ({ ...d, templates: (d.templates||[]).filter(t => t.id !== id) }))}
+          />}
           {/* View mode + Sort bar */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, flexWrap:"wrap" }}>
             <div style={{ display:"flex", gap:4 }}>
@@ -1682,6 +1694,13 @@ ${sorted.map(m=>{
         </Suspense>
       </div>
       </PullToRefresh>
+
+      {/* Exportar disponibilidad (liga de pádel, etc.) */}
+      {availOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <AvailabilityExport weeks={data.weeks} p1={p1} p2={p2} onClose={() => setAvailOpen(false)} />
+        </Suspense>
+      )}
 
       {/* Búsqueda global de tareas y eventos */}
       {searchOpen && (

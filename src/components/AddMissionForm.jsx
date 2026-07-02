@@ -4,12 +4,37 @@ import { CATEGORIES, STATUS, STATUS_ORDER } from "../constants.js";
 import { uid } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 
-export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals }) {
+export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals, templates = [], onSaveTemplate, onDeleteTemplate }) {
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
   const goalMatchesWho = (g, who) => who === "together" || g.who === "together" || !g.who || g.who === who;
   const activeGoals = (goals||[]).filter(g => g.active!==false && goalMatchesWho(g, newM.who));
   const isEvent = newM.type==="event";
   const [endMode, setEndMode] = useState("duration");
+  const [tplEdit, setTplEdit] = useState(false);
+
+  // Plantillas: eventos reiterados pero sin cadencia fija (liga de pádel, terapia…).
+  // Aplican todos los campos menos la fecha — el usuario solo elige día/hora.
+  const applyTemplate = t => {
+    setNewM(p => ({
+      ...p,
+      emoji: t.emoji || p.emoji, title: t.title,
+      type: t.type || "event", who: t.who || "together",
+      categories: [...(t.categories || [])],
+      duration: t.duration || 0,
+      time: t.time || p.time,
+      reminder: t.reminder || "none",
+      goalId: t.goalId || null,
+    }));
+  };
+  const saveTemplate = () => {
+    if (!newM.title.trim() || !onSaveTemplate) return;
+    onSaveTemplate({
+      id: uid(), emoji: newM.emoji, title: newM.title.trim(),
+      type: newM.type, who: newM.who, categories: [...(newM.categories || [])],
+      duration: newM.duration || 0, time: newM.time || "",
+      reminder: newM.reminder || "none", goalId: newM.goalId || null,
+    });
+  };
 
   const computeEnd = (date, time, durMin) => {
     if (!date || !time || !durMin || durMin<=0) return { endDate:"", endTime:"" };
@@ -28,6 +53,27 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
 
   return (
     <div style={{ ...S.card, borderColor:isEvent?"rgba(96,165,250,0.35)":"rgba(167,139,250,0.3)" }}>
+      {templates.length > 0 && (
+        <div style={{ marginBottom:12, paddingBottom:10, borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:7 }}>
+            <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>⚡ Plantillas</span>
+            <button onClick={()=>setTplEdit(v=>!v)}
+              style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:tplEdit?"#f472b6":"var(--t-text-dim,#4a4166)", fontFamily:"inherit", padding:"2px 4px" }}>
+              {tplEdit ? "✓ Listo" : "✏️ Editar"}
+            </button>
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+            {templates.map(t => (
+              <button key={t.id} onClick={() => tplEdit ? onDeleteTemplate?.(t.id) : applyTemplate(t)}
+                title={tplEdit ? "Eliminar plantilla" : `Rellenar con «${t.title}»`}
+                style={{ display:"flex", alignItems:"center", gap:5, background:tplEdit?"rgba(244,63,94,0.08)":"rgba(167,139,250,0.1)", border:`1px solid ${tplEdit?"rgba(244,63,94,0.35)":"rgba(167,139,250,0.3)"}`, borderRadius:99, color:tplEdit?"#f43f5e":"#c4b8ff", padding:"5px 12px", cursor:"pointer", fontSize:12, fontFamily:"inherit", fontWeight:500 }}>
+                <span>{t.emoji}</span><span>{t.title}</span>
+                {tplEdit && <span style={{ fontWeight:700 }}>×</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{ display:"flex", gap:4, marginBottom:10 }}>
         {[{id:"task",label:"✅ Tarea"},{id:"event",label:"📅 Evento"}].map(t=>(
           <button key={t.id} onClick={()=>setNewM(p=>({...p,type:t.id}))}
@@ -133,6 +179,10 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
           {STATUS_ORDER.map(s=><button key={s} onClick={()=>setNewM(p=>({...p,status:s}))} style={{ ...badgeStyle(s), opacity:newM.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}
         </div>
         <div style={{ display:"flex", gap:6 }}>
+          {onSaveTemplate && newM.title.trim() && (
+            <button onClick={saveTemplate} title="Guardar como plantilla para reutilizar"
+              style={{ background:"rgba(251,191,36,0.08)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:10, color:"#fbbf24", padding:"8px 12px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>☆ Plantilla</button>
+          )}
           <button onClick={onCancel} style={S.btnSecondary}>Cancelar</button>
           <button onClick={onAdd} style={S.btnPrimary}>Añadir ✨</button>
         </div>
