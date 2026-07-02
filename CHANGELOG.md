@@ -7,6 +7,28 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.14.0] — 2026-07-02 · Plantillas de eventos y export de disponibilidad
+
+### ✨ Nuevas funciones
+
+- **Plantillas de eventos ⚡** — para actividades reiteradas sin cadencia fija (liga de pádel, terapia), donde las recurrencias semanal/bisemanal/mensual no sirven:
+  - En el formulario de añadir, el botón **☆ Plantilla** guarda la actividad actual como plantilla: emoji, título, tipo (tarea/evento), quién, categorías, duración, hora habitual, recordatorio y meta vinculada. **Sin fecha** — eso se elige en cada uso.
+  - Las plantillas aparecen como chips (`🎾 Partido de pádel`, `🧠 Terapia`) arriba del formulario: un toque rellena todo el formulario y solo queda elegir día/hora.
+  - Gestión inline: ✏️ Editar → × en cada chip para eliminar. Se guardan en el blob (`data.templates`) — compartidas entre la pareja, con validación en `isValidAppData`.
+
+- **Exportar disponibilidad 🎾** — en el menú ⋯ de la barra superior. Para enviar a los rivales de la liga los días en que podéis jugar:
+  - **Rango editable** (por defecto hoy + 13 días, máx. 3 meses).
+  - **Parámetros de qué ocupa un día**: hora de corte ("solo eventos a partir de las 17:00" → el dentista de la mañana no bloquea el partido de la tarde), si los eventos sin hora ocupan, y si las tareas con fecha cuentan. Los eventos multi-día bloquean sus días intermedios completos. Parámetros persistidos por dispositivo.
+  - **Corrección manual**: el calendario de preview muestra verde/rojo; tocar cualquier día lo cambia (marcado con ✎). Sección "Por qué están ocupados" lista los eventos que bloquean cada día.
+  - **Export**: imagen PNG limpia dibujada en canvas (fondo blanco, celdas verdes con borde, ocupados tachados en gris, leyenda) lista para WhatsApp — o texto con ✅/❌ por día al portapapeles.
+  - Verificado con Playwright: 3 eventos de prueba → 11/14 días libres con corte vacío, 12/14 con corte 17:00 (el evento de la mañana deja de bloquear).
+
+### 🐛 Bugs corregidos
+
+- **Changelog invisible con la barra inferior activa**: la barra de navegación inferior (z-index 100) se pintaba encima del pie del menú hamburguesa (mismo z-index, posterior en el DOM), tapando la versión y el enlace "Ver cambios". La barra baja a z-index 70 — por debajo del menú lateral (100) y su backdrop (90).
+
+---
+
 ## [4.13.0] — 2026-07-02 · Badge de chat no leído, búsqueda global y pull-to-refresh
 
 ### ✨ Nuevas funciones
