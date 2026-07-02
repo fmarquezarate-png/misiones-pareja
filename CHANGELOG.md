@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.12.2] — 2026-07-01 · Fix: gráfico de Ánimo mostraba registros incompletos
+
+### 🐛 Bugs corregidos
+
+- **Gráfico de Ánimo incompleto en vista "Ambos"**: la vista combinada filtraba los registros privados (shared:false), así que solo aparecían los marcados explícitamente como "compartidos". Se eliminó la opción "Ambos" del selector de persona: la vista ahora aterriza en los registros propios de quien abre la app. Cada persona ve todos sus registros (privados + compartidos); para ver los del compañero se toca su nombre. La sección Comparativa sigue mostrando estadísticas de ambos.
+
+---
+
 ## [4.12.1] — 2026-07-01 · Fix ánimo: registros visibles, editar y eliminar + 6 emociones
 
 ### 🐛 Bugs corregidos
