@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { S, catBadgeStyle } from "../styles.js";
 import { CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS, STATUS } from "../constants.js";
-import { googleCalendarUrl } from "../utils.js";
+import { googleCalendarUrl, uid, relTime } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 import StatusOrb from "./StatusOrb.jsx";
 
-export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData }) {
+export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId }) {
   const [expanded, setExpanded] = useState(false);
   const [popping, setPopping] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const comments = mission.comments || [];
+  const addComment = () => {
+    const text = commentText.trim();
+    if (!text) return;
+    onPatch({ comments: [...comments, { id: uid(), w: sessionPersonId || null, text, ts: Date.now() }] });
+    setCommentText("");
+  };
+  const deleteComment = id => onPatch({ comments: comments.filter(c => c.id !== id) });
   const isDone = mission.status==="DONE", isCarried = !!mission.carriedFrom;
   const mCats = getMCats(mission).map(id=>CAT_MAP[id]).filter(Boolean);
   const clr = colors || DEFAULT_COLORS;
@@ -63,6 +72,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
+            {comments.length>0&&<span style={{ background:"rgba(96,165,250,0.1)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.22)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>💬 {comments.length}</span>}
           </div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2, flexShrink:0 }}>
@@ -123,6 +133,35 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
             </select>
           </div>;})()}
           {gcalUrl&&<a href={gcalUrl} target="_blank" rel="noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:11, color:"#34d399", background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:7, padding:"5px 10px", textDecoration:"none", marginTop:4 }}>📅 Añadir a Google Calendar</a>}
+
+          {/* Notas de coordinación — hilo corto por misión, para que la logística
+              ("¿llevas tú la raqueta?") no se pierda en el chat general */}
+          <div style={{ marginTop:12, borderTop:"1px solid rgba(167,139,250,0.1)", paddingTop:10 }}>
+            <label style={S.label}>💬 Notas ({comments.length})</label>
+            {comments.map(c => {
+              const cColor = c.w === "person1" ? clr.person1 : c.w === "person2" ? clr.person2 : "var(--t-text-muted,#8b7fa8)";
+              const cName  = c.w === "person1" ? p1 : c.w === "person2" ? p2 : "—";
+              const mine   = sessionPersonId && c.w === sessionPersonId;
+              return (
+                <div key={c.id} style={{ display:"flex", gap:8, alignItems:"flex-start", background:"rgba(128,128,128,0.05)", borderRadius:9, padding:"7px 10px", marginBottom:5 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", gap:8, alignItems:"baseline" }}>
+                      <span style={{ fontSize:11, fontWeight:700, color:cColor }}>{cName}</span>
+                      <span style={{ fontSize:9.5, color:"var(--t-text-dim,#4a4166)" }}>{relTime(c.ts)}</span>
+                    </div>
+                    <div style={{ fontSize:12.5, color:"var(--t-text,#f0e8ff)", lineHeight:1.5, marginTop:2, wordBreak:"break-word" }}>{c.text}</div>
+                  </div>
+                  {mine && <button onClick={()=>deleteComment(c.id)} aria-label="Borrar nota" style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:13, padding:"0 2px", lineHeight:1, flexShrink:0 }}>×</button>}
+                </div>
+              );
+            })}
+            <div style={{ display:"flex", gap:6, marginTop:comments.length?4:0 }}>
+              <input value={commentText} onChange={e=>setCommentText(e.target.value.slice(0,300))} onKeyDown={e=>e.key==="Enter"&&addComment()}
+                placeholder="Añadir nota…" style={{ ...S.inputSm, flex:1 }} />
+              <button onClick={addComment} disabled={!commentText.trim()}
+                style={{ background:commentText.trim()?"rgba(96,165,250,0.15)":"rgba(128,128,128,0.06)", border:`1px solid ${commentText.trim()?"rgba(96,165,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:commentText.trim()?"#60a5fa":"var(--t-text-dim,#4a4166)", padding:"6px 12px", cursor:commentText.trim()?"pointer":"default", fontSize:13, fontFamily:"inherit", flexShrink:0 }}>➤</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

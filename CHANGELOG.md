@@ -7,6 +7,37 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.15.0] — 2026-07-02 · Disponibilidad por persona + ideas 1, 3, 6 y 7
+
+### ✨ Nuevas funciones
+
+- **Disponibilidad por persona 🎾** (ajuste pedido sobre v4.14.0): el export de disponibilidad pregunta **¿Disponibilidad de quién?** con tres opciones:
+  - **👫 Ambos** (liga mixta): cualquier evento de los dos ocupa el día — comportamiento anterior.
+  - **Solo una persona** (liga masculina/femenina): ocupan únicamente los eventos de esa persona y los de «juntos» — la agenda del otro no bloquea.
+  - El título del PNG y del texto copiado refleja de quién es («Disponibilidad — Fernanda» vs «Fernanda & Ana»). La elección se guarda por dispositivo.
+
+- **Autocompletado al crear (idea 3)**: al escribir 2+ letras del título en el formulario de añadir, aparecen hasta 5 sugerencias: plantillas (marcadas ⚡) y actividades del historial (con contador «n× antes»), insensible a tildes. Un toque rellena emoji, categorías, quién, duración y tipo. Historial calculado con dedupe por título normalizado, quedándose con los campos de la ocurrencia más reciente.
+
+- **Notas por actividad 💬 (idea 6)**: hilo corto de notas dentro de cada tarea/evento (vista expandida de la tarjeta): autor con su color, hora relativa («hace 2 h»), borrado de las notas propias. Badge «💬 n» en la tarjeta colapsada. Guardadas en `mission.comments` — el dual-write las ignora (mapa de campos explícito), el blob es su fuente. Máx. 300 caracteres por nota.
+
+- **Actividad reciente 🕓 (idea 7)**: registro de quién hizo qué, consultable en menú ⋯ → «Actividad reciente». Se registra: añadir (con fecha/hora), completar, mover de fecha/hora, reasignar de persona, quitar fecha y eliminar. No se registra cada tecleo de título (ruido). Implementación: `data.activity` (cap 60, más reciente primero), entrada creada en el handler con id/ts fijos y añadida con reducer puro e idempotente (guard por id — el rebase puede re-aplicar mutadores). Validación en `isValidAppData`.
+
+- **Accesos directos + badge de icono (idea 1, versión PWA)**:
+  - `shortcuts` en el manifest: mantener pulsado el icono de la app (Android/escritorio) → Añadir, Semana, Chat, Calendario.
+  - Deep links `/?tab=<pestaña>` y `/?action=add` manejados al abrir (query limpiada con `replaceState` para que un refresh no re-dispare).
+  - Badging API: el icono de la app instalada muestra el nº de mensajes sin leer (iOS 16.4+ con permiso de notificaciones, Android/desktop Chrome).
+  - Limitación honesta: los widgets reales de pantalla de inicio en iOS requieren app nativa (WidgetKit) — esto es el máximo equivalente posible en PWA.
+
+### 🔧 Refactor
+
+- `normText` (búsqueda sin tildes) y `relTime` (tiempo relativo) extraídos a `utils.js` — reutilizados por SearchOverlay, AddMissionForm, MissionCard y ActivityLog.
+
+### ✅ Verificación
+
+- Smoke test Playwright (Supabase stubbeado): deep link a pestaña ✓, autocompletado con contador ✓, tap rellena formulario ✓, badge 💬 ✓, nota de la pareja visible ✓, nota propia añadida ✓. El log de actividad usa el mismo path `update()` que las notas.
+
+---
+
 ## [4.14.0] — 2026-07-02 · Plantillas de eventos y export de disponibilidad
 
 ### ✨ Nuevas funciones

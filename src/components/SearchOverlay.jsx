@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { STATUS, DEFAULT_COLORS } from "../constants.js";
 import { weekStartDate } from "../lib/appUtils.js";
+import { normText as norm } from "../utils.js";
 
-// Búsqueda insensible a mayúsculas y tildes ("cañeria" encuentra "Cañería")
-const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 
 const pad2 = n => String(n).padStart(2, "0");
 const localYmd = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;

@@ -16,19 +16,22 @@ const CFG_KEY = "mp-avail-cfg";
 const defaultFrom = () => ymd(new Date());
 const defaultTo = () => { const d = new Date(); d.setDate(d.getDate() + 13); return ymd(d); };
 
-export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
+export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
   const savedCfg = (() => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); } catch { return {}; } })();
   const [from, setFrom] = useState(defaultFrom);
   const [to,   setTo]   = useState(defaultTo);
   const [cutoff,       setCutoff]       = useState(savedCfg.cutoff ?? "");
   const [noTimeBlocks, setNoTimeBlocks] = useState(savedCfg.noTimeBlocks ?? true);
   const [includeTasks, setIncludeTasks] = useState(savedCfg.includeTasks ?? false);
+  // De quién es la disponibilidad: "together" = liga mixta (ambas agendas cuentan),
+  // "person1"/"person2" = liga individual (solo su agenda + eventos juntos)
+  const [who, setWho] = useState(savedCfg.who ?? "together");
   const [overrides, setOverrides] = useState({}); // ymd -> boolean (free) — solo esta sesión
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    try { localStorage.setItem(CFG_KEY, JSON.stringify({ cutoff, noTimeBlocks, includeTasks })); } catch { /* modo privado */ }
-  }, [cutoff, noTimeBlocks, includeTasks]);
+    try { localStorage.setItem(CFG_KEY, JSON.stringify({ cutoff, noTimeBlocks, includeTasks, who })); } catch { /* modo privado */ }
+  }, [cutoff, noTimeBlocks, includeTasks, who]);
 
   // Qué bloquea cada día según los parámetros elegidos
   const blockersByDay = useMemo(() => {
@@ -38,6 +41,9 @@ export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
         if (!m.date || m.status === "DONE") continue;
         const isEvent = m.type === "event";
         if (!isEvent && !includeTasks) continue;
+        // Liga individual: los eventos solo del otro no ocupan mi calendario.
+        // Los "juntos" ocupan siempre; en mixto ("together") ocupa todo.
+        if (who !== "together" && m.who !== "together" && m.who !== who) continue;
         const end = (isEvent && m.endDate && m.endDate > m.date) ? m.endDate : m.date;
         let d = parseYmd(m.date);
         const endD = parseYmd(end);
@@ -56,7 +62,7 @@ export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
       }
     }
     return map;
-  }, [weeks, includeTasks, cutoff, noTimeBlocks]);
+  }, [weeks, includeTasks, cutoff, noTimeBlocks, who]);
 
   const days = useMemo(() => {
     const out = [];
@@ -74,6 +80,8 @@ export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
   const freeCount = days.filter(isFree).length;
   const lead = days.length ? (parseYmd(days[0]).getDay() + 6) % 7 : 0; // lunes = 0
 
+  const whoTitle = who === "person1" ? p1 : who === "person2" ? p2 : `${p1} & ${p2}`;
+
   const dayLabel = key => {
     const d = parseYmd(key);
     return `${DAYS_ES[d.getDay()]} ${d.getDate()} ${MONTHS_ES[d.getMonth()]}`;
@@ -83,7 +91,7 @@ export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
     : "";
 
   const copyText = async () => {
-    const lines = [`🎾 Disponibilidad ${p1} & ${p2}`, rangeLabel, ""];
+    const lines = [`🎾 Disponibilidad ${whoTitle}`, rangeLabel, ""];
     for (const key of days) lines.push(`${isFree(key) ? "✅" : "❌"} ${dayLabel(key)}`);
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -113,7 +121,7 @@ export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
 
     ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "#111827"; ctx.font = "bold 42px system-ui, sans-serif";
-    ctx.fillText(`Disponibilidad — ${p1} & ${p2}`, gap + 6, 58);
+    ctx.fillText(`Disponibilidad — ${whoTitle}`, gap + 6, 58);
     ctx.fillStyle = "#6b7280"; ctx.font = "27px system-ui, sans-serif";
     ctx.fillText(rangeLabel, gap + 6, 100);
 
@@ -175,6 +183,27 @@ export default function AvailabilityExport({ weeks, p1, p2, onClose }) {
         </div>
         <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginBottom:16, lineHeight:1.5 }}>
           Verde = podéis jugar. Toca cualquier día para corregirlo a mano antes de exportar.
+        </div>
+
+        {/* De quién es la disponibilidad (liga mixta / individual) */}
+        <div style={{ marginBottom:12 }}>
+          <label style={S.label}>¿Disponibilidad de quién?</label>
+          <div style={{ display:"flex", gap:6 }}>
+            {[["together", `👫 Ambos`, colors?.together || "#34d399"], ["person1", p1, colors?.person1 || "#f472b6"], ["person2", p2, colors?.person2 || "#a78bfa"]].map(([id, label, c]) => {
+              const sel = who === id;
+              return (
+                <button key={id} onClick={() => setWho(id)}
+                  style={{ flex:1, background:sel?`${c}22`:"rgba(128,128,128,0.06)", border:`1px solid ${sel?c:"rgba(255,255,255,0.08)"}`, borderRadius:10, color:sel?c:"var(--t-text-muted,#6b5f88)", padding:"8px 6px", cursor:"pointer", fontSize:12.5, fontFamily:"inherit", fontWeight:sel?700:400 }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#6b5f88)", marginTop:6, lineHeight:1.5 }}>
+            {who === "together"
+              ? "Liga mixta: los eventos de cualquiera de los dos ocupan el día."
+              : `Liga individual: solo ocupan los eventos de ${who === "person1" ? p1 : p2} y los de «juntos» — la agenda del otro no cuenta.`}
+          </div>
         </div>
 
         {/* Rango */}
