@@ -7,6 +7,17 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.15.1] — 2026-07-02 · Fix: touch "fantasma" al tocar eventos en calendario/semana
+
+### 🐛 Bugs corregidos
+
+- **Taps que aterrizaban "en otro lado"**: al tocar un evento en el calendario mensual o en la vista de semana, a veces salían los destellos de click pero el evento no se abría — como si el táctil se registrara en otra parte. Causa raíz: el pull-to-refresh (v4.13.0) se armaba con **cualquier** toque estando la página arriba del todo (scrollY 0 — la posición habitual del calendario y la semana), y su spacer empezaba a crecer desde el **primer píxel** de movimiento. Un tap normal siempre mueve el dedo 2-10px → el contenido entero se desplazaba hacia abajo **en mitad del tap** → al soltar, el click aterrizaba en un elemento distinto al que se tocó. Fix en `PullToRefresh.jsx`:
+  - **Zona muerta de 18px**: nada se mueve en pantalla hasta que el arrastre vertical supera 18px — un tap jamás llega.
+  - **Descarte de gestos horizontales**: si el movimiento dominante es horizontal (swipe de cambio de semana), el pull se desarma y no interfiere.
+  - Regla preventiva permanente añadida a CLAUDE.md: todo handler global de touch que mute layout necesita zona muerta y detección de eje.
+
+---
+
 ## [4.15.0] — 2026-07-02 · Disponibilidad por persona + ideas 1, 3, 6 y 7
 
 ### ✨ Nuevas funciones
