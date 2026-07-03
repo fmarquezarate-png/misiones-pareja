@@ -14,6 +14,7 @@ export function isValidAppData(d) {
       if (cat.items !== undefined && !Array.isArray(cat.items)) return false;
     }
   }
+  if (d.activity !== undefined && !Array.isArray(d.activity)) return false;
   if (d.templates !== undefined) {
     if (!Array.isArray(d.templates)) return false;
     for (const t of d.templates) {

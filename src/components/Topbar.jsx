@@ -9,7 +9,7 @@ export default function Topbar({
   onCheckUpdate, onSmartSync, syncing,
   onDownloadICS, onDownloadPDF,
   onExport, importFileRef, onSignOut,
-  colors, chatUnread = 0, onOpenSearch, onOpenAvailability,
+  colors, chatUnread = 0, onOpenSearch, onOpenAvailability, onOpenActivity,
 }) {
   const [popOpen,      setPopOpen]      = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -91,6 +91,7 @@ export default function Topbar({
         <OverflowMenu open={popOpen} onClose={() => setPopOpen(false)} items={[
           { icon:"↻", label:"Actualizar versión", onClick: onCheckUpdate },
           { icon:"🔄", label: syncing ? "Sincronizando…" : "Sincronizar datos", onClick: () => { onSmartSync(); setPopOpen(false); } },
+          { icon:"🕓", label:"Actividad reciente", onClick: () => { onOpenActivity(); setPopOpen(false); } },
           { divider: true },
           { icon:"🎾", label:"Exportar disponibilidad", onClick: () => { onOpenAvailability(); setPopOpen(false); } },
           { icon:"📅", label:"Exportar a Google Calendar (.ics)", onClick: () => { onDownloadICS(); setPopOpen(false); } },

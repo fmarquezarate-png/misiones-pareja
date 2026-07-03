@@ -194,3 +194,17 @@ export function syncCarryDone(data, weekKey, missionId) {
     }
   };
 }
+
+// Normaliza texto para búsquedas: minúsculas y sin tildes ("Cañería" → "caneria")
+export const normText = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+// Tiempo relativo corto para timestamps recientes ("hace 5 min", "hace 2 días")
+export const relTime = ts => {
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1) return "ahora";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return `hace ${d} día${d !== 1 ? "s" : ""}`;
+};

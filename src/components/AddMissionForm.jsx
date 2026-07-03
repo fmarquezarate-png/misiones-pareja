@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { S, badgeStyle, catBadgeStyle } from "../styles.js";
 import { CATEGORIES, STATUS, STATUS_ORDER } from "../constants.js";
-import { uid } from "../utils.js";
+import { uid, normText } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 
-export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals, templates = [], onSaveTemplate, onDeleteTemplate }) {
+export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2, goals, templates = [], onSaveTemplate, onDeleteTemplate, weeks }) {
   const WHO = [{ id:"together",label:"Juntos",icon:"👫"},{id:"person1",label:p1,icon:"🙋"},{id:"person2",label:p2,icon:"🙋"}];
   const goalMatchesWho = (g, who) => who === "together" || g.who === "together" || !g.who || g.who === who;
   const activeGoals = (goals||[]).filter(g => g.active!==false && goalMatchesWho(g, newM.who));
@@ -34,6 +34,38 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
       duration: newM.duration || 0, time: newM.time || "",
       reminder: newM.reminder || "none", goalId: newM.goalId || null,
     });
+  };
+
+  // Historial de títulos para autocompletar: dedupe por título normalizado,
+  // se queda con los campos de la ocurrencia más reciente y cuenta repeticiones.
+  const history = useMemo(() => {
+    const map = new Map();
+    for (const w of Object.values(weeks || {})) {
+      for (const m of (w.missions || [])) {
+        if (!m.title) continue;
+        const k = normText(m.title);
+        const ts = m.createdAt || 0;
+        const prev = map.get(k);
+        if (prev) {
+          prev.count++;
+          if (ts > prev.lastTs) Object.assign(prev, { title: m.title, emoji: m.emoji, categories: m.categories || [], who: m.who, duration: m.duration || 0, type: m.type || "task", lastTs: ts });
+        } else {
+          map.set(k, { title: m.title, emoji: m.emoji, categories: m.categories || [], who: m.who, duration: m.duration || 0, type: m.type || "task", count: 1, lastTs: ts });
+        }
+      }
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [weeks]);
+
+  const q = normText(newM.title.trim());
+  const suggestions = q.length >= 2 ? [
+    ...templates.filter(t => normText(t.title).includes(q) && normText(t.title) !== q).map(t => ({ ...t, isTpl: true })),
+    ...history.filter(h => normText(h.title).includes(q) && normText(h.title) !== q),
+  ].slice(0, 5) : [];
+
+  const applySuggestion = s => {
+    if (s.isTpl) { applyTemplate(s); return; }
+    setNewM(p => ({ ...p, title: s.title, emoji: s.emoji || p.emoji, categories: [...(s.categories || [])], who: s.who || p.who, duration: s.duration || 0, type: s.type || p.type }));
   };
 
   const computeEnd = (date, time, durMin) => {
@@ -86,6 +118,20 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
         <EmojiSelect value={newM.emoji} onChange={e=>setNewM(p=>({...p,emoji:e}))} />
         <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder={isEvent?"Nombre del evento...":"Nombre de la misión..."} style={S.input} />
       </div>
+      {suggestions.length > 0 && (
+        <div style={{ marginTop:-4, marginBottom:10, border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:10, overflow:"hidden" }}>
+          {suggestions.map((s, i) => (
+            <button key={(s.isTpl ? "t-" + s.id : "h-" + s.title) + i} onClick={() => applySuggestion(s)}
+              style={{ display:"flex", alignItems:"center", gap:8, width:"100%", background:"rgba(128,128,128,0.05)", border:"none", borderBottom: i < suggestions.length-1 ? "1px solid rgba(128,128,128,0.08)" : "none", padding:"8px 12px", cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
+              <span style={{ fontSize:16, flexShrink:0 }}>{s.emoji || "🎯"}</span>
+              <span style={{ flex:1, fontSize:13, color:"var(--t-text,#f0e8ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</span>
+              <span style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>
+                {s.isTpl ? "⚡ plantilla" : `${s.count}× antes`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       <div style={{ marginBottom:10 }}>
         <label style={S.label}>Categoría (multi)</label>
         <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>

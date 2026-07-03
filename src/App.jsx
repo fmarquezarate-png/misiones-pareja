@@ -56,6 +56,7 @@ import BottomTabBar from "./components/BottomTabBar.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
 const SearchOverlay = lazy(() => import("./components/SearchOverlay.jsx"));
 const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.jsx"));
+const ActivityLog = lazy(() => import("./components/ActivityLog.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -176,6 +177,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [chatUnread,      setChatUnread]      = useState(0);
   const [searchOpen,      setSearchOpen]      = useState(false);
   const [availOpen,       setAvailOpen]       = useState(false);
+  const [activityOpen,    setActivityOpen]    = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
   const importFileRef = useRef(null);
@@ -450,6 +452,26 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       try { localStorage.setItem(`mp-chat-lastread-${coupleId}`, String(Date.now())); } catch { /* modo privado */ }
     }
   }, [activeTab, coupleId]);
+
+  // Badge en el icono de la app instalada (Badging API): nº de mensajes sin leer.
+  // iOS 16.4+ (con permiso de notificaciones), Android/desktop Chrome.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("setAppBadge" in navigator)) return;
+    if (chatUnread > 0) navigator.setAppBadge(chatUnread).catch(() => {});
+    else navigator.clearAppBadge().catch(() => {});
+  }, [chatUnread]);
+
+  // Deep links de los shortcuts del manifest: /?tab=chat, /?action=add
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    const action = params.get("action");
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays"];
+    if (tab && VALID.includes(tab)) setActiveTab(tab);
+    if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
+    // Limpiar la query para que un refresh no re-dispare la acción
+    if (tab || action) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   // Auto-launch tutorial on first visit
   useEffect(() => {
@@ -1032,6 +1054,17 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const week = data.weeks[wkey] || { weekNumber:data.currentWeekNumber, year:data.currentYear, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const patchWeek = fn => update(d => ({ ...d, weeks: { ...d.weeks, [wkey]: fn(d.weeks[wkey] || week) } }));
 
+  // Historial de actividad (data.activity, cap 60): la entrada se crea en el
+  // handler (id/ts fijos) y se añade con un update() propio — reducer puro e
+  // idempotente (guard por id: el rebase puede re-aplicar el mutador).
+  const logActivity = text => {
+    const entry = { id: uid(), ts: Date.now(), w: sessionPersonId, text };
+    update(d => {
+      if ((d.activity || []).some(a => a.id === entry.id)) return d;
+      return { ...d, activity: [entry, ...(d.activity || [])].slice(0, 60) };
+    });
+  };
+
   const addMission = () => {
     if (!newM.title.trim()) return;
     const sid = newM.seriesPattern ? (newM.seriesId||uid()) : null;
@@ -1050,6 +1083,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const pushBody = `${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`;
     const pushTag = isEv?"mp-event-add":"mp-mission-add";
     runAfterSave(() => sendContextualPush(coupleId, { body:pushBody, tag:pushTag }, sessionUserId));
+    logActivity(`añadió ${isEv?"el evento":"la tarea"} ${mission.emoji} «${mission.title}»${mission.date?` (${mission.date}${mission.time?` ${mission.time}`:""})`:""}`);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
   };
@@ -1068,6 +1102,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       return next;
     });
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
+    if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
@@ -1105,8 +1140,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   };
 
   const delMission = id => {
+    const mDel = data.weeks[wkey]?.missions?.find(m => m.id === id);
     deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
     patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
+    if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
   };
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
@@ -1166,6 +1203,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       return next;
     });
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
+    if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
@@ -1201,21 +1239,40 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   };
   const patchMissionGlobal = (wn, yr, id, patch) => {
     const hint = isoWeekKey(wn, yr);
+    // Estado previo ANTES del update, para componer el texto de actividad
+    const mPrev = ("date" in patch || "time" in patch || "who" in patch)
+      ? Object.values((dataRef.current || data).weeks).flatMap(w => w.missions||[]).find(m => m.id === id)
+      : null;
     update(d => {
       const key = resolveWeekKey(d, hint, id); if (!key) return d;
       const w = d.weeks[key];
       return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: (w.missions||[]).map(x=>x.id===id?{...x,...patch}:x) } } };
     });
     updateNormalizedMission(coupleId, id, patch).catch(e => console.error("[dual_write] patch:", e));
+    // Actividad: solo cambios de coordinación (fecha/hora/quién) — no cada tecleo de título
+    if (mPrev) {
+      const t = `${mPrev.emoji||"🎯"} «${mPrev.title}»`;
+      if ("who" in patch && patch.who !== mPrev.who) {
+        const wName = patch.who === "person1" ? p1 : patch.who === "person2" ? p2 : "Juntos";
+        logActivity(`reasignó ${t} a ${wName}`);
+      }
+      if (("date" in patch && patch.date !== mPrev.date) || ("time" in patch && patch.time !== mPrev.time)) {
+        const nd = "date" in patch ? patch.date : mPrev.date;
+        const nt = "time" in patch ? patch.time : mPrev.time;
+        logActivity(nd ? `movió ${t} a ${nd}${nt?` ${nt}`:""}` : `quitó la fecha de ${t}`);
+      }
+    }
   };
   const deleteMissionGlobal = (wn, yr, id) => {
     const hint = isoWeekKey(wn, yr);
+    const mDel = Object.values(data.weeks).flatMap(w => w.missions||[]).find(m => m.id === id);
     deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
     update(d => {
       const key = resolveWeekKey(d, hint, id); if (!key) return d;
       const w = d.weeks[key];
       return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.filter(x=>x.id!==id) } } };
     });
+    if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
   };
   const runRepair = () => {
     const { data: fixed, moved } = repairMisplacedMissions(dataRef.current || data);
@@ -1466,6 +1523,7 @@ ${sorted.map(m=>{
         chatUnread={chatUnread}
         onOpenSearch={() => setSearchOpen(true)}
         onOpenAvailability={() => setAvailOpen(true)}
+        onOpenActivity={() => setActivityOpen(true)}
       />
 
       {bottomBar.enabled && bottomBar.tabs.length > 0 && (
@@ -1582,7 +1640,7 @@ ${sorted.map(m=>{
               </button>
             </>}
           </div>
-          {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]}
+          {showAddForm&&<AddMissionForm newM={newM} setNewM={setNewM} onAdd={addMission} onCancel={()=>setShowAddForm(false)} p1={p1} p2={p2} goals={data.goals||[]} weeks={data.weeks}
             templates={data.templates||[]}
             onSaveTemplate={tpl => {
               const exists = (data.templates||[]).some(t => t.title.toLowerCase() === tpl.title.toLowerCase() && t.who === tpl.who);
@@ -1610,7 +1668,7 @@ ${sorted.map(m=>{
             const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
             const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
             const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
-            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} />} />;
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} />} />;
           })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
@@ -1622,7 +1680,7 @@ ${sorted.map(m=>{
                 return 0;
               });
               return sorted.map(m=>(
-                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} />
+                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} />
               ));
             })()}
           </div>}
@@ -1695,10 +1753,17 @@ ${sorted.map(m=>{
       </div>
       </PullToRefresh>
 
+      {/* Historial de actividad — quién añadió/movió/completó/eliminó qué */}
+      {activityOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <ActivityLog activity={data.activity||[]} p1={p1} p2={p2} colors={colors} onClose={() => setActivityOpen(false)} />
+        </Suspense>
+      )}
+
       {/* Exportar disponibilidad (liga de pádel, etc.) */}
       {availOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
-          <AvailabilityExport weeks={data.weeks} p1={p1} p2={p2} onClose={() => setAvailOpen(false)} />
+          <AvailabilityExport weeks={data.weeks} p1={p1} p2={p2} colors={colors} onClose={() => setAvailOpen(false)} />
         </Suspense>
       )}
 
