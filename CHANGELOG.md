@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.16.0] — 2026-07-02 · Login con email + contraseña
+
+### ✨ Nuevas funciones
+
+- **Email + contraseña como alternativa a Google**: la pantalla de login ahora ofrece, además del botón de Google, un formulario de email/contraseña con tres modos:
+  - **Iniciar sesión** — entrar con una cuenta ya creada.
+  - **Crear cuenta** — registro nuevo. Si el proyecto de Supabase tiene la confirmación de email activada, se muestra un aviso pidiendo confirmar el correo antes de poder entrar (la sesión no se abre automáticamente en ese caso).
+  - **¿Olvidaste tu contraseña?** — envía un enlace de recuperación por correo. Al abrirlo, Supabase detecta el token automáticamente y la app muestra una pantalla dedicada (`ResetPasswordScreen.jsx`) para elegir una nueva contraseña, sin pasar por el login normal ni exponer la contraseña anterior.
+  - Nuevas funciones en `supabase.js`: `signUpWithEmail`, `signInWithEmail`, `resetPasswordForEmail`, `updatePassword`. `onAuthChange` ahora también expone el `event` de Supabase (usado para detectar `PASSWORD_RECOVERY` y forzar el paso de nueva contraseña).
+  - **Mensajes de error en español** (`lib/authErrors.js`): credenciales incorrectas, cuenta ya existente, contraseña muy corta, demasiados intentos, email inválido — reemplazan los mensajes técnicos en inglés de Supabase Auth.
+
+---
+
 ## [4.15.1] — 2026-07-02 · Fix: touch "fantasma" al tocar eventos en calendario/semana
 
 ### 🐛 Bugs corregidos

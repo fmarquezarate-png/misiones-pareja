@@ -6,6 +6,19 @@
 
 ---
 
+## 🔍 Verificación pendiente (v4.16.0, 02/07/2026) — Login con email + contraseña
+
+**No es SQL, es una revisión de configuración en la consola:** Authentication → Providers → Email, en el dashboard de Supabase.
+
+**Contexto:** se agregó login con email/contraseña como alternativa a Google (`signUpWithEmail`/`signInWithEmail` en `supabase.js`). El comportamiento del signup depende de un toggle que no se puede leer ni cambiar desde el código:
+
+- **"Confirm email" ON** (default de Supabase): tras crear la cuenta, el usuario recibe un correo de confirmación y no puede iniciar sesión hasta hacer click en el link. El código ya maneja este caso (`data.session === null` → muestra "revisa tu correo").
+- **"Confirm email" OFF**: la cuenta queda activa al instante, sin correo de por medio.
+
+**Pedido al Externo:** confirmar cuál de los dos estados está activo en el proyecto, y si el SMTP por defecto de Supabase (rate-limited, puede tardar o caer en spam) es aceptable para el volumen esperado, o conviene configurar un proveedor SMTP propio (Resend, Postmark, etc.) desde Authentication → Settings → SMTP Settings.
+
+---
+
 ## ✅ CRÍTICO — EJECUTADO (28/05/2026)
 
 ### P0 · Deshabilitar triggers de push en `app_data` — ✅ COMPLETADO (28/05)

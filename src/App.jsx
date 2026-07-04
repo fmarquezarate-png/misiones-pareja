@@ -38,6 +38,7 @@ const GoalsView = lazy(() => import("./views/GoalsView.jsx"));
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
 import { fetchWCMatches, wcMatchesForDate, isWCOver } from "./lib/worldCup.js";
 import LoginScreen from "./components/LoginScreen.jsx";
+import ResetPasswordScreen from "./components/ResetPasswordScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
 const StatsView = lazy(() => import("./components/StatsView.jsx"));
@@ -108,10 +109,15 @@ export default function AppWithAuth() {
   const [session,    setSession]    = useState(undefined);
   const [coupleData, setCoupleData] = useState(authCache);
   const [authStep,   setAuthStep]   = useState(authCache ? "app" : "checking");
+  const resolveRef = useRef(null); // última closure de `resolve` — para re-invocarla tras el reset de contraseña
 
   useEffect(() => {
-    // Single handler for initial session + every auth state change
-    const resolve = async s => {
+    // Single handler for initial session + every auth state change.
+    // event === "PASSWORD_RECOVERY": el usuario llegó desde el link de "olvidé
+    // mi contraseña" — Supabase ya generó una sesión válida, pero hay que
+    // forzar el paso de elegir nueva contraseña antes de entrar a la app.
+    const resolve = async (s, event) => {
+      if (event === "PASSWORD_RECOVERY") { setSession(s); setAuthStep("reset-password"); return; }
       setSession(s);
       if (!s) {
         localStorage.removeItem(AUTH_CACHE_KEY);
@@ -126,13 +132,14 @@ export default function AppWithAuth() {
         setAuthStep("onboarding");
       }
     };
-    getSession().then(resolve).catch(() => resolve(null));
+    resolveRef.current = resolve;
+    getSession().then(s => resolve(s)).catch(() => resolve(null));
     const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (authStep === "login" || authStep === "onboarding") dismissSplash();
+    if (authStep === "login" || authStep === "onboarding" || authStep === "reset-password") dismissSplash();
   }, [authStep]);
 
   const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); clearTrackContext(); signOut(); };
@@ -147,6 +154,7 @@ export default function AppWithAuth() {
   );
 
   if (authStep === "login") return <LoginScreen />;
+  if (authStep === "reset-password") return <ResetPasswordScreen onDone={() => resolveRef.current?.(session)} />;
   if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cd)); setCoupleData(cd); setAuthStep("app"); }} />;
   // key={coupleData?.couple_id} forces full remount if couple changes (data isolation)
   return (

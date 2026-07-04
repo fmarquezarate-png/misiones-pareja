@@ -23,6 +23,26 @@ export async function signInWithGoogle() {
   if (error) console.error("signInWithGoogle error:", error);
 }
 
+export async function signUpWithEmail(email, password) {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  return { data, error };
+}
+
+export async function signInWithEmail(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  return { data, error };
+}
+
+export async function resetPasswordForEmail(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  return { error };
+}
+
+export async function updatePassword(newPassword) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  return { error };
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) console.error("signOut error:", error);
@@ -33,9 +53,13 @@ export async function getSession() {
   return session;
 }
 
+// onAuthChange(callback): callback(session, event) — event es "PASSWORD_RECOVERY"
+// cuando el usuario llega desde el link de "olvidé mi contraseña" (Supabase JS
+// detecta el token en la URL automáticamente). Los demás callers pueden ignorar
+// el 2º argumento.
 export function onAuthChange(callback) {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session);
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(session, event);
   });
   return subscription;
 }
