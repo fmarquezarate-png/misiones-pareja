@@ -1,13 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { S, catBadgeStyle } from "../styles.js";
 import { CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS, STATUS } from "../constants.js";
 import { googleCalendarUrl, uid, relTime } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 import StatusOrb from "./StatusOrb.jsx";
 
-export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId }) {
+// highlighted: true cuando se llega a esta misión desde una notificación push
+// o un resultado de búsqueda — hace scroll y marca la tarjeta unos segundos.
+export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId, highlighted }) {
   const [expanded, setExpanded] = useState(false);
   const [popping, setPopping] = useState(false);
+  const cardRef = useRef(null);
+  useEffect(() => {
+    if (highlighted) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlighted]);
   const [commentText, setCommentText] = useState("");
   const comments = mission.comments || [];
   const addComment = () => {
@@ -43,7 +49,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
     return count;
   })();
   return (
-    <div style={{ ...S.card, ...railStyle, borderColor:cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s" }}>
+    <div ref={cardRef} style={{ ...S.card, ...railStyle, borderColor:highlighted?"var(--t-accent,#a78bfa)":cardBorder, opacity:isDone?0.78:1, transition:"all 0.25s", boxShadow:highlighted?"0 0 0 3px var(--t-accent-soft,rgba(167,139,250,0.35)), 0 4px 24px rgba(167,139,250,0.35)":"none" }}>
       {isCarried&&!isDone&&(
         <div style={{ fontSize:10, color:carriedWeeks>=3?"#f87171":"#fb923c", letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:4 }}>
           {carriedWeeks>=3?"⚠️":"🔁"} {carriedWeeks>=3?`Arrastrada ${carriedWeeks} semanas`:"Arrastrada"}

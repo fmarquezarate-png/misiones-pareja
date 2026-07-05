@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.17.0] — 2026-07-02 · Las notificaciones push llevan al evento, no solo abren la app
+
+### ✨ Nuevas funciones
+
+- **Deep link desde notificaciones push**: al tocar una notificación de tarea/evento añadido o completado, la app navega directamente a la semana correspondiente y **resalta la tarjeta de la misión** con un brillo violeta (glow) durante 3 segundos, con scroll automático hasta ella. Las notificaciones de chat llevan directo a la pestaña Chat.
+  - `sendContextualPush` (`lib/push.js`) acepta ahora un parámetro `url` que viaja hasta el payload del push (la Edge Function `send-push` ya lo soportaba desde antes — solo faltaba que el cliente lo enviara).
+  - Nuevo esquema de URL: `/?tab=current&wn=<semana>&yr=<año>&mission=<id>` para misiones, `/?tab=chat` para chat.
+  - `App.jsx`: el destino "mission" del deep link se guarda en estado y se aplica recién cuando los datos ya cargaron (antes de eso `update()` lo descartaría por validación — no existe `data.weeks` todavía).
+  - `MissionCard.jsx`: nueva prop `highlighted` — aplica el glow y hace `scrollIntoView` automático.
+
+- **Fix de fondo (imprescindible para que el deep link funcione de verdad)**: cuando la PWA ya estaba abierta en segundo plano — el caso más común, ya que una app instalada rara vez está completamente cerrada —, el Service Worker solo hacía `focus()` sobre la ventana existente **sin navegar a ningún lado**. El toque en la notificación no llevaba a ningún destino específico, solo traía la app al frente donde ya estuviera. Ahora `notificationclick` en `sw.js` le manda un `postMessage({ type: 'PUSH_NAVIGATE', url })` a la ventana ya abierta, y la app enruta internamente sin recargar ni perder su estado en vuelo.
+
+- **Bonus**: la Búsqueda global 🔍 (v4.13.0) ahora también resalta la tarjeta exacta al tocar un resultado, reutilizando el mismo mecanismo — antes solo te llevaba a la semana correcta, había que buscarla a ojo entre las demás.
+
+### ✅ Verificación
+
+- Playwright: deep link `?tab=current&wn=27&yr=2026&mission=<id>` aterriza en la semana correcta (no en la guardada en el blob), muestra la misión objetivo, aplica el glow, y limpia los query params de la URL tras aplicarlo. El path de `postMessage` (app ya abierta) usa la misma función de parseo que el path de URL, verificado por code review — un Service Worker real en un entorno headless no permite disparar un click de notificación de extremo a extremo.
+
+---
+
 ## [4.16.0] — 2026-07-02 · Login con email + contraseña
 
 ### ✨ Nuevas funciones

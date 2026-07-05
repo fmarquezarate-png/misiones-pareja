@@ -185,6 +185,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [chatUnread,      setChatUnread]      = useState(0);
   const [searchOpen,      setSearchOpen]      = useState(false);
   const [availOpen,       setAvailOpen]       = useState(false);
+  const [pendingMissionLink, setPendingMissionLink] = useState(null); // { wn, yr, missionId } — deep link de push, pendiente hasta que data cargue
+  const [highlightMissionId, setHighlightMissionId] = useState(null); // resalta la tarjeta al llegar desde una notificación
   const [activityOpen,    setActivityOpen]    = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
@@ -469,17 +471,43 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     else navigator.clearAppBadge().catch(() => {});
   }, [chatUnread]);
 
-  // Deep links de los shortcuts del manifest: /?tab=chat, /?action=add
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+  // Deep links: shortcuts del manifest (?tab=chat, ?action=add) y notificaciones
+  // push que apuntan a una misión concreta (?tab=current&wn=&yr=&mission=). El
+  // destino "mission" se guarda en estado y se aplica más abajo, una vez que
+  // `data` está cargado — update() lo descartaría (isValidAppData) si se llama
+  // antes de que exista data.weeks.
+  const applyDeepLinkParams = useCallback(params => {
     const tab = params.get("tab");
     const action = params.get("action");
+    const wn = parseInt(params.get("wn"));
+    const yr = parseInt(params.get("yr"));
+    const missionId = params.get("mission");
     const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
-    // Limpiar la query para que un refresh no re-dispare la acción
-    if (tab || action) window.history.replaceState(null, "", window.location.pathname);
+    if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    applyDeepLinkParams(params);
+    // Limpiar la query para que un refresh no re-dispare la acción
+    if (params.toString()) window.history.replaceState(null, "", window.location.pathname);
+  }, [applyDeepLinkParams]);
+
+  // La app puede ya estar abierta (en background) cuando se toca la notificación
+  // — el SW no recarga la página en ese caso, solo la enfoca y nos avisa por
+  // postMessage con el destino. Sin esto, el click en el push no llevaba a
+  // ningún lado si la PWA ya estaba corriendo.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = e => {
+      if (e.data?.type !== "PUSH_NAVIGATE" || !e.data.url) return;
+      applyDeepLinkParams(new URL(e.data.url, window.location.origin).searchParams);
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [applyDeepLinkParams]);
 
   // Auto-launch tutorial on first visit
   useEffect(() => {
@@ -988,6 +1016,23 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleSave]);
 
+  // Aplica el destino "mission" del deep link (push/búsqueda) en cuanto los
+  // datos están listos, y resalta la tarjeta unos segundos para que se note
+  // cuál es. Debe ir después de update() — su deps array se evalúa al declarar
+  // el efecto, así que referenciar `update` antes de su const lanza un
+  // ReferenceError ("Cannot access before initialization"), a diferencia del
+  // callback del efecto (que sí puede referenciar código declarado más abajo,
+  // porque no se ejecuta hasta después de terminar el render).
+  useEffect(() => {
+    if (!pendingMissionLink || loading) return;
+    const { wn, yr, missionId } = pendingMissionLink;
+    setPendingMissionLink(null);
+    update(d => ({ ...d, currentWeekNumber: wn, currentYear: yr }));
+    setHighlightMissionId(missionId);
+    const t = setTimeout(() => setHighlightMissionId(cur => cur === missionId ? null : cur), 3000);
+    return () => clearTimeout(t);
+  }, [pendingMissionLink, loading, update]);
+
   // Encola un efecto que solo debe correr DESPUÉS de que el blob esté persistido
   // en la DB (ej. push a la pareja — necesita que pueda leer los datos frescos).
   // Si no hay nada pendiente de guardar, corre en el siguiente tick.
@@ -1062,6 +1107,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const week = data.weeks[wkey] || { weekNumber:data.currentWeekNumber, year:data.currentYear, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const patchWeek = fn => update(d => ({ ...d, weeks: { ...d.weeks, [wkey]: fn(d.weeks[wkey] || week) } }));
 
+  // URL de destino al tocar la notificación push de una misión — ver sw.js
+  // (notificationclick) y el deep-link handler más arriba en este componente.
+  const missionPushUrl = (wn, yr, missionId) => `/?tab=current&wn=${wn}&yr=${yr}&mission=${missionId}`;
+
   // Historial de actividad (data.activity, cap 60): la entrada se crea en el
   // handler (id/ts fijos) y se añade con un update() propio — reducer puro e
   // idempotente (guard por id: el rebase puede re-aplicar el mutador).
@@ -1090,7 +1139,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     // los datos frescos ya están en la DB y puede leerlos (no antes).
     const pushBody = `${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`;
     const pushTag = isEv?"mp-event-add":"mp-mission-add";
-    runAfterSave(() => sendContextualPush(coupleId, { body:pushBody, tag:pushTag }, sessionUserId));
+    runAfterSave(() => sendContextualPush(coupleId, { body:pushBody, tag:pushTag, url:missionPushUrl(data.currentWeekNumber, data.currentYear, mission.id) }, sessionUserId));
     logActivity(`añadió ${isEv?"el evento":"la tarea"} ${mission.emoji} «${mission.title}»${mission.date?` (${mission.date}${mission.time?` ${mission.time}`:""})`:""}`);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
@@ -1111,7 +1160,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     });
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
     if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
-    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(data.currentWeekNumber, data.currentYear, id) }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     if (nx === "DONE" && mCur) {
@@ -1214,7 +1263,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
-    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(wn, yr, id) }, sessionUserId)); }
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
       if (mCur.who === "together") {
@@ -1676,7 +1725,7 @@ ${sorted.map(m=>{
             const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
             const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
             const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
-            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} />} />;
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />} />;
           })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
@@ -1688,7 +1737,7 @@ ${sorted.map(m=>{
                 return 0;
               });
               return sorted.map(m=>(
-                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} />
+                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
               ));
             })()}
           </div>}
@@ -1781,7 +1830,14 @@ ${sorted.map(m=>{
           <SearchOverlay
             weeks={data.weeks} p1={p1} p2={p2} colors={colors}
             onClose={() => setSearchOpen(false)}
-            onGoToWeek={(wn, yr) => { update(s => ({ ...s, currentWeekNumber: wn, currentYear: yr })); setActiveTab("current"); setSearchOpen(false); }}
+            onGoToWeek={(wn, yr, missionId) => {
+              update(s => ({ ...s, currentWeekNumber: wn, currentYear: yr }));
+              setActiveTab("current"); setSearchOpen(false);
+              if (missionId) {
+                setHighlightMissionId(missionId);
+                setTimeout(() => setHighlightMissionId(cur => cur === missionId ? null : cur), 3000);
+              }
+            }}
           />
         </Suspense>
       )}

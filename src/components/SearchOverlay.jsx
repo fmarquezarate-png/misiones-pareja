@@ -74,7 +74,7 @@ export default function SearchOverlay({ weeks, p1, p2, colors, onClose, onGoToWe
               {results.map(({ m, key, wn, yr }) => {
                 const st = STATUS[m.status] || STATUS.TBC;
                 return (
-                  <button key={`${key}-${m.id}`} onClick={() => onGoToWeek(wn, yr)}
+                  <button key={`${key}-${m.id}`} onClick={() => onGoToWeek(wn, yr, m.id)}
                     style={{ display:"flex", alignItems:"center", gap:10, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"11px 13px", cursor:"pointer", fontFamily:"inherit", textAlign:"left", width:"100%" }}>
                     <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji || (m.type === "event" ? "📅" : "🎯")}</span>
                     <div style={{ flex:1, minWidth:0 }}>

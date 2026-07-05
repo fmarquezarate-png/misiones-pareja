@@ -40,7 +40,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
       await sendMessage(coupleId, personName, msgText);
       setInput("");
       // sendMessage is awaited — the message is already in DB at this point, safe to notify
-      sendContextualPush(coupleId, { body: `${personName}: ${msgText.slice(0, 80)}`, tag: "mp-chat" }, sessionUserId);
+      sendContextualPush(coupleId, { body: `${personName}: ${msgText.slice(0, 80)}`, tag: "mp-chat", url: "/?tab=chat" }, sessionUserId);
     } catch (e) { console.warn("send err", e); }
     finally { setSending(false); }
   };
@@ -51,7 +51,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
     setSending(true);
     try {
       await sendMessage(coupleId, personName, sticker, "sticker");
-      sendContextualPush(coupleId, { body: `${personName}: ${sticker}`, tag: "mp-chat" }, sessionUserId);
+      sendContextualPush(coupleId, { body: `${personName}: ${sticker}`, tag: "mp-chat", url: "/?tab=chat" }, sessionUserId);
     } catch (e) { console.warn("send sticker err", e); }
     finally { setSending(false); }
   };
