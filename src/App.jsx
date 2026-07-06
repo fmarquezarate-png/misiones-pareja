@@ -909,8 +909,25 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const cur = dataRef.current;
     if (!cur || !isValidAppData(cur)) return;
 
+    // Sin conexión: no tiene sentido gastar un intento de red que sabemos que
+    // va a fallar (ni mostrar "⚠ Error al guardar" — estar offline no es un
+    // error). Backup local ahora mismo; el efecto de reconexión más abajo
+    // dispara scheduleSave() en cuanto vuelva la señal (evento 'online').
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      saveLocalBackup(cur, coupleId);
+      setPendingSave(true);
+      return;
+    }
+
     isSavingRef.current = true;
     let toSave = cur;
+    // Backup local INMEDIATO, antes de intentar la red. El banner offline le
+    // promete al usuario "tus cambios se guardan localmente" — pero hasta
+    // ahora saveLocalBackup solo corría en las ramas de ÉXITO del save remoto.
+    // Sin conexión, el save remoto SIEMPRE falla, así que el backup local
+    // nunca se actualizaba: cerrar la app offline con cambios sin sincronizar
+    // los perdía al volver a abrirla (loadLocalBackup traía la foto vieja).
+    saveLocalBackup(cur, coupleId);
     // Snapshot de los mutadores que intentamos confirmar en esta ronda.
     let confirming = unconfirmedRef.current.slice();
     try {

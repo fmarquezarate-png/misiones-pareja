@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.18.0] — 2026-07-02 · Fix real del modo offline (idea #18)
+
+### 🐛 Bugs corregidos
+
+El modo offline (detección online/offline, banner, cola de reintento) **ya existía** en el código — esta versión cierra un hueco real que encontramos al auditarlo:
+
+- **El backup local no se actualizaba mientras estabas offline**: `saveLocalBackup` solo se llamaba en las ramas de ÉXITO del guardado remoto (`saveWithCAS`/`saveWithRetry`). Sin conexión, el guardado remoto siempre falla — así que el backup local en `localStorage` nunca se refrescaba con los cambios hechos offline. Si cerrabas la app (metro, avión, mala cobertura) antes de reconectar, esos cambios se perdían al volver a abrirla: `loadLocalBackup` traía la foto de antes de editar. Ahora `saveLocalBackup(cur, coupleId)` se llama al INICIO de cada intento de guardado, antes de tocar la red — el cambio queda a salvo en el dispositivo sin importar si el guardado remoto llega a completarse.
+- **Reintentos inútiles + aviso de error mientras se sabe offline**: `runSave()` seguía intentando la red cada ~700ms aunque `navigator.onLine` ya fuera `false`, y mostraba "⚠ Error al guardar — reintentando…" — un mensaje de error para una situación que no es un error. Ahora, si se sabe offline, se guarda el backup local y se sale sin tocar la red ni mostrar el aviso; el reintento real ocurre automáticamente en el evento `online` (mecanismo que ya existía).
+
+### ✅ Verificación
+
+Playwright con `context.setOffline(true)`: se cambia el estado de una tarea sin conexión, se confirma el banner "Sin conexión" visible, y se lee directamente `localStorage` para confirmar que el nuevo estado (no el original) ya está persistido — sin haber recuperado la conexión en ningún momento.
+
+---
+
 ## [4.17.1] — 2026-07-02 · Fix urgente: velocidad de arranque en iOS
 
 ### ⚡ Rendimiento
