@@ -74,7 +74,13 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const c of list) {
-        if (c.url.startsWith(self.location.origin) && 'focus' in c) return c.focus();
+        if (c.url.startsWith(self.location.origin) && 'focus' in c) {
+          // La app ya está abierta (común en una PWA instalada) — focus() por sí
+          // solo NO navega. Avisamos por postMessage para que la propia app
+          // enrute internamente a la misión/chat, sin perder su estado en vuelo.
+          c.postMessage({ type: 'PUSH_NAVIGATE', url: targetUrl });
+          return c.focus();
+        }
       }
       return clients.openWindow(targetUrl);
     })

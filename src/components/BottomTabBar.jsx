@@ -12,6 +12,7 @@ export const ALL_TABS = [
   { id: "chat",      label: "Chat",       icon: "💬" },
   { id: "links",     label: "Links",      icon: "🔗" },
   { id: "birthdays", label: "Cumpleaños", icon: "🎂" },
+  { id: "timecapsule", label: "Cápsula", icon: "✉️" },
 ];
 
 export default function BottomTabBar({ tabs, activeTab, onTabChange, badges = {} }) {

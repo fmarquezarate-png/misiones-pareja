@@ -7,6 +7,122 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.20.1] — 2026-07-02 · Preparación para diagnosticar el error de push pendiente
+
+### 🔧 Mejoras
+
+Sigue pendiente el error de notificaciones push reportado hace varias sesiones — nunca se obtuvo el texto exacto, así que no se pudo diagnosticar puntualmente. Dos mejoras para que la próxima vez sea posible:
+
+- **Botón "Copiar" junto al aviso de error** en Perfil → Notificaciones — un toque copia el texto exacto para compartirlo.
+- **Registro en analytics** (`track("push_toggle_error", ...)`) con el nombre y mensaje del error — queda una pista aunque no se reporte a mano.
+
+---
+
+## [4.20.0] — 2026-07-02 · Modo invitado de solo lectura (idea #10) + fix crítico de WrappedModal
+
+### ✨ Nuevas funciones
+
+- **👀 Modo invitado de solo lectura**: nueva sección "Compartir" en Perfil. Un toggle genera un enlace (`/?guest=<id>&token=<token>`) para un familiar o cuidadora que necesite ver el plan sin poder editarlo — **sin crear cuenta, sin iniciar sesión**.
+  - El enlace muestra las semanas con sus tareas y eventos (navegable con ‹ ›), pero **nunca** chat, gastos, ánimo, plantillas, actividad ni las notas privadas (`comments`) de cada tarea.
+  - **Revocable al instante**: "Generar nuevo enlace" invalida el anterior inmediatamente (el token es lo único que la Edge Function verifica).
+  - **Arquitectura**: el token vive en el blob (`data.settings.shareToken`/`shareEnabled`), como cualquier otro ajuste — **sin columnas nuevas en la base**. La lectura anónima la resuelve una Edge Function nueva (`get-shared-view`) con el service role, que compara el token recibido contra el guardado en el blob antes de devolver una versión saneada de los datos.
+  - Token generado con `crypto.randomUUID()` (criptográficamente seguro) — no con el `uid()` de `Math.random()` que usa el resto de la app para IDs internos, insuficiente para algo que otorga acceso a datos.
+  - **⚠️ Pendiente del Externo**: desplegar la Edge Function (sin secrets nuevos — ver `TAREAS_SQL_AGENTE_SUPABASE.md`). Hasta entonces el toggle funciona pero el link muestra "no válido".
+
+### 🐛 Bugs corregidos
+
+- **`WrappedModal` podía crashear la app con "Too many re-renders"**: bug de fondo preexistente, descubierto por casualidad durante el testing de esta sesión (no relacionado con ninguna feature nueva). `close()` —que cambia estado— se llamaba directamente en el cuerpo del render sin ningún guard, disparándose en bucle cada vez que `showWeekly` era `true` pero la semana anterior no tenía actividades registradas — es decir, potencialmente **cada lunes**, dependiendo de los datos de la pareja. El árbol entero caía al `ErrorBoundary`. Corregido moviendo la lógica a un `useEffect` correctamente gateado por la condición que la dispara.
+
+---
+
+## [4.19.0] — 2026-07-02 · Nueva pestaña: Cápsula del tiempo (idea #16)
+
+### ✨ Nuevas funciones
+
+- **✉️ Cápsula del tiempo**: escribe un mensaje (y opcionalmente una foto) hoy, elige una fecha futura, y sella la cápsula. Nadie puede abrirla antes de esa fecha — ni quien la escribió. Acceso rápido: botón "💍 Próximo aniversario" cuando la pareja tiene configurada su fecha de aniversario en Perfil.
+  - **Tres estados**: 🔒 Selladas (esperando su fecha, con cuenta atrás en días), 🎁 Listas para abrir (la fecha ya llegó, con brillo dorado pulsante), 📖 Abiertas (ya leídas, se pueden releer cuando quieras).
+  - **Nunca se auto-abre**: a diferencia de los overlays de cumpleaños/aniversario (que sí aparecen automáticamente), una cápsula del tiempo puede llegar en cualquier momento — se avisa con un banner suave y descartable ("Tienes una cápsula lista para abrir"), pero la decisión de cuándo leerla es siempre de quien la recibe.
+  - **Overlay de apertura** con los colores de quien la escribió: título, foto (si tiene) y mensaje completo, con animación de entrada suave.
+  - Persistencia en `data.timeCapsules`, validado en `isValidAppData`. Quien escribió una cápsula sellada puede borrarla antes de que se abra (arrepentimiento); una vez abierta, queda para siempre en el historial de ambos.
+
+---
+
+## [4.18.0] — 2026-07-02 · Fix real del modo offline (idea #18)
+
+### 🐛 Bugs corregidos
+
+El modo offline (detección online/offline, banner, cola de reintento) **ya existía** en el código — esta versión cierra un hueco real que encontramos al auditarlo:
+
+- **El backup local no se actualizaba mientras estabas offline**: `saveLocalBackup` solo se llamaba en las ramas de ÉXITO del guardado remoto (`saveWithCAS`/`saveWithRetry`). Sin conexión, el guardado remoto siempre falla — así que el backup local en `localStorage` nunca se refrescaba con los cambios hechos offline. Si cerrabas la app (metro, avión, mala cobertura) antes de reconectar, esos cambios se perdían al volver a abrirla: `loadLocalBackup` traía la foto de antes de editar. Ahora `saveLocalBackup(cur, coupleId)` se llama al INICIO de cada intento de guardado, antes de tocar la red — el cambio queda a salvo en el dispositivo sin importar si el guardado remoto llega a completarse.
+- **Reintentos inútiles + aviso de error mientras se sabe offline**: `runSave()` seguía intentando la red cada ~700ms aunque `navigator.onLine` ya fuera `false`, y mostraba "⚠ Error al guardar — reintentando…" — un mensaje de error para una situación que no es un error. Ahora, si se sabe offline, se guarda el backup local y se sale sin tocar la red ni mostrar el aviso; el reintento real ocurre automáticamente en el evento `online` (mecanismo que ya existía).
+
+### ✅ Verificación
+
+Playwright con `context.setOffline(true)`: se cambia el estado de una tarea sin conexión, se confirma el banner "Sin conexión" visible, y se lee directamente `localStorage` para confirmar que el nuevo estado (no el original) ya está persistido — sin haber recuperado la conexión en ningún momento.
+
+---
+
+## [4.17.1] — 2026-07-02 · Fix urgente: velocidad de arranque en iOS
+
+### ⚡ Rendimiento
+
+Dos problemas de bundling que afectaban el tiempo de apertura en **cada** inicio de la app, no solo el primero:
+
+- **Changelog fuera del bundle inicial**: el array `CHANGELOG` (~100KB de texto — el historial completo desde v1.6.0) vivía en `constants.js`, que `SideMenu.jsx` importa de forma eager. Como `SideMenu` se monta en todas las pantallas, ese texto se parseaba y ejecutaba en cada apertura de la app, aunque la enorme mayoría de las sesiones nunca abren "Ver cambios". Movido a `src/data/changelogData.js`, cargado con `import()` dinámico solo al abrir el modal.
+- **Vendor splitting**: React, React-DOM y el cliente de Supabase (que casi nunca cambian de versión) estaban mezclados en el mismo chunk que el código propio de la app. Cada deploy invalidaba el bundle completo, forzando a los teléfonos a re-descargar y re-parsear ~350KB de librerías sin cambios en cada actualización. `vite.config.js` ahora separa `vendor-react` y `vendor-supabase` en sus propios chunks cacheables de forma independiente.
+
+**Resultado medido**: el chunk de código propio (el único que cambia en cada release) bajó de **724.75 KB → 273.31 KB** minificado (217.79 KB → 80.99 KB gzip).
+
+**Nota de transparencia**: parte del tiempo de apertura de una PWA en iOS es un costo fijo del motor JS de Safari al arrancar en frío (WKWebView), fuera de nuestro control. Estos cambios reducen la parte que sí controlamos — cuánto código propio hay que procesar antes de que la app sea usable, y cuánto hay que re-descargar en cada actualización.
+
+Regla nueva documentada en CLAUDE.md: cualquier dato estático >10KB que no se necesite en el primer render va en su propio módulo con `import()` dinámico — nunca en un archivo importado eagerly por un componente que siempre está montado.
+
+---
+
+## [4.17.0] — 2026-07-02 · Las notificaciones push llevan al evento, no solo abren la app
+
+### ✨ Nuevas funciones
+
+- **Deep link desde notificaciones push**: al tocar una notificación de tarea/evento añadido o completado, la app navega directamente a la semana correspondiente y **resalta la tarjeta de la misión** con un brillo violeta (glow) durante 3 segundos, con scroll automático hasta ella. Las notificaciones de chat llevan directo a la pestaña Chat.
+  - `sendContextualPush` (`lib/push.js`) acepta ahora un parámetro `url` que viaja hasta el payload del push (la Edge Function `send-push` ya lo soportaba desde antes — solo faltaba que el cliente lo enviara).
+  - Nuevo esquema de URL: `/?tab=current&wn=<semana>&yr=<año>&mission=<id>` para misiones, `/?tab=chat` para chat.
+  - `App.jsx`: el destino "mission" del deep link se guarda en estado y se aplica recién cuando los datos ya cargaron (antes de eso `update()` lo descartaría por validación — no existe `data.weeks` todavía).
+  - `MissionCard.jsx`: nueva prop `highlighted` — aplica el glow y hace `scrollIntoView` automático.
+
+- **Fix de fondo (imprescindible para que el deep link funcione de verdad)**: cuando la PWA ya estaba abierta en segundo plano — el caso más común, ya que una app instalada rara vez está completamente cerrada —, el Service Worker solo hacía `focus()` sobre la ventana existente **sin navegar a ningún lado**. El toque en la notificación no llevaba a ningún destino específico, solo traía la app al frente donde ya estuviera. Ahora `notificationclick` en `sw.js` le manda un `postMessage({ type: 'PUSH_NAVIGATE', url })` a la ventana ya abierta, y la app enruta internamente sin recargar ni perder su estado en vuelo.
+
+- **Bonus**: la Búsqueda global 🔍 (v4.13.0) ahora también resalta la tarjeta exacta al tocar un resultado, reutilizando el mismo mecanismo — antes solo te llevaba a la semana correcta, había que buscarla a ojo entre las demás.
+
+### ✅ Verificación
+
+- Playwright: deep link `?tab=current&wn=27&yr=2026&mission=<id>` aterriza en la semana correcta (no en la guardada en el blob), muestra la misión objetivo, aplica el glow, y limpia los query params de la URL tras aplicarlo. El path de `postMessage` (app ya abierta) usa la misma función de parseo que el path de URL, verificado por code review — un Service Worker real en un entorno headless no permite disparar un click de notificación de extremo a extremo.
+
+---
+
+## [4.16.0] — 2026-07-02 · Login con email + contraseña
+
+### ✨ Nuevas funciones
+
+- **Email + contraseña como alternativa a Google**: la pantalla de login ahora ofrece, además del botón de Google, un formulario de email/contraseña con tres modos:
+  - **Iniciar sesión** — entrar con una cuenta ya creada.
+  - **Crear cuenta** — registro nuevo. Si el proyecto de Supabase tiene la confirmación de email activada, se muestra un aviso pidiendo confirmar el correo antes de poder entrar (la sesión no se abre automáticamente en ese caso).
+  - **¿Olvidaste tu contraseña?** — envía un enlace de recuperación por correo. Al abrirlo, Supabase detecta el token automáticamente y la app muestra una pantalla dedicada (`ResetPasswordScreen.jsx`) para elegir una nueva contraseña, sin pasar por el login normal ni exponer la contraseña anterior.
+  - Nuevas funciones en `supabase.js`: `signUpWithEmail`, `signInWithEmail`, `resetPasswordForEmail`, `updatePassword`. `onAuthChange` ahora también expone el `event` de Supabase (usado para detectar `PASSWORD_RECOVERY` y forzar el paso de nueva contraseña).
+  - **Mensajes de error en español** (`lib/authErrors.js`): credenciales incorrectas, cuenta ya existente, contraseña muy corta, demasiados intentos, email inválido — reemplazan los mensajes técnicos en inglés de Supabase Auth.
+
+---
+
+## [4.15.1] — 2026-07-02 · Fix: touch "fantasma" al tocar eventos en calendario/semana
+
+### 🐛 Bugs corregidos
+
+- **Taps que aterrizaban "en otro lado"**: al tocar un evento en el calendario mensual o en la vista de semana, a veces salían los destellos de click pero el evento no se abría — como si el táctil se registrara en otra parte. Causa raíz: el pull-to-refresh (v4.13.0) se armaba con **cualquier** toque estando la página arriba del todo (scrollY 0 — la posición habitual del calendario y la semana), y su spacer empezaba a crecer desde el **primer píxel** de movimiento. Un tap normal siempre mueve el dedo 2-10px → el contenido entero se desplazaba hacia abajo **en mitad del tap** → al soltar, el click aterrizaba en un elemento distinto al que se tocó. Fix en `PullToRefresh.jsx`:
+  - **Zona muerta de 18px**: nada se mueve en pantalla hasta que el arrastre vertical supera 18px — un tap jamás llega.
+  - **Descarte de gestos horizontales**: si el movimiento dominante es horizontal (swipe de cambio de semana), el pull se desarma y no interfiere.
+  - Regla preventiva permanente añadida a CLAUDE.md: todo handler global de touch que mute layout necesita zona muerta y detección de eje.
+
+---
+
 ## [4.15.0] — 2026-07-02 · Disponibilidad por persona + ideas 1, 3, 6 y 7
 
 ### ✨ Nuevas funciones

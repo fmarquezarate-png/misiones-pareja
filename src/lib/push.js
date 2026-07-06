@@ -108,11 +108,13 @@ export async function unsubscribePush() {
 }
 
 // Envía una notificación push contextual directamente a la Edge Function.
+// url: adónde navega la app al tocar la notificación (ver sw.js notificationclick).
 // Fire-and-forget: nunca lanza errores al llamador.
-export async function sendContextualPush(coupleId, { title = 'Misiones de Pareja', body, tag = 'mp-push' }, excludeUserId) {
+export async function sendContextualPush(coupleId, { title = 'Misiones de Pareja', body, tag = 'mp-push', url }, excludeUserId) {
   if (!coupleId || !body) return;
   try {
     const payload = { coupleId, title, body, tag };
+    if (url) payload.url = url;
     if (excludeUserId) payload.excludeUserId = excludeUserId;
     const { error } = await supabase.functions.invoke('send-push', { body: payload });
     if (error) console.warn('[push] contextual push error:', error.message);

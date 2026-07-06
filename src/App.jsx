@@ -38,6 +38,8 @@ const GoalsView = lazy(() => import("./views/GoalsView.jsx"));
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
 import { fetchWCMatches, wcMatchesForDate, isWCOver } from "./lib/worldCup.js";
 import LoginScreen from "./components/LoginScreen.jsx";
+import GuestView from "./components/GuestView.jsx";
+import ResetPasswordScreen from "./components/ResetPasswordScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
 const StatsView = lazy(() => import("./components/StatsView.jsx"));
@@ -57,6 +59,8 @@ import PullToRefresh from "./components/PullToRefresh.jsx";
 const SearchOverlay = lazy(() => import("./components/SearchOverlay.jsx"));
 const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.jsx"));
 const ActivityLog = lazy(() => import("./components/ActivityLog.jsx"));
+const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
+const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -101,17 +105,36 @@ function dismissSplash() {
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
 const AUTH_CACHE_KEY = "shared-cal-auth-v1";
 
-export default function AppWithAuth() {
+// Modo invitado: enlace de solo lectura (?guest=coupleId&token=...) — bypass
+// total de sesión/auth, resuelto ANTES de montar AppWithAuth (no dentro de él:
+// un early-return ahí rompería las reglas de hooks — CLAUDE.md, regla de
+// scope — ya que AppWithAuth llama useState/useEffect/useRef después).
+export default function App() {
+  const guestParams = (() => {
+    const p = new URLSearchParams(window.location.search);
+    const g = p.get("guest"), t = p.get("token");
+    return g && t ? { coupleId: g, token: t } : null;
+  })();
+  if (guestParams) return <GuestView coupleId={guestParams.coupleId} token={guestParams.token} />;
+  return <AppWithAuth />;
+}
+
+function AppWithAuth() {
   // Instant startup: read cached couple synchronously (set on previous login, no network needed)
   const authCache = (() => { try { return JSON.parse(localStorage.getItem(AUTH_CACHE_KEY)||"null"); } catch { return null; } })();
 
   const [session,    setSession]    = useState(undefined);
   const [coupleData, setCoupleData] = useState(authCache);
   const [authStep,   setAuthStep]   = useState(authCache ? "app" : "checking");
+  const resolveRef = useRef(null); // última closure de `resolve` — para re-invocarla tras el reset de contraseña
 
   useEffect(() => {
-    // Single handler for initial session + every auth state change
-    const resolve = async s => {
+    // Single handler for initial session + every auth state change.
+    // event === "PASSWORD_RECOVERY": el usuario llegó desde el link de "olvidé
+    // mi contraseña" — Supabase ya generó una sesión válida, pero hay que
+    // forzar el paso de elegir nueva contraseña antes de entrar a la app.
+    const resolve = async (s, event) => {
+      if (event === "PASSWORD_RECOVERY") { setSession(s); setAuthStep("reset-password"); return; }
       setSession(s);
       if (!s) {
         localStorage.removeItem(AUTH_CACHE_KEY);
@@ -126,13 +149,14 @@ export default function AppWithAuth() {
         setAuthStep("onboarding");
       }
     };
-    getSession().then(resolve).catch(() => resolve(null));
+    resolveRef.current = resolve;
+    getSession().then(s => resolve(s)).catch(() => resolve(null));
     const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (authStep === "login" || authStep === "onboarding") dismissSplash();
+    if (authStep === "login" || authStep === "onboarding" || authStep === "reset-password") dismissSplash();
   }, [authStep]);
 
   const handleSignOut = () => { localStorage.removeItem(AUTH_CACHE_KEY); clearTrackContext(); signOut(); };
@@ -147,6 +171,7 @@ export default function AppWithAuth() {
   );
 
   if (authStep === "login") return <LoginScreen />;
+  if (authStep === "reset-password") return <ResetPasswordScreen onDone={() => resolveRef.current?.(session)} />;
   if (authStep === "onboarding") return <OnboardingScreen session={session} onDone={cd => { localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cd)); setCoupleData(cd); setAuthStep("app"); }} />;
   // key={coupleData?.couple_id} forces full remount if couple changes (data isolation)
   return (
@@ -177,6 +202,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [chatUnread,      setChatUnread]      = useState(0);
   const [searchOpen,      setSearchOpen]      = useState(false);
   const [availOpen,       setAvailOpen]       = useState(false);
+  const [pendingMissionLink, setPendingMissionLink] = useState(null); // { wn, yr, missionId } — deep link de push, pendiente hasta que data cargue
+  const [highlightMissionId, setHighlightMissionId] = useState(null); // resalta la tarjeta al llegar desde una notificación
   const [activityOpen,    setActivityOpen]    = useState(false);
   const [showProfile,     setShowProfile]     = useState(false);
   const [importMsg,       setImportMsg]       = useState(null);
@@ -223,6 +250,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
   const [matchDayMatches, setMatchDayMatches] = useState(null);   // WC matches today (filtered) — null = none
   const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
+  const [capsuleNudge,    setCapsuleNudge]    = useState(false);  // aviso "tienes una cápsula lista" — 1x/día, nunca se auto-abre
+  const [viewingCapsule,  setViewingCapsule]  = useState(null);   // capsule object en vista, o null
   const [moodSurveyOpen,    setMoodSurveyOpen]    = useState(false);
   const [moodSurveyPrefill, setMoodSurveyPrefill] = useState(null); // null | "person1" | "person2"
   const [moodEditEntry,     setMoodEditEntry]     = useState(null);  // mood entry being edited, or null
@@ -461,17 +490,43 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     else navigator.clearAppBadge().catch(() => {});
   }, [chatUnread]);
 
-  // Deep links de los shortcuts del manifest: /?tab=chat, /?action=add
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+  // Deep links: shortcuts del manifest (?tab=chat, ?action=add) y notificaciones
+  // push que apuntan a una misión concreta (?tab=current&wn=&yr=&mission=). El
+  // destino "mission" se guarda en estado y se aplica más abajo, una vez que
+  // `data` está cargado — update() lo descartaría (isValidAppData) si se llama
+  // antes de que exista data.weeks.
+  const applyDeepLinkParams = useCallback(params => {
     const tab = params.get("tab");
     const action = params.get("action");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays"];
+    const wn = parseInt(params.get("wn"));
+    const yr = parseInt(params.get("yr"));
+    const missionId = params.get("mission");
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
-    // Limpiar la query para que un refresh no re-dispare la acción
-    if (tab || action) window.history.replaceState(null, "", window.location.pathname);
+    if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    applyDeepLinkParams(params);
+    // Limpiar la query para que un refresh no re-dispare la acción
+    if (params.toString()) window.history.replaceState(null, "", window.location.pathname);
+  }, [applyDeepLinkParams]);
+
+  // La app puede ya estar abierta (en background) cuando se toca la notificación
+  // — el SW no recarga la página en ese caso, solo la enfoca y nos avisa por
+  // postMessage con el destino. Sin esto, el click en el push no llevaba a
+  // ningún lado si la PWA ya estaba corriendo.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = e => {
+      if (e.data?.type !== "PUSH_NAVIGATE" || !e.data.url) return;
+      applyDeepLinkParams(new URL(e.data.url, window.location.origin).searchParams);
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [applyDeepLinkParams]);
 
   // Auto-launch tutorial on first visit
   useEffect(() => {
@@ -552,6 +607,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId, data?.settings?.person1Birthday, data?.settings?.person2Birthday, data?.settings?.anniversaryDate]);
+
+  // Cápsula del tiempo lista para abrir — aviso suave 1x/día, NUNCA se auto-abre
+  // (a diferencia de cumpleaños/aniversario, un mensaje del pasado puede llegar
+  // en mal momento — que la pareja decida cuándo leerlo).
+  useEffect(() => {
+    if (loading || !coupleId) return;
+    const today = localDateStr();
+    const hasOpenable = (data?.timeCapsules || []).some(c => c.unlockDate <= today && !c.viewedAt);
+    if (!hasOpenable) return;
+    const key = `mp-capsule-nudge-${today}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    const t = setTimeout(() => setCapsuleNudge(true), 1300);
+    return () => clearTimeout(t);
+  }, [loading, coupleId, data?.timeCapsules]);
 
   // Match day detection — check WC matches for today with the active filter
   const checkMatchDay = useCallback(async () => {
@@ -838,6 +908,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const msg = e.message || 'Error al cambiar estado de notificaciones';
       setPushError(msg);
       pushToast({ kind: "error", text: msg });
+      // Sin esto, un error de push solo queda visible mientras el usuario tenga
+      // Perfil abierto y se acuerde de copiarlo — quedó documentado 2+ sesiones
+      // como "sale un error visible" sin el texto exacto. Con esto, la próxima
+      // vez que pase, el texto real queda en analytics aunque el usuario no
+      // lo reporte a mano.
+      track("push_toggle_error", { name: e.name || "Error", message: msg.slice(0, 200), wasSubscribed: wasPushSubscribed });
     } finally {
       setPushLoading(false);
     }
@@ -873,8 +949,25 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const cur = dataRef.current;
     if (!cur || !isValidAppData(cur)) return;
 
+    // Sin conexión: no tiene sentido gastar un intento de red que sabemos que
+    // va a fallar (ni mostrar "⚠ Error al guardar" — estar offline no es un
+    // error). Backup local ahora mismo; el efecto de reconexión más abajo
+    // dispara scheduleSave() en cuanto vuelva la señal (evento 'online').
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      saveLocalBackup(cur, coupleId);
+      setPendingSave(true);
+      return;
+    }
+
     isSavingRef.current = true;
     let toSave = cur;
+    // Backup local INMEDIATO, antes de intentar la red. El banner offline le
+    // promete al usuario "tus cambios se guardan localmente" — pero hasta
+    // ahora saveLocalBackup solo corría en las ramas de ÉXITO del save remoto.
+    // Sin conexión, el save remoto SIEMPRE falla, así que el backup local
+    // nunca se actualizaba: cerrar la app offline con cambios sin sincronizar
+    // los perdía al volver a abrirla (loadLocalBackup traía la foto vieja).
+    saveLocalBackup(cur, coupleId);
     // Snapshot de los mutadores que intentamos confirmar en esta ronda.
     let confirming = unconfirmedRef.current.slice();
     try {
@@ -980,6 +1073,23 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleSave]);
 
+  // Aplica el destino "mission" del deep link (push/búsqueda) en cuanto los
+  // datos están listos, y resalta la tarjeta unos segundos para que se note
+  // cuál es. Debe ir después de update() — su deps array se evalúa al declarar
+  // el efecto, así que referenciar `update` antes de su const lanza un
+  // ReferenceError ("Cannot access before initialization"), a diferencia del
+  // callback del efecto (que sí puede referenciar código declarado más abajo,
+  // porque no se ejecuta hasta después de terminar el render).
+  useEffect(() => {
+    if (!pendingMissionLink || loading) return;
+    const { wn, yr, missionId } = pendingMissionLink;
+    setPendingMissionLink(null);
+    update(d => ({ ...d, currentWeekNumber: wn, currentYear: yr }));
+    setHighlightMissionId(missionId);
+    const t = setTimeout(() => setHighlightMissionId(cur => cur === missionId ? null : cur), 3000);
+    return () => clearTimeout(t);
+  }, [pendingMissionLink, loading, update]);
+
   // Encola un efecto que solo debe correr DESPUÉS de que el blob esté persistido
   // en la DB (ej. push a la pareja — necesita que pueda leer los datos frescos).
   // Si no hay nada pendiente de guardar, corre en el siguiente tick.
@@ -1054,6 +1164,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const week = data.weeks[wkey] || { weekNumber:data.currentWeekNumber, year:data.currentYear, epicObjective:"", missions:[], createdAt:Date.now(), workHours:{person1:0,person2:0} };
   const patchWeek = fn => update(d => ({ ...d, weeks: { ...d.weeks, [wkey]: fn(d.weeks[wkey] || week) } }));
 
+  // URL de destino al tocar la notificación push de una misión — ver sw.js
+  // (notificationclick) y el deep-link handler más arriba en este componente.
+  const missionPushUrl = (wn, yr, missionId) => `/?tab=current&wn=${wn}&yr=${yr}&mission=${missionId}`;
+
   // Historial de actividad (data.activity, cap 60): la entrada se crea en el
   // handler (id/ts fijos) y se añade con un update() propio — reducer puro e
   // idempotente (guard por id: el rebase puede re-aplicar el mutador).
@@ -1082,7 +1196,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     // los datos frescos ya están en la DB y puede leerlos (no antes).
     const pushBody = `${personName} ${isEv?"añadió un evento":"añadió una tarea"}: ${newM.emoji} ${newM.title.trim()}`;
     const pushTag = isEv?"mp-event-add":"mp-mission-add";
-    runAfterSave(() => sendContextualPush(coupleId, { body:pushBody, tag:pushTag }, sessionUserId));
+    runAfterSave(() => sendContextualPush(coupleId, { body:pushBody, tag:pushTag, url:missionPushUrl(data.currentWeekNumber, data.currentYear, mission.id) }, sessionUserId));
     logActivity(`añadió ${isEv?"el evento":"la tarea"} ${mission.emoji} «${mission.title}»${mission.date?` (${mission.date}${mission.time?` ${mission.time}`:""})`:""}`);
     setNewM({ emoji:"🎯", title:"", status:"TBC", date:"", time:"", endDate:"", endTime:"", categories:[], who:"together", duration:0, goalId:null, type:"task", seriesPattern:"", seriesEndDate:"", reminder:"none" });
     setShowAddForm(false);
@@ -1103,7 +1217,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     });
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
     if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
-    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(data.currentWeekNumber, data.currentYear, id) }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     if (nx === "DONE" && mCur) {
@@ -1206,7 +1320,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
-    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done" }, sessionUserId)); }
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(wn, yr, id) }, sessionUserId)); }
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
       if (mCur.who === "together") {
@@ -1305,6 +1419,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   const deleteMoodEntry = (idOrTs) => {
     update(d => ({ ...d, moods: (d.moods||[]).filter(m => m.id !== idOrTs && m.ts !== idOrTs) }));
+  };
+
+  const createTimeCapsule = ({ title, message, photo, unlockDate, from }) => {
+    const capsule = { id: uid(), title, message, photo: photo || null, unlockDate, from, createdAt: Date.now(), viewedAt: null };
+    update(d => ({ ...d, timeCapsules: [...(d.timeCapsules||[]), capsule] }));
+    pushToast({ kind: "success", text: "🔒 Cápsula sellada — se abrirá el " + unlockDate });
+  };
+  const deleteTimeCapsule = id => update(d => ({ ...d, timeCapsules: (d.timeCapsules||[]).filter(c => c.id !== id) }));
+  const viewTimeCapsule = id => {
+    const c = (data.timeCapsules||[]).find(x => x.id === id);
+    if (!c) return;
+    if (!c.viewedAt) update(d => ({ ...d, timeCapsules: (d.timeCapsules||[]).map(x => x.id === id ? { ...x, viewedAt: Date.now() } : x) }));
+    setViewingCapsule(c);
   };
 
   const compressImage = (file) => new Promise((resolve, reject) => {
@@ -1489,7 +1616,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} bottomBar={bottomBar} onBottomBarChange={updateBottomBar} /></Suspense>}
+      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} bottomBar={bottomBar} onBottomBarChange={updateBottomBar} /></Suspense>}
 
 
 
@@ -1668,7 +1795,7 @@ ${sorted.map(m=>{
             const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
             const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
             const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
-            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} />} />;
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />} />;
           })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
@@ -1680,7 +1807,7 @@ ${sorted.map(m=>{
                 return 0;
               });
               return sorted.map(m=>(
-                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} />
+                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
               ));
             })()}
           </div>}
@@ -1715,6 +1842,16 @@ ${sorted.map(m=>{
           birthdays={data.birthdays||[]}
           onAdd={b => update(d => ({ ...d, birthdays: [...(d.birthdays||[]), b] }))}
           onDelete={id => update(d => ({ ...d, birthdays: (d.birthdays||[]).filter(b => b.id !== id) }))}
+        />}
+
+        {activeTab==="timecapsule" && <TimeCapsuleView
+          capsules={data.timeCapsules||[]}
+          p1={p1} p2={p2} colors={colors}
+          sessionPersonId={sessionPersonId}
+          anniversaryDate={data.settings?.anniversaryDate}
+          onCreate={createTimeCapsule}
+          onDelete={deleteTimeCapsule}
+          onView={viewTimeCapsule}
         />}
 
         {activeTab==="mood" && <MoodView
@@ -1773,7 +1910,14 @@ ${sorted.map(m=>{
           <SearchOverlay
             weeks={data.weeks} p1={p1} p2={p2} colors={colors}
             onClose={() => setSearchOpen(false)}
-            onGoToWeek={(wn, yr) => { update(s => ({ ...s, currentWeekNumber: wn, currentYear: yr })); setActiveTab("current"); setSearchOpen(false); }}
+            onGoToWeek={(wn, yr, missionId) => {
+              update(s => ({ ...s, currentWeekNumber: wn, currentYear: yr }));
+              setActiveTab("current"); setSearchOpen(false);
+              if (missionId) {
+                setHighlightMissionId(missionId);
+                setTimeout(() => setHighlightMissionId(cur => cur === missionId ? null : cur), 3000);
+              }
+            }}
           />
         </Suspense>
       )}
@@ -1854,6 +1998,27 @@ ${sorted.map(m=>{
       {/* Micro-festejo individual — sutil, con % de semana y mensaje por banda */}
       {taskCongrat && (
         <TaskCongrat key={taskCongrat.mission.id + taskCongrat.afterPct} info={taskCongrat} onDone={() => setTaskCongrat(null)} />
+      )}
+
+      {/* Aviso suave de cápsula del tiempo lista — nunca se auto-abre */}
+      {capsuleNudge && (
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(251,191,36,0.4)", borderRadius:14, padding:"12px 16px", zIndex:401, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:22, flexShrink:0 }}>🎁</span>
+          <div style={{ flex:1 }}>
+            <div style={{ color:"#fbbf24", fontWeight:600, marginBottom:6 }}>Tienes una cápsula del tiempo lista para abrir</div>
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={() => { setActiveTab("timecapsule"); setCapsuleNudge(false); }} style={{ background:"none", border:"none", color:"#fbbf24", cursor:"pointer", fontWeight:700, fontFamily:"inherit", padding:0, fontSize:12 }}>Ver →</button>
+              <button onClick={() => setCapsuleNudge(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontFamily:"inherit", padding:0, fontSize:12 }}>Ahora no</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apertura de cápsula del tiempo */}
+      {viewingCapsule && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <TimeCapsuleReveal capsule={viewingCapsule} p1={p1} p2={p2} colors={colors} onClose={() => setViewingCapsule(null)} />
+        </Suspense>
       )}
 
       {/* Momento Juntos — aparece al completar una tarea/evento compartido */}

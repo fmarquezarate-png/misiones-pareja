@@ -15,6 +15,13 @@ export function isValidAppData(d) {
     }
   }
   if (d.activity !== undefined && !Array.isArray(d.activity)) return false;
+  if (d.timeCapsules !== undefined) {
+    if (!Array.isArray(d.timeCapsules)) return false;
+    for (const c of d.timeCapsules) {
+      if (!c || typeof c !== "object") return false;
+      if (!c.id || !c.unlockDate) return false;
+    }
+  }
   if (d.templates !== undefined) {
     if (!Array.isArray(d.templates)) return false;
     for (const t of d.templates) {

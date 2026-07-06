@@ -46,6 +46,7 @@ export default function Topbar({
               :activeTab==="chat"     ? "💬 Chat"
               :activeTab==="links"      ? "🔗 Links de Interés"
               :activeTab==="birthdays"  ? "🎂 Cumpleaños"
+              :activeTab==="timecapsule" ? "✉️ Cápsula del tiempo"
               : ""}
             </span>
         }
