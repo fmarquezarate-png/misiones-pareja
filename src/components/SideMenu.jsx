@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { APP_VERSION, LAST_UPDATE, CHANGELOG } from "../constants.js";
+import { useState, useEffect } from "react";
+import { APP_VERSION, LAST_UPDATE } from "../constants.js";
 
 const NAV_ITEMS = [
   { id:"home",     label:"Inicio",          icon:"🏠" },
@@ -19,6 +19,15 @@ const NAV_ITEMS = [
 
 export default function SideMenu({ open, onClose, activeTab, onNavigate, couplePhoto, coupleEmoji, p1, p2, syncMsg, onShowProfile, chatUnread = 0 }) {
   const [showChangelog, setShowChangelog] = useState(false);
+  // ~100KB de texto (historial de versiones) — separado del bundle inicial.
+  // Se descarga solo la primera vez que se abre "Ver cambios", no en cada
+  // arranque de la app (impacto directo en el tiempo de carga en iOS).
+  const [changelog, setChangelog] = useState(null);
+  useEffect(() => {
+    if (showChangelog && !changelog) {
+      import("../data/changelogData.js").then(m => setChangelog(m.CHANGELOG));
+    }
+  }, [showChangelog, changelog]);
 
   return (
     <>
@@ -85,7 +94,9 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, coupleP
               <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"var(--t-accent,#fbbf24)" }}>📋 Changelog</span>
               <button onClick={() => setShowChangelog(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#6b5f88)", fontSize:20, cursor:"pointer" }}>×</button>
             </div>
-            {CHANGELOG.map(c => (
+            {!changelog ? (
+              <div style={{ textAlign:"center", padding:"20px 0", color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+            ) : changelog.map(c => (
               <div key={c.v} style={{ marginBottom:16 }}>
                 <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
                   <span style={{ fontSize:12, fontWeight:700, color:"var(--t-accent,#fbbf24)" }}>v{c.v}</span>

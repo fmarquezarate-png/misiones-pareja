@@ -3,6 +3,21 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // React y Supabase casi nunca cambian entre deploys — separarlos del
+        // chunk principal evita que un usuario con la app instalada tenga que
+        // volver a descargar y parsear ~150kB de librerías sin cambios cada
+        // vez que sale una versión nueva. Solo el chunk de nuestro código
+        // (mucho más chico) se invalida en cada release.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.17.1] — 2026-07-02 · Fix urgente: velocidad de arranque en iOS
+
+### ⚡ Rendimiento
+
+Dos problemas de bundling que afectaban el tiempo de apertura en **cada** inicio de la app, no solo el primero:
+
+- **Changelog fuera del bundle inicial**: el array `CHANGELOG` (~100KB de texto — el historial completo desde v1.6.0) vivía en `constants.js`, que `SideMenu.jsx` importa de forma eager. Como `SideMenu` se monta en todas las pantallas, ese texto se parseaba y ejecutaba en cada apertura de la app, aunque la enorme mayoría de las sesiones nunca abren "Ver cambios". Movido a `src/data/changelogData.js`, cargado con `import()` dinámico solo al abrir el modal.
+- **Vendor splitting**: React, React-DOM y el cliente de Supabase (que casi nunca cambian de versión) estaban mezclados en el mismo chunk que el código propio de la app. Cada deploy invalidaba el bundle completo, forzando a los teléfonos a re-descargar y re-parsear ~350KB de librerías sin cambios en cada actualización. `vite.config.js` ahora separa `vendor-react` y `vendor-supabase` en sus propios chunks cacheables de forma independiente.
+
+**Resultado medido**: el chunk de código propio (el único que cambia en cada release) bajó de **724.75 KB → 273.31 KB** minificado (217.79 KB → 80.99 KB gzip).
+
+**Nota de transparencia**: parte del tiempo de apertura de una PWA en iOS es un costo fijo del motor JS de Safari al arrancar en frío (WKWebView), fuera de nuestro control. Estos cambios reducen la parte que sí controlamos — cuánto código propio hay que procesar antes de que la app sea usable, y cuánto hay que re-descargar en cada actualización.
+
+Regla nueva documentada en CLAUDE.md: cualquier dato estático >10KB que no se necesite en el primer render va en su propio módulo con `import()` dinámico — nunca en un archivo importado eagerly por un componente que siempre está montado.
+
+---
+
 ## [4.17.0] — 2026-07-02 · Las notificaciones push llevan al evento, no solo abren la app
 
 ### ✨ Nuevas funciones
