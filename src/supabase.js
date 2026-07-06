@@ -481,6 +481,21 @@ export function subscribeToUpdates(coupleId, onUpdate, hasPendingSave) {
   return channel;
 }
 
+/* ── Modo invitado (solo lectura, sin sesión) ─────────────────────────────── */
+
+// Llama a la Edge Function get-shared-view — devuelve null si el link es
+// inválido/revocado o si algo falla (nunca lanza, GuestView decide qué mostrar).
+export async function fetchSharedView(coupleId, token) {
+  try {
+    const { data, error } = await supabase.functions.invoke("get-shared-view", { body: { coupleId, token } });
+    if (error) { console.warn("[guest] fetchSharedView error:", error.message); return null; }
+    return data;
+  } catch (e) {
+    console.warn("[guest] fetchSharedView failed:", e);
+    return null;
+  }
+}
+
 /* ── Chat ──────────────────────────────────────────────────────────────── */
 
 export async function loadMessages(coupleId, limit = 60) {

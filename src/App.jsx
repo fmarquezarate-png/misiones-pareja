@@ -38,6 +38,7 @@ const GoalsView = lazy(() => import("./views/GoalsView.jsx"));
 import { subscribePush, unsubscribePush, getCurrentSubscription, isPushSupported, sendContextualPush } from "./lib/push.js";
 import { fetchWCMatches, wcMatchesForDate, isWCOver } from "./lib/worldCup.js";
 import LoginScreen from "./components/LoginScreen.jsx";
+import GuestView from "./components/GuestView.jsx";
 import ResetPasswordScreen from "./components/ResetPasswordScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
 import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
@@ -104,7 +105,21 @@ function dismissSplash() {
 // ─── Auth wrapper ─────────────────────────────────────────────────────────────
 const AUTH_CACHE_KEY = "shared-cal-auth-v1";
 
-export default function AppWithAuth() {
+// Modo invitado: enlace de solo lectura (?guest=coupleId&token=...) — bypass
+// total de sesión/auth, resuelto ANTES de montar AppWithAuth (no dentro de él:
+// un early-return ahí rompería las reglas de hooks — CLAUDE.md, regla de
+// scope — ya que AppWithAuth llama useState/useEffect/useRef después).
+export default function App() {
+  const guestParams = (() => {
+    const p = new URLSearchParams(window.location.search);
+    const g = p.get("guest"), t = p.get("token");
+    return g && t ? { coupleId: g, token: t } : null;
+  })();
+  if (guestParams) return <GuestView coupleId={guestParams.coupleId} token={guestParams.token} />;
+  return <AppWithAuth />;
+}
+
+function AppWithAuth() {
   // Instant startup: read cached couple synchronously (set on previous login, no network needed)
   const authCache = (() => { try { return JSON.parse(localStorage.getItem(AUTH_CACHE_KEY)||"null"); } catch { return null; } })();
 
@@ -1595,7 +1610,7 @@ ${sorted.map(m=>{
         </div>
       )}
 
-      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} bottomBar={bottomBar} onBottomBarChange={updateBottomBar} /></Suspense>}
+      {showProfile && <Suspense fallback={<ModalLoadingFallback />}><ProfileModal data={data} update={update} coupleId={coupleId} onClose={()=>setShowProfile(false)} onStartTutorial={()=>{ setShowProfile(false); setTutorialStep(0); }} sessionUserId={sessionUserId} onCheckUpdate={checkUpdate} onThemeChange={(tid,fid)=>{ setLocalThemeId(tid); setLocalFontId(fid); }} pushSupported={pushSupported} pushSubscribed={pushSubscribed} pushLoading={pushLoading} pushError={pushError} onPushToggle={handlePushToggle} onShowWrapped={() => { const prevDate=new Date(); prevDate.setDate(prevDate.getDate()-7); const {week:pw,year:py}=getWeekAndYear(prevDate); const prevKey=isoWeekKey(pw,py); const today=new Date(); const monthKey=`${today.getFullYear()}-${today.getMonth()}`; const hasPrev=(data?.weeks[prevKey]?.missions?.length||0)>0; if(hasPrev) setWrappedConfig({showWeekly:true,showMonthlyOption:false,prevKey,monthKey}); }} bottomBar={bottomBar} onBottomBarChange={updateBottomBar} /></Suspense>}
 
 
 

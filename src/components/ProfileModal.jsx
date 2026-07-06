@@ -4,11 +4,12 @@ import { S } from "../styles.js";
 import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 import { ALL_TABS } from "./BottomTabBar.jsx";
+import { secureToken } from "../utils.js";
 
 const PM_MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const PM_DAYS   = [31,29,31,30,31,30,31,31,30,31,30,31]; // days per month (feb=29 for picker)
 
-export default function ProfileModal({ data, update, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped, bottomBar, onBottomBarChange }) {
+export default function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped, bottomBar, onBottomBarChange }) {
   const settings = data.settings || {};
   const [p1,      setP1]      = useState(settings.person1||"Persona 1");
   const [p2,      setP2]      = useState(settings.person2||"Persona 2");
@@ -43,6 +44,29 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
     setBbEnabled(enabled);
     setBbTabs(tabs);
     onBottomBarChange?.({ enabled, tabs });
+  };
+
+  // Compartir calendario en solo lectura — token vive en el blob (settings),
+  // no en una columna nueva de la DB. La lectura anónima la resuelve la Edge
+  // Function get-shared-view (compara el token contra este mismo campo).
+  const [shareEnabled, setShareEnabled] = useState(settings.shareEnabled ?? false);
+  const [shareToken,   setShareToken]   = useState(settings.shareToken ?? null);
+  const [linkCopied,   setLinkCopied]   = useState(false);
+  const shareUrl = shareToken ? `${window.location.origin}/?guest=${coupleId}&token=${shareToken}` : "";
+
+  const toggleShare = enabled => {
+    const token = enabled ? (shareToken || secureToken()) : shareToken;
+    setShareEnabled(enabled);
+    setShareToken(token);
+    update(d => ({ ...d, settings: { ...d.settings, shareEnabled: enabled, shareToken: token } }));
+  };
+  const regenerateLink = () => {
+    const token = secureToken();
+    setShareToken(token);
+    update(d => ({ ...d, settings: { ...d.settings, shareToken: token } }));
+  };
+  const copyLink = () => {
+    navigator.clipboard?.writeText(shareUrl).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); });
   };
 
   const compressAvatar = (file) => new Promise((resolve, reject) => {
@@ -401,6 +425,35 @@ export default function ProfileModal({ data, update, onClose, onStartTutorial, s
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:20 }}>Compartir</div>
+          <div style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:24 }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: shareEnabled ? 14 : 0 }}>
+              <div>
+                <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>Enlace de solo lectura</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:2 }}>Para un familiar o cuidadora — ve el plan, no puede editarlo ni necesita cuenta</div>
+              </div>
+              <button onClick={() => toggleShare(!shareEnabled)}
+                style={{ width:40, height:22, borderRadius:99, background:shareEnabled?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                <span style={{ position:"absolute", top:3, left:shareEnabled?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+              </button>
+            </div>
+            {shareEnabled && (
+              <div>
+                <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                  <input readOnly value={shareUrl} onClick={e => e.target.select()}
+                    style={{ ...S.inputSm, flex:1, fontSize:11, color:"var(--t-text-muted,#8b7fa8)" }} />
+                  <button onClick={copyLink} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px", flexShrink:0 }}>{linkCopied ? "✓ Copiado" : "Copiar"}</button>
+                </div>
+                <button onClick={regenerateLink} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:10.5, fontFamily:"inherit", padding:0 }}>
+                  ↺ Generar nuevo enlace (invalida el anterior)
+                </button>
+                <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:10, lineHeight:1.6, fontStyle:"italic" }}>
+                  Ve las tareas y eventos de todas las semanas — no ve el chat, gastos, ánimo ni las notas privadas de cada actividad.
+                </div>
               </div>
             )}
           </div>

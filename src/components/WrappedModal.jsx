@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { DEFAULT_COLORS, CATEGORIES, getMCats } from "../constants.js";
 import { getWeekAndYear, isoWeekKey } from "../utils.js";
 import { weekStartDate, fmtWeekRange } from "../lib/appUtils.js";
@@ -336,7 +336,19 @@ export default function WrappedModal({ showWeekly, showMonthlyOption, weeks, p1,
   const go = (v) => setView(v);
 
   const hasContent = (view === "weekly" && weekly) || (view === "monthly" && monthly) || view === "gate";
-  if (!hasContent) { close(); return null; }
+
+  // BUG (pre-existente, no de esta sesión): llamar close() —que hace setFadeOut—
+  // directamente en el cuerpo del render, sin ninguna guarda que lo detenga tras
+  // la primera vez, disparaba "Too many re-renders" cada vez que showWeekly=true
+  // pero computeWeekly(weeks) devolvía null (semana previa sin misiones o con
+  // datos que no calzan). Debe vivir en un efecto, gateado por hasContent, para
+  // que corra UNA vez cuando la condición cambia — nunca en el cuerpo del render.
+  useEffect(() => {
+    if (!hasContent) close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasContent]);
+
+  if (!hasContent) return null;
 
   return (
     <div style={{

@@ -1,6 +1,13 @@
 // ─── ID / week helpers ────────────────────────────────────────────────────────
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Token para links que dan acceso de lectura a datos (compartir calendario) —
+// uid() usa Math.random(), insuficiente para algo que otorga acceso. Usa el
+// generador criptográfico del navegador; solo cae al fallback débil en
+// navegadores muy viejos sin window.crypto.randomUUID.
+export const secureToken = () =>
+  window.crypto?.randomUUID ? window.crypto.randomUUID().replace(/-/g, "") : uid() + uid() + uid();
+
 export const isoWeekKey = (wn, yr) => `${yr}-W${String(wn).padStart(2, "0")}`;
 
 // Parsea "YYYY-MM-DD" como medianoche LOCAL (no UTC). new Date("2026-05-01")

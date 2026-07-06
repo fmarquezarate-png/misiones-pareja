@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.20.0] — 2026-07-02 · Modo invitado de solo lectura (idea #10) + fix crítico de WrappedModal
+
+### ✨ Nuevas funciones
+
+- **👀 Modo invitado de solo lectura**: nueva sección "Compartir" en Perfil. Un toggle genera un enlace (`/?guest=<id>&token=<token>`) para un familiar o cuidadora que necesite ver el plan sin poder editarlo — **sin crear cuenta, sin iniciar sesión**.
+  - El enlace muestra las semanas con sus tareas y eventos (navegable con ‹ ›), pero **nunca** chat, gastos, ánimo, plantillas, actividad ni las notas privadas (`comments`) de cada tarea.
+  - **Revocable al instante**: "Generar nuevo enlace" invalida el anterior inmediatamente (el token es lo único que la Edge Function verifica).
+  - **Arquitectura**: el token vive en el blob (`data.settings.shareToken`/`shareEnabled`), como cualquier otro ajuste — **sin columnas nuevas en la base**. La lectura anónima la resuelve una Edge Function nueva (`get-shared-view`) con el service role, que compara el token recibido contra el guardado en el blob antes de devolver una versión saneada de los datos.
+  - Token generado con `crypto.randomUUID()` (criptográficamente seguro) — no con el `uid()` de `Math.random()` que usa el resto de la app para IDs internos, insuficiente para algo que otorga acceso a datos.
+  - **⚠️ Pendiente del Externo**: desplegar la Edge Function (sin secrets nuevos — ver `TAREAS_SQL_AGENTE_SUPABASE.md`). Hasta entonces el toggle funciona pero el link muestra "no válido".
+
+### 🐛 Bugs corregidos
+
+- **`WrappedModal` podía crashear la app con "Too many re-renders"**: bug de fondo preexistente, descubierto por casualidad durante el testing de esta sesión (no relacionado con ninguna feature nueva). `close()` —que cambia estado— se llamaba directamente en el cuerpo del render sin ningún guard, disparándose en bucle cada vez que `showWeekly` era `true` pero la semana anterior no tenía actividades registradas — es decir, potencialmente **cada lunes**, dependiendo de los datos de la pareja. El árbol entero caía al `ErrorBoundary`. Corregido moviendo la lógica a un `useEffect` correctamente gateado por la condición que la dispara.
+
+---
+
 ## [4.19.0] — 2026-07-02 · Nueva pestaña: Cápsula del tiempo (idea #16)
 
 ### ✨ Nuevas funciones

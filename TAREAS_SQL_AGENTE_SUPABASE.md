@@ -6,6 +6,31 @@
 
 ---
 
+## 🚧 PREREQUISITO BLOQUEANTE (v4.19.1, 02/07/2026) — Desplegar Edge Function `get-shared-view`
+
+**Feature:** Modo invitado de solo lectura (Perfil → Compartir → "Enlace de solo lectura"). Un familiar o cuidadora puede ver el plan de la semana sin necesitar cuenta, mediante un link `https://.../?guest=<coupleId>&token=<token>`.
+
+**No es SQL — no hace falta ninguna migración ni columna nueva.** El toggle y el token viven dentro del blob existente (`data.settings.shareEnabled` / `data.settings.shareToken`), igual que cualquier otro ajuste (tema, colores). Lo único que falta es **desplegar una función nueva**:
+
+```bash
+# Desde la raíz del repo, con el CLI de Supabase ya autenticado:
+supabase functions deploy get-shared-view
+```
+
+El código ya está en el repo: `supabase/functions/get-shared-view/index.ts`. Usa los mismos secrets que `send-push` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) — **no requiere secrets nuevos**.
+
+**Qué hace la función:** recibe `{ coupleId, token }` por POST, busca el `app_data` de esa pareja con el service role (bypass de RLS controlado — el filtrado de seguridad lo hace la función comparando `token` contra `data.settings.shareToken`, no la base), y devuelve una versión saneada del blob: solo `settings.person1/person2/colors` y `weeks` con las misiones **sin el campo `comments`** (notas privadas entre la pareja). Nunca expone chat, gastos, ánimo, plantillas ni actividad — solo lo necesario para "ver el plan".
+
+**Verificar tras desplegar:**
+```bash
+curl "https://<project-ref>.supabase.co/functions/v1/get-shared-view?probe=1"
+# Debe responder { "ok": true, "ts": "..." }
+```
+
+**Hasta que esto se despliegue**, el toggle "Compartir" en Perfil funciona (guarda el token en el blob sin problema), pero cualquiera que abra el link recibido verá "🔒 Este enlace no es válido" — la función simplemente no existe todavía en el proyecto. No afecta nada más de la app; es aislado.
+
+---
+
 ## 🔍 Verificación pendiente (v4.16.0, 02/07/2026) — Login con email + contraseña
 
 **No es SQL, es una revisión de configuración en la consola:** Authentication → Providers → Email, en el dashboard de Supabase.
