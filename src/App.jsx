@@ -908,6 +908,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const msg = e.message || 'Error al cambiar estado de notificaciones';
       setPushError(msg);
       pushToast({ kind: "error", text: msg });
+      // Sin esto, un error de push solo queda visible mientras el usuario tenga
+      // Perfil abierto y se acuerde de copiarlo — quedó documentado 2+ sesiones
+      // como "sale un error visible" sin el texto exacto. Con esto, la próxima
+      // vez que pase, el texto real queda en analytics aunque el usuario no
+      // lo reporte a mano.
+      track("push_toggle_error", { name: e.name || "Error", message: msg.slice(0, 200), wasSubscribed: wasPushSubscribed });
     } finally {
       setPushLoading(false);
     }

@@ -7,6 +7,17 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.20.1] — 2026-07-02 · Preparación para diagnosticar el error de push pendiente
+
+### 🔧 Mejoras
+
+Sigue pendiente el error de notificaciones push reportado hace varias sesiones — nunca se obtuvo el texto exacto, así que no se pudo diagnosticar puntualmente. Dos mejoras para que la próxima vez sea posible:
+
+- **Botón "Copiar" junto al aviso de error** en Perfil → Notificaciones — un toque copia el texto exacto para compartirlo.
+- **Registro en analytics** (`track("push_toggle_error", ...)`) con el nombre y mensaje del error — queda una pista aunque no se reporte a mano.
+
+---
+
 ## [4.20.0] — 2026-07-02 · Modo invitado de solo lectura (idea #10) + fix crítico de WrappedModal
 
 ### ✨ Nuevas funciones

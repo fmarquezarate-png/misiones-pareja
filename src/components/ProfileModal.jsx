@@ -52,6 +52,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
   const [shareEnabled, setShareEnabled] = useState(settings.shareEnabled ?? false);
   const [shareToken,   setShareToken]   = useState(settings.shareToken ?? null);
   const [linkCopied,   setLinkCopied]   = useState(false);
+  const [pushErrCopied, setPushErrCopied] = useState(false);
   const shareUrl = shareToken ? `${window.location.origin}/?guest=${coupleId}&token=${shareToken}` : "";
 
   const toggleShare = enabled => {
@@ -264,7 +265,18 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                       ? "Recibirás avisos cuando tu pareja actualice"
                       : "Tu pareja puede estar recibiendo notificaciones — vos no"}
                   </div>
-                  {pushError && <div style={{ fontSize:12, color:"#f87171", marginTop:8, padding:"8px 10px", background:"rgba(248,113,113,0.08)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:8, lineHeight:1.5 }}>⚠️ {pushError}</div>}
+                  {pushError && (
+                    <div style={{ fontSize:12, color:"#f87171", marginTop:8, padding:"8px 10px", background:"rgba(248,113,113,0.08)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:8, lineHeight:1.5 }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                        <span style={{ flex:1 }}>⚠️ {pushError}</span>
+                        <button onClick={() => navigator.clipboard?.writeText(pushError).then(() => { setPushErrCopied(true); setTimeout(() => setPushErrCopied(false), 2000); })}
+                          style={{ background:"rgba(248,113,113,0.12)", border:"1px solid rgba(248,113,113,0.35)", borderRadius:6, color:"#f87171", padding:"3px 8px", cursor:"pointer", fontSize:10, fontFamily:"inherit", flexShrink:0, whiteSpace:"nowrap" }}>
+                          {pushErrCopied ? "✓ Copiado" : "Copiar"}
+                        </button>
+                      </div>
+                      <div style={{ fontSize:10.5, color:"rgba(248,113,113,0.7)", marginTop:4, fontStyle:"italic" }}>Copia este texto exacto y compártelo para poder diagnosticarlo.</div>
+                    </div>
+                  )}
                 </div>
                 <button onClick={onPushToggle} disabled={pushLoading}
                   style={{ ...S.btnPrimary, fontSize:11, padding:"7px 14px", flexShrink:0, opacity:pushLoading?0.6:1,
