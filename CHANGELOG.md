@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.19.0] — 2026-07-02 · Nueva pestaña: Cápsula del tiempo (idea #16)
+
+### ✨ Nuevas funciones
+
+- **✉️ Cápsula del tiempo**: escribe un mensaje (y opcionalmente una foto) hoy, elige una fecha futura, y sella la cápsula. Nadie puede abrirla antes de esa fecha — ni quien la escribió. Acceso rápido: botón "💍 Próximo aniversario" cuando la pareja tiene configurada su fecha de aniversario en Perfil.
+  - **Tres estados**: 🔒 Selladas (esperando su fecha, con cuenta atrás en días), 🎁 Listas para abrir (la fecha ya llegó, con brillo dorado pulsante), 📖 Abiertas (ya leídas, se pueden releer cuando quieras).
+  - **Nunca se auto-abre**: a diferencia de los overlays de cumpleaños/aniversario (que sí aparecen automáticamente), una cápsula del tiempo puede llegar en cualquier momento — se avisa con un banner suave y descartable ("Tienes una cápsula lista para abrir"), pero la decisión de cuándo leerla es siempre de quien la recibe.
+  - **Overlay de apertura** con los colores de quien la escribió: título, foto (si tiene) y mensaje completo, con animación de entrada suave.
+  - Persistencia en `data.timeCapsules`, validado en `isValidAppData`. Quien escribió una cápsula sellada puede borrarla antes de que se abra (arrepentimiento); una vez abierta, queda para siempre en el historial de ambos.
+
+---
+
 ## [4.18.0] — 2026-07-02 · Fix real del modo offline (idea #18)
 
 ### 🐛 Bugs corregidos

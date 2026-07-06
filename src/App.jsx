@@ -58,6 +58,8 @@ import PullToRefresh from "./components/PullToRefresh.jsx";
 const SearchOverlay = lazy(() => import("./components/SearchOverlay.jsx"));
 const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.jsx"));
 const ActivityLog = lazy(() => import("./components/ActivityLog.jsx"));
+const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
+const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -233,6 +235,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
   const [matchDayMatches, setMatchDayMatches] = useState(null);   // WC matches today (filtered) — null = none
   const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
+  const [capsuleNudge,    setCapsuleNudge]    = useState(false);  // aviso "tienes una cápsula lista" — 1x/día, nunca se auto-abre
+  const [viewingCapsule,  setViewingCapsule]  = useState(null);   // capsule object en vista, o null
   const [moodSurveyOpen,    setMoodSurveyOpen]    = useState(false);
   const [moodSurveyPrefill, setMoodSurveyPrefill] = useState(null); // null | "person1" | "person2"
   const [moodEditEntry,     setMoodEditEntry]     = useState(null);  // mood entry being edited, or null
@@ -482,7 +486,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -588,6 +592,21 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId, data?.settings?.person1Birthday, data?.settings?.person2Birthday, data?.settings?.anniversaryDate]);
+
+  // Cápsula del tiempo lista para abrir — aviso suave 1x/día, NUNCA se auto-abre
+  // (a diferencia de cumpleaños/aniversario, un mensaje del pasado puede llegar
+  // en mal momento — que la pareja decida cuándo leerlo).
+  useEffect(() => {
+    if (loading || !coupleId) return;
+    const today = localDateStr();
+    const hasOpenable = (data?.timeCapsules || []).some(c => c.unlockDate <= today && !c.viewedAt);
+    if (!hasOpenable) return;
+    const key = `mp-capsule-nudge-${today}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    const t = setTimeout(() => setCapsuleNudge(true), 1300);
+    return () => clearTimeout(t);
+  }, [loading, coupleId, data?.timeCapsules]);
 
   // Match day detection — check WC matches for today with the active filter
   const checkMatchDay = useCallback(async () => {
@@ -1381,6 +1400,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     update(d => ({ ...d, moods: (d.moods||[]).filter(m => m.id !== idOrTs && m.ts !== idOrTs) }));
   };
 
+  const createTimeCapsule = ({ title, message, photo, unlockDate, from }) => {
+    const capsule = { id: uid(), title, message, photo: photo || null, unlockDate, from, createdAt: Date.now(), viewedAt: null };
+    update(d => ({ ...d, timeCapsules: [...(d.timeCapsules||[]), capsule] }));
+    pushToast({ kind: "success", text: "🔒 Cápsula sellada — se abrirá el " + unlockDate });
+  };
+  const deleteTimeCapsule = id => update(d => ({ ...d, timeCapsules: (d.timeCapsules||[]).filter(c => c.id !== id) }));
+  const viewTimeCapsule = id => {
+    const c = (data.timeCapsules||[]).find(x => x.id === id);
+    if (!c) return;
+    if (!c.viewedAt) update(d => ({ ...d, timeCapsules: (d.timeCapsules||[]).map(x => x.id === id ? { ...x, viewedAt: Date.now() } : x) }));
+    setViewingCapsule(c);
+  };
+
   const compressImage = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("No se pudo leer el archivo de imagen"));
@@ -1791,6 +1823,16 @@ ${sorted.map(m=>{
           onDelete={id => update(d => ({ ...d, birthdays: (d.birthdays||[]).filter(b => b.id !== id) }))}
         />}
 
+        {activeTab==="timecapsule" && <TimeCapsuleView
+          capsules={data.timeCapsules||[]}
+          p1={p1} p2={p2} colors={colors}
+          sessionPersonId={sessionPersonId}
+          anniversaryDate={data.settings?.anniversaryDate}
+          onCreate={createTimeCapsule}
+          onDelete={deleteTimeCapsule}
+          onView={viewTimeCapsule}
+        />}
+
         {activeTab==="mood" && <MoodView
           moods={data.moods||[]}
           p1={p1} p2={p2} colors={colors}
@@ -1935,6 +1977,27 @@ ${sorted.map(m=>{
       {/* Micro-festejo individual — sutil, con % de semana y mensaje por banda */}
       {taskCongrat && (
         <TaskCongrat key={taskCongrat.mission.id + taskCongrat.afterPct} info={taskCongrat} onDone={() => setTaskCongrat(null)} />
+      )}
+
+      {/* Aviso suave de cápsula del tiempo lista — nunca se auto-abre */}
+      {capsuleNudge && (
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(251,191,36,0.4)", borderRadius:14, padding:"12px 16px", zIndex:401, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:22, flexShrink:0 }}>🎁</span>
+          <div style={{ flex:1 }}>
+            <div style={{ color:"#fbbf24", fontWeight:600, marginBottom:6 }}>Tienes una cápsula del tiempo lista para abrir</div>
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={() => { setActiveTab("timecapsule"); setCapsuleNudge(false); }} style={{ background:"none", border:"none", color:"#fbbf24", cursor:"pointer", fontWeight:700, fontFamily:"inherit", padding:0, fontSize:12 }}>Ver →</button>
+              <button onClick={() => setCapsuleNudge(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontFamily:"inherit", padding:0, fontSize:12 }}>Ahora no</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apertura de cápsula del tiempo */}
+      {viewingCapsule && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <TimeCapsuleReveal capsule={viewingCapsule} p1={p1} p2={p2} colors={colors} onClose={() => setViewingCapsule(null)} />
+        </Suspense>
       )}
 
       {/* Momento Juntos — aparece al completar una tarea/evento compartido */}
