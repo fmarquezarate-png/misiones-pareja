@@ -7,6 +7,32 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.20.2] — 2026-07-02 · Fix definitivo: carga infinita en iOS (fetches colgados en WKWebView)
+
+### 🐛 Bugs corregidos
+
+**Causa raíz confirmada por inspección del código**: WKWebView (el motor único de toda PWA en iOS) puede dejar un `fetch()` colgado para siempre —ni resuelve ni rechaza— tras un cold start o al volver de segundo plano. El arranque de la app tenía múltiples `await` de red sin ningún timeout: una sola petición colgada congelaba la app indefinidamente. Android/desktop no exhiben este comportamiento (su capa de red completa o falla), por eso el bug era exclusivo de iOS. Agravante: iOS borra el `localStorage` de las PWA mucho más agresivamente (7 días de inactividad, presión de memoria), así que el "fast path" de cache local que disimulaba el problema desaparecía justo en iOS.
+
+**Fix — ninguna promesa del arranque puede colgarse ya**:
+
+- Nuevo helper `withTimeout(promise, ms, label)` en `utils.js` (`Promise.race` contra un timer).
+- **Arranque de sesión**: `getSession` (8s) y `getMyCoupleId` (8s). Ante timeout: con cache local la app sigue montada con datos locales; sin cache, a login. Antes: "Comprobando sesión…" infinito.
+- **Carga de datos** (`CoupleMissions`): `loadData`/`loadFromNormalized` (10s), `repairGoalIdLinks` (8s), save de migración (15s, best-effort). Ante timeout: fallback existente a backup local o SEED. Antes: splash/skeletons infinitos.
+- **Guardado** (`runSave`): timeout en cada await (10-20s). Antes, un save colgado dejaba `isSavingRef=true` para siempre → **todos los saves posteriores quedaban encolados sin ejecutarse silenciosamente**. Ahora el catch marca error, el finally libera el lock y `scheduleSave()` reintenta.
+- **`smartSync`** (pull-to-refresh) y **`forcePush`**: timeout — el spinner ya no puede girar para siempre.
+- **Failsafe absoluto en `index.html`**: pase lo que pase con el JS de la app, el splash se auto-retira a los 15s.
+
+**Fix colateral importante** (`getMyCoupleId` en `supabase.js`): devolvía `null` tanto para "no tiene pareja" como para "error de red", y el caller interpretaba ambos como "sin pareja" → **borraba el auth-cache y mandaba a onboarding por un simple fallo de red**. Ahora los errores lanzan y el caller nunca toma decisiones destructivas ante un fallo de red.
+
+### ✅ Verificación
+
+Playwright simulando el comportamiento exacto de iOS (rutas que jamás responden):
+- **Sin cache + red de datos colgada**: a los 5s aún espera (correcto), a los ~11s la app está usable con el dashboard completo. Antes: infinito.
+- **Sesión válida + `couple_members` colgado, sin cache**: sale de "Comprobando sesión…" hacia login a los 8s. Antes: infinito.
+- **Con cache + red colgada**: contenido inmediato del cache, sin esperar ningún timeout.
+
+---
+
 ## [4.20.1] — 2026-07-02 · Preparación para diagnosticar el error de push pendiente
 
 ### 🔧 Mejoras

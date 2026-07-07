@@ -9,7 +9,7 @@ import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 const LinksView = lazy(() => import("./components/LinksView.jsx"));
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
-import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr } from "./utils.js";
+import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr, withTimeout } from "./utils.js";
 import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
 import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
@@ -140,7 +140,19 @@ function AppWithAuth() {
         localStorage.removeItem(AUTH_CACHE_KEY);
         setCoupleData(null); setAuthStep("login"); return;
       }
-      const cd = await getMyCoupleId();
+      // Timeout duro (iOS WKWebView cuelga fetches tras cold start / background).
+      // Ante red colgada o caída NO decidir nada destructivo: con cache la app
+      // ya está montada con datos locales — dejarla; sin cache, a login (donde
+      // reintentar es inocuo). Antes, este fallo borraba el cache y mandaba a
+      // onboarding, como si el usuario no tuviera pareja.
+      let cd;
+      try {
+        cd = await withTimeout(getMyCoupleId(), 8000, "getMyCoupleId");
+      } catch (e) {
+        console.warn("[auth] getMyCoupleId falló/colgó:", e.message);
+        if (!authCache) setAuthStep("login");
+        return;
+      }
       if (cd?.couple_id) {
         localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify({ couple_id: cd.couple_id, person_name: cd.person_name }));
         setCoupleData(cd); setAuthStep("app");
@@ -150,9 +162,19 @@ function AppWithAuth() {
       }
     };
     resolveRef.current = resolve;
-    getSession().then(s => resolve(s)).catch(() => resolve(null));
+    // getSession lee el token local pero puede disparar un refresh POR RED —
+    // en iOS ese refresh puede colgarse. Mismo criterio: timeout + no destruir.
+    withTimeout(getSession(), 8000, "getSession")
+      .then(s => resolve(s))
+      .catch(e => {
+        console.warn("[auth] getSession falló/colgó:", e.message);
+        if (!authCache) setAuthStep("login");
+      });
     const sub = onAuthChange(resolve);
     return () => sub.unsubscribe();
+    // authCache deliberadamente fuera de deps: queremos el valor AL MONTAR
+    // ("¿había cache cuando arrancó la app?"), no re-suscribir el auth listener.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -306,7 +328,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncing(true);
     setSyncError(null);
     try {
-      const { data: remote, version } = await loadDataWithVersion(coupleId);
+      // Timeout: sin él, un fetch colgado (iOS) dejaba el spinner girando para siempre
+      const { data: remote, version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "smartSync");
       if (remote) {
         // Sync version BEFORE setState so the next save uses the correct version
         dataVersionRef.current = version ?? null;
@@ -343,15 +366,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     setSyncError(null);
     showSyncMsg("⬆ Subiendo a Supabase…");
     try {
-      await saveWithRetry(data, coupleId);
+      await withTimeout(saveWithRetry(data, coupleId), 20000, "forcePush");
       // Resync de versión: saveWithRetry bypassa CAS, el trigger incrementó la versión.
-      await loadDataWithVersion(coupleId).then(({ version }) => { dataVersionRef.current = version ?? null; }).catch(() => { dataVersionRef.current = null; });
+      await withTimeout(loadDataWithVersion(coupleId), 10000, "forcePush:version").then(({ version }) => { dataVersionRef.current = version ?? null; }).catch(() => { dataVersionRef.current = null; });
       // Read back updated_at — set by BEFORE UPDATE trigger, ground truth that the write landed
-      const { data: row, error: readErr } = await supabase
+      const { data: row, error: readErr } = await withTimeout(supabase
         .from("app_data")
         .select("updated_at")
         .eq("id", coupleId)
-        .single();
+        .single(), 10000, "forcePush:verify");
       if (readErr || !row) throw new Error("Guardado pero no se pudo leer confirmación: " + (readErr?.message || "sin datos"));
       const savedAt = new Date(row.updated_at);
       const diffSec = Math.round((Date.now() - savedAt.getTime()) / 1000);
@@ -385,8 +408,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
       // Background: fetch authoritative data from Supabase
       // Sprint G-2: si read_from_normalized está activo, lee missions+goals de tablas
+      // Timeout duro en TODOS los awaits de este bloque: en iOS un fetch colgado
+      // aquí dejaba loading=true para siempre → splash/skeletons infinitos.
+      // Al expirar, base=null activa el fallback existente (backup local o SEED).
       try {
-        let base = await (isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId));
+        let base = await withTimeout(
+          isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId),
+          10000, "loadData"
+        ).catch(e => { console.warn("[load]", e.message); return null; });
         let isRealData = !!base;
         let didMigrate = false;
 
@@ -422,14 +451,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         const { data: repaired, moved: repairedCount } = repairMisplacedMissions(base);
         if (repairedCount > 0) { base = repaired; didMigrate = true; }
 
-        const goalRepaired = await repairGoalIdLinks(coupleId, base);
+        const goalRepaired = await withTimeout(repairGoalIdLinks(coupleId, base), 8000, "repairGoalIdLinks")
+          .catch(e => { console.warn("[load]", e.message); return null; });
         if (goalRepaired) { base = goalRepaired; didMigrate = true; }
 
         if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
 
         setData(base);
 
-        if (isRealData && didMigrate) await saveData(base, coupleId);
+        // Best-effort: si el save de migración cuelga, no bloquear el arranque —
+        // el sistema de saves debounced lo reintentará con la próxima edición.
+        if (isRealData && didMigrate) await withTimeout(saveData(base, coupleId), 15000, "migrateSave")
+          .catch(e => console.warn("[load] migrate save:", e.message));
       } catch {
         // Only surface error if we have nothing to show (no local backup)
         if (!local?.data) {
@@ -971,22 +1004,27 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     // Snapshot de los mutadores que intentamos confirmar en esta ronda.
     let confirming = unconfirmedRef.current.slice();
     try {
+      // Timeout duro en cada await de red: en iOS un fetch colgado aquí dejaba
+      // isSavingRef=true PARA SIEMPRE → todos los saves posteriores quedaban
+      // encolados sin ejecutarse y el indicador "guardando" no salía más. Al
+      // expirar, el catch de abajo marca error y el finally libera el lock;
+      // scheduleSave() reintenta con los mutadores aún sin confirmar.
       const casOn = isEnabled("cas_version_check");
       if (casOn && dataVersionRef.current === null) {
-        const { version } = await loadDataWithVersion(coupleId);
+        const { version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:loadVersion");
         dataVersionRef.current = version ?? null;
       }
 
       if (!casOn || dataVersionRef.current === null) {
         // Fallback seguro: last-write-wins + resync de versión.
-        await saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current });
-        const { version } = await loadDataWithVersion(coupleId).catch(() => ({ version: null }));
+        await withTimeout(saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "saveWithRetry");
+        const { version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:resyncVersion").catch(() => ({ version: null }));
         dataVersionRef.current = version ?? null;
         saveLocalBackup(toSave, coupleId);
       } else {
         let saved = false;
         for (let attempt = 0; attempt < 6 && !saved; attempt++) {
-          const result = await saveWithCAS(coupleId, toSave, dataVersionRef.current);
+          const result = await withTimeout(saveWithCAS(coupleId, toSave, dataVersionRef.current), 15000, "saveWithCAS");
           if (result.success) {
             dataVersionRef.current = result.newVersion;
             saveLocalBackup(toSave, coupleId);
@@ -995,7 +1033,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             // La pareja guardó primero. Recargar fresco y RE-APLICAR nuestros
             // mutadores encima — no descartamos nada.
             track("cas_conflict", { couple_id: coupleId });
-            const { data: fresh, version } = await loadDataWithVersion(coupleId);
+            const { data: fresh, version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:reloadConflict");
             if (!fresh || !isValidAppData(fresh) || version == null) {
               throw new Error("No se pudo recargar para fusionar tus cambios");
             }
@@ -1006,8 +1044,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             setData(rebased); // reflejar el merge en la UI
           } else {
             // casDisabled / error transitorio del RPC → last-write-wins.
-            await saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current });
-            const { version } = await loadDataWithVersion(coupleId).catch(() => ({ version: null }));
+            await withTimeout(saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "save:fallbackRetry");
+            const { version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:fallbackVersion").catch(() => ({ version: null }));
             dataVersionRef.current = version ?? null;
             saveLocalBackup(toSave, coupleId);
             saved = true;

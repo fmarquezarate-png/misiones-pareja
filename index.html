@@ -184,7 +184,14 @@
         if(_n1&&_e1){_e1.textContent=_n1[0].toUpperCase();_e1.style.fontSize=_fs;_e1.style.fontWeight=_fw;_e1.style.fontFamily=_ff;}
         if(_n2&&_e2){_e2.textContent=_n2[0].toUpperCase();_e2.style.fontSize=_fs;_e2.style.fontWeight=_fw;_e2.style.fontFamily=_ff;}
       }
-    }catch(e){}</script>
+    }catch(e){}
+    // Failsafe absoluto: pase lo que pase con el JS de la app (fetch colgado en
+    // iOS, chunk que no carga, error no capturado), el splash NUNCA puede quedar
+    // en pantalla más de 15s. Si React ya lo quitó antes, esto no hace nada.
+    setTimeout(function(){
+      var _s=document.getElementById("mp-splash");
+      if(_s){_s.classList.add("mp-hidden");setTimeout(function(){_s.remove();},400);}
+    },15000);</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

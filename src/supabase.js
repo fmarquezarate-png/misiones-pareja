@@ -66,15 +66,22 @@ export function onAuthChange(callback) {
 
 /* ── Couple helpers ────────────────────────────────────────────────────── */
 
+// Devuelve null SOLO cuando genuinamente no hay pareja (sin sesión o sin fila
+// en couple_members). Los errores de red/DB LANZAN — antes devolvían null
+// también, y el caller (resolve en AppWithAuth) interpretaba ese null como
+// "no tiene pareja": borraba el auth-cache y mandaba a onboarding por un
+// simple fallo de red. El caller decide qué hacer con el throw (mantener el
+// estado actual si hay cache local).
 export async function getMyCoupleId() {
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !user) return null;
+  if (userErr) throw new Error("getUser: " + userErr.message);
+  if (!user) return null;
   const { data, error } = await supabase
     .from("couple_members")
     .select("couple_id, person_name")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (error) { console.error("getMyCoupleId error:", error); return null; }
+  if (error) { console.error("getMyCoupleId error:", error); throw new Error("couple_members: " + error.message); }
   return data;
 }
 
