@@ -1,6 +1,19 @@
 // ─── ID / week helpers ────────────────────────────────────────────────────────
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Timeout duro para llamadas de red del arranque. En iOS (WKWebView, motor
+// único de toda PWA) un fetch puede quedar COLGADO para siempre tras un cold
+// start o al volver de segundo plano — no resuelve ni rechaza jamás. Android y
+// desktop no hacen esto (su capa de red completa o falla). Sin este guard,
+// cualquier `await` del arranque congela la app en "cargando" indefinidamente.
+// Nota: Promise.race no cancela el promise original — si al final responde,
+// el resultado se ignora sin efectos (los callers ya son idempotentes).
+export const withTimeout = (promise, ms, label = "op") =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`timeout: ${label} tras ${ms}ms`)), ms)),
+  ]);
+
 // Token para links que dan acceso de lectura a datos (compartir calendario) —
 // uid() usa Math.random(), insuficiente para algo que otorga acceso. Usa el
 // generador criptográfico del navegador; solo cae al fallback débil en
