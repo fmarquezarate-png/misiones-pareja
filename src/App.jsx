@@ -61,6 +61,8 @@ const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.js
 const ActivityLog = lazy(() => import("./components/ActivityLog.jsx"));
 const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
 const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
+import MisiMascot from "./components/MisiMascot.jsx";
+const MisiChatPanel = lazy(() => import("./components/MisiChatPanel.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
@@ -274,6 +276,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
   const [capsuleNudge,    setCapsuleNudge]    = useState(false);  // aviso "tienes una cápsula lista" — 1x/día, nunca se auto-abre
   const [viewingCapsule,  setViewingCapsule]  = useState(null);   // capsule object en vista, o null
+  const [misiChatOpen, setMisiChatOpen] = useState(false);
+  const [misiThinking, setMisiThinking] = useState(false); // esperando la respuesta de Vento
+  const [misiIdle,     setMisiIdle]     = useState(false); // sin interacción hace rato → "durmiendo"
   const [moodSurveyOpen,    setMoodSurveyOpen]    = useState(false);
   const [moodSurveyPrefill, setMoodSurveyPrefill] = useState(null); // null | "person1" | "person2"
   const [moodEditEntry,     setMoodEditEntry]     = useState(null);  // mood entry being edited, or null
@@ -909,6 +914,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     window.addEventListener("online", up);
     window.addEventListener("offline", dn);
     return () => { window.removeEventListener("online", up); window.removeEventListener("offline", dn); };
+  }, []);
+
+  // Misi se "duerme" tras 5 min sin interacción — cualquier toque/tecla la despierta
+  useEffect(() => {
+    let t = setTimeout(() => setMisiIdle(true), 5 * 60 * 1000);
+    const wake = () => { setMisiIdle(false); clearTimeout(t); t = setTimeout(() => setMisiIdle(true), 5 * 60 * 1000); };
+    window.addEventListener("pointerdown", wake);
+    window.addEventListener("keydown", wake);
+    return () => { clearTimeout(t); window.removeEventListener("pointerdown", wake); window.removeEventListener("keydown", wake); };
   }, []);
 
   // Retry pending save when reconnecting — vía el path unificado (CAS + rebase)
@@ -2056,6 +2070,24 @@ ${sorted.map(m=>{
       {viewingCapsule && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <TimeCapsuleReveal capsule={viewingCapsule} p1={p1} p2={p2} colors={colors} onClose={() => setViewingCapsule(null)} />
+        </Suspense>
+      )}
+
+      {/* Misi — mascota + chat. leyendo: conversación abierta pero sin esperar
+          respuesta. escribiendo: esperando a Vento. durmiendo: 5min inactivo.
+          alegre: default, chat cerrado. */}
+      <MisiMascot
+        emotion={misiThinking ? "escribiendo" : misiChatOpen ? "leyendo" : misiIdle ? "durmiendo" : "alegre"}
+        onClick={() => setMisiChatOpen(true)}
+        liftForTabBar={bottomBar.enabled && bottomBar.tabs.length > 0}
+      />
+      {misiChatOpen && (
+        <Suspense fallback={<ModalLoadingFallback />}>
+          <MisiChatPanel
+            coupleId={coupleId} personName={personName}
+            onClose={() => setMisiChatOpen(false)}
+            onThinking={setMisiThinking}
+          />
         </Suspense>
       )}
 
