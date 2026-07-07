@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.4] — 2026-07-07 · Reintento automático para el cuelgue clásico de iOS
+
+### 🍎 Contexto: reportado como "solo pasa en iPhone, en Android no"
+
+El usuario confirmó que usa la app correctamente en iPhone — instalada como ícono de pantalla de inicio, no como pestaña de Safari — y aun así el problema ocurre. Esto descarta "mal uso" y confirma que es el comportamiento ya documentado de WKWebView (motor de toda PWA en iOS): un `fetch()` puede colgarse PARA SIEMPRE (ni resuelve ni rechaza) tras un cold start o volver de segundo plano, incluso en apps correctamente instaladas. Android/Chrome no tiene este comportamiento, por eso la pareja del usuario nunca lo ve.
+
+### ⚡ Fix — reintento automático con request nueva
+
+Nueva utilidad `withTimeoutRetry` (`utils.js`): si una llamada de red se cuelga (detectado por el timeout existente), se reintenta automáticamente **una vez más con una petición nueva** antes de darla por fallida — el promise colgado original nunca se resuelve, así que reintentar requiere disparar una request distinta, no reusar la misma. Aplicado a las tres llamadas críticas del arranque: verificación de sesión (`getSession`), búsqueda de la pareja (`getMyCoupleId`) y carga de datos (`loadData`/`loadFromNormalized`).
+
+Patrón documentado de WKWebView: el cuelgue golpea casi siempre al primer fetch tras reabrir la app; el segundo intento (con conexión nueva) casi siempre responde de inmediato. Este fix convierte ese caso, que antes terminaba en la pantalla de error (v4.22.2) o en una espera larga, en una recuperación silenciosa que el usuario ni nota.
+
+### ✅ Verificación
+
+Simulado con Playwright un `fetch` que nunca resuelve ni rechaza (igual que el bug real de WKWebView) en la carga de datos — confirmado que el reintento automático recupera los datos reales sin mostrar ningún error. Confirmado también que en la carga normal (sin cuelgues) no se agregan llamadas de red extra — el reintento solo se dispara si el primer intento realmente falla o expira.
+
+---
+
 ## [4.22.3] — 2026-07-07 · Fix de raíz: lentitud/fallos al cargar
 
 ### ⚡ Preguntado por el usuario: "¿por qué tarda en cargar o llega a no cargar?"
