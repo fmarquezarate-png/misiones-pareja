@@ -149,7 +149,7 @@ function AppWithAuth() {
       // onboarding, como si el usuario no tuviera pareja.
       let cd;
       try {
-        cd = await withTimeout(getMyCoupleId(), 8000, "getMyCoupleId");
+        cd = await withTimeout(getMyCoupleId(s.user?.id), 8000, "getMyCoupleId");
       } catch (e) {
         console.warn("[auth] getMyCoupleId falló/colgó:", e.message);
         if (!authCache) setAuthStep("login");
@@ -476,11 +476,17 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
 
         setData(base);
+        setLoading(false);
 
         // Best-effort: si el save de migración cuelga, no bloquear el arranque —
         // el sistema de saves debounced lo reintentará con la próxima edición.
-        if (isRealData && didMigrate) await withTimeout(saveData(base, coupleId), 15000, "migrateSave")
+        // Deliberadamente SIN await: los datos reales ya están en pantalla
+        // (setData arriba); esperar este save antes de eso contradecía el
+        // propio comentario — el skeleton quedaba pegado hasta 15s de más en
+        // cualquier carga que migrara algo (todos los lunes, por ejemplo).
+        if (isRealData && didMigrate) withTimeout(saveData(base, coupleId), 15000, "migrateSave")
           .catch(e => console.warn("[load] migrate save:", e.message));
+        return;
       } catch {
         // Only surface error if we have nothing to show (no local backup).
         // No setData(SEED) aquí tampoco — la pantalla de error ya bloquea el
