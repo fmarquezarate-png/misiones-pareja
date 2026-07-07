@@ -1116,7 +1116,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         for (const cb of cbs) { try { cb(); } catch (err) { console.error("[afterSave]", err); } }
       }
     } catch (e) {
-      setSyncError(e.message);
+      // El mensaje técnico (p.ej. "timeout: saveWithCAS tras 15000ms") ya
+      // significa que se agotó el reintento automático (withTimeoutRetry) —
+      // no es útil ni tranquilizador mostrárselo tal cual a quien no es
+      // desarrollador. El cambio NO se perdió: saveLocalBackup ya lo guardó
+      // en este dispositivo al principio de runSave, y sigue en
+      // unconfirmedRef hasta confirmarse — scheduleSave() reintenta solo.
+      console.warn("[save] falló tras reintento:", e.message);
+      track("save_error", { message: e.message.slice(0, 200), coupleId });
+      setSyncError("No se pudo guardar por una conexión inestable. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola.");
       setPendingSave(true);
       setSavingState("error");
       showSyncMsg("⚠ Error al guardar — reintentando…");

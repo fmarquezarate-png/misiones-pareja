@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.6] — 2026-07-07 · Mensaje de error de guardado más claro
+
+### 💬 Reportado tras v4.22.5
+
+El usuario volvió a ver el texto técnico crudo `⚠ timeout: saveWithCAS tras 15000ms` como un banner persistente en pantalla. Investigado: el reintento automático de v4.22.5 sí corrió, pero **ambos** intentos (el original y el reintento) fallaron en esa ronda puntual — una conexión inestable sostenida, no un bug del reintento. Cuando eso pasa, el código cae al `catch` y mostraba el mensaje de la excepción tal cual, sin explicar nada.
+
+### ✅ Fix — mensaje honesto sin ser alarmante
+
+El banner ahora dice: *"No se pudo guardar por una conexión inestable. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola."* — que es exactamente lo que pasa: `saveLocalBackup` ya guardó el cambio en el dispositivo ANTES de intentar la red (desde v4.2.0), el mutador queda en la cola de "no confirmados", y `scheduleSave()` reintenta automáticamente cada ~700ms hasta confirmar. El texto técnico original se sigue registrando en la consola y en analítica (`track("save_error", ...)`) para poder diagnosticar patrones si el problema persiste — solo que ya no se le muestra crudo a quien no es desarrollador.
+
+### 🔍 Sobre "se me borraron registros de ánimo"
+
+Revisada la función que agrega un registro de ánimo nuevo (`saveMoodEntry`): es un simple *append* al array — no existe ningún camino de código que sobreescriba o descarte registros existentes al agregar uno nuevo. Si efectivamente faltan registros, lo más probable es que coincida con alguno de los episodios de conexión de hoy (el dashboard vacío o el guardado colgado, ambos ya corregidos) ocurridos ANTES de que esos fixes llegaran a producción. Se entregó al usuario una consulta SQL lista para correr en Supabase, que compara la cantidad de registros de ánimo entre los backups automáticos (`app_data_backups`) para ubicar el momento exacto si la pérdida fue real.
+
+### 🧠 Recordatorio: ya se puede registrar ánimo con fecha pasada
+
+No es una función nueva — el formulario de "+ Registrar" ya tenía un campo de fecha editable (máximo hoy) en su último paso, independientemente de si es un registro nuevo o una edición. Aclarado al usuario que puede usarlo para completar días que se le hayan pasado.
+
+---
+
 ## [4.22.5] — 2026-07-07 · El reintento automático también cubre el guardado
 
 ### 🐛 Reportado tras v4.22.4
