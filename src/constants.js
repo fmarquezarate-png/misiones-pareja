@@ -1,6 +1,6 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.20.2";
-export const LAST_UPDATE = "2026-07-02";
+export const APP_VERSION = "4.21.0";
+export const LAST_UPDATE = "2026-07-07";
 
 // Banner de mantenimiento — null = desactivado
 // Para activar durante trabajos de riesgo, cambiar a objeto con title + body y redesplegar.

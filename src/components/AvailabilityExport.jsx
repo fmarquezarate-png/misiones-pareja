@@ -13,6 +13,15 @@ const DAYS_ES = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const MONTHS_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const CFG_KEY = "mp-avail-cfg";
 
+// "HH:MM" ± minutos → "HH:MM" (acotado a 00:00–23:59, no cruza de día)
+const addMin = (hhmm, min) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const t = Math.max(0, Math.min(h * 60 + m + min, 23 * 60 + 59));
+  return `${pad2(Math.floor(t / 60))}:${pad2(t % 60)}`;
+};
+// Duración asumida cuando un evento tiene hora de inicio pero ni fin ni duración
+const DEFAULT_EVENT_MIN = 60;
+
 const defaultFrom = () => ymd(new Date());
 const defaultTo = () => { const d = new Date(); d.setDate(d.getDate() + 13); return ymd(d); };
 
@@ -20,7 +29,13 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
   const savedCfg = (() => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || "{}"); } catch { return {}; } })();
   const [from, setFrom] = useState(defaultFrom);
   const [to,   setTo]   = useState(defaultTo);
-  const [cutoff,       setCutoff]       = useState(savedCfg.cutoff ?? "");
+  // Franja de juego: [winFrom, winTo]. Un día está OCUPADO si alguna actividad
+  // SE SOLAPA con esa franja — no si "empieza después de X" (modelo anterior,
+  // que marcaba libre un evento de 19:00–20:30 con corte a las 19:30 porque
+  // solo miraba la hora de inicio, ignorando que el evento invade la franja).
+  // savedCfg.cutoff: migración de la config vieja → franja "desde".
+  const [winFrom, setWinFrom] = useState(savedCfg.winFrom ?? savedCfg.cutoff ?? "");
+  const [winTo,   setWinTo]   = useState(savedCfg.winTo ?? "");
   const [noTimeBlocks, setNoTimeBlocks] = useState(savedCfg.noTimeBlocks ?? true);
   const [includeTasks, setIncludeTasks] = useState(savedCfg.includeTasks ?? false);
   // De quién es la disponibilidad: "together" = liga mixta (ambas agendas cuentan),
@@ -30,8 +45,11 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    try { localStorage.setItem(CFG_KEY, JSON.stringify({ cutoff, noTimeBlocks, includeTasks, who })); } catch { /* modo privado */ }
-  }, [cutoff, noTimeBlocks, includeTasks, who]);
+    try { localStorage.setItem(CFG_KEY, JSON.stringify({ winFrom, winTo, noTimeBlocks, includeTasks, who })); } catch { /* modo privado */ }
+  }, [winFrom, winTo, noTimeBlocks, includeTasks, who]);
+
+  const winStart = winFrom || "00:00";
+  const winEnd   = winTo   || "23:59";
 
   // Qué bloquea cada día según los parámetros elegidos
   const blockersByDay = useMemo(() => {
@@ -44,25 +62,47 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
         // Liga individual: los eventos solo del otro no ocupan mi calendario.
         // Los "juntos" ocupan siempre; en mixto ("together") ocupa todo.
         if (who !== "together" && m.who !== "together" && m.who !== who) continue;
-        const end = (isEvent && m.endDate && m.endDate > m.date) ? m.endDate : m.date;
+        const spanEnd = (isEvent && m.endDate && m.endDate > m.date) ? m.endDate : m.date;
         let d = parseYmd(m.date);
-        const endD = parseYmd(end);
+        const endD = parseYmd(spanEnd);
         let guard = 0;
         while (d <= endD && guard < 60) {
           const key = ymd(d);
           const isStartDay = key === m.date;
-          // El día de inicio respeta la hora de corte; los días intermedios de un
-          // evento multi-día bloquean completos.
-          const blocks = isStartDay
-            ? (m.time ? (!cutoff || m.time >= cutoff) : noTimeBlocks)
-            : true;
-          if (blocks) (map[key] = map[key] || []).push({ emoji: m.emoji, title: m.title, time: isStartDay ? m.time : null });
+          const isEndDay   = key === spanEnd;
+          // Rango horario que la actividad ocupa EN ESTE día concreto:
+          //  - día de inicio: desde su hora hasta su fin (endTime si es el mismo
+          //    día; si sigue al día siguiente, hasta 23:59; sin fin conocido,
+          //    inicio + duración, o 1h asumida)
+          //  - días intermedios de un multi-día: 00:00–23:59
+          //  - día final de un multi-día: 00:00 hasta su endTime
+          //  - sin hora: día completo (si el toggle lo permite)
+          let evStart, evEnd;
+          if (!m.time && isStartDay) {
+            if (!noTimeBlocks) { d.setDate(d.getDate() + 1); guard++; continue; }
+            evStart = "00:00"; evEnd = "23:59";
+          } else if (isStartDay) {
+            evStart = m.time;
+            const sameDayEnd = m.endTime && (!m.endDate || m.endDate === m.date);
+            evEnd = spanEnd > m.date ? "23:59"
+              : sameDayEnd ? m.endTime
+              : m.duration ? addMin(m.time, m.duration)
+              : addMin(m.time, DEFAULT_EVENT_MIN);
+          } else if (isEndDay) {
+            evStart = "00:00"; evEnd = m.endTime || "23:59";
+          } else {
+            evStart = "00:00"; evEnd = "23:59";
+          }
+          // Solape de intervalos: la actividad ocupa el día si su rango horario
+          // se cruza con la franja de juego
+          const blocks = evStart < winEnd && evEnd > winStart;
+          if (blocks) (map[key] = map[key] || []).push({ emoji: m.emoji, title: m.title, range: m.time ? `${evStart}–${evEnd}` : null });
           d.setDate(d.getDate() + 1); guard++;
         }
       }
     }
     return map;
-  }, [weeks, includeTasks, cutoff, noTimeBlocks, who]);
+  }, [weeks, includeTasks, winStart, winEnd, noTimeBlocks, who]);
 
   const days = useMemo(() => {
     const out = [];
@@ -212,17 +252,36 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
           <div><label style={S.label}>Hasta</label><input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ ...S.inputSm, colorScheme:"dark" }} /></div>
         </div>
 
-        {/* Parámetros de qué bloquea */}
+        {/* Franja de juego — la regla es de SOLAPE, no de hora de inicio */}
         <div style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"12px 14px", marginBottom:14 }}>
-          <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:10 }}>Qué ocupa un día</div>
-          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-            <span style={{ fontSize:12.5, color:"#c4b8ff", flex:1 }}>Solo eventos a partir de las</span>
-            <input type="time" value={cutoff} onChange={e => setCutoff(e.target.value)} style={{ ...S.inputSm, colorScheme:"dark", width:100, textAlign:"center" }} />
-            {cutoff && <button onClick={() => setCutoff("")} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
+          <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:4 }}>🕐 ¿A qué hora se jugaría?</div>
+          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#6b5f88)", marginBottom:10, lineHeight:1.5 }}>Deja ambas vacías si el partido puede ser a cualquier hora del día.</div>
+          <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:12 }}>
+            <div style={{ flex:1 }}>
+              <label style={{ ...S.label, marginBottom:4 }}>Desde</label>
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <input type="time" value={winFrom} onChange={e => setWinFrom(e.target.value)} style={{ ...S.inputSm, colorScheme:"dark", textAlign:"center" }} />
+                {winFrom && <button onClick={() => setWinFrom("")} aria-label="Quitar" style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
+              </div>
+            </div>
+            <div style={{ flex:1 }}>
+              <label style={{ ...S.label, marginBottom:4 }}>Hasta</label>
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <input type="time" value={winTo} onChange={e => setWinTo(e.target.value)} style={{ ...S.inputSm, colorScheme:"dark", textAlign:"center" }} />
+                {winTo && <button onClick={() => setWinTo("")} aria-label="Quitar" style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#6b5f88)", marginBottom:12, marginTop:-6 }}>Vacío = cualquier hora ocupa. Con 17:00, un evento de la mañana no bloquea el partido de la tarde.</div>
+          {/* Explicación dinámica de la regla, en palabras y con ejemplo */}
+          <div style={{ background:"rgba(167,139,250,0.07)", border:"1px solid rgba(167,139,250,0.18)", borderRadius:9, padding:"9px 11px", marginBottom:12, fontSize:11, color:"#c4b8ff", lineHeight:1.6 }}>
+            {(winFrom || winTo) ? (
+              <>Un día se marca <strong style={{ color:"rgba(244,63,94,0.9)" }}>❌ ocupado</strong> si alguna actividad <strong>se cruza</strong> con la franja <strong>{winStart}–{winEnd}</strong>, aunque haya empezado antes. Ej.: un evento de {addMin(winStart, -30)} a {addMin(winStart, 60)} invade la franja → ❌ ocupa. Uno que termina a las {winStart} o antes → ✅ no ocupa.</>
+            ) : (
+              <>Sin franja definida: <strong>cualquier</strong> actividad con fecha ocupa su día, a cualquier hora. Define una franja (ej. 19:30–23:00) para que lo de la mañana no bloquee el partido de la tarde.</>
+            )}
+          </div>
           {[
-            [noTimeBlocks, setNoTimeBlocks, "Los eventos sin hora ocupan el día"],
+            [noTimeBlocks, setNoTimeBlocks, "Los eventos sin hora ocupan el día entero"],
             [includeTasks, setIncludeTasks, "Las tareas con fecha también ocupan"],
           ].map(([val, set, label]) => (
             <div key={label} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
@@ -233,6 +292,7 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
               </button>
             </div>
           ))}
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:4, fontStyle:"italic" }}>Los eventos con hora de inicio pero sin fin se asumen de 1 hora.</div>
         </div>
 
         {/* Preview del calendario */}
@@ -251,7 +311,7 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
                 const overridden = overrides[key] !== undefined && overrides[key] !== !(blockersByDay[key]?.length > 0);
                 return (
                   <button key={key} onClick={() => toggleDay(key)}
-                    title={(blockersByDay[key] || []).map(b => `${b.emoji || ""} ${b.title}${b.time ? ` (${b.time})` : ""}`).join(", ") || "Libre"}
+                    title={(blockersByDay[key] || []).map(b => `${b.emoji || ""} ${b.title}${b.range ? ` (${b.range})` : ""}`).join(", ") || "Libre"}
                     style={{
                       aspectRatio:"1", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
                       background: free ? "rgba(16,185,129,0.18)" : "rgba(244,63,94,0.08)",
@@ -276,7 +336,7 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
                 {busyDays.map(key => (
                   <div key={key} style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginBottom:3 }}>
                     <span style={{ color:"rgba(244,63,94,0.8)", fontWeight:600 }}>{dayLabel(key)}:</span>{" "}
-                    {(blockersByDay[key] || []).map(b => `${b.emoji || ""} ${b.title}${b.time ? ` (${b.time})` : ""}`).join(" · ") || "marcado a mano"}
+                    {(blockersByDay[key] || []).map(b => `${b.emoji || ""} ${b.title}${b.range ? ` (${b.range})` : ""}`).join(" · ") || "marcado a mano"}
                   </div>
                 ))}
               </div>
