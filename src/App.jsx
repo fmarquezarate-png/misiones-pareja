@@ -429,12 +429,25 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             base = { ...SEED, settings: base.settings || SEED.settings, goals: base.goals || SEED.goals, weeks: { ...SEED.weeks, ...base.weeks }, seedVersion: SEED_VERSION };
             didMigrate = true;
           }
+        } else if (local?.data?.weeks) {
+          // loadData falló pero el fast path ya pintó el backup local real en
+          // pantalla (línea ~400) — seguir con ese mismo dato en vez de
+          // degradarlo a SEED o a la pantalla de error, que borrarían un
+          // dashboard real (aunque desactualizado) que el usuario ya está viendo.
+          base = local.data; isRealData = true;
         } else {
-          if (local?.data?.weeks && Object.keys(local.data.weeks).length > 1) {
-            base = local.data; isRealData = true;
-          } else {
-            base = { ...SEED }; isRealData = false;
-          }
+          // loadData falló (red, RLS, timeout) y no hay backup local usable —
+          // no hubo fast path, no hay nada real en pantalla. NUNCA renderizar
+          // el dashboard con SEED vacío en este caso: es indistinguible de "no
+          // tienes datos" para el usuario, y el próximo save (runSave solo
+          // valida isValidAppData, no si los datos son reales) sobrescribiría
+          // silenciosamente la fila real en Supabase con este blob vacío.
+          // Bloquear con la pantalla de error existente en vez de seguir —
+          // misma regla que "un fallo de red nunca toma decisiones
+          // destructivas", aplicada también al path de carga.
+          setError("No pudimos cargar tus datos. Verifica tu conexión y toca \"Reintentar\" — por seguridad, no se muestra ni se guarda nada hasta confirmar que son tus datos reales.");
+          setLoading(false);
+          return;
         }
 
         if (!base.settings) base.settings = DEFAULT_SETTINGS;
@@ -469,10 +482,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (isRealData && didMigrate) await withTimeout(saveData(base, coupleId), 15000, "migrateSave")
           .catch(e => console.warn("[load] migrate save:", e.message));
       } catch {
-        // Only surface error if we have nothing to show (no local backup)
+        // Only surface error if we have nothing to show (no local backup).
+        // No setData(SEED) aquí tampoco — la pantalla de error ya bloquea el
+        // render del dashboard, así que no hace falta (ni conviene) poblar
+        // `data` con un blob falso que nadie debería poder editar ni guardar.
         if (!local?.data) {
           setError("No se pudo conectar con la base de datos. Comprueba tu conexión.");
-          setData({ ...SEED });
         }
       }
       setLoading(false);
@@ -2020,7 +2035,7 @@ ${sorted.map(m=>{
       {matchDayMatches && !matchDayOverlay && !specialDay && (
         <button
           onClick={() => setMatchDayOverlay(true)}
-          style={{ position:"fixed", bottom:80, right:16, zIndex:1200, background:"linear-gradient(135deg,#14532d,#16a34a)", border:"none", borderRadius:99, color:"#fff", fontSize:22, width:52, height:52, cursor:"pointer", boxShadow:"0 4px 20px rgba(34,197,94,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          style={{ position:"fixed", bottom:80, left:16, zIndex:1200, background:"linear-gradient(135deg,#14532d,#16a34a)", border:"none", borderRadius:99, color:"#fff", fontSize:22, width:52, height:52, cursor:"pointer", boxShadow:"0 4px 20px rgba(34,197,94,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
           title="Ver partidos de hoy"
         >⚽</button>
       )}
