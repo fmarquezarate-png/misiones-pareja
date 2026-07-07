@@ -7,6 +7,28 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.0] — 2026-07-07 · Misi, la mascota del bot, llega a la app
+
+### ✨ Nueva funcionalidad
+
+**Misi** (el agente que ya funciona en Telegram, con acceso a Supabase) ahora tiene presencia visual dentro de la app:
+
+- `MisiMascot` — burbuja flotante (esquina inferior derecha, sobre la barra de tabs si está activa) con animación idle continua y 4 emociones expresadas via overlay/CSS sobre una sola base (mismo patrón que `StatusOrb`, sin sprites por estado): **Alegre** (default), **Leyendo** (chat abierto), **Escribiendo** (esperando respuesta de Vento), **Durmiendo** (5 min sin interacción — cualquier `pointerdown`/`keydown` la despierta).
+- Placeholder dibujado 100% en CSS (dos ojos tipo carrete, cuerpo esférico) — diseñado para reemplazarse por la imagen real (`/misi.png`) sin tocar el resto del componente, apenas el archivo esté en `public/`.
+- `MisiChatPanel` — panel deslizante desde abajo (mismo lenguaje visual que el resto de modales de la app) con historial de mensajes, indicador de "escribiendo…" con 3 puntos animados, y manejo de error inline si la Edge Function falla.
+- Historial de chat persistido en `localStorage` por pareja/dispositivo (`misi-chat-{coupleId}`, máx. 200 mensajes) — sin tabla nueva en Supabase para este MVP.
+
+### 🔌 Integración con Vento
+
+- Nueva Edge Function `misi-chat` (Deno) — puente server-side hacia el agente en `cloud.vento.build`. La API key/URL de Vento vive en secrets de Supabase, nunca en el navegador. Sigue el mismo patrón de CORS/`?probe=1` que `send-push`/`get-shared-view`.
+- **Pendiente del Externo** (ver `TAREAS_SQL_AGENTE_SUPABASE.md`): confirmar la URL real del `agent_input` del agente Misi en el workspace de Vento del usuario y setear los secrets `VENTO_AGENT_URL`/`VENTO_API_KEY`. Mientras no estén configurados, la función responde con un mensaje de cortesía en vez de un error — el chat nunca se ve roto durante el desarrollo.
+
+### ✅ Verificación
+
+Confirmado con Playwright (auth/rest/realtime mockeados, Edge Function mockeada con la respuesta stub): mascota visible con emoción inicial "Alegre", el click abre el panel de chat y la emoción cambia a "Leyendo", el mensaje propio y la respuesta stub aparecen en el historial, y el historial persiste correctamente en `localStorage` tras cerrar el panel.
+
+---
+
 ## [4.21.0] — 2026-07-07 · Fix real del cálculo de disponibilidad + menú más claro
 
 ### 🐛 Bugs corregidos
