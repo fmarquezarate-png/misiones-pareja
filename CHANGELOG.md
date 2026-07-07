@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.5] — 2026-07-07 · El reintento automático también cubre el guardado
+
+### 🐛 Reportado tras v4.22.4
+
+El usuario reportó ver, ya con la app abierta y funcionando: `⚠ timeout: saveWithCAS tras 15000ms`. Mismo cuelgue clásico de WKWebView documentado en v4.22.4, pero esta vez en el **guardado** (`saveWithCAS`), un path que v4.22.4 dejó explícitamente afuera para analizar la seguridad de reintentar una escritura por separado.
+
+### ✅ Análisis de seguridad + fix
+
+El guardado usa CAS (Compare-And-Swap) vía el RPC `save_app_data_cas(p_couple_id, p_data, p_version)`: solo escribe si `p_version` coincide con la versión actual en el servidor. Esto lo hace **inherentemente seguro de reintentar**: si el intento colgado en realidad ya se escribió en el servidor (la respuesta se perdió, no la escritura), el reintento con la misma `p_version` (vieja) encuentra un mismatch y el RPC devuelve `conflict` en vez de escribir de nuevo — y la app ya tiene una rama madura para ese caso exacto (recargar fresco + re-aplicar los cambios propios encima, "rebase"), la misma que usa cuando la pareja guarda primero. Ningún escenario termina en escritura duplicada ni en pérdida de datos.
+
+Con esa garantía, se extendió `withTimeoutRetry` (ya usado en la carga desde v4.22.4) a las llamadas de guardado: `saveWithCAS`, `saveWithRetry` (fallback sin CAS) y las recargas de versión asociadas — un reintento con conexión nueva antes de mostrar cualquier error o dejar el cambio pendiente.
+
+---
+
 ## [4.22.4] — 2026-07-07 · Reintento automático para el cuelgue clásico de iOS
 
 ### 🍎 Contexto: reportado como "solo pasa en iPhone, en Android no"
