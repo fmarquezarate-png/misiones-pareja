@@ -7,6 +7,30 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.2] — 2026-07-07 · Fix crítico: dashboard vacío disfrazado de cuenta nueva
+
+### 🛡️ Fix crítico de seguridad de datos
+
+**Reportado por el usuario:** al iniciar sesión en su cuenta real (con muchísima información guardada), la app mostraba el dashboard completamente vacío — "Persona 1"/"Persona 2" en vez de los nombres reales, 0 tareas, "Día libre" — indistinguible de una cuenta recién creada.
+
+**Causa raíz confirmada y reproducida:** `loadData`/`loadFromNormalized` (`supabase.js`) atrapan internamente **cualquier** error (red, RLS, timeout) y devuelven `null` en vez de lanzar — así que el `.catch()` que los envuelve en `App.jsx` nunca veía el fallo, solo un `base = null`. Si el dispositivo no tenía una copia local usable (dispositivo nuevo, o un iPhone que borró `localStorage` por inactividad — comportamiento ya documentado en el fix de v4.20.2), el código caía a un blob `SEED` vacío **sin mostrar ningún error**, y lo pasaba a `setData` como si fuera real.
+
+**Por qué era grave, no solo un glitch visual:** `runSave` únicamente valida que la forma de los datos sea correcta (`isValidAppData`), nunca si son "reales". El blob `SEED` vacío pasa esa validación sin problema. El próximo guardado automático (a los 700ms de cualquier interacción) habría **sobrescrito la fila real en Supabase con el blob vacío**, borrando toda la información de la pareja.
+
+**Fix — nunca renderizar (ni poder guardar) un estado vacío disfrazado de real:**
+- Si la carga falla y no hay ninguna copia local usable: la app bloquea con la pantalla de error existente (`⚠️ No pudimos cargar tus datos… "Reintentar"`) en vez de continuar con `SEED`. Sin dashboard interactivo, no hay forma de disparar un guardado destructivo.
+- Si SÍ hay una copia local (el fast path ya la pintó en pantalla) y solo falla la actualización de fondo: se mantiene esa copia tal cual — antes, si tenía exactamente una semana guardada, se degradaba igual al blob vacío.
+
+### 🐛 Fix menor
+
+El botón flotante ⚽ para reabrir el resumen de "día de partido" (Mundial 2026) usaba la misma esquina inferior derecha que la mascota Misi (agregada en v4.22.0), quedando encimados cuando ambos estaban visibles. Movido a la esquina inferior izquierda, donde no hay otro elemento fijo.
+
+### ✅ Verificación
+
+Reproducido el bug exacto contra el código anterior a este fix (mockeando un fallo de `app_data` sin backup local vía Playwright) — screenshot idéntico al reportado por el usuario: "Persona 1"/"Persona 2", 0%, "Día libre", sin ningún error visible. Verificado que el fix corrige ese caso (pantalla de error + botón Reintentar, sin dashboard) y que el caso "hay copia local, solo falla el refresh de fondo" sigue mostrando los datos reales cacheados (nombres, misiones) sin degradarse ni mostrar error de más.
+
+---
+
 ## [4.22.1] — 2026-07-07 · Misi con su cara real
 
 ### ✨ Mejora
