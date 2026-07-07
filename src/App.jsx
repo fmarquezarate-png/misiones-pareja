@@ -1049,20 +1049,27 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // scheduleSave() reintenta con los mutadores aún sin confirmar.
       const casOn = isEnabled("cas_version_check");
       if (casOn && dataVersionRef.current === null) {
-        const { version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:loadVersion");
+        const { version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:loadVersion");
         dataVersionRef.current = version ?? null;
       }
 
       if (!casOn || dataVersionRef.current === null) {
-        // Fallback seguro: last-write-wins + resync de versión.
-        await withTimeout(saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "saveWithRetry");
-        const { version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:resyncVersion").catch(() => ({ version: null }));
+        // Fallback seguro: last-write-wins + resync de versión. Retry seguro
+        // ante cuelgue — reintentar sube exactamente el mismo `toSave`, un
+        // upsert idempotente (sobrescribe con el mismo blob, no duplica nada).
+        await withTimeoutRetry(() => saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "saveWithRetry");
+        const { version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:resyncVersion").catch(() => ({ version: null }));
         dataVersionRef.current = version ?? null;
         saveLocalBackup(toSave, coupleId);
       } else {
         let saved = false;
         for (let attempt = 0; attempt < 6 && !saved; attempt++) {
-          const result = await withTimeout(saveWithCAS(coupleId, toSave, dataVersionRef.current), 15000, "saveWithCAS");
+          // Retry seguro ante cuelgue (mismo patrón que el path de lectura,
+          // v4.22.4): si el intento colgado en realidad ya escribió en el
+          // servidor, el reintento con la misma versión vieja simplemente
+          // detecta el conflicto (rama `result.conflict` abajo) y hace el
+          // rebase habitual — nunca duplica ni pierde el cambio.
+          const result = await withTimeoutRetry(() => saveWithCAS(coupleId, toSave, dataVersionRef.current), 15000, "saveWithCAS");
           if (result.success) {
             dataVersionRef.current = result.newVersion;
             saveLocalBackup(toSave, coupleId);
@@ -1071,7 +1078,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             // La pareja guardó primero. Recargar fresco y RE-APLICAR nuestros
             // mutadores encima — no descartamos nada.
             track("cas_conflict", { couple_id: coupleId });
-            const { data: fresh, version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:reloadConflict");
+            const { data: fresh, version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:reloadConflict");
             if (!fresh || !isValidAppData(fresh) || version == null) {
               throw new Error("No se pudo recargar para fusionar tus cambios");
             }
@@ -1082,8 +1089,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             setData(rebased); // reflejar el merge en la UI
           } else {
             // casDisabled / error transitorio del RPC → last-write-wins.
-            await withTimeout(saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "save:fallbackRetry");
-            const { version } = await withTimeout(loadDataWithVersion(coupleId), 10000, "save:fallbackVersion").catch(() => ({ version: null }));
+            await withTimeoutRetry(() => saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "save:fallbackRetry");
+            const { version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:fallbackVersion").catch(() => ({ version: null }));
             dataVersionRef.current = version ?? null;
             saveLocalBackup(toSave, coupleId);
             saved = true;
