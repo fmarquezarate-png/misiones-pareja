@@ -6,6 +6,48 @@
 
 ---
 
+## 🚧 PREREQUISITO BLOQUEANTE (v4.22.0, 07/07/2026) — Conectar Misi al agente real de Vento
+
+**Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). El código ya está armado y desplegable (`src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`), pero la Edge Function `misi-chat` todavía no tiene a quién llamar — hoy responde siempre con un mensaje de cortesía ("todavía no me conectaron del todo con mi cerebro en Vento").
+
+**No es SQL — es información que solo el owner puede sacar de su workspace privado de Vento** (`cloud.vento.build/workspace/networks/fmarquezarate`), más un deploy de Edge Function. El agente Claude no tiene acceso a esa cuenta ni al dashboard de Supabase, así que estos pasos los tiene que hacer el usuario (o pegarle a Claude los datos para que arme el código exacto).
+
+### Paso 1 — Buscar el endpoint HTTP del agente en Vento
+
+El bot de Telegram ya funciona, lo que significa que el agente "misiones_assistant" (o "Misi") ya tiene un canal configurado ahí dentro. Dentro del board `misiones_assistant` en el workspace, buscar:
+
+- Una pestaña o sección llamada **"API"**, **"Endpoints"**, **"Integrations"**, **"Channels"** o **"Webhooks"**.
+- Si existe un canal de Telegram configurado, al lado suele haber (o poder agregarse) un canal **HTTP / API / Webhook** para el mismo agente — ese es el que necesitamos, no el de Telegram.
+- Cualquier panel de **"Test"** o **"Try it"** del agente suele mostrar un ejemplo de `curl` — ese ejemplo tiene la URL exacta y el header de autenticación (si hace falta).
+- Si hay una sección **"API Keys"** o **"Access Tokens"** a nivel del workspace/network (no del agente puntual), copiar también esa clave.
+
+### Paso 2 — Mandarle a Claude (o guardar acá)
+
+Copiar y pegar en el chat con Claude (o completar en este documento):
+- La URL exacta del endpoint.
+- El nombre exacto del header de autenticación (ej. `Authorization: Bearer ...`, o `X-API-Key: ...`), si hace falta alguno.
+- Si hay un ejemplo de `curl`/request de prueba, pegarlo completo — así Claude ajusta el código al contrato real (nombre exacto del campo del mensaje, nombre exacto del campo de la respuesta) en vez de adivinar.
+
+### Paso 3 — Configurar secrets + desplegar (una vez con los datos del Paso 1)
+
+```bash
+# Desde la raíz del repo, con el CLI de Supabase ya autenticado:
+supabase secrets set VENTO_AGENT_URL="<url del paso 1>"
+supabase secrets set VENTO_API_KEY="<clave del paso 1, si aplica>"
+supabase functions deploy misi-chat
+```
+
+**Verificar tras desplegar:**
+```bash
+curl "https://<project-ref>.supabase.co/functions/v1/misi-chat?probe=1"
+# Debe responder { "ok": true, "ts": "..." }
+```
+Luego probar un mensaje real desde el chat de Misi en la app — si el request/response de Vento no calza exactamente con lo que espera el código (`{ message, coupleId, personName }` → `{ reply }`), la función Supabase devolverá un error 502 con el detalle de lo que Vento respondió; pegar ese error acá o en el chat con Claude para el ajuste final.
+
+**Hasta que esto se configure**, el chat de Misi funciona de punta a punta (se abre, guarda historial, muestra la respuesta) pero siempre con el mensaje de cortesía — no afecta nada más de la app.
+
+---
+
 ## 🚧 PREREQUISITO BLOQUEANTE (v4.19.1, 02/07/2026) — Desplegar Edge Function `get-shared-view`
 
 **Feature:** Modo invitado de solo lectura (Perfil → Compartir → "Enlace de solo lectura"). Un familiar o cuidadora puede ver el plan de la semana sin necesitar cuenta, mediante un link `https://.../?guest=<coupleId>&token=<token>`.
