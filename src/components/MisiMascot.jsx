@@ -1,14 +1,27 @@
 import { useEffect, useState } from "react";
 
 // Misi — la mascota de la app. Vive como una burbuja flotante que se puede
-// tocar para abrir el chat. 4 emociones expresadas con overlays/animación CSS
-// sobre UNA sola imagen base (mismo patrón que StatusOrb: nada de sprites por
-// estado todavía) — así, cuando llegue el arte final, alcanza con cambiar
-// MISI_IMG sin tocar el resto del componente.
-//
-// TODO(usuario): reemplazar MISI_IMG por /misi.png una vez que el archivo esté
-// en public/. Mientras tanto se dibuja un placeholder con CSS puro.
-const MISI_IMG = null; // ej: "/misi.png" — null = usa el placeholder dibujado
+// tocar para abrir el chat. Arte real (3 poses recibidas): alegre (saludando),
+// neutral (reutilizada para leyendo/escribiendo, diferenciadas por animación)
+// y durmiendo. Fondo casi blanco en el botón para que el blanco de estudio de
+// las fotos se funda sin costura visible contra el fondo oscuro de la app.
+const IMG_BY_EMOTION = {
+  alegre: "/misi-alegre.jpg",
+  leyendo: "/misi-neutral.jpg",
+  escribiendo: "/misi-neutral.jpg",
+  durmiendo: "/misi-durmiendo.jpg",
+};
+
+// Encuadre por pose — cada foto centra al robot distinto (la de dormir está
+// acostado, más ancho) así que el zoom/posición se ajustan por emoción.
+// Zoom bajo a propósito: con más scale se recortaban los ojos contra el
+// borde circular — mejor ver el cuerpo completo tipo sticker.
+const FRAME_BY_EMOTION = {
+  alegre: { scale: 1.05, pos: "center 30%" },
+  leyendo: { scale: 1.05, pos: "center 28%" },
+  escribiendo: { scale: 1.05, pos: "center 28%" },
+  durmiendo: { scale: 1.1, pos: "48% 45%" },
+};
 
 const EMOTIONS = {
   alegre:     { label: "Alegre",     cue: "✦" },
@@ -17,38 +30,41 @@ const EMOTIONS = {
   durmiendo:  { label: "Durmiendo",  cue: "💤" },
 };
 
-// Placeholder dibujado con CSS — dos "ojos" tipo carrete cobre, cuerpo esférico,
-// evocando el diseño real sin depender del PNG. Se reemplaza solo con MISI_IMG.
-function MisiPlaceholder({ emotion }) {
-  const eyesClosed = emotion === "durmiendo";
-  const eyeGlow = emotion === "alegre" ? "0 0 14px rgba(255,255,255,0.55)" : "0 0 8px rgba(255,255,255,0.25)";
+// La imagen real de Misi + un pequeño motor de vida propia: al cambiar de
+// emoción hace un crossfade corto, y mientras está en una emoción tiene una
+// micro-animación continua distinta (respirar, asentir, tiritar de energía,
+// dormir) — así nunca se ve como una foto estática pegada en un botón.
+function MisiArt({ emotion }) {
+  const [shown, setShown] = useState(emotion);
+  const [fading, setFading] = useState(false);
+
+  useEffect(() => {
+    if (emotion === shown) return;
+    setFading(true);
+    const t = setTimeout(() => { setShown(emotion); setFading(false); }, 160);
+    return () => clearTimeout(t);
+  }, [emotion, shown]);
+
+  const motion = shown === "durmiendo" ? "misi-breathe-slow 3.2s ease-in-out infinite"
+    : shown === "escribiendo" ? "misi-wiggle 0.55s ease-in-out infinite"
+    : shown === "leyendo" ? "misi-nod 2.6s ease-in-out infinite"
+    : "misi-breathe 2.4s ease-in-out infinite";
+
+  const frame = FRAME_BY_EMOTION[shown];
+
   return (
-    <div style={{ position: "relative", width: 46, height: 46 }}>
-      {/* Cuerpo */}
-      <div style={{
-        position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)",
-        width: 30, height: 22, borderRadius: "50% 50% 46% 46%",
-        background: "linear-gradient(160deg,#e8a06a,#b5652f)",
-      }} />
-      {/* Ojos gemelos */}
-      <div style={{ position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)", display: "flex" }}>
-        {[0, 1].map(i => (
-          <div key={i} style={{
-            width: 22, height: 22, borderRadius: "50%", marginLeft: i ? -6 : 0,
-            background: "linear-gradient(155deg,#f0b482,#a85a28)",
-            border: "2px solid #7a3e1a",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "inset 0 0 4px rgba(0,0,0,0.4)",
-          }}>
-            <div style={{
-              width: 12, height: eyesClosed ? 2 : 12, borderRadius: eyesClosed ? 2 : "50%",
-              background: "#0a0714", transition: "height 0.25s ease",
-              boxShadow: eyesClosed ? "none" : eyeGlow,
-            }} />
-          </div>
-        ))}
-      </div>
-    </div>
+    <img
+      src={IMG_BY_EMOTION[shown]}
+      alt="Misi"
+      style={{
+        width: 60, height: 60, borderRadius: "50%", objectFit: "cover", objectPosition: frame.pos,
+        "--misi-s": frame.scale,
+        transform: `scale(${frame.scale})`,
+        opacity: fading ? 0 : 1,
+        transition: "opacity 0.16s ease",
+        animation: motion,
+      }}
+    />
   );
 }
 
@@ -81,7 +97,8 @@ export default function MisiMascot({ emotion = "alegre", unread = 0, onClick, li
       style={{
         position: "fixed", right: 16, bottom: liftForTabBar ? 168 : 100, zIndex: 350,
         width: 60, height: 60, borderRadius: "50%", border: "none", cursor: "pointer",
-        background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.12), transparent 60%), linear-gradient(160deg,#d98a4f,#8a4420)",
+        overflow: "hidden",
+        background: "radial-gradient(circle at 35% 28%, #ffffff, #fbf8f2 65%, #f0ece2)",
         boxShadow: "0 6px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08) inset",
         display: "flex", alignItems: "center", justifyContent: "center",
         animation: bump ? "misi-bump 0.5s ease" : "misi-float 3.4s ease-in-out infinite",
@@ -93,8 +110,12 @@ export default function MisiMascot({ emotion = "alegre", unread = 0, onClick, li
         @keyframes misi-bump { 0%,100% { transform: scale(1); } 30% { transform: scale(1.18); } 60% { transform: scale(0.95); } }
         @keyframes misi-pulse { 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
         @keyframes misi-bounce { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-8deg); } }
+        @keyframes misi-breathe { 0%,100% { transform: scale(var(--misi-s,1.05)); } 50% { transform: scale(calc(var(--misi-s,1.05) * 1.03)); } }
+        @keyframes misi-breathe-slow { 0%,100% { transform: scale(var(--misi-s,1.1)) translateY(0); opacity: 0.92; } 50% { transform: scale(var(--misi-s,1.1)) translateY(1px); opacity: 1; } }
+        @keyframes misi-nod { 0%,100% { transform: scale(var(--misi-s,1.05)) rotate(0deg); } 50% { transform: scale(var(--misi-s,1.05)) rotate(-3deg); } }
+        @keyframes misi-wiggle { 0%,100% { transform: scale(var(--misi-s,1.05)) rotate(-4deg); } 50% { transform: scale(var(--misi-s,1.05)) rotate(4deg); } }
       `}</style>
-      {MISI_IMG ? <img src={MISI_IMG} alt="Misi" style={{ width: 42, height: 42, objectFit: "contain" }} /> : <MisiPlaceholder emotion={emotion} />}
+      <MisiArt emotion={emotion} />
       <EmotionBadge emotion={emotion} />
       {unread > 0 && (
         <span style={{

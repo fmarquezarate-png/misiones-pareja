@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.1] — 2026-07-07 · Misi con su cara real
+
+### ✨ Mejora
+
+Se reemplazó el placeholder dibujado en CSS por las 3 poses reales recibidas del diseño de Misi: **alegre** (saludando, un brazo arriba), **neutral** (reutilizada para leyendo/escribiendo) y **durmiendo** (acostado, ojos cerrados). Cada foto se recorta y encuadra distinto (`object-position`/`scale` por emoción) dentro de la burbuja circular.
+
+- El fondo del botón pasó de un gradiente cobre a **casi-blanco**, para que el fondo de estudio (blanco) de las 3 fotos se funda sin costura visible contra el marco circular — con el gradiente cobre anterior se veía un borde blanco marcado alrededor del robot.
+- Cada emoción tiene su propia **micro-animación continua** sobre la imagen (además del flotado del botón): respirar (alegre), asentir lento (leyendo), vibrar de energía (escribiendo), respirar lento con opacidad (durmiendo).
+- Al cambiar de una emoción a otra, la imagen hace un **crossfade corto** (160ms) en vez de un cambio brusco — pedido explícito del usuario: "las transiciones deberían hacerlo alive".
+- **Pendiente**: no se recibió una 4ª pose dedicada para "Escribiendo" — reutiliza la foto neutral con animación más energética hasta que exista arte propio para ese estado.
+
+### ✅ Verificación
+
+Comparación visual directa de las 3 poses en un harness de recorte aislado (probando varias combinaciones de zoom/posición hasta eliminar el recorte de los ojos y el borde blanco visible), y suite Playwright completa (mascota visible, apertura de chat, cambio de emoción, respuesta y persistencia en localStorage) — sin regresiones tras el cambio de arte.
+
+---
+
 ## [4.22.0] — 2026-07-07 · Misi, la mascota del bot, llega a la app
 
 ### ✨ Nueva funcionalidad
