@@ -7,6 +7,42 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.22.4] — 2026-07-07 · Reintento automático para el cuelgue clásico de iOS
+
+### 🍎 Contexto: reportado como "solo pasa en iPhone, en Android no"
+
+El usuario confirmó que usa la app correctamente en iPhone — instalada como ícono de pantalla de inicio, no como pestaña de Safari — y aun así el problema ocurre. Esto descarta "mal uso" y confirma que es el comportamiento ya documentado de WKWebView (motor de toda PWA en iOS): un `fetch()` puede colgarse PARA SIEMPRE (ni resuelve ni rechaza) tras un cold start o volver de segundo plano, incluso en apps correctamente instaladas. Android/Chrome no tiene este comportamiento, por eso la pareja del usuario nunca lo ve.
+
+### ⚡ Fix — reintento automático con request nueva
+
+Nueva utilidad `withTimeoutRetry` (`utils.js`): si una llamada de red se cuelga (detectado por el timeout existente), se reintenta automáticamente **una vez más con una petición nueva** antes de darla por fallida — el promise colgado original nunca se resuelve, así que reintentar requiere disparar una request distinta, no reusar la misma. Aplicado a las tres llamadas críticas del arranque: verificación de sesión (`getSession`), búsqueda de la pareja (`getMyCoupleId`) y carga de datos (`loadData`/`loadFromNormalized`).
+
+Patrón documentado de WKWebView: el cuelgue golpea casi siempre al primer fetch tras reabrir la app; el segundo intento (con conexión nueva) casi siempre responde de inmediato. Este fix convierte ese caso, que antes terminaba en la pantalla de error (v4.22.2) o en una espera larga, en una recuperación silenciosa que el usuario ni nota.
+
+### ✅ Verificación
+
+Simulado con Playwright un `fetch` que nunca resuelve ni rechaza (igual que el bug real de WKWebView) en la carga de datos — confirmado que el reintento automático recupera los datos reales sin mostrar ningún error. Confirmado también que en la carga normal (sin cuelgues) no se agregan llamadas de red extra — el reintento solo se dispara si el primer intento realmente falla o expira.
+
+---
+
+## [4.22.3] — 2026-07-07 · Fix de raíz: lentitud/fallos al cargar
+
+### ⚡ Preguntado por el usuario: "¿por qué tarda en cargar o llega a no cargar?"
+
+Auditoría de la cadena completa de arranque (`AppWithAuth.resolve` → `getMyCoupleId` → `loadData` → repairs) para encontrar causas concretas, no solo endurecer el fallo (eso ya se hizo en v4.22.2).
+
+**Causa 1 — un round-trip de red redundante en cada carga en frío.** `getMyCoupleId()` (`supabase.js`) llamaba internamente a `supabase.auth.getUser()` para obtener el `user.id` — pero `getUser()`, a diferencia de `getSession()`, **siempre** pega contra el servidor de Auth para re-verificar el JWT. `AppWithAuth` ya había resuelto una sesión válida vía `getSession()` (mayormente local) un instante antes. Resultado: dos verificaciones de sesión contra el servidor donde bastaba una. Fix: `getMyCoupleId(userId)` ahora acepta el `user.id` ya conocido y solo hace el query de `couple_members` — un viaje de red menos en la cadena crítica, justo el escenario (sin caché local) más expuesto a redes lentas.
+
+**Causa 2 — el skeleton de carga esperaba un guardado de fondo que no debía bloquear nada.** El comentario en el código decía explícitamente "si el save de migración cuelga, no bloquear el arranque" — pero el `await` en la línea siguiente hacía exactamente lo contrario. Cualquier carga que dispare una migración (pasa **todos los lunes** por el carry-over automático, o cuando un repair de datos corrige algo) esperaba hasta 15s extra con el skeleton en pantalla, aunque `setData(base)` ya hubiera puesto los datos reales un instante antes. Fix: `setLoading(false)` se mueve justo después de `setData(base)`; el guardado de migración corre sin `await`, con su propio `.catch()` — tal como el comentario original pedía.
+
+### ✅ Verificación
+
+Ambos fixes reproducidos y confirmados con Playwright contra el código anterior:
+- **Causa 1**: se contaron las llamadas reales a `auth/v1/user` durante una carga en frío completa (sin caché) — antes 1 llamada redundante por carga, ahora 0.
+- **Causa 2**: se forzó una migración (`seedVersion` viejo) con el guardado de red deliberadamente lento (6s) — con el código anterior el dashboard tardaba **6.6s** en aparecer (esperaba el save); con el fix, **0.5s** (datos reales en pantalla de inmediato, save de fondo invisible).
+
+---
+
 ## [4.22.2] — 2026-07-07 · Fix crítico: dashboard vacío disfrazado de cuenta nueva
 
 ### 🛡️ Fix crítico de seguridad de datos

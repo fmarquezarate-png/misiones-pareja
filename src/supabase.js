@@ -72,14 +72,25 @@ export function onAuthChange(callback) {
 // "no tiene pareja": borraba el auth-cache y mandaba a onboarding por un
 // simple fallo de red. El caller decide qué hacer con el throw (mantener el
 // estado actual si hay cache local).
-export async function getMyCoupleId() {
-  const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw new Error("getUser: " + userErr.message);
-  if (!user) return null;
+//
+// userId opcional: el caller (resolve en AppWithAuth) ya tiene el user.id de
+// la sesión que acaba de resolver con getSession() (mayormente local, sin
+// red). Sin este parámetro, esta función hacía SIEMPRE su propia llamada a
+// supabase.auth.getUser() — que a diferencia de getSession() **siempre** pega
+// contra el servidor de Auth — duplicando un round-trip de red en cada carga
+// en frío (justo el escenario más expuesto a fallar/tardar en redes lentas).
+export async function getMyCoupleId(userId) {
+  let uid = userId;
+  if (!uid) {
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr) throw new Error("getUser: " + userErr.message);
+    if (!user) return null;
+    uid = user.id;
+  }
   const { data, error } = await supabase
     .from("couple_members")
     .select("couple_id, person_name")
-    .eq("user_id", user.id)
+    .eq("user_id", uid)
     .maybeSingle();
   if (error) { console.error("getMyCoupleId error:", error); throw new Error("couple_members: " + error.message); }
   return data;

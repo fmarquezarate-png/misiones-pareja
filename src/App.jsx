@@ -9,7 +9,7 @@ import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 const LinksView = lazy(() => import("./components/LinksView.jsx"));
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard } from "./components/Skeleton.jsx";
-import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr, withTimeout } from "./utils.js";
+import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr, withTimeout, withTimeoutRetry } from "./utils.js";
 import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
 import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
@@ -149,7 +149,7 @@ function AppWithAuth() {
       // onboarding, como si el usuario no tuviera pareja.
       let cd;
       try {
-        cd = await withTimeout(getMyCoupleId(), 8000, "getMyCoupleId");
+        cd = await withTimeoutRetry(() => getMyCoupleId(s.user?.id), 8000, "getMyCoupleId");
       } catch (e) {
         console.warn("[auth] getMyCoupleId falló/colgó:", e.message);
         if (!authCache) setAuthStep("login");
@@ -166,7 +166,7 @@ function AppWithAuth() {
     resolveRef.current = resolve;
     // getSession lee el token local pero puede disparar un refresh POR RED —
     // en iOS ese refresh puede colgarse. Mismo criterio: timeout + no destruir.
-    withTimeout(getSession(), 8000, "getSession")
+    withTimeoutRetry(() => getSession(), 8000, "getSession")
       .then(s => resolve(s))
       .catch(e => {
         console.warn("[auth] getSession falló/colgó:", e.message);
@@ -416,9 +416,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Timeout duro en TODOS los awaits de este bloque: en iOS un fetch colgado
       // aquí dejaba loading=true para siempre → splash/skeletons infinitos.
       // Al expirar, base=null activa el fallback existente (backup local o SEED).
+      // withTimeoutRetry: el cuelgue de WKWebView golpea casi siempre al primer
+      // fetch tras un cold start — un reintento con request nueva casi siempre
+      // responde de inmediato, evitando caer a la pantalla de error de más.
       try {
-        let base = await withTimeout(
-          isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId),
+        let base = await withTimeoutRetry(
+          () => isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId),
           10000, "loadData"
         ).catch(e => { console.warn("[load]", e.message); return null; });
         let isRealData = !!base;
@@ -476,11 +479,17 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
 
         setData(base);
+        setLoading(false);
 
         // Best-effort: si el save de migración cuelga, no bloquear el arranque —
         // el sistema de saves debounced lo reintentará con la próxima edición.
-        if (isRealData && didMigrate) await withTimeout(saveData(base, coupleId), 15000, "migrateSave")
+        // Deliberadamente SIN await: los datos reales ya están en pantalla
+        // (setData arriba); esperar este save antes de eso contradecía el
+        // propio comentario — el skeleton quedaba pegado hasta 15s de más en
+        // cualquier carga que migrara algo (todos los lunes, por ejemplo).
+        if (isRealData && didMigrate) withTimeout(saveData(base, coupleId), 15000, "migrateSave")
           .catch(e => console.warn("[load] migrate save:", e.message));
+        return;
       } catch {
         // Only surface error if we have nothing to show (no local backup).
         // No setData(SEED) aquí tampoco — la pantalla de error ya bloquea el

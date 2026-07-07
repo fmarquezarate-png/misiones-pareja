@@ -14,6 +14,23 @@ export const withTimeout = (promise, ms, label = "op") =>
     new Promise((_, reject) => setTimeout(() => reject(new Error(`timeout: ${label} tras ${ms}ms`)), ms)),
   ]);
 
+// El cuelgue de WKWebView (ver comentario arriba) golpea casi siempre al
+// PRIMER fetch tras un cold start o volver de background — el intento
+// siguiente, con una request de red nueva, casi siempre responde de
+// inmediato. `fn` debe ser una FACTORY (() => promise), no un promise ya
+// creado, porque reintentar requiere disparar una request nueva — el
+// promise colgado original nunca se resuelve, reusarlo no ayudaría.
+export const withTimeoutRetry = async (fn, ms, label = "op", retries = 1) => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await withTimeout(fn(), ms, label);
+    } catch (e) {
+      if (attempt >= retries) throw e;
+      console.warn(`[retry] ${label} intento ${attempt + 1} falló (${e.message}) — reintentando con request nueva`);
+    }
+  }
+};
+
 // Token para links que dan acceso de lectura a datos (compartir calendario) —
 // uid() usa Math.random(), insuficiente para algo que otorga acceso. Usa el
 // generador criptográfico del navegador; solo cae al fallback débil en
