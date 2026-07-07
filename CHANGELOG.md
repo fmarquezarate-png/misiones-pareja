@@ -7,6 +7,32 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.21.0] — 2026-07-07 · Fix real del cálculo de disponibilidad + menú más claro
+
+### 🐛 Bugs corregidos
+
+**Causa raíz**: `blockersByDay` solo comparaba la **hora de inicio** del evento contra el corte ("solo eventos a partir de las X" → `m.time >= cutoff`). Un evento de **19:00 a 20:30** con corte a las **19:30** se marcaba "no ocupa" porque 19:00 < 19:30 — sin importar que el evento sigue activo hasta las 20:30, invadiendo la franja igual. Reportado con un caso real: partido de prueba 19:00–20:30, corte 19:30 → aparecía como día disponible.
+
+**Fix — modelo de solape de intervalos**, no de instante de inicio:
+
+- El parámetro único "a partir de las X" se reemplaza por una **franja completa** `[Desde, Hasta]` — la franja en la que realmente se jugaría.
+- Un día se marca ocupado si el **rango horario de la actividad** (`evStart`–`evEnd`) **se cruza** con la franja de juego: `evStart < winEnd && evEnd > winStart`.
+- El rango horario de cada actividad se calcula considerando: hora de inicio, hora de fin (`endTime` si es el mismo día), duración explícita (`m.duration`) si no hay hora de fin, o **1 hora asumida** como último recurso — antes se ignoraba por completo cuánto duraba un evento sin hora de fin explícita.
+- Eventos multi-día: los días intermedios ocupan completos (00:00–23:59), el día de inicio respeta su hora real, el día final ocupa hasta su `endTime`.
+- Migración automática: la config anterior (`cutoff`) se adopta como el nuevo `winFrom` — nadie pierde su configuración guardada.
+
+### ✨ Mejoras de claridad
+
+- Nueva sección "🕐 ¿A qué hora se jugaría?" con dos campos (Desde/Hasta) en vez de un único corte ambiguo.
+- **Explicación dinámica con ejemplo concreto** que se actualiza en vivo según la franja configurada — antes de mirar el calendario, queda claro qué cuenta como ocupado y qué no.
+- Nota explícita: "Los eventos con hora de inicio pero sin fin se asumen de 1 hora."
+
+### ✅ Verificación
+
+5 casos de solape probados directamente contra la lógica corregida (incluyendo el caso exacto reportado: 19:00–20:30 vs. franja 19:30+) — los 5 pasan. Confirmado en la UI real con Playwright: un evento de 19:00 a 20:30 con franja "Desde 19:30" queda marcado ocupado (fondo rojo, tooltip con el rango horario, contador de días disponibles actualizado) — antes aparecía libre.
+
+---
+
 ## [4.20.2] — 2026-07-02 · Fix definitivo: carga infinita en iOS (fetches colgados en WKWebView)
 
 ### 🐛 Bugs corregidos
