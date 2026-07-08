@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.23.0] — 2026-07-07 · Misi conectado de verdad con Vento
+
+### 🤖 Bot conectado (casi al 100%)
+
+El usuario compartió el contrato real de su agente en Vento (`VENTO_CLAUDE.md`): endpoint, formato de request y método de autenticación. Con eso:
+
+- **Desplegadas dos Edge Functions que llevaban tiempo listas en el código pero nunca en producción** (`misi-chat`, `get-shared-view`) — confirmado en los logs de Supabase que ambas fallaban con **404 real**, no con el mensaje de cortesía esperado. El chat de Misi estaba, en los hechos, completamente roto desde que se agregó.
+- `misi-chat` reescrita para llamar al endpoint real: `POST .../networks/fmarquezarate/boards/misiones_assistant/actions/action_chat`, con `conversationId` = `coupleId` (varias parejas comparten el mismo agente, así se separa el hilo de cada una) y el nombre de quien escribe antepuesto al mensaje.
+- `get-shared-view` (el enlace de solo lectura de Perfil → Compartir, pendiente desde v4.19.1) también quedó desplegada de paso.
+
+### ⚠️ Único paso pendiente — requiere acceso del usuario a Supabase
+
+El token de autenticación de Vento (`VENTO_API_KEY`) tiene que configurarse como secret desde el Dashboard de Supabase — ninguna herramienta automatizada puede setear secrets de Edge Functions directamente. Instrucciones exactas (incluyendo cómo extraer el token del navegador) en `TAREAS_SQL_AGENTE_SUPABASE.md`. Hasta entonces, Misi sigue respondiendo con su mensaje de cortesía en vez de fallar — el chat nunca se ve roto.
+
+**Nota:** el token es de sesión, no una API key de servicio dedicada — puede necesitar renovarse si la sesión de Vento del usuario se cierra.
+
+---
+
 ## [4.22.6] — 2026-07-07 · Mensaje de error de guardado más claro
 
 ### 💬 Reportado tras v4.22.5

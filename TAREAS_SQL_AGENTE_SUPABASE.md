@@ -6,45 +6,35 @@
 
 ---
 
-## 🚧 PREREQUISITO BLOQUEANTE (v4.22.0, 07/07/2026) — Conectar Misi al agente real de Vento
+## 🚧 PREREQUISITO BLOQUEANTE (v4.22.0 → actualizado 07/07/2026) — Conectar Misi al agente real de Vento
 
-**Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). El código ya está armado y desplegable (`src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`), pero la Edge Function `misi-chat` todavía no tiene a quién llamar — hoy responde siempre con un mensaje de cortesía ("todavía no me conectaron del todo con mi cerebro en Vento").
+**Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). El código ya está armado (`src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`).
 
-**No es SQL — es información que solo el owner puede sacar de su workspace privado de Vento** (`cloud.vento.build/workspace/networks/fmarquezarate`), más un deploy de Edge Function. El agente Claude no tiene acceso a esa cuenta ni al dashboard de Supabase, así que estos pasos los tiene que hacer el usuario (o pegarle a Claude los datos para que arme el código exacto).
+**✅ Edge Functions `misi-chat` y `get-shared-view` DESPLEGADAS (07/07/2026, vía Supabase MCP)** — confirmado en los logs del proyecto (`txnsotchljquilfmdpdy`) que ambas fallaban con 404 real antes de este deploy (no solo el mensaje de cortesía — la función ni existía).
 
-### Paso 1 — Buscar el endpoint HTTP del agente en Vento
+**✅ Contrato real de Vento confirmado (07/07/2026, vía `VENTO_CLAUDE.md` del usuario):**
+- Endpoint: `POST https://cloud.vento.build/api/core/v1/networks/fmarquezarate/boards/misiones_assistant/actions/action_chat` — ya hardcodeado en el código, no es secreto.
+- Body: `{ message, conversationId }` — `conversationId` se setea al `coupleId` para separar el hilo de cada pareja (varias parejas comparten el mismo agente).
+- Auth: `Authorization: Bearer <token>` — el `<token>` es la única pieza que falta.
 
-El bot de Telegram ya funciona, lo que significa que el agente "misiones_assistant" (o "Misi") ya tiene un canal configurado ahí dentro. Dentro del board `misiones_assistant` en el workspace, buscar:
+**⚠️ Lo único que falta: el valor del `VENTO_API_KEY`.** Es un Bearer token de sesión (no una API key de servicio), extraído así (instrucciones del propio `VENTO_CLAUDE.md`):
+1. Abrir https://cloud.vento.build y estar logueado.
+2. DevTools → Console → correr: `document.cookie.match(/session=([^;]+)/)?.[1]`
+3. O: DevTools → Network → cualquier request a la API → copiar el header `Authorization: Bearer <token>`.
 
-- Una pestaña o sección llamada **"API"**, **"Endpoints"**, **"Integrations"**, **"Channels"** o **"Webhooks"**.
-- Si existe un canal de Telegram configurado, al lado suele haber (o poder agregarse) un canal **HTTP / API / Webhook** para el mismo agente — ese es el que necesitamos, no el de Telegram.
-- Cualquier panel de **"Test"** o **"Try it"** del agente suele mostrar un ejemplo de `curl` — ese ejemplo tiene la URL exacta y el header de autenticación (si hace falta).
-- Si hay una sección **"API Keys"** o **"Access Tokens"** a nivel del workspace/network (no del agente puntual), copiar también esa clave.
+**Nota importante:** al ser un token de sesión (no una API key dedicada), puede expirar o invalidarse si la sesión de Vento se cierra — si el chat empieza a fallar con 401/403 en el futuro, probablemente haga falta repetir este paso con un token nuevo.
 
-### Paso 2 — Mandarle a Claude (o guardar acá)
+### Configurar el secret (una vez que el usuario tenga el token)
 
-Copiar y pegar en el chat con Claude (o completar en este documento):
-- La URL exacta del endpoint.
-- El nombre exacto del header de autenticación (ej. `Authorization: Bearer ...`, o `X-API-Key: ...`), si hace falta alguno.
-- Si hay un ejemplo de `curl`/request de prueba, pegarlo completo — así Claude ajusta el código al contrato real (nombre exacto del campo del mensaje, nombre exacto del campo de la respuesta) en vez de adivinar.
+El agente Claude no tiene una herramienta MCP para setear secrets de Edge Functions directamente — hay que hacerlo desde el Dashboard:
 
-### Paso 3 — Configurar secrets + desplegar (una vez con los datos del Paso 1)
+1. Supabase Dashboard → proyecto `the-shared-calendar` → **Edge Functions** → **Secrets** (o **Settings → Edge Functions**).
+2. Agregar secret: nombre `VENTO_API_KEY`, valor = el token del paso anterior.
+3. No hace falta re-desplegar la función — los secrets se leen en cada invocación (`Deno.env.get`).
 
-```bash
-# Desde la raíz del repo, con el CLI de Supabase ya autenticado:
-supabase secrets set VENTO_AGENT_URL="<url del paso 1>"
-supabase secrets set VENTO_API_KEY="<clave del paso 1, si aplica>"
-supabase functions deploy misi-chat
-```
+**Verificar:** probar un mensaje real desde el chat de Misi en la app. Si Vento responde pero el texto no aparece, es porque el contrato de RESPUESTA de `action_chat` no calza con las claves que el código prueba (`reply`/`response`/`message`/`output`/`result`/`value`) — la función devolverá un 502 con el `raw` completo de la respuesta de Vento, que hay que pegarle a Claude para el ajuste final (una sola línea de código, no una investigación).
 
-**Verificar tras desplegar:**
-```bash
-curl "https://<project-ref>.supabase.co/functions/v1/misi-chat?probe=1"
-# Debe responder { "ok": true, "ts": "..." }
-```
-Luego probar un mensaje real desde el chat de Misi en la app — si el request/response de Vento no calza exactamente con lo que espera el código (`{ message, coupleId, personName }` → `{ reply }`), la función Supabase devolverá un error 502 con el detalle de lo que Vento respondió; pegar ese error acá o en el chat con Claude para el ajuste final.
-
-**Hasta que esto se configure**, el chat de Misi funciona de punta a punta (se abre, guarda historial, muestra la respuesta) pero siempre con el mensaje de cortesía — no afecta nada más de la app.
+**Hasta que se setee el secret**, el chat de Misi funciona de punta a punta (se abre, guarda historial, muestra la respuesta) pero siempre con el mensaje de cortesía — no afecta nada más de la app.
 
 ---
 
