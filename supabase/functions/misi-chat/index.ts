@@ -82,7 +82,10 @@ serve(async (req) => {
     const reply = ventoData?.reply ?? ventoData?.response ?? ventoData?.message ?? ventoData?.output
       ?? ventoData?.result ?? ventoData?.value ?? (typeof ventoData === 'string' ? ventoData : null);
     if (!reply) {
-      return new Response(JSON.stringify({ error: 'Respuesta de Vento sin texto reconocible', raw: ventoData }), { status: 502, headers: corsHeaders });
+      // El `raw` va DENTRO del mensaje de error (no en un campo aparte) para
+      // que se vea directo en la burbuja de error del chat — así se puede
+      // ajustar la clave correcta sin depender de acceso a los logs de Supabase.
+      return new Response(JSON.stringify({ error: `Respuesta de Vento sin texto reconocible: ${JSON.stringify(ventoData).slice(0, 400)}` }), { status: 502, headers: corsHeaders });
     }
 
     return new Response(JSON.stringify({ reply }), { headers: corsHeaders });
