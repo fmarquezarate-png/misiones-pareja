@@ -20,7 +20,15 @@ export async function askMisi({ coupleId, message, personName }) {
   const { data, error } = await supabase.functions.invoke("misi-chat", {
     body: { coupleId, message, personName },
   });
-  if (error) throw new Error(error.message || "Misi no respondió");
+  if (error) {
+    // error.message de supabase-js es genérico ("Edge Function returned a
+    // non-2xx status code") — el detalle real (qué respondió Vento, qué
+    // clave de la respuesta no se reconoció) viene en el body de la función,
+    // accesible vía error.context (el Response crudo del fetch interno).
+    let detail = null;
+    try { detail = (await error.context?.json())?.error; } catch { /* body no era JSON */ }
+    throw new Error(detail || error.message || "Misi no respondió");
+  }
   if (!data?.reply) throw new Error("Respuesta vacía de Misi");
   return data.reply;
 }

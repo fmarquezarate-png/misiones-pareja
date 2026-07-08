@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.23.1] — 2026-07-08 · Fix de diagnóstico en el chat de Misi
+
+### 🔍 Reportado tras v4.23.0
+
+El usuario configuró el secret `VENTO_API_KEY` y probó el chat — apareció `😵 No pude responder: Edge Function returned a non-2xx status code`. Ese es el mensaje genérico que arma `supabase-js` cuando una Edge Function falla; **el detalle real** (qué respondió Vento exactamente, o qué falló) ya lo devuelve `misi-chat` en el cuerpo de la respuesta, pero `askMisi` (`lib/misi.js`) lo descartaba y usaba el mensaje genérico.
+
+### ✅ Fix
+
+`askMisi` ahora lee `error.context` (el `Response` crudo que expone `supabase-js` en errores de Edge Function) y extrae el campo `error` del JSON real que devolvió `misi-chat` — mostrando el motivo verdadero (ej. "Vento respondió 401: ...", o "Respuesta de Vento sin texto reconocible") en vez del genérico. Esto permite diagnosticar problemas de conexión con Vento sin depender de acceso a los logs de Supabase.
+
+---
+
 ## [4.23.0] — 2026-07-07 · Misi conectado de verdad con Vento
 
 ### 🤖 Bot conectado (casi al 100%)
