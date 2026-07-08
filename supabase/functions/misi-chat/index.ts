@@ -1,25 +1,22 @@
 // misi-chat — Supabase Edge Function (Deno)
 //
-// Puente entre el chat de Misi dentro de la app y el agente ya armado en
-// Vento (cloud.vento.build). La API key/URL de Vento vive en secrets de
-// Supabase — nunca llega al navegador.
+// Puente entre el chat de Misi dentro de la app y el agente real en Vento
+// (cloud.vento.build, network "fmarquezarate", board "misiones_assistant",
+// acción "action_chat" — contrato confirmado por el usuario vía
+// VENTO_CLAUDE.md). El token de Vento vive en un secret de Supabase — nunca
+// llega al navegador.
 //
-// ⚠️ PENDIENTE DE CONFIGURAR (ver TAREAS_SQL_AGENTE_SUPABASE.md):
-//   1. Confirmar la URL real del agente en el workspace de Vento del usuario
-//      (patrón conocido: /api/agents/v1/{agent_name}/agent_input?message=...
-//      — pero esa es la ruta de ejemplo LOCAL de Vento; cloud.vento.build
-//      probablemente usa otro host/base y puede requerir un token).
-//   2. Setear los secrets VENTO_AGENT_URL y VENTO_API_KEY (si aplica) en
-//      Supabase Dashboard → Edge Functions → Secrets.
-//   3. Deploy: `supabase functions deploy misi-chat`.
+// ⚠️ Nota sobre el token: es un Bearer token extraído de la sesión del
+// navegador del usuario en cloud.vento.build (no una API key de servicio
+// dedicada) — puede expirar/rotar si la sesión de Vento se cierra. Si Vento
+// responde 401/403, probablemente haya que pedirle al usuario un token nuevo.
 //
 // Modo:
 //   GET  ?probe=1  → ping de vida (sin secrets, sin llamar a Vento)
 //   POST normal    → { coupleId, message, personName } → { reply }
 //
-// Mientras VENTO_AGENT_URL no esté seteada, responde con un mensaje de
-// broma/placeholder en vez de fallar — para que el chat en la app nunca se
-// vea roto durante el desarrollo.
+// Mientras VENTO_API_KEY no esté seteada, responde con un mensaje de
+// cortesía en vez de fallar — para que el chat en la app nunca se vea roto.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
@@ -28,6 +25,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
   'Content-Type': 'application/json',
 };
+
+// Endpoint fijo del board/acción — no es secreto, es parte de la API pública
+// de Vento (solo el token de auth es sensible).
+const VENTO_CHAT_URL = 'https://cloud.vento.build/api/core/v1/networks/fmarquezarate/boards/misiones_assistant/actions/action_chat';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -43,10 +44,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'coupleId y message requeridos' }), { status: 400, headers: corsHeaders });
     }
 
-    const VENTO_AGENT_URL = Deno.env.get('VENTO_AGENT_URL') || '';
-    const VENTO_API_KEY   = Deno.env.get('VENTO_API_KEY')   || '';
+    const VENTO_TOKEN = Deno.env.get('VENTO_API_KEY') || '';
 
-    if (!VENTO_AGENT_URL) {
+    if (!VENTO_TOKEN) {
       // Sin configurar todavía — respuesta de cortesía, no un error 500.
       return new Response(JSON.stringify({
         reply: `¡Hola ${personName || ""}! 👋 Todavía no me conectaron del todo con mi cerebro en Vento — pronto voy a poder responderte de verdad.`,
@@ -54,16 +54,19 @@ serve(async (req) => {
       }), { headers: corsHeaders });
     }
 
-    // TODO: ajustar el shape del request/response al contrato REAL del
-    // agente en Vento una vez confirmado (puede que la clave del mensaje no
-    // se llame "message", que la respuesta no venga en "reply", etc.)
-    const ventoRes = await fetch(VENTO_AGENT_URL, {
+    // action_chat no tiene un parámetro couple_id propio (la app sirve a
+    // varias parejas con el mismo agente) — conversationId separa el hilo
+    // por pareja, y el nombre de quien escribe se antepone al mensaje para
+    // que Misi sepa a quién le está hablando.
+    const contextualMessage = personName ? `[${personName}] ${message}` : message;
+
+    const ventoRes = await fetch(VENTO_CHAT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(VENTO_API_KEY ? { Authorization: `Bearer ${VENTO_API_KEY}` } : {}),
+        Authorization: `Bearer ${VENTO_TOKEN}`,
       },
-      body: JSON.stringify({ message, coupleId, personName }),
+      body: JSON.stringify({ message: contextualMessage, conversationId: coupleId }),
     });
 
     if (!ventoRes.ok) {
@@ -72,9 +75,12 @@ serve(async (req) => {
     }
 
     const ventoData = await ventoRes.json().catch(() => null);
-    // Vento podría devolver el texto en distintas claves según su contrato real —
-    // se prueban las más probables antes de rendirse.
-    const reply = ventoData?.reply ?? ventoData?.response ?? ventoData?.message ?? ventoData?.output ?? null;
+    // Contrato de respuesta de action_chat no confirmado con un ejemplo real
+    // todavía — se prueban las claves más probables (incluidas las propias
+    // del modelo de "card value" de Vento) antes de rendirse y devolver el
+    // raw completo para poder ajustar esto en el primer mensaje real.
+    const reply = ventoData?.reply ?? ventoData?.response ?? ventoData?.message ?? ventoData?.output
+      ?? ventoData?.result ?? ventoData?.value ?? (typeof ventoData === 'string' ? ventoData : null);
     if (!reply) {
       return new Response(JSON.stringify({ error: 'Respuesta de Vento sin texto reconocible', raw: ventoData }), { status: 502, headers: corsHeaders });
     }

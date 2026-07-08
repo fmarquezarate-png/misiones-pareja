@@ -7,6 +7,56 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.23.1] — 2026-07-08 · Fix de diagnóstico en el chat de Misi
+
+### 🔍 Reportado tras v4.23.0
+
+El usuario configuró el secret `VENTO_API_KEY` y probó el chat — apareció `😵 No pude responder: Edge Function returned a non-2xx status code`. Ese es el mensaje genérico que arma `supabase-js` cuando una Edge Function falla; **el detalle real** (qué respondió Vento exactamente, o qué falló) ya lo devuelve `misi-chat` en el cuerpo de la respuesta, pero `askMisi` (`lib/misi.js`) lo descartaba y usaba el mensaje genérico.
+
+### ✅ Fix
+
+`askMisi` ahora lee `error.context` (el `Response` crudo que expone `supabase-js` en errores de Edge Function) y extrae el campo `error` del JSON real que devolvió `misi-chat` — mostrando el motivo verdadero (ej. "Vento respondió 401: ...", o "Respuesta de Vento sin texto reconocible") en vez del genérico. Esto permite diagnosticar problemas de conexión con Vento sin depender de acceso a los logs de Supabase.
+
+---
+
+## [4.23.0] — 2026-07-07 · Misi conectado de verdad con Vento
+
+### 🤖 Bot conectado (casi al 100%)
+
+El usuario compartió el contrato real de su agente en Vento (`VENTO_CLAUDE.md`): endpoint, formato de request y método de autenticación. Con eso:
+
+- **Desplegadas dos Edge Functions que llevaban tiempo listas en el código pero nunca en producción** (`misi-chat`, `get-shared-view`) — confirmado en los logs de Supabase que ambas fallaban con **404 real**, no con el mensaje de cortesía esperado. El chat de Misi estaba, en los hechos, completamente roto desde que se agregó.
+- `misi-chat` reescrita para llamar al endpoint real: `POST .../networks/fmarquezarate/boards/misiones_assistant/actions/action_chat`, con `conversationId` = `coupleId` (varias parejas comparten el mismo agente, así se separa el hilo de cada una) y el nombre de quien escribe antepuesto al mensaje.
+- `get-shared-view` (el enlace de solo lectura de Perfil → Compartir, pendiente desde v4.19.1) también quedó desplegada de paso.
+
+### ⚠️ Único paso pendiente — requiere acceso del usuario a Supabase
+
+El token de autenticación de Vento (`VENTO_API_KEY`) tiene que configurarse como secret desde el Dashboard de Supabase — ninguna herramienta automatizada puede setear secrets de Edge Functions directamente. Instrucciones exactas (incluyendo cómo extraer el token del navegador) en `TAREAS_SQL_AGENTE_SUPABASE.md`. Hasta entonces, Misi sigue respondiendo con su mensaje de cortesía en vez de fallar — el chat nunca se ve roto.
+
+**Nota:** el token es de sesión, no una API key de servicio dedicada — puede necesitar renovarse si la sesión de Vento del usuario se cierra.
+
+---
+
+## [4.22.6] — 2026-07-07 · Mensaje de error de guardado más claro
+
+### 💬 Reportado tras v4.22.5
+
+El usuario volvió a ver el texto técnico crudo `⚠ timeout: saveWithCAS tras 15000ms` como un banner persistente en pantalla. Investigado: el reintento automático de v4.22.5 sí corrió, pero **ambos** intentos (el original y el reintento) fallaron en esa ronda puntual — una conexión inestable sostenida, no un bug del reintento. Cuando eso pasa, el código cae al `catch` y mostraba el mensaje de la excepción tal cual, sin explicar nada.
+
+### ✅ Fix — mensaje honesto sin ser alarmante
+
+El banner ahora dice: *"No se pudo guardar por una conexión inestable. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola."* — que es exactamente lo que pasa: `saveLocalBackup` ya guardó el cambio en el dispositivo ANTES de intentar la red (desde v4.2.0), el mutador queda en la cola de "no confirmados", y `scheduleSave()` reintenta automáticamente cada ~700ms hasta confirmar. El texto técnico original se sigue registrando en la consola y en analítica (`track("save_error", ...)`) para poder diagnosticar patrones si el problema persiste — solo que ya no se le muestra crudo a quien no es desarrollador.
+
+### 🔍 Sobre "se me borraron registros de ánimo"
+
+Revisada la función que agrega un registro de ánimo nuevo (`saveMoodEntry`): es un simple *append* al array — no existe ningún camino de código que sobreescriba o descarte registros existentes al agregar uno nuevo. Si efectivamente faltan registros, lo más probable es que coincida con alguno de los episodios de conexión de hoy (el dashboard vacío o el guardado colgado, ambos ya corregidos) ocurridos ANTES de que esos fixes llegaran a producción. Se entregó al usuario una consulta SQL lista para correr en Supabase, que compara la cantidad de registros de ánimo entre los backups automáticos (`app_data_backups`) para ubicar el momento exacto si la pérdida fue real.
+
+### 🧠 Recordatorio: ya se puede registrar ánimo con fecha pasada
+
+No es una función nueva — el formulario de "+ Registrar" ya tenía un campo de fecha editable (máximo hoy) en su último paso, independientemente de si es un registro nuevo o una edición. Aclarado al usuario que puede usarlo para completar días que se le hayan pasado.
+
+---
+
 ## [4.22.5] — 2026-07-07 · El reintento automático también cubre el guardado
 
 ### 🐛 Reportado tras v4.22.4
