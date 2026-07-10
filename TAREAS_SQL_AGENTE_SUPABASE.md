@@ -6,35 +6,26 @@
 
 ---
 
-## 🚧 PREREQUISITO BLOQUEANTE (v4.22.0 → actualizado 07/07/2026) — Conectar Misi al agente real de Vento
+## 🚧 PREREQUISITO BLOQUEANTE (v4.22.0 → actualizado 08/07/2026) — Conectar Misi al agente real de Vento
 
 **Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). El código ya está armado (`src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`).
 
 **✅ Edge Functions `misi-chat` y `get-shared-view` DESPLEGADAS (07/07/2026, vía Supabase MCP)** — confirmado en los logs del proyecto (`txnsotchljquilfmdpdy`) que ambas fallaban con 404 real antes de este deploy (no solo el mensaje de cortesía — la función ni existía).
 
-**✅ Contrato real de Vento confirmado (07/07/2026, vía `VENTO_CLAUDE.md` del usuario):**
-- Endpoint: `POST https://cloud.vento.build/api/core/v1/networks/fmarquezarate/boards/misiones_assistant/actions/action_chat` — ya hardcodeado en el código, no es secreto.
-- Body: `{ message, conversationId }` — `conversationId` se setea al `coupleId` para separar el hilo de cada pareja (varias parejas comparten el mismo agente).
-- Auth: `Authorization: Bearer <token>` — el `<token>` es la única pieza que falta.
+**✅ Secret `VENTO_API_KEY` configurado (08/07/2026)** — el usuario extrajo el token de sesión de Vento y lo seteó desde el Dashboard.
 
-**⚠️ Lo único que falta: el valor del `VENTO_API_KEY`.** Es un Bearer token de sesión (no una API key de servicio), extraído así (instrucciones del propio `VENTO_CLAUDE.md`):
-1. Abrir https://cloud.vento.build y estar logueado.
-2. DevTools → Console → correr: `document.cookie.match(/session=([^;]+)/)?.[1]`
-3. O: DevTools → Network → cualquier request a la API → copiar el header `Authorization: Bearer <token>`.
+**⚠️ Causa raíz real encontrada tras la primera prueba (08/07/2026):** `action_chat` es **asíncrono** — solo encola el mensaje y devuelve un `conversationId`, nunca el texto de la respuesta en el mismo request. Por eso el primer intento (v4.23.0) fallaba con "Respuesta de Vento sin texto reconocible": estaba buscando el `reply` en la respuesta equivocada. Además, `conversationId: coupleId` era inválido — Vento genera su propio `conversationId`, no acepta que se le fuerce uno externo.
 
-**Nota importante:** al ser un token de sesión (no una API key dedicada), puede expirar o invalidarse si la sesión de Vento se cierra — si el chat empieza a fallar con 401/403 en el futuro, probablemente haga falta repetir este paso con un token nuevo.
+**✅ Fix aplicado (08/07/2026) — reescrita `misi-chat/index.ts`:**
+1. `action_chat` ya NO manda `conversationId` propio — deja que Vento genere el suyo.
+2. Tras encolar, hace **polling a `action_messages`** cada 2 segundos, pasando el `conversationId` que devolvió Vento, hasta encontrar un mensaje que no sea el propio (heurística: `role`/`sender`/`from`/`author` distinto de `user`/`me`/`human`).
+3. **Timeout de 2 minutos** — si Misi no respondió para entonces, devuelve un error claro en vez de colgarse indefinidamente.
 
-### Configurar el secret (una vez que el usuario tenga el token)
+**Pendiente de deploy** — requiere `supabase functions deploy misi-chat` (o el equivalente vía Supabase MCP, que se aplicará en cuanto el agente Claude recupere la conexión).
 
-El agente Claude no tiene una herramienta MCP para setear secrets de Edge Functions directamente — hay que hacerlo desde el Dashboard:
+**Verificar tras el deploy:** probar un mensaje real desde el chat de Misi. Si todavía no responde bien, el error ahora debería mostrar exactamente en qué paso falló (encolar el mensaje, identificar el `conversationId`, o el formato de los mensajes devueltos por `action_messages`) — pegarlo para el ajuste final.
 
-1. Supabase Dashboard → proyecto `the-shared-calendar` → **Edge Functions** → **Secrets** (o **Settings → Edge Functions**).
-2. Agregar secret: nombre `VENTO_API_KEY`, valor = el token del paso anterior.
-3. No hace falta re-desplegar la función — los secrets se leen en cada invocación (`Deno.env.get`).
-
-**Verificar:** probar un mensaje real desde el chat de Misi en la app. Si Vento responde pero el texto no aparece, es porque el contrato de RESPUESTA de `action_chat` no calza con las claves que el código prueba (`reply`/`response`/`message`/`output`/`result`/`value`) — la función devolverá un 502 con el `raw` completo de la respuesta de Vento, que hay que pegarle a Claude para el ajuste final (una sola línea de código, no una investigación).
-
-**Hasta que se setee el secret**, el chat de Misi funciona de punta a punta (se abre, guarda historial, muestra la respuesta) pero siempre con el mensaje de cortesía — no afecta nada más de la app.
+**Nota permanente sobre el token:** es un Bearer de sesión (no una API key dedicada) — vence ~7 días después de extraerlo. Si el chat vuelve a fallar con 401/403, hay que repetir la extracción (DevTools → `document.cookie.match(/session=([^;]+)/)?.[1]`, o un bookmarklet en iOS) y actualizar el secret.
 
 ---
 
