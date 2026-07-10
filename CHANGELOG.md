@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.23.2] — 2026-07-08 · Causa raíz real: Vento es asíncrono
+
+### 🎯 Diagnóstico definitivo (con ayuda directa de quien administra Vento)
+
+El error "Respuesta de Vento sin texto reconocible" (v4.23.0/4.23.1) no era un problema de nombres de campo — era un problema de **modelo de API**. `action_chat` en Vento no devuelve la respuesta del agente en el mismo request: solo **encola** el mensaje y devuelve un `conversationId`. La respuesta real hay que pedirla por separado, consultando `action_messages`, y puede tardar (el agente está pensando/consultando Supabase).
+
+También se confirmó que `conversationId: coupleId` (v4.23.0) era inválido — Vento no acepta que se le fuerce un ID externo, genera el suyo propio en cada conversación nueva.
+
+### ✅ Fix — modelo asíncrono con polling
+
+Reescrita `misi-chat/index.ts`:
+1. `action_chat` se llama SIN `conversationId` propio.
+2. Se guarda el `conversationId` que Vento devuelve.
+3. Polling a `action_messages` cada 2 segundos, buscando un mensaje cuyo `role`/`sender`/`from`/`author` no sea el propio (`user`/`me`/`human`).
+4. Timeout de 2 minutos — si Misi no respondió para entonces, error claro en vez de esperar indefinidamente.
+
+**Pendiente:** desplegar esta versión a Supabase (Edge Functions no viajan con el deploy de Vercel/git — requiere el MCP de Supabase o `supabase functions deploy misi-chat`).
+
+---
+
 ## [4.23.1] — 2026-07-08 · Fix de diagnóstico en el chat de Misi
 
 ### 🔍 Reportado tras v4.23.0

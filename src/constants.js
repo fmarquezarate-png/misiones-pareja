@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "4.23.1";
+export const APP_VERSION = "4.23.2";
 export const LAST_UPDATE = "2026-07-08";
 
 // Banner de mantenimiento — null = desactivado
