@@ -6,51 +6,39 @@
 
 ---
 
-## 🚧 PREREQUISITO BLOQUEANTE (v4.22.0 → actualizado 08/07/2026) — Conectar Misi al agente real de Vento
+## ✅ RESUELTO (v4.23.3, 08/07/2026) — Misi conectado al agente real de Vento
 
-**Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). El código ya está armado (`src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`).
+**Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). Código en `src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`.
 
-**✅ Edge Functions `misi-chat` y `get-shared-view` DESPLEGADAS (07/07/2026, vía Supabase MCP)** — confirmado en los logs del proyecto (`txnsotchljquilfmdpdy`) que ambas fallaban con 404 real antes de este deploy (no solo el mensaje de cortesía — la función ni existía).
+**Historial de la conexión (para referencia futura, no repetir):**
+1. `misi-chat` y `get-shared-view` desplegadas por primera vez (07/07/2026) — ambas fallaban con 404 real, ni siquiera existían en Supabase.
+2. Secret `VENTO_API_KEY` configurado por el usuario (Bearer de sesión extraído de cloud.vento.build).
+3. Primer intento de contrato (v4.23.0) fallaba con "sin texto reconocible" — causa real: `action_chat` es **asíncrono**, devuelve un `conversationId`, no el texto de la respuesta.
+4. **Fix final (v4.23.3):** reescrita `misi-chat/index.ts` combinando el diagnóstico del usuario con una revisión propia:
+   - `action_chat` se llama con `conversationId: coupleId` — le da a cada pareja un hilo estable (Misi recuerda contexto entre mensajes).
+   - Polling a `action_messages` cada 2s, filtrando por remitente exacto (`m.from === 'misiones_assistant'`) **y por `timestamp >= sentAt`** — este último filtro es clave: sin él, una conversación con historial previo podía devolver por error una respuesta VIEJA en vez de esperar la nueva.
+   - Timeout de 2 minutos con mensaje claro si Misi no responde a tiempo.
+5. Desplegado (versión 5) vía Supabase MCP el 08/07/2026.
 
-**✅ Secret `VENTO_API_KEY` configurado (08/07/2026)** — el usuario extrajo el token de sesión de Vento y lo seteó desde el Dashboard.
-
-**⚠️ Causa raíz real encontrada tras la primera prueba (08/07/2026):** `action_chat` es **asíncrono** — solo encola el mensaje y devuelve un `conversationId`, nunca el texto de la respuesta en el mismo request. Por eso el primer intento (v4.23.0) fallaba con "Respuesta de Vento sin texto reconocible": estaba buscando el `reply` en la respuesta equivocada. Además, `conversationId: coupleId` era inválido — Vento genera su propio `conversationId`, no acepta que se le fuerce uno externo.
-
-**✅ Fix aplicado (08/07/2026) — reescrita `misi-chat/index.ts`:**
-1. `action_chat` ya NO manda `conversationId` propio — deja que Vento genere el suyo.
-2. Tras encolar, hace **polling a `action_messages`** cada 2 segundos, pasando el `conversationId` que devolvió Vento, hasta encontrar un mensaje que no sea el propio (heurística: `role`/`sender`/`from`/`author` distinto de `user`/`me`/`human`).
-3. **Timeout de 2 minutos** — si Misi no respondió para entonces, devuelve un error claro en vez de colgarse indefinidamente.
-
-**Pendiente de deploy** — requiere `supabase functions deploy misi-chat` (o el equivalente vía Supabase MCP, que se aplicará en cuanto el agente Claude recupere la conexión).
-
-**Verificar tras el deploy:** probar un mensaje real desde el chat de Misi. Si todavía no responde bien, el error ahora debería mostrar exactamente en qué paso falló (encolar el mensaje, identificar el `conversationId`, o el formato de los mensajes devueltos por `action_messages`) — pegarlo para el ajuste final.
-
-**Nota permanente sobre el token:** es un Bearer de sesión (no una API key dedicada) — vence ~7 días después de extraerlo. Si el chat vuelve a fallar con 401/403, hay que repetir la extracción (DevTools → `document.cookie.match(/session=([^;]+)/)?.[1]`, o un bookmarklet en iOS) y actualizar el secret.
+**Nota permanente sobre el token:** es un Bearer de sesión (no una API key dedicada) — vence ~7 días después de extraerlo. Si el chat vuelve a fallar con 401/403, hay que repetir la extracción (DevTools → `document.cookie.match(/session=([^;]+)/)?.[1]`, o un bookmarklet en iOS) y actualizar el secret `VENTO_API_KEY`.
 
 ---
 
-## 🚧 PREREQUISITO BLOQUEANTE (v4.19.1, 02/07/2026) — Desplegar Edge Function `get-shared-view`
+## ✅ RESUELTO (v4.23.0, 07/07/2026) — Edge Function `get-shared-view` desplegada
 
 **Feature:** Modo invitado de solo lectura (Perfil → Compartir → "Enlace de solo lectura"). Un familiar o cuidadora puede ver el plan de la semana sin necesitar cuenta, mediante un link `https://.../?guest=<coupleId>&token=<token>`.
 
-**No es SQL — no hace falta ninguna migración ni columna nueva.** El toggle y el token viven dentro del blob existente (`data.settings.shareEnabled` / `data.settings.shareToken`), igual que cualquier otro ajuste (tema, colores). Lo único que falta es **desplegar una función nueva**:
+**No era SQL — no hizo falta ninguna migración ni columna nueva.** El toggle y el token viven dentro del blob existente (`data.settings.shareEnabled` / `data.settings.shareToken`), igual que cualquier otro ajuste (tema, colores).
 
-```bash
-# Desde la raíz del repo, con el CLI de Supabase ya autenticado:
-supabase functions deploy get-shared-view
-```
-
-El código ya está en el repo: `supabase/functions/get-shared-view/index.ts`. Usa los mismos secrets que `send-push` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) — **no requiere secrets nuevos**.
+Desplegada vía Supabase MCP el 07/07/2026. Código en `supabase/functions/get-shared-view/index.ts`. Usa los mismos secrets que `send-push` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) — no requirió secrets nuevos.
 
 **Qué hace la función:** recibe `{ coupleId, token }` por POST, busca el `app_data` de esa pareja con el service role (bypass de RLS controlado — el filtrado de seguridad lo hace la función comparando `token` contra `data.settings.shareToken`, no la base), y devuelve una versión saneada del blob: solo `settings.person1/person2/colors` y `weeks` con las misiones **sin el campo `comments`** (notas privadas entre la pareja). Nunca expone chat, gastos, ánimo, plantillas ni actividad — solo lo necesario para "ver el plan".
 
-**Verificar tras desplegar:**
+**Verificar:**
 ```bash
-curl "https://<project-ref>.supabase.co/functions/v1/get-shared-view?probe=1"
+curl "https://txnsotchljquilfmdpdy.supabase.co/functions/v1/get-shared-view?probe=1"
 # Debe responder { "ok": true, "ts": "..." }
 ```
-
-**Hasta que esto se despliegue**, el toggle "Compartir" en Perfil funciona (guarda el token en el blob sin problema), pero cualquiera que abra el link recibido verá "🔒 Este enlace no es válido" — la función simplemente no existe todavía en el proyecto. No afecta nada más de la app; es aislado.
 
 ---
 

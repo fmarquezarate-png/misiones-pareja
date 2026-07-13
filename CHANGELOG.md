@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.23.3] — 2026-07-08 · Misi conectado con Vento — fix definitivo
+
+### 🤖✅ Cierre de la integración
+
+Combinado el diagnóstico propio (v4.23.2) con una revisión independiente del lado de Vento sobre la respuesta real de `action_chat`/`action_messages`. Dos correcciones sobre la v4.23.2:
+
+1. **`conversationId: coupleId` restaurado** — cada pareja tiene un hilo de conversación estable con Misi (recuerda contexto entre mensajes) en vez de una conversación nueva y vacía en cada turno.
+2. **Filtro de polling más preciso**: además de esperar un mensaje que no sea propio, ahora se exige remitente exacto (`m.from === 'misiones_assistant'`) **y** `timestamp >= momento del envío`. Sin este segundo filtro, una conversación con historial previo podía devolver por error una respuesta **vieja** ya vista, en vez de esperar la nueva — un bug real de la v4.23.2 que no se había detectado todavía.
+
+Desplegado en Supabase (versión 5 de la función).
+
+---
+
 ## [4.23.2] — 2026-07-08 · Causa raíz real: Vento es asíncrono
 
 ### 🎯 Diagnóstico definitivo (con ayuda directa de quien administra Vento)

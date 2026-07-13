@@ -4,15 +4,23 @@
 // (cloud.vento.build, network "fmarquezarate", board "misiones_assistant").
 // El token de Vento vive en un secret de Supabase — nunca llega al navegador.
 //
-// ⚠️ Nota sobre el token: es un Bearer token extraído de la sesión del
-// navegador del usuario en cloud.vento.build (no una API key de servicio
-// dedicada) — puede expirar/rotar si la sesión de Vento se cierra. Si Vento
-// responde 401/403, probablemente haya que pedirle al usuario un token nuevo.
+// Vento es ASÍNCRONO: action_chat encola el mensaje y devuelve un
+// conversationId — no la respuesta del agente. El texto real se pide por
+// separado con polling a action_messages, filtrando por remitente exacto
+// ("misiones_assistant") y por timestamp >= al momento del envío — así
+// nunca se devuelve por error una respuesta VIEJA que ya estaba en el
+// historial de la conversación (bug real de la primera versión con polling:
+// tomaba "el último mensaje que no es mío", que podía ser una respuesta
+// antigua si el agente todavía no había contestado la nueva).
 //
-// Vento es ASÍNCRONO: action_chat solo encola el mensaje y devuelve un
-// conversationId — no la respuesta del agente. El texto real hay que
-// pedirlo por separado, con polling a action_messages, hasta que aparezca
-// un mensaje que no sea el propio (o hasta agotar el timeout).
+// conversationId = coupleId a propósito: le da a cada pareja un hilo
+// estable — Misi recuerda contexto entre mensajes en vez de arrancar una
+// conversación nueva y vacía en cada turno.
+//
+// ⚠️ Nota sobre el token: Bearer de sesión del navegador del usuario en
+// cloud.vento.build (no una API key de servicio dedicada) — puede
+// expirar/rotar si esa sesión se cierra. Si Vento responde 401/403,
+// probablemente haya que pedirle al usuario un token nuevo.
 //
 // Modo:
 //   GET  ?probe=1  → ping de vida (sin secrets, sin llamar a Vento)
@@ -32,28 +40,10 @@ const corsHeaders = {
 // Endpoints fijos del board — no son secretos, son parte de la API pública
 // de Vento (solo el token de auth es sensible).
 const VENTO_BOARD = 'https://cloud.vento.build/api/core/v1/networks/fmarquezarate/boards/misiones_assistant/actions';
+const VENTO_CHAT_URL = `${VENTO_BOARD}/action_chat`;
+const VENTO_MESSAGES_URL = `${VENTO_BOARD}/action_messages`;
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 120000; // 2 minutos
-
-function extractText(m: Record<string, unknown> | null | undefined): string | null {
-  if (!m) return null;
-  const v = m.content ?? m.text ?? m.message ?? m.value ?? m.reply ?? m.response ?? m.output;
-  return typeof v === 'string' && v.trim() ? v : null;
-}
-
-// Vento podría envolver la lista de mensajes de distintas formas según la
-// acción — se prueban las formas más probables antes de rendirse.
-function extractMessages(data: unknown): Record<string, unknown>[] {
-  if (Array.isArray(data)) return data as Record<string, unknown>[];
-  const obj = data as Record<string, unknown> | null;
-  const candidate = obj?.messages ?? obj?.value ?? obj?.result ?? obj?.data;
-  return Array.isArray(candidate) ? (candidate as Record<string, unknown>[]) : [];
-}
-
-function isFromUser(m: Record<string, unknown>): boolean {
-  const role = String(m.role ?? m.sender ?? m.from ?? m.author ?? '').toLowerCase();
-  return role === 'user' || role === 'me' || role === 'human';
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -85,16 +75,15 @@ serve(async (req) => {
     };
 
     // El nombre de quien escribe se antepone al mensaje para que Misi sepa
-    // a quién le está hablando (action_chat no distingue coupleId/persona).
+    // a quién le está hablando dentro del hilo compartido de la pareja.
     const contextualMessage = personName ? `[${personName}] ${message}` : message;
+    const sentAt = Date.now();
 
-    // 1) Encolar el mensaje. SIN conversationId propio — Vento genera el
-    // suyo; forzar coupleId ahí era inválido y probablemente la causa raíz
-    // del "sin texto reconocible" (action_chat no devuelve el reply acá).
-    const sendRes = await fetch(`${VENTO_BOARD}/action_chat`, {
+    // 1) Encolar el mensaje — conversationId = coupleId (hilo estable por pareja).
+    const sendRes = await fetch(VENTO_CHAT_URL, {
       method: 'POST',
       headers: authHeaders,
-      body: JSON.stringify({ message: contextualMessage }),
+      body: JSON.stringify({ message: contextualMessage, conversationId: coupleId }),
     });
 
     if (!sendRes.ok) {
@@ -103,45 +92,39 @@ serve(async (req) => {
     }
 
     const sendData = await sendRes.json().catch(() => null);
+    const conversationId = (sendData as Record<string, unknown> | null)?.conversationId ?? coupleId;
 
-    // Caso feliz poco probable pero posible: a veces el agente responde
-    // sincrónicamente y action_chat ya trae el texto — evita el polling.
-    const immediateReply = extractText(sendData as Record<string, unknown>);
-    if (immediateReply) {
-      return new Response(JSON.stringify({ reply: immediateReply }), { headers: corsHeaders });
-    }
-
-    const obj = sendData as Record<string, unknown> | null;
-    const conversationId = obj?.conversationId ?? obj?.conversation_id ?? obj?.id ?? obj?.conversation ?? null;
-    if (!conversationId) {
-      return new Response(JSON.stringify({ error: `No se pudo identificar la conversación tras enviar: ${JSON.stringify(sendData).slice(0, 300)}` }), { status: 502, headers: corsHeaders });
-    }
-
-    // 2) Poll a action_messages hasta encontrar la respuesta del agente
-    // (un mensaje que no sea el nuestro) o agotar el timeout de 2 minutos.
-    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    // 2) Poll a action_messages hasta encontrar una respuesta NUEVA del
+    // agente — remitente exacto "misiones_assistant" y timestamp posterior
+    // al envío, para no devolver por error un mensaje viejo ya visto antes.
+    const deadline = sentAt + POLL_TIMEOUT_MS;
     while (Date.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
 
-      const msgsRes = await fetch(`${VENTO_BOARD}/action_messages`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ conversationId }),
-      });
-      if (!msgsRes.ok) continue; // hiccup de red — reintentar en el próximo ciclo
+      try {
+        const msgsRes = await fetch(VENTO_MESSAGES_URL, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ conversationId }),
+        });
+        if (!msgsRes.ok) continue; // hiccup de red — reintentar en el próximo ciclo
 
-      const msgsData = await msgsRes.json().catch(() => null);
-      const messages = extractMessages(msgsData);
-      if (!messages.length) continue;
+        const msgsData = await msgsRes.json().catch(() => null);
+        const messages = (msgsData as Record<string, unknown> | null)?.messages as Record<string, unknown>[] | undefined ?? [];
+        const agentReply = [...messages].reverse().find(
+          m => m.from === 'misiones_assistant' && Number(m.timestamp || 0) >= sentAt
+        );
 
-      const agentMsg = [...messages].reverse().find(m => !isFromUser(m));
-      const text = extractText(agentMsg);
-      if (text) {
-        return new Response(JSON.stringify({ reply: text }), { headers: corsHeaders });
+        const text = agentReply?.content;
+        if (typeof text === 'string' && text.trim()) {
+          return new Response(JSON.stringify({ reply: text, conversationId }), { headers: corsHeaders });
+        }
+      } catch {
+        // error de red/parseo en este ciclo — reintentar en el próximo
       }
     }
 
-    return new Response(JSON.stringify({ error: 'Misi tardó más de 2 minutos en responder — probá de nuevo en un momento.' }), { status: 504, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: 'Misi no respondió a tiempo (2 min) — probá de nuevo en un momento.' }), { status: 504, headers: corsHeaders });
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: corsHeaders });
   }
