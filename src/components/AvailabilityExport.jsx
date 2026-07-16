@@ -129,9 +129,15 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
   const rangeLabel = days.length
     ? `${dayLabel(days[0])} — ${dayLabel(days[days.length - 1])} ${parseYmd(days[days.length - 1]).getFullYear()}`
     : "";
+  // La franja horaria considerada va SIEMPRE visible en lo que se comparte
+  // (imagen y texto) — sin esto, quien recibe el calendario asume que un día
+  // "libre" lo está las 24hs, cuando en realidad solo se evaluó una franja.
+  const windowLabel = (winFrom || winTo)
+    ? `🕐 Horario considerado: ${winStart}–${winEnd}`
+    : `🕐 Horario considerado: todo el día`;
 
   const copyText = async () => {
-    const lines = [`🎾 Disponibilidad ${whoTitle}`, rangeLabel, ""];
+    const lines = [`🎾 Disponibilidad ${whoTitle}`, rangeLabel, windowLabel, ""];
     for (const key of days) lines.push(`${isFree(key) ? "✅" : "❌"} ${dayLabel(key)}`);
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -143,7 +149,9 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
   const downloadPng = () => {
     const cell = 132, gap = 12, cols = 7;
     const rows = Math.ceil((lead + days.length) / cols);
-    const headerH = 128, dowH = 44, legendH = 96;
+    // headerH +46 respecto al original para hacerle lugar al chip de horario
+    // sin pisar la fila de días de la semana.
+    const headerH = 174, dowH = 44, legendH = 96;
     const W = gap + cols * (cell + gap);
     const H = headerH + dowH + rows * (cell + gap) + legendH;
     const canvas = document.createElement("canvas");
@@ -164,6 +172,17 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
     ctx.fillText(`Disponibilidad — ${whoTitle}`, gap + 6, 58);
     ctx.fillStyle = "#6b7280"; ctx.font = "27px system-ui, sans-serif";
     ctx.fillText(rangeLabel, gap + 6, 100);
+
+    // Chip de franja horaria — destacado a propósito, para que quien reciba
+    // la imagen entienda de un vistazo que "libre" es dentro de esa franja,
+    // no el día entero (pedido explícito: que no haga falta aclararlo aparte).
+    ctx.font = "bold 24px system-ui, sans-serif";
+    const winChipPad = 18;
+    const winChipW = ctx.measureText(windowLabel).width + winChipPad * 2;
+    ctx.fillStyle = "#fef3c7"; rr(gap + 4, 116, winChipW, 40, 10); ctx.fill();
+    ctx.strokeStyle = "#fbbf24"; ctx.lineWidth = 2; rr(gap + 4, 116, winChipW, 40, 10); ctx.stroke();
+    ctx.fillStyle = "#92400e";
+    ctx.fillText(windowLabel, gap + 4 + winChipPad, 143);
 
     // Cabecera de días de semana (lun..dom)
     ctx.font = "bold 22px system-ui, sans-serif"; ctx.fillStyle = "#9ca3af"; ctx.textAlign = "center";

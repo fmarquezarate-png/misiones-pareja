@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.24.0] — 2026-07-08 · Franja horaria visible en la imagen de disponibilidad
+
+### ✨ Mejora — pedido del usuario
+
+Al compartir la imagen de disponibilidad con los rivales de la liga, había que aclarar por chat que un día "libre" no significaba disponible las 24 horas, solo dentro de la franja horaria configurada. Ahora esa franja va **siempre visible dentro de lo que se comparte**:
+
+- **Imagen (PNG):** nueva etiqueta destacada (fondo ámbar, borde, texto en negrita) debajo del rango de fechas — ej. "🕐 Horario considerado: 19:30–22:00". Si no se configuró ninguna franja, muestra "🕐 Horario considerado: todo el día" — nunca ambiguo.
+- **Texto copiado** (botón "Copiar"): la misma línea se agrega al mensaje, antes del detalle día por día.
+
+### ✅ Verificación
+
+Probado con Playwright generando la imagen real en ambos casos (franja configurada y "todo el día") — la etiqueta se redimensiona correctamente al ancho del texto y no se superpone con la fila de días de la semana en ningún caso.
+
+---
+
 ## [4.23.3] — 2026-07-08 · Misi conectado con Vento — fix definitivo
 
 ### 🤖✅ Cierre de la integración
