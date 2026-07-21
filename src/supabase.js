@@ -262,6 +262,23 @@ export async function loadDataWithVersion(coupleId) {
   }
 }
 
+// Último snapshot de app_data_backups (los escribe el trigger
+// trg_snapshot_app_data antes de cada UPDATE de app_data). RLS
+// app_data_backups_select_own permite leerlos al miembro autenticado de la
+// pareja — verificado 13/07/2026. LANZA en error (mismo criterio que
+// getMyCoupleId: el caller distingue "no hay backup" (null) de "falló la
+// red" y jamás toma decisiones destructivas por un fallo).
+export async function loadLatestBackup(coupleId) {
+  const { data: rows, error } = await supabase
+    .from("app_data_backups")
+    .select("couple_id, data, created_at")
+    .eq("couple_id", coupleId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error("app_data_backups: " + error.message);
+  return rows?.[0] ?? null;
+}
+
 // ── Sprint G-2: helpers de conversión fila → formato blob ──────────────────
 
 // goalIdMap: Map<UUID → nanoid> built from goalRows; passed in from loadFromNormalized

@@ -1,14 +1,19 @@
 import { useState, useCallback } from "react";
 
 export function useConfirm() {
-  const [state, setState] = useState(null); // { msg, onYes, danger }
+  const [state, setState] = useState(null); // { msg, onYes, onNo, danger }
 
-  const confirm = useCallback((msg, onYes, { danger = true, confirmLabel = "Confirmar", cancelLabel = "Cancelar" } = {}) => {
-    setState({ msg, onYes, danger, confirmLabel, cancelLabel });
+  // onNo (opcional): callback al cancelar o tocar fuera del diálogo. Los
+  // callers existentes no lo pasan y conservan el comportamiento previo
+  // (cerrar sin efecto). Lo usa el write-guard de App.jsx, donde "cancelar"
+  // es una acción con significado (descartar el cambio y recargar).
+  const confirm = useCallback((msg, onYes, { danger = true, confirmLabel = "Confirmar", cancelLabel = "Cancelar", onNo = null } = {}) => {
+    setState({ msg, onYes, onNo, danger, confirmLabel, cancelLabel });
   }, []);
 
   const resolve = (yes) => {
     if (yes) state?.onYes?.();
+    else state?.onNo?.();
     setState(null);
   };
 

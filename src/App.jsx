@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
+import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
+import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -217,6 +218,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const unconfirmedRef  = useRef([]);    // mutators applied locally but not yet confirmed persisted (para rebase-on-conflict)
   const afterSaveRef    = useRef([]);    // callbacks que corren tras el PRÓXIMO save confirmado (push, etc.) — reemplaza setTimeout frágil
   const runSaveRef      = useRef(null);  // latest runSave closure, para que el timer de debounce siempre use coupleId actual
+  // ── Write-guard (v4.25.0): misiones del último estado CONFIRMADO (cargado
+  // del server, guardado con éxito, o traído por realtime) — la referencia
+  // contra la que assessWrite mide caídas masivas. null = sin referencia aún.
+  const lastConfirmedCountRef = useRef(null);
+  const writeGuardActiveRef   = useRef(false); // diálogo de confirmación pendiente — suprime re-intentos de save
+  const writeOverrideRef      = useRef(false); // el usuario confirmó "guardar igual" — válido para el próximo save
+  const confirmRef            = useRef(null);  // espejo de confirm() (regla de closures de CLAUDE.md)
   const moodOuterTimerRef    = useRef(null); // outer 18:00 timer — stored in ref so recursive reschedule can clear it
   const moodInnerTimerRef    = useRef(null); // inner 1400ms delay timer before showing popup
   const matchDayTimerRef     = useRef(null); // 1200ms delay before showing match-day overlay
@@ -266,7 +274,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [filtersOpen,   setFiltersOpen]   = useState(false);
   const [weekViewMode,  setWeekViewMode]  = useState("timeline"); // "list" | "timeline"
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
-  const { ConfirmDialog } = useConfirm();
+  const { confirm, ConfirmDialog } = useConfirm();
+  const [backupOffer, setBackupOffer] = useState(null); // fila de app_data_backups usable cuando la carga falla — habilita "Restaurar backup" en la pantalla de error
   const [juntosMoment, setJuntosMoment] = useState(null);  // { mission, p1Name, p2Name, p1Color, p2Color }
   const [taskCongrat,  setTaskCongrat]  = useState(null);  // { mission, beforePct, afterPct, delta, color }
   const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
@@ -338,6 +347,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (remote) {
         // Sync version BEFORE setState so the next save uses the correct version
         dataVersionRef.current = version ?? null;
+        lastConfirmedCountRef.current = countMissions(remote);
         setData(prev => {
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
             showSyncMsg("✓ Ya estás al día");
@@ -385,6 +395,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       const diffSec = Math.round((Date.now() - savedAt.getTime()) / 1000);
       const timeStr = savedAt.toLocaleTimeString("es-ES");
       if (diffSec > 30) throw new Error(`updated_at tiene ${diffSec}s de antigüedad — el write no se aplicó. Revisa RLS o sesión.`);
+      // forcePush es una acción explícita del usuario ("Subir a Supabase") —
+      // lo subido pasa a ser la referencia confirmada del write-guard.
+      lastConfirmedCountRef.current = countMissions(data);
       showSyncMsg(`✅ Guardado en Supabase · ${timeStr} (hace ${diffSec}s)`);
     } catch (e) {
       setSyncError(e.message);
@@ -401,6 +414,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         let fast = { ...local.data };
         if (!fast.settings) fast.settings = DEFAULT_SETTINGS;
         if (!fast.goals) fast.goals = SEED.goals;
+        lastConfirmedCountRef.current = countMissions(fast);
         setData(fast);
         setLoading(false); // show immediately — Supabase will update silently
       }
@@ -442,12 +456,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
           // loadData falló (red, RLS, timeout) y no hay backup local usable —
           // no hubo fast path, no hay nada real en pantalla. NUNCA renderizar
           // el dashboard con SEED vacío en este caso: es indistinguible de "no
-          // tienes datos" para el usuario, y el próximo save (runSave solo
-          // valida isValidAppData, no si los datos son reales) sobrescribiría
+          // tienes datos" para el usuario, y el próximo save sobrescribiría
           // silenciosamente la fila real en Supabase con este blob vacío.
           // Bloquear con la pantalla de error existente en vez de seguir —
           // misma regla que "un fallo de red nunca toma decisiones
           // destructivas", aplicada también al path de carga.
+          // v4.25.0: antes de rendirnos, buscar el último snapshot en
+          // app_data_backups (trigger server-side) — si hay uno sano, la
+          // pantalla de error ofrece restaurarlo con un toque. La restauración
+          // NUNCA es automática: restaurar también es una escritura.
+          try {
+            const row = await withTimeout(loadLatestBackup(coupleId), 8000, "loadBackup");
+            if (isBackupUsable(row, coupleId)) setBackupOffer(row);
+          } catch (e) { console.warn("[load] backup lookup falló:", e.message); }
           setError("No pudimos cargar tus datos. Verifica tu conexión y toca \"Reintentar\" — por seguridad, no se muestra ni se guarda nada hasta confirmar que son tus datos reales.");
           setLoading(false);
           return;
@@ -478,6 +499,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
         if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
 
+        // Aviso NO bloqueante (decisión de diseño v4.25.0): si el remoto trae
+        // muchas menos misiones que la copia local previa, avisar — pero no
+        // bloquear la carga: puede ser corrupción O un borrado legítimo de la
+        // pareja desde otro dispositivo. El guard DURO vive en la escritura
+        // (runSave), que es donde el daño se vuelve irreversible.
+        if (isRealData && local?.data?.weeks) {
+          const loadVerdict = assessWrite(countMissions(local.data), base);
+          if (loadVerdict.blocked) {
+            console.warn(`[load] el servidor devolvió ${loadVerdict.next} misiones; la copia local tenía ${loadVerdict.prev}`);
+            track("load_drop_notice", { prev: loadVerdict.prev, next: loadVerdict.next });
+            pushToast({ kind: "error", text: `⚠️ El servidor devolvió ${loadVerdict.next} actividades y tu copia local tenía ${loadVerdict.prev}. Si te faltan datos, no edites nada y avisa.` });
+          }
+        }
+        lastConfirmedCountRef.current = countMissions(base);
         setData(base);
         setLoading(false);
 
@@ -885,6 +920,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setPushNudgeVisible(true);
         setTimeout(() => setPushNudgeVisible(false), 8000);
       }
+      // Estado confirmado del servidor (la pareja guardó) — actualizar la
+      // referencia del write-guard, si no el próximo save local compararía
+      // contra un conteo viejo y daría un falso positivo.
+      lastConfirmedCountRef.current = countMissions(remoteData);
       setData(() => remoteData);
     }, () => pendingSaveRef.current || !!saveTimerRef.current || isSavingRef.current || unconfirmedRef.current.length > 0);
     return () => { supabase.removeChannel(channel); };
@@ -900,6 +939,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
         if (dataRef.current && coupleId && isValidAppData(dataRef.current)) {
+          // Write-guard: este flush bypassea runSave — sin este check, ir a
+          // background con un estado sospechoso lo guardaría sin preguntar.
+          // Si bloquea, no se pierde nada: al volver a foreground el save
+          // normal re-evalúa y muestra el diálogo de confirmación.
+          const verdict = assessWrite(lastConfirmedCountRef.current, dataRef.current);
+          if (verdict.blocked && !writeOverrideRef.current) {
+            console.warn("[write-guard] flush a background bloqueado:", verdict);
+            return;
+          }
           saveWithRetry(dataRef.current, coupleId, {
             retries: 1, baseDelay: 300,
             getLatestData: () => dataRef.current,
@@ -917,6 +965,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         // ediciones locales sin guardar — si las hay, el rebase-on-conflict las protege.
         loadDataWithVersion(coupleId).then(({ data: fresh, version }) => {
           if (fresh && isValidAppData(fresh)) {
+            lastConfirmedCountRef.current = countMissions(fresh);
             setData(fresh);
             dataVersionRef.current = version ?? null;
           }
@@ -1020,6 +1069,56 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const cur = dataRef.current;
     if (!cur || !isValidAppData(cur)) return;
 
+    // ── Write-guard (v4.25.0): ANTES de tocar red Y de saveLocalBackup — un
+    // estado sospechoso tampoco debe pisar el backup local (es la última red
+    // de seguridad del dispositivo). Si el nuevo estado elimina una porción
+    // masiva de misiones respecto al último confirmado, se frena todo y se
+    // pregunta explícitamente. "Cancelar" descarta el cambio y recarga.
+    if (writeGuardActiveRef.current) return; // diálogo pendiente — no reintentar en bucle
+    if (!writeOverrideRef.current) {
+      const verdict = assessWrite(lastConfirmedCountRef.current, cur);
+      if (verdict.blocked) {
+        writeGuardActiveRef.current = true;
+        setSavingState("idle");
+        console.warn("[write-guard] guardado bloqueado:", verdict);
+        track("write_guard_blocked", { reason: verdict.reason, prev: verdict.prev, next: verdict.next });
+        confirmRef.current?.(
+          verdict.reason === "wipe"
+            ? `⚠️ Este cambio dejaría el calendario VACÍO (había ${verdict.prev} actividades).\n\n¿Es intencional?`
+            : `⚠️ Este cambio eliminaría ${verdict.prev - verdict.next} de ${verdict.prev} actividades (quedarían ${verdict.next}).\n\n¿Es intencional?`,
+          () => { // Guardar igualmente — override válido para el próximo save
+            writeOverrideRef.current = true;
+            writeGuardActiveRef.current = false;
+            scheduleSave();
+          },
+          {
+            confirmLabel: "Sí, guardar",
+            cancelLabel: "No — recuperar",
+            onNo: async () => { // Descartar el cambio local y recargar lo confirmado del server
+              writeGuardActiveRef.current = false;
+              unconfirmedRef.current = [];
+              setPendingSave(false);
+              try {
+                const { data: fresh, version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "guard:reload");
+                if (fresh && isValidAppData(fresh)) {
+                  dataVersionRef.current = version ?? null;
+                  lastConfirmedCountRef.current = countMissions(fresh);
+                  setData(fresh);
+                  saveLocalBackup(fresh, coupleId);
+                  pushToast({ kind: "success", text: "✅ Cambio descartado — datos recuperados del servidor" });
+                } else {
+                  pushToast({ kind: "error", text: "No se pudo recargar del servidor. El cambio NO se guardó — recarga la app para recuperar tus datos." });
+                }
+              } catch {
+                pushToast({ kind: "error", text: "No se pudo recargar del servidor. El cambio NO se guardó — recarga la app para recuperar tus datos." });
+              }
+            },
+          }
+        );
+        return; // nada se persiste (ni backup local) mientras no haya decisión
+      }
+    }
+
     // Sin conexión: no tiene sentido gastar un intento de red que sabemos que
     // va a fallar (ni mostrar "⚠ Error al guardar" — estar offline no es un
     // error). Backup local ahora mismo; el efecto de reconexión más abajo
@@ -1102,6 +1201,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Confirmado: quitar de unconfirmedRef exactamente los mutadores persistidos.
       const done = new Set(confirming);
       unconfirmedRef.current = unconfirmedRef.current.filter(m => !done.has(m));
+      // Write-guard: el override era para ESTE save; el estado recién
+      // persistido pasa a ser la nueva referencia confirmada.
+      writeOverrideRef.current = false;
+      lastConfirmedCountRef.current = countMissions(toSave);
       setSyncError(null);
       if (unconfirmedRef.current.length === 0) setPendingSave(false);
       setSavingState("saved");
@@ -1136,6 +1239,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   }, [coupleId, scheduleSave, pushToast]);
 
   useEffect(() => { runSaveRef.current = runSave; }, [runSave]);
+  useEffect(() => { confirmRef.current = confirm; }, [confirm]);
 
   // IMPORTANTE: el `fn` pasado a update DEBE ser puro (sin efectos secundarios).
   // runSave lo re-aplica sobre datos frescos en un conflicto CAS (rebase), así que
@@ -1199,6 +1303,29 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const changeWeek = d => update(s => { let wn=s.currentWeekNumber+d,yr=s.currentYear; if(wn>isoWeeksInYear(yr)){wn=1;yr++;} if(wn<1){yr--;wn=isoWeeksInYear(yr);} return {...s,currentWeekNumber:wn,currentYear:yr}; });
   const swipeWeek = useSwipe(() => changeWeek(1), () => changeWeek(-1));
 
+  // Restauración manual desde app_data_backups — solo alcanzable desde la
+  // pantalla de error de carga, y solo si isBackupUsable() validó la fila.
+  // Nunca automática: restaurar también es una escritura. Se persiste como
+  // mutador rebase-safe por el path normal de saves (CAS/retry).
+  const restoreFromBackup = () => {
+    const restored = backupOffer?.data;
+    if (!restored || !isValidAppData(restored)) return;
+    if (!restored.settings) restored.settings = DEFAULT_SETTINGS;
+    if (!restored.goals) restored.goals = SEED.goals;
+    track("backup_restored", { missions: countMissions(restored), backupAt: backupOffer.created_at });
+    lastConfirmedCountRef.current = countMissions(restored);
+    dataVersionRef.current = null; // versión desconocida → el save cae al path retry (seguro)
+    setData(restored);
+    saveLocalBackup(restored, coupleId);
+    setError(null);
+    setBackupOffer(null);
+    setLoading(false);
+    unconfirmedRef.current.push(() => restored);
+    setPendingSave(true);
+    scheduleSave();
+    pushToast({ kind: "success", text: "♻️ Backup restaurado — guardando en el servidor…" });
+  };
+
   if (loading) return (
     <div style={{ background:"var(--t-bg,#0a0714)", minHeight:"100vh", fontFamily:"system-ui", padding:"16px 16px calc(24px + env(safe-area-inset-bottom))", maxWidth:640, margin:"0 auto" }}>
       <style>{`@keyframes sk-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
@@ -1216,6 +1343,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         <div style={{ fontSize:48, marginBottom:12 }}>⚠️</div>
         <div style={{ color:"#fb923c", fontSize:14, marginBottom:16 }}>{error}</div>
         <button onClick={() => window.location.reload()} style={{ background:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:8, color:"#f8f4ff", padding:"8px 20px", cursor:"pointer", fontFamily:"inherit" }}>Reintentar</button>
+        {backupOffer && (
+          <button onClick={restoreFromBackup} style={{ display:"block", margin:"14px auto 0", background:"linear-gradient(135deg,#065f46,#10b981)", border:"none", borderRadius:8, color:"#fff", padding:"10px 20px", cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:600 }}>
+            ♻️ Restaurar backup automático
+            <span style={{ display:"block", fontSize:11, fontWeight:400, opacity:0.85, marginTop:3 }}>
+              {new Date(backupOffer.created_at).toLocaleString("es-ES", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })} · {countMissions(backupOffer.data)} actividades
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
