@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.25.1] — 2026-07-21 · Fix: columna real de app_data_backups
+
+### 🐛 Bug en v4.25.0 detectado por auditoría del schema real
+
+`loadLatestBackup` seleccionaba y ordenaba por `created_at`, pero el schema REAL de `app_data_backups` (verificado con `information_schema.columns` vía Supabase MCP) usa **`backed_up_at`** — la documentación de `TAREAS_SQL_AGENTE_SUPABASE.md` describía un trigger con `created_at` que no coincide con lo desplegado. En producción, la query habría devuelto error → `catch` → la oferta de "Restaurar backup automático" **nunca aparecía**. El E2E de v4.25.0 no lo detectó porque el mock respondía el shape asumido, no el real (lección incorporada abajo).
+
+**Fix:** alias PostgREST `created_at:backed_up_at` en la query — `dataGuards.isBackupUsable`, la UI y los tests conservan el contrato `created_at` sin cambios.
+
+---
+
 ## [4.25.0] — 2026-07-13 · Blindaje contra pérdida accidental de datos
 
 ### 🛡️ Write-guard: ninguna caída masiva se guarda en silencio

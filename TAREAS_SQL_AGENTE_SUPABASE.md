@@ -6,6 +6,9 @@
 
 ---
 
+
+> ⚠️ **Corrección (21/07/2026, verificado contra la DB real):** la columna de fecha de `app_data_backups` se llama **`backed_up_at`**, NO `created_at` como aparece en los SQL de ejemplo de este documento. El schema real es: `id bigint, data jsonb, backed_up_at timestamptz, identifier text, couple_id uuid`. Cualquier query/trigger nuevo debe usar `backed_up_at`.
+
 ## ✅ RESUELTO (v4.23.3, 08/07/2026) — Misi conectado al agente real de Vento
 
 **Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). Código en `src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`.
