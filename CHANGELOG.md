@@ -7,6 +7,34 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.25.0] — 2026-07-13 · Blindaje contra pérdida accidental de datos
+
+### 🛡️ Write-guard: ninguna caída masiva se guarda en silencio
+
+Nuevo módulo `src/lib/dataGuards.js` (funciones puras, testeables sin mocks — mismo patrón que `validation.js`):
+
+- `countMissions(data)` — total de misiones del blob.
+- `assessWrite(prevCount, nextData)` — bloquea si el nuevo estado conserva **menos del 60%** de las misiones del último estado confirmado (umbral `DROP_THRESHOLD = 0.4`), o si **queda en 0** habiendo ≥3 antes. No molesta a parejas chicas (`MIN_PREV_FOR_DROP = 5`).
+- `isBackupUsable(row, coupleId)` — sanidad de una fila de `app_data_backups`: pareja correcta, estructura válida, con semanas y misiones, timestamp parseable, ni futuro ni >90 días.
+
+Integración en `runSave` (el único escritor automático): el guard corre **antes de tocar red Y antes de `saveLocalBackup`** — un estado sospechoso tampoco pisa la copia local del dispositivo. Si bloquea, `ConfirmDialog` con números concretos ("eliminaría X de Y actividades — ¿es intencional?"): **"Sí, guardar"** aplica el cambio (override de un solo uso); **"No — recuperar"** descarta los mutadores pendientes y recarga el estado del servidor. El flush al ir a background (que bypassea `runSave`) tiene el mismo check. La "referencia confirmada" (`lastConfirmedCountRef`) se actualiza en todos los puntos donde el estado es real: carga, realtime de la pareja, save exitoso, smartSync, forcePush y re-fetch al volver a foreground.
+
+### ♻️ Fallback a backups del servidor en la carga
+
+Si la carga falla sin copia local usable (el escenario del bug del 07/07), antes de rendirse la app consulta `app_data_backups` (los snapshots que el trigger `trg_snapshot_app_data` guarda antes de cada UPDATE — RLS `app_data_backups_select_own` verificada: el miembro autenticado puede leerlos). Si hay un backup que pasa `isBackupUsable`, la pantalla de error muestra **"♻️ Restaurar backup automático"** con fecha y conteo de actividades. La restauración **nunca es automática** (restaurar también es una escritura): siempre un toque explícito. Al restaurar, se persiste por el path normal de saves como mutador rebase-safe.
+
+### ⚠️ Aviso de discrepancia al cargar (no bloqueante)
+
+Si el servidor devuelve muchas menos misiones que la copia local previa, toast de aviso + `track("load_drop_notice")` — sin bloquear, porque puede ser un borrado legítimo de la pareja desde otro dispositivo. El guard duro vive en la escritura, que es donde el daño se vuelve irreversible.
+
+### ✅ Verificación
+
+- **18 tests unitarios nuevos** (`src/__tests__/dataGuards.test.js`) — los 6 escenarios pedidos: carga normal, vacío con backup válido, corrupto con backup válido, backup inválido (pareja/estructura/timestamp), caída masiva bloqueada, escritura normal permitida. Suite completa: 42/42.
+- **2 flujos E2E en navegador real (Playwright)**: (1) import con caída 10→1 → diálogo visible, **cero requests de save mientras bloquea**, "recuperar" restaura del servidor, "sí, guardar" persiste; (2) `app_data` sin fila + backup sano → pantalla de error con oferta, restaurar pinta el dashboard y sube el blob al servidor.
+- `confirm()` de `ConfirmModal.jsx` extendido con `onNo` opcional — retrocompatible (callers existentes sin cambios).
+
+---
+
 ## [4.24.0] — 2026-07-08 · Franja horaria visible en la imagen de disponibilidad
 
 ### ✨ Mejora — pedido del usuario
