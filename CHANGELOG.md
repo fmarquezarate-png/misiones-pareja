@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.27.0] — 2026-07-22 · Rediseño de "Editar perfil" con pestañas
+
+### 🎨 De un muro de 11 secciones a 3 pestañas cortas
+
+`ProfileModal` pasaba de un único scroll interminable (fotos, emoji, personas, colores, fechas, push, notificaciones, tema, tipografía, barra inferior, compartir — todo apilado) a una estructura de **pestañas** con hero y footer fijos:
+
+- **👥 Pareja** — Personas (nombres/colores/fotos) · Juntos · Restablecer colores · Emoji sin foto · Fechas especiales.
+- **🎨 Apariencia** — Tema · Tipografía · Barra de navegación inferior.
+- **🔔 Avisos y más** — Push en segundo plano · Notificaciones en app · Compartir · acciones de app (tutorial / Wrapped / actualizar).
+
+**Garantías:** cero funciones eliminadas — solo reorganización visual. El estado es compartido entre pestañas y **Guardar persiste todo** sin importar la pestaña activa (nada se descarta al cambiar). Toda la lógica de fotos, colores, guardado, compartir y notificaciones quedó intacta.
+
+**Responsive:** en móvil se abre como hoja inferior (`border-radius` arriba, pegada abajo); en ≥640px como tarjeta centrada (`max-width:560px`, esquinas redondeadas). Más espaciado y avatares un pelín más grandes en ambos.
+
+### ✅ Verificación
+
+E2E Playwright en **móvil (390px) y PC (1100px)**: abre en Pareja, las 3 pestañas cambian de contenido correctamente (Tema/Tipografía en Apariencia, Notificaciones/Compartir/Ayuda en Avisos), y Guardar/Cancelar quedan fijos abajo en todas. Confirmado visualmente en ambas plataformas.
+
+---
+
 ## [4.26.0] — 2026-07-22 · Menú lateral agrupado por categorías
 
 ### 🗂️ Handoff de navegación — el hamburguesa se vuelve compacto y escaneable
