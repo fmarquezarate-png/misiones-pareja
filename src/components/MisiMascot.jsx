@@ -1,26 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Misi — la mascota de la app. Vive como una burbuja flotante que se puede
-// tocar para abrir el chat. Arte real (3 poses recibidas): alegre (saludando),
-// neutral (reutilizada para leyendo/escribiendo, diferenciadas por animación)
-// y durmiendo. Fondo casi blanco en el botón para que el blanco de estudio de
-// las fotos se funda sin costura visible contra el fondo oscuro de la app.
-const IMG_BY_EMOTION = {
-  alegre: "/misi-alegre.jpg",
-  leyendo: "/misi-neutral.jpg",
-  escribiendo: "/misi-neutral.jpg",
-  durmiendo: "/misi-durmiendo.jpg",
+// tocar para abrir el chat. Ahora ANIMADA: 3 videos cortos (loop, ~50KB c/u,
+// optimizados desde los originales de 6MB) con fondo blanco de estudio que se
+// funde con el botón. La foto JPG va de `poster`: se ve al instante mientras
+// carga el video y actúa de fallback si el navegador no lo reproduce.
+const VIDEO_BY_EMOTION = {
+  alegre:      "/misi-alegre.mp4",
+  leyendo:     "/misi-escribiendo.mp4", // atento / pensando cuando el chat está abierto
+  escribiendo: "/misi-escribiendo.mp4",
+  durmiendo:   "/misi-durmiendo.mp4",
 };
-
-// Encuadre por pose — cada foto centra al robot distinto (la de dormir está
-// acostado, más ancho) así que el zoom/posición se ajustan por emoción.
-// Zoom bajo a propósito: con más scale se recortaban los ojos contra el
-// borde circular — mejor ver el cuerpo completo tipo sticker.
-const FRAME_BY_EMOTION = {
-  alegre: { scale: 1.05, pos: "center 30%" },
-  leyendo: { scale: 1.05, pos: "center 28%" },
-  escribiendo: { scale: 1.05, pos: "center 28%" },
-  durmiendo: { scale: 1.1, pos: "48% 45%" },
+// Poster estático (carga instantánea + fallback si el video no reproduce o si
+// el usuario pidió "reducir movimiento").
+const POSTER_BY_EMOTION = {
+  alegre:      "/misi-alegre.jpg",
+  leyendo:     "/misi-neutral.jpg",
+  escribiendo: "/misi-neutral.jpg",
+  durmiendo:   "/misi-durmiendo.jpg",
 };
 
 const EMOTIONS = {
@@ -30,13 +27,17 @@ const EMOTIONS = {
   durmiendo:  { label: "Durmiendo",  cue: "💤" },
 };
 
-// La imagen real de Misi + un pequeño motor de vida propia: al cambiar de
-// emoción hace un crossfade corto, y mientras está en una emoción tiene una
-// micro-animación continua distinta (respirar, asentir, tiritar de energía,
-// dormir) — así nunca se ve como una foto estática pegada en un botón.
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+// Misi animada. Al cambiar de emoción hace un crossfade corto (remonta el
+// <video> con key para reiniciar el loop). Si el usuario pidió menos
+// movimiento, muestra la foto estática en vez del video.
 function MisiArt({ emotion }) {
   const [shown, setShown] = useState(emotion);
   const [fading, setFading] = useState(false);
+  const vref = useRef(null);
+  const reduce = prefersReducedMotion();
 
   useEffect(() => {
     if (emotion === shown) return;
@@ -45,25 +46,38 @@ function MisiArt({ emotion }) {
     return () => clearTimeout(t);
   }, [emotion, shown]);
 
-  const motion = shown === "durmiendo" ? "misi-breathe-slow 3.2s ease-in-out infinite"
-    : shown === "escribiendo" ? "misi-wiggle 0.55s ease-in-out infinite"
-    : shown === "leyendo" ? "misi-nod 2.6s ease-in-out infinite"
-    : "misi-breathe 2.4s ease-in-out infinite";
+  // Pausar el loop cuando la app está en segundo plano — no gastar batería
+  // animando algo que nadie ve. Se reanuda al volver.
+  useEffect(() => {
+    if (reduce) return;
+    const onVis = () => {
+      const v = vref.current;
+      if (!v) return;
+      if (document.hidden) v.pause();
+      else v.play?.().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [reduce]);
 
-  const frame = FRAME_BY_EMOTION[shown];
+  const commonStyle = {
+    width: 60, height: 60, borderRadius: "50%", objectFit: "cover",
+    opacity: fading ? 0 : 1, transition: "opacity 0.16s ease",
+  };
+
+  if (reduce) {
+    return <img src={POSTER_BY_EMOTION[shown]} alt="Misi" style={{ ...commonStyle, transform: "scale(1.05)" }} />;
+  }
 
   return (
-    <img
-      src={IMG_BY_EMOTION[shown]}
-      alt="Misi"
-      style={{
-        width: 60, height: 60, borderRadius: "50%", objectFit: "cover", objectPosition: frame.pos,
-        "--misi-s": frame.scale,
-        transform: `scale(${frame.scale})`,
-        opacity: fading ? 0 : 1,
-        transition: "opacity 0.16s ease",
-        animation: motion,
-      }}
+    <video
+      key={shown}
+      ref={vref}
+      src={VIDEO_BY_EMOTION[shown]}
+      poster={POSTER_BY_EMOTION[shown]}
+      autoPlay loop muted playsInline
+      aria-hidden="true"
+      style={commonStyle}
     />
   );
 }
@@ -110,10 +124,6 @@ export default function MisiMascot({ emotion = "alegre", unread = 0, onClick, li
         @keyframes misi-bump { 0%,100% { transform: scale(1); } 30% { transform: scale(1.18); } 60% { transform: scale(0.95); } }
         @keyframes misi-pulse { 0%,100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
         @keyframes misi-bounce { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-8deg); } }
-        @keyframes misi-breathe { 0%,100% { transform: scale(var(--misi-s,1.05)); } 50% { transform: scale(calc(var(--misi-s,1.05) * 1.03)); } }
-        @keyframes misi-breathe-slow { 0%,100% { transform: scale(var(--misi-s,1.1)) translateY(0); opacity: 0.92; } 50% { transform: scale(var(--misi-s,1.1)) translateY(1px); opacity: 1; } }
-        @keyframes misi-nod { 0%,100% { transform: scale(var(--misi-s,1.05)) rotate(0deg); } 50% { transform: scale(var(--misi-s,1.05)) rotate(-3deg); } }
-        @keyframes misi-wiggle { 0%,100% { transform: scale(var(--misi-s,1.05)) rotate(-4deg); } 50% { transform: scale(var(--misi-s,1.05)) rotate(4deg); } }
       `}</style>
       <MisiArt emotion={emotion} />
       <EmotionBadge emotion={emotion} />

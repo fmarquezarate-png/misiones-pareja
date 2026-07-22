@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.28.0] — 2026-07-22 · Misi animada (mascota en video)
+
+### 🤖✨ Misi se mueve
+
+La burbuja de Misi pasa de foto estática (v4.22.0) a **video en loop** según su estado emocional, a partir de los 3 clips que envió el usuario:
+
+- **alegre** → `misi-alegre.mp4` (saludando, mostrando el dado, ojos brillantes) — estado por defecto y con el chat abierto en reposo (`leyendo` reutiliza el clip de pensar).
+- **escribiendo / leyendo** → `misi-escribiendo.mp4` (pensativo, mirando el dado) — mientras espera respuesta de Vento.
+- **durmiendo** → `misi-durmiendo.mp4` (acostado, ojo-engranaje) — tras 5 min sin interacción.
+
+**Optimización:** los originales pesaban ~6 MB c/u (18 MB total); con ffmpeg (recorte para quitar la marca de agua de KlingAI, 224×224, 20fps, H.264 crf 30) bajaron a **44-56 KB c/u** (~145 KB total). Se sirven desde `public/`, cacheados por el SW — no engordan el bundle JS.
+
+**Implementación:** `<video autoPlay loop muted playsInline>` con `poster` = la foto JPG (carga instantánea + fallback si el navegador no decodifica el video → degradación limpia a lo que ya había). Se **pausa cuando la pestaña está oculta** (batería) y respeta `prefers-reduced-motion` (muestra la foto estática). Crossfade corto al cambiar de estado.
+
+### ✅ Verificación
+
+Confirmado: mp4 servido correcto (`200`, `video/mp4`, tamaño esperado), `<video>` montado con src+poster correctos, encuadre bueno en el círculo (vía poster), fallback funcional, y los 3 mp4 incluidos en `dist/`. **Limitación del entorno de test:** el Chromium headless del sandbox no trae códec H.264, así que la reproducción real (el movimiento) se valida en dispositivo — pendiente de confirmación del usuario en su iPhone.
+
+---
+
 ## [4.27.0] — 2026-07-22 · Rediseño de "Editar perfil" con pestañas
 
 ### 🎨 De un muro de 11 secciones a 3 pestañas cortas
