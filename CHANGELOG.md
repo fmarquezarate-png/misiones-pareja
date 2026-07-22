@@ -7,6 +7,46 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.28.0] — 2026-07-22 · Misi animada (mascota en video)
+
+### 🤖✨ Misi se mueve
+
+La burbuja de Misi pasa de foto estática (v4.22.0) a **video en loop** según su estado emocional, a partir de los 3 clips que envió el usuario:
+
+- **alegre** → `misi-alegre.mp4` (saludando, mostrando el dado, ojos brillantes) — estado por defecto y con el chat abierto en reposo (`leyendo` reutiliza el clip de pensar).
+- **escribiendo / leyendo** → `misi-escribiendo.mp4` (pensativo, mirando el dado) — mientras espera respuesta de Vento.
+- **durmiendo** → `misi-durmiendo.mp4` (acostado, ojo-engranaje) — tras 5 min sin interacción.
+
+**Optimización:** los originales pesaban ~6 MB c/u (18 MB total); con ffmpeg (recorte para quitar la marca de agua de KlingAI, 224×224, 20fps, H.264 crf 30) bajaron a **44-56 KB c/u** (~145 KB total). Se sirven desde `public/`, cacheados por el SW — no engordan el bundle JS.
+
+**Implementación:** `<video autoPlay loop muted playsInline>` con `poster` = la foto JPG (carga instantánea + fallback si el navegador no decodifica el video → degradación limpia a lo que ya había). Se **pausa cuando la pestaña está oculta** (batería) y respeta `prefers-reduced-motion` (muestra la foto estática). Crossfade corto al cambiar de estado.
+
+### ✅ Verificación
+
+Confirmado: mp4 servido correcto (`200`, `video/mp4`, tamaño esperado), `<video>` montado con src+poster correctos, encuadre bueno en el círculo (vía poster), fallback funcional, y los 3 mp4 incluidos en `dist/`. **Limitación del entorno de test:** el Chromium headless del sandbox no trae códec H.264, así que la reproducción real (el movimiento) se valida en dispositivo — pendiente de confirmación del usuario en su iPhone.
+
+---
+
+## [4.27.0] — 2026-07-22 · Rediseño de "Editar perfil" con pestañas
+
+### 🎨 De un muro de 11 secciones a 3 pestañas cortas
+
+`ProfileModal` pasaba de un único scroll interminable (fotos, emoji, personas, colores, fechas, push, notificaciones, tema, tipografía, barra inferior, compartir — todo apilado) a una estructura de **pestañas** con hero y footer fijos:
+
+- **👥 Pareja** — Personas (nombres/colores/fotos) · Juntos · Restablecer colores · Emoji sin foto · Fechas especiales.
+- **🎨 Apariencia** — Tema · Tipografía · Barra de navegación inferior.
+- **🔔 Avisos y más** — Push en segundo plano · Notificaciones en app · Compartir · acciones de app (tutorial / Wrapped / actualizar).
+
+**Garantías:** cero funciones eliminadas — solo reorganización visual. El estado es compartido entre pestañas y **Guardar persiste todo** sin importar la pestaña activa (nada se descarta al cambiar). Toda la lógica de fotos, colores, guardado, compartir y notificaciones quedó intacta.
+
+**Responsive:** en móvil se abre como hoja inferior (`border-radius` arriba, pegada abajo); en ≥640px como tarjeta centrada (`max-width:560px`, esquinas redondeadas). Más espaciado y avatares un pelín más grandes en ambos.
+
+### ✅ Verificación
+
+E2E Playwright en **móvil (390px) y PC (1100px)**: abre en Pareja, las 3 pestañas cambian de contenido correctamente (Tema/Tipografía en Apariencia, Notificaciones/Compartir/Ayuda en Avisos), y Guardar/Cancelar quedan fijos abajo en todas. Confirmado visualmente en ambas plataformas.
+
+---
+
 ## [4.26.0] — 2026-07-22 · Menú lateral agrupado por categorías
 
 ### 🗂️ Handoff de navegación — el hamburguesa se vuelve compacto y escaneable
