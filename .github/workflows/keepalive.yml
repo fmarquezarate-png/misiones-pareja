@@ -1,0 +1,64 @@
+name: Keep-alive Supabase
+
+# Evita que el proyecto de Supabase (plan free) se auto-pause tras 7 días de
+# inactividad — la causa raíz de las caídas 522 recurrentes (13/07, 21/07).
+# Un ping diario reinicia el contador de inactividad con muchísimo margen.
+#
+# Bonus: si Supabase está caído de verdad cuando corre el ping, el job falla
+# y GitHub envía un email al dueño del repo → monitoreo gratis de disponibilidad.
+#
+# ⚠️ Los cron SOLO corren en la rama por defecto (main). Este archivo queda
+# dormido en ramas de trabajo y se ACTIVA al mergear a main.
+# Se puede probar a mano en cualquier momento con "Run workflow" (workflow_dispatch).
+
+on:
+  schedule:
+    # 06:17 UTC diario. Minuto :17 a propósito (no :00) para no coincidir con
+    # el pico de crons de todo el planeta que Supabase/GitHub reciben en punto.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {} # botón manual "Run workflow" para probar al instante
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST (genera actividad + verifica salud)
+        env:
+          # La URL no es secreta; el anon key es público (viaja en el bundle
+          # del frontend). Se toman de los secrets del repo si existen, con
+          # fallback a la URL conocida para que el ping funcione igual.
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://txnsotchljquilfmdpdy.supabase.co' }}
+          ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$ANON_KEY" ]; then
+            echo "::error::Falta el secret VITE_SUPABASE_ANON_KEY en el repo (Settings → Secrets → Actions)."
+            exit 1
+          fi
+
+          URL="${SUPABASE_URL%/}/rest/v1/app_data?select=id&limit=1"
+          echo "Ping a: $URL"
+
+          # 3 intentos con espera creciente: un blip transitorio de 5s no debe
+          # disparar el email — solo una caída sostenida. Cualquier respuesta
+          # HTTP del servidor (incluida 401/403 por RLS) cuenta como ACTIVIDAD
+          # y mantiene el proyecto despierto; lo que NO queremos es 000
+          # (inalcanzable) ni 5xx (servidor caído).
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 \
+              -H "apikey: $ANON_KEY" \
+              -H "Authorization: Bearer $ANON_KEY" \
+              "$URL" || echo "000")
+            echo "Intento $attempt → HTTP $code"
+
+            # 2xx/4xx = el servidor respondió (proyecto vivo). Éxito.
+            if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
+              echo "✅ Supabase responde (HTTP $code) — proyecto despierto."
+              exit 0
+            fi
+
+            echo "⚠️ Sin respuesta sana (HTTP $code). Reintentando…"
+            sleep $((attempt * 15))
+          done
+
+          echo "::error::Supabase no respondió sanamente tras 3 intentos — posible caída (522/pausa)."
+          exit 1

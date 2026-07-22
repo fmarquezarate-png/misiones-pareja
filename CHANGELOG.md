@@ -7,6 +7,35 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.26.0] — 2026-07-22 · Menú lateral agrupado por categorías
+
+### 🗂️ Handoff de navegación — el hamburguesa se vuelve compacto y escaneable
+
+Las 14 pestañas pasaban de una lista plana difícil de recorrer a **grupos con encabezado** (diseño del handoff, validado con el usuario):
+
+- **Inicio** — suelto arriba, sin encabezado.
+- **SEMANA** — Semana actual · Calendario · Pendientes.
+- **NOSOTROS 💕** — acordeón "❤️ Ver todo" que pliega las secundarias (Metas · Ánimo · Cumpleaños · Cápsula del tiempo · Links de Interés · Lista de compras) y las despliega en el sitio, empujando Historial hacia abajo. Los ítems desplegados llevan indentado + línea vertical para mostrar pertenencia.
+- **HISTORIAL** — Stats · Histórico · **Actividad** · Gastos · Chat.
+
+**Detalles:** "Actividad" no es pestaña — abre el modal de actividad reciente (nueva prop `onOpenActivity`, mismo modal que el menú ⋯). El acordeón se auto-despliega si la pestaña activa vive dentro. Se conservó toda la navegación, el badge de chat, el resaltado de activo y la accesibilidad (`aria-current`, `aria-expanded`).
+
+### ✅ Verificación
+
+E2E Playwright + confirmación visual (coincide con el mockup del handoff): grupos correctos, secundarias ocultas plegadas, las 6 aparecen al desplegar, "Actividad" abre el modal.
+
+---
+
+## [4.25.1] — 2026-07-21 · Fix: columna real de app_data_backups
+
+### 🐛 Bug en v4.25.0 detectado por auditoría del schema real
+
+`loadLatestBackup` seleccionaba y ordenaba por `created_at`, pero el schema REAL de `app_data_backups` (verificado con `information_schema.columns` vía Supabase MCP) usa **`backed_up_at`** — la documentación de `TAREAS_SQL_AGENTE_SUPABASE.md` describía un trigger con `created_at` que no coincide con lo desplegado. En producción, la query habría devuelto error → `catch` → la oferta de "Restaurar backup automático" **nunca aparecía**. El E2E de v4.25.0 no lo detectó porque el mock respondía el shape asumido, no el real (lección incorporada abajo).
+
+**Fix:** alias PostgREST `created_at:backed_up_at` en la query — `dataGuards.isBackupUsable`, la UI y los tests conservan el contrato `created_at` sin cambios.
+
+---
+
 ## [4.25.0] — 2026-07-13 · Blindaje contra pérdida accidental de datos
 
 ### 🛡️ Write-guard: ninguna caída masiva se guarda en silencio

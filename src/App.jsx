@@ -1854,6 +1854,7 @@ ${sorted.map(m=>{
         onClose={() => setMenuOpen(false)}
         activeTab={activeTab}
         onNavigate={tab => { setActiveTab(tab); setMenuOpen(false); }}
+        onOpenActivity={() => { setActivityOpen(true); setMenuOpen(false); }}
         couplePhoto={data.settings?.photos?.couple}
         coupleEmoji={data.settings?.coupleEmoji}
         p1={p1} p2={p2}
