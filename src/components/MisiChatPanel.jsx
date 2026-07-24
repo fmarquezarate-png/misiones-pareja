@@ -20,11 +20,12 @@ export default function MisiChatPanel({ coupleId, personName, onClose, onThinkin
     const text = input.trim();
     if (!text || sending) return;
     const mine = { id: uid(), who: "me", text, ts: Date.now() };
+    const historyForRequest = messages.slice(-20).map(m => ({ who: m.who, text: m.text }));
     setMessages(m => [...m, mine]);
     setInput("");
     setSending(true);
     try {
-      const reply = await askMisi({ coupleId, message: text, personName });
+      const reply = await askMisi({ coupleId, message: text, personName, history: historyForRequest });
       setMessages(m => [...m, { id: uid(), who: "misi", text: reply, ts: Date.now() }]);
     } catch (e) {
       setMessages(m => [...m, { id: uid(), who: "misi", text: `😵 No pude responder: ${e.message}`, error: true, ts: Date.now() }]);

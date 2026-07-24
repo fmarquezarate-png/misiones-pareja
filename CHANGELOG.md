@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.29.0] — 2026-07-23 · Misi conectado directo a OpenAI (adiós token semanal de Vento)
+
+### 🤖🔌 Chat in-app sin depender de una sesión que expira
+
+El chat de Misi **dentro de la app** dejó de pasar por Vento y ahora llama directo a OpenAI (`gpt-4o-mini`) desde `misi-chat`:
+
+- **Motivo:** `VENTO_API_KEY` nunca fue una API key de servicio — era el Bearer de sesión del navegador del usuario en `cloud.vento.build`, que rota ~cada 7 días. Cada vez que expiraba, Misi volvía a fallar con 401 en la app hasta que alguien pegaba un token nuevo a mano (ver historial de fixes en `TAREAS_SQL_AGENTE_SUPABASE.md`). No es sostenible como integración de producción.
+- **Cambio:** `misi-chat/index.ts` ya no hace `action_chat`/polling a `action_messages` contra Vento — arma un system prompt con la personalidad de Misi + el historial reciente de la conversación (que el cliente ya guardaba en `localStorage`, ahora también se lo manda a la función) y llama a `POST /v1/chat/completions` de OpenAI con el secret `OPENAI_API_KEY`. Sin polling, sin timeout de 2 minutos — responde en un solo request.
+- **Telegram no se toca** — esa integración sigue viva contra Vento por otro camino, fuera de este archivo.
+- **Pendiente del usuario:** configurar el secret `OPENAI_API_KEY` en Supabase (Dashboard → Edge Functions → Secrets) y desplegar la función (`supabase functions deploy misi-chat`) — igual que antes con `VENTO_API_KEY`, ningún secret de Edge Function se puede setear desde acá. Mientras no esté configurada, Misi sigue respondiendo con su mensaje de cortesía en vez de romperse.
+
+---
+
 ## [4.28.0] — 2026-07-22 · Misi animada (mascota en video)
 
 ### 🤖✨ Misi se mueve

@@ -16,9 +16,9 @@ export function saveMisiHistory(coupleId, messages) {
 
 // Envía un mensaje a Misi y devuelve su respuesta como texto.
 // Lanza si la Edge Function falla — el caller decide el mensaje de fallback.
-export async function askMisi({ coupleId, message, personName }) {
+export async function askMisi({ coupleId, message, personName, history }) {
   const { data, error } = await supabase.functions.invoke("misi-chat", {
-    body: { coupleId, message, personName },
+    body: { coupleId, message, personName, history },
   });
   if (error) {
     // error.message de supabase-js es genérico ("Edge Function returned a

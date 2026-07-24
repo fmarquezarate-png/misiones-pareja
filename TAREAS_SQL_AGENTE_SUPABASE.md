@@ -9,6 +9,8 @@
 
 > ⚠️ **Corrección (21/07/2026, verificado contra la DB real):** la columna de fecha de `app_data_backups` se llama **`backed_up_at`**, NO `created_at` como aparece en los SQL de ejemplo de este documento. El schema real es: `id bigint, data jsonb, backed_up_at timestamptz, identifier text, couple_id uuid`. Cualquier query/trigger nuevo debe usar `backed_up_at`.
 
+> ⚠️ **Superado (v4.29.0, 23/07/2026):** el chat de Misi **dentro de la app** ya no pasa por Vento — se movió a OpenAI directo (`gpt-4o-mini`) en `misi-chat/index.ts` porque `VENTO_API_KEY` era un Bearer de sesión que expiraba ~cada 7 días y rompía el chat en producción cada vez. Ver `CHANGELOG.md` [4.29.0]. La sección de abajo queda como historial — Telegram sigue usando Vento por otro camino, sin cambios.
+
 ## ✅ RESUELTO (v4.23.3, 08/07/2026) — Misi conectado al agente real de Vento
 
 **Feature:** chat con Misi dentro de la app (burbuja flotante → panel de chat). Código en `src/components/MisiMascot.jsx`, `MisiChatPanel.jsx`, `supabase/functions/misi-chat/index.ts`.
