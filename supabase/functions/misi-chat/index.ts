@@ -1,32 +1,26 @@
 // misi-chat — Supabase Edge Function (Deno)
 //
-// Puente entre el chat de Misi dentro de la app y el agente real en Vento
-// (cloud.vento.build, network "fmarquezarate", board "misiones_assistant").
-// El token de Vento vive en un secret de Supabase — nunca llega al navegador.
+// Chat de Misi dentro de la app, respondido directo por OpenAI (server-side,
+// la API key nunca llega al navegador).
 //
-// Vento es ASÍNCRONO: action_chat encola el mensaje y devuelve un
-// conversationId — no la respuesta del agente. El texto real se pide por
-// separado con polling a action_messages, filtrando por remitente exacto
-// ("misiones_assistant") y por timestamp >= al momento del envío — así
-// nunca se devuelve por error una respuesta VIEJA que ya estaba en el
-// historial de la conversación (bug real de la primera versión con polling:
-// tomaba "el último mensaje que no es mío", que podía ser una respuesta
-// antigua si el agente todavía no había contestado la nueva).
+// Antes esto pasaba por Vento (cloud.vento.build) — se sacó porque el
+// VENTO_API_KEY era un Bearer de sesión del navegador del usuario (no una
+// API key de servicio), que rota cada semana y dejaba el chat roto en la
+// app hasta que alguien pegaba un token nuevo a mano. La integración de
+// Telegram sigue usando Vento aparte (no toca este archivo) — solo el chat
+// in-app se movió a una API key estable que no expira.
 //
-// conversationId = coupleId a propósito: le da a cada pareja un hilo
-// estable — Misi recuerda contexto entre mensajes en vez de arrancar una
-// conversación nueva y vacía en cada turno.
-//
-// ⚠️ Nota sobre el token: Bearer de sesión del navegador del usuario en
-// cloud.vento.build (no una API key de servicio dedicada) — puede
-// expirar/rotar si esa sesión se cierra. Si Vento responde 401/403,
-// probablemente haya que pedirle al usuario un token nuevo.
+// El historial de la conversación vive en localStorage en el cliente (no
+// hay tabla en Supabase para esto) — el cliente manda los últimos mensajes
+// junto con el mensaje nuevo, y acá se arma el array de mensajes para la
+// Chat Completions API. Así Misi mantiene contexto dentro del hilo del
+// dispositivo sin necesitar un thread server-side.
 //
 // Modo:
-//   GET  ?probe=1  → ping de vida (sin secrets, sin llamar a Vento)
-//   POST normal    → { coupleId, message, personName } → { reply }
+//   GET  ?probe=1  → ping de vida (sin secrets, sin llamar a OpenAI)
+//   POST normal    → { coupleId, message, personName, history? } → { reply }
 //
-// Mientras VENTO_API_KEY no esté seteada, responde con un mensaje de
+// Mientras OPENAI_API_KEY no esté seteada, responde con un mensaje de
 // cortesía en vez de fallar — para que el chat en la app nunca se vea roto.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -37,13 +31,19 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-// Endpoints fijos del board — no son secretos, son parte de la API pública
-// de Vento (solo el token de auth es sensible).
-const VENTO_BOARD = 'https://cloud.vento.build/api/core/v1/networks/fmarquezarate/boards/misiones_assistant/actions';
-const VENTO_CHAT_URL = `${VENTO_BOARD}/action_chat`;
-const VENTO_MESSAGES_URL = `${VENTO_BOARD}/action_messages`;
-const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 120000; // 2 minutos
+const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_MODEL = 'gpt-4o-mini';
+
+// Cuántos mensajes previos del historial local se reenvían como contexto
+// (además del mensaje nuevo). Suficiente para que Misi recuerde de qué se
+// venía hablando sin inflar de más cada request.
+const MAX_HISTORY_MESSAGES = 20;
+
+const SYSTEM_PROMPT = `Sos Misi, la mascota-robot de "misiones pareja", una app donde una pareja organiza y se reparte misiones/tareas de la semana en un calendario compartido.
+
+Tu personalidad: cálido, juguetón, un poco torpe-tierno (sos un robotito), y genuinamente del lado de la pareja que te habla — los alentás a coordinarse y cuidarse, nunca los sermoneás ni asumís quién "hizo menos". Hablás en español rioplatense/neutro, en primera persona, con energía positiva pero sin exagerar — frases cortas, algún emoji suelto (no en cada oración), sin relleno corporativo.
+
+No tenés acceso en vivo a los datos reales de misiones/calendario de esta pareja — si te preguntan algo puntual de sus tareas que no sepas, decilo con naturalidad ("todavía no puedo ver el detalle de tus misiones, pero...") y ofrecé ayuda general (ideas para repartir tareas, ánimo, sugerencias, charla). Si te dicen su nombre o el de su pareja, usalo con cariño. Respuestas breves — pocas líneas, no ensayos.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -54,77 +54,62 @@ serve(async (req) => {
   }
 
   try {
-    const { coupleId, message, personName } = await req.json();
+    const { coupleId, message, personName, history } = await req.json();
     if (!coupleId || !message) {
       return new Response(JSON.stringify({ error: 'coupleId y message requeridos' }), { status: 400, headers: corsHeaders });
     }
 
-    const VENTO_TOKEN = Deno.env.get('VENTO_API_KEY') || '';
+    const OPENAI_KEY = Deno.env.get('OPENAI_API_KEY') || '';
 
-    if (!VENTO_TOKEN) {
+    if (!OPENAI_KEY) {
       // Sin configurar todavía — respuesta de cortesía, no un error 500.
       return new Response(JSON.stringify({
-        reply: `¡Hola ${personName || ""}! 👋 Todavía no me conectaron del todo con mi cerebro en Vento — pronto voy a poder responderte de verdad.`,
+        reply: `¡Hola ${personName || ""}! 👋 Todavía no me conectaron del todo con mi cerebro — pronto voy a poder responderte de verdad.`,
         stub: true,
       }), { headers: corsHeaders });
     }
 
-    const authHeaders = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${VENTO_TOKEN}`,
-    };
+    // Arma los mensajes previos (recortados) como contexto, en el formato
+    // que ya usa el cliente: { who: "me" | "misi", text }.
+    const priorMessages: { who?: string; text?: string }[] = Array.isArray(history) ? history : [];
+    const trimmedHistory = priorMessages.slice(-MAX_HISTORY_MESSAGES).filter(m => typeof m?.text === 'string' && m.text.trim());
 
-    // El nombre de quien escribe se antepone al mensaje para que Misi sepa
-    // a quién le está hablando dentro del hilo compartido de la pareja.
-    const contextualMessage = personName ? `[${personName}] ${message}` : message;
-    const sentAt = Date.now();
+    const chatMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...trimmedHistory.map(m => ({
+        role: m.who === 'me' ? 'user' : 'assistant',
+        content: m.who === 'me' && personName ? `[${personName}] ${m.text}` : m.text,
+      })),
+      { role: 'user', content: personName ? `[${personName}] ${message}` : message },
+    ];
 
-    // 1) Encolar el mensaje — conversationId = coupleId (hilo estable por pareja).
-    const sendRes = await fetch(VENTO_CHAT_URL, {
+    const aiRes = await fetch(OPENAI_CHAT_URL, {
       method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({ message: contextualMessage, conversationId: coupleId }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: chatMessages,
+        temperature: 0.8,
+        max_tokens: 300,
+      }),
     });
 
-    if (!sendRes.ok) {
-      const text = await sendRes.text().catch(() => '');
-      return new Response(JSON.stringify({ error: `Vento respondió ${sendRes.status} al enviar: ${text.slice(0, 300)}` }), { status: 502, headers: corsHeaders });
+    if (!aiRes.ok) {
+      const text = await aiRes.text().catch(() => '');
+      return new Response(JSON.stringify({ error: `OpenAI respondió ${aiRes.status}: ${text.slice(0, 300)}` }), { status: 502, headers: corsHeaders });
     }
 
-    const sendData = await sendRes.json().catch(() => null);
-    const conversationId = (sendData as Record<string, unknown> | null)?.conversationId ?? coupleId;
+    const aiData = await aiRes.json().catch(() => null);
+    const reply = (aiData as Record<string, unknown> | null)?.choices?.[0]?.message?.content;
 
-    // 2) Poll a action_messages hasta encontrar una respuesta NUEVA del
-    // agente — remitente exacto "misiones_assistant" y timestamp posterior
-    // al envío, para no devolver por error un mensaje viejo ya visto antes.
-    const deadline = sentAt + POLL_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
-
-      try {
-        const msgsRes = await fetch(VENTO_MESSAGES_URL, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify({ conversationId }),
-        });
-        if (!msgsRes.ok) continue; // hiccup de red — reintentar en el próximo ciclo
-
-        const msgsData = await msgsRes.json().catch(() => null);
-        const messages = (msgsData as Record<string, unknown> | null)?.messages as Record<string, unknown>[] | undefined ?? [];
-        const agentReply = [...messages].reverse().find(
-          m => m.from === 'misiones_assistant' && Number(m.timestamp || 0) >= sentAt
-        );
-
-        const text = agentReply?.content;
-        if (typeof text === 'string' && text.trim()) {
-          return new Response(JSON.stringify({ reply: text, conversationId }), { headers: corsHeaders });
-        }
-      } catch {
-        // error de red/parseo en este ciclo — reintentar en el próximo
-      }
+    if (typeof reply !== 'string' || !reply.trim()) {
+      return new Response(JSON.stringify({ error: 'Respuesta de OpenAI sin texto reconocible' }), { status: 502, headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify({ error: 'Misi no respondió a tiempo (2 min) — probá de nuevo en un momento.' }), { status: 504, headers: corsHeaders });
+    return new Response(JSON.stringify({ reply: reply.trim(), conversationId: coupleId }), { headers: corsHeaders });
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers: corsHeaders });
   }
