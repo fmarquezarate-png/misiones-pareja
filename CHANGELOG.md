@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.30.0] — 2026-07-24 · Inicio: ventana de días móvil centrada en hoy
+
+### 📅 Adiós a la semana fija Lun→Dom en el Home
+
+La tira de días del Inicio (`WeekStrip`) dejó de mostrar la semana ISO fija (lunes a domingo) y ahora muestra una **ventana móvil centrada en hoy**: 2 días pasados + HOY + 4 días hacia adelante.
+
+- **Motivo (feedback de Ana):** con la semana fija, el lunes se veía genial (toda la semana por delante), pero un sábado o domingo la tira estaba casi toda "gastada" y solo mostraba 1-2 días de futuro — muy poca información útil justo cuando más se planea el finde y la semana siguiente. Con la ventana móvil, siempre se ve algo de contexto reciente y 4 días por venir, sin importar qué día sea.
+- **Cambios en `WeekStrip.jsx`:**
+  - `buildWeekDays` (semana ISO) → `buildRollingDays(refDate, back=2, fwd=4)`.
+  - La letra del día (`L`, `M`, `X`…) ahora se deriva de la fecha real de cada columna (`d.getDay()` → `DOW_BY_DATE`), porque la posición 0 ya no es siempre lunes.
+  - Los días pasados se atenúan levemente (`opacity: 0.55`) salvo el seleccionado; hoy sigue resaltado con el color de persona 1.
+  - Grid de columnas dinámico (`repeat(${days.length}, 1fr)`).
+
+---
+
 ## [4.29.0] — 2026-07-23 · Misi conectado directo a OpenAI (adiós token semanal de Vento)
 
 ### 🤖🔌 Chat in-app sin depender de una sesión que expira
