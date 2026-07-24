@@ -1,16 +1,20 @@
 import { T } from "../styles.js";
 
-const DOW = ["L","M","X","J","V","S","D"];
+// Letra del día según la fecha real (getDay: 0=domingo … 6=sábado).
+// Antes se usaba un array fijo por índice porque la tira era siempre Lun→Dom;
+// con la ventana móvil la posición 0 ya no es lunes, así que hay que
+// derivar la letra de cada fecha.
+const DOW_BY_DATE = ["D", "L", "M", "X", "J", "V", "S"];
 
-function buildWeekDays(refDate = new Date()) {
+// Ventana MÓVIL centrada en hoy: por defecto 2 días atrás + hoy + 4 adelante
+// (7 días). Antes era la semana ISO fija Lun→Dom, que el fin de semana dejaba
+// ver casi puro futuro con poca info — pedido de Ana.
+function buildRollingDays(refDate = new Date(), back = 2, fwd = 4) {
   const d = new Date(refDate);
-  d.setHours(0,0,0,0);
-  const dow = (d.getDay() + 6) % 7;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() - dow);
-  return Array.from({ length: 7 }, (_, i) => {
-    const x = new Date(monday);
-    x.setDate(monday.getDate() + i);
+  d.setHours(0, 0, 0, 0);
+  return Array.from({ length: back + 1 + fwd }, (_, i) => {
+    const x = new Date(d);
+    x.setDate(d.getDate() - back + i);
     return x;
   });
 }
@@ -21,7 +25,7 @@ export default function WeekStrip({ missions = [], onSelectDay, selected, colors
   const clr = { person1: "#f472b6", person2: "#a78bfa", together: "#34d399", ...colors };
   const today = new Date();
   const todayStr = fmtDate(today);
-  const days = buildWeekDays(today);
+  const days = buildRollingDays(today);
 
   const counts = {};
   (missions || []).forEach(m => {
@@ -30,11 +34,12 @@ export default function WeekStrip({ missions = [], onSelectDay, selected, colors
   });
 
   return (
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:5, margin:"6px 0 4px" }}>
-      {days.map((d, i) => {
+    <div style={{ display:"grid", gridTemplateColumns:`repeat(${days.length}, 1fr)`, gap:5, margin:"6px 0 4px" }}>
+      {days.map((d) => {
         const ds = fmtDate(d);
         const isToday = ds === todayStr;
         const isSel = ds === selected;
+        const isPast = ds < todayStr;
         const has = (counts[ds] || 0) > 0;
         return (
           <button key={ds}
@@ -46,6 +51,8 @@ export default function WeekStrip({ missions = [], onSelectDay, selected, colors
               cursor: onSelectDay ? "pointer" : "default",
               fontFamily:"inherit",
               transition:"all .15s",
+              // Días pasados un poco atenuados — el foco es hoy y lo que viene.
+              opacity: isPast && !isSel ? 0.55 : 1,
               background: isToday
                 ? `${clr.person1}22`
                 : isSel
@@ -61,7 +68,7 @@ export default function WeekStrip({ missions = [], onSelectDay, selected, colors
               color: isToday ? clr.person1 : T.faint,
               fontWeight: 700,
               marginBottom: 2,
-            }}>{DOW[i]}</div>
+            }}>{DOW_BY_DATE[d.getDay()]}</div>
             <div style={{
               fontSize: 14,
               fontWeight: 600,
