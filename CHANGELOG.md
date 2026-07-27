@@ -7,6 +7,33 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.0] — 2026-07-27 · 🎉 De proyecto a producto
+
+Hito mayor. La app deja de ser un experimento y pasa a ser una herramienta real para el día a día de la pareja. Este `major` no introduce cambios de arquitectura ni breaking changes técnicos — **no se flipeó ningún flag** (`read_from_normalized`, `dual_write_normalized` y `cas_version_check` quedan como estaban); el salto de versión es simbólico y reconoce la madurez alcanzada en UX, estabilidad y en Misi.
+
+### 🏠 Inicio renovado (feedback directo de Ana)
+
+- **Ventana de días móvil** (v4.30.0): la tira del Home muestra 2 días atrás · hoy · 4 adelante, en vez de la semana ISO fija que dejaba el fin de semana casi sin información útil.
+- **Paneles accionables** (v4.32.0): "Próximos" y "Atrasadas" dejaron de ser inertes — tocar una tarea abre un panel para cambiar estado, editar (título/fecha/hora/persona) o eliminar, sin salir del Inicio, reutilizando los mismos mutadores cross-week que la vista de Semana.
+
+### 🤖 Misi, vivo y funcionando
+
+- Chat in-app respondido directo por OpenAI (v4.29.0) — sin el token semanal de Vento que rompía el chat.
+- Contexto real de la pareja (`app_data`) y personalidad propia.
+- **Transparencia real** por chroma-key en canvas (v4.31.0), fiable también en iOS Safari.
+- Emociones según lo que ocurre: alegre, pensando, escribiendo, cansado, durmiendo, inspirado.
+- **Merodeo acotado y con calma** (v4.32.1): se mueve dentro de un rincón, con descanso entre movimientos, sin cruzar el contenido ni tapar eventos.
+
+### 🛡️ La base que lo sostiene (acumulado 4.20.x–4.25.x)
+
+- Write-guard contra pérdida masiva de datos (`assessWrite`), backups server-side recuperables, y validación de magnitud además de forma.
+- Resiliencia ante el cuelgue de `fetch` de WKWebView en iPhone: `withTimeout` / `withTimeoutRetry` en todo path de arranque y guardado.
+- Arranque más rápido (bundle splitting, eliminación de round-trips de sesión duplicados).
+
+Gracias por construir esto juntos. ❤️
+
+---
+
 ## [4.32.1] — 2026-07-25 · Misi: merodeo acotado y con calma
 
 ### 🤖 Misi deja de deambular por toda la pantalla (feedback de Ana y Fran)
