@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.1] — 2026-07-27 · Misi se queda quieto en su sitio
+
+### 📍 Misi deja de deambular por completo (pedido de Fran)
+
+Tras el merodeo acotado de la v4.32.1, Fran pidió que Misi se quede **fijo en un solo lugar** haciendo sus acciones, sin desplazarse. `MisiLiveLayer`:
+
+- Se eliminó toda la maquinaria de roaming (loop rAF, waypoints, zona de merodeo, dwell, `getBounds`/`randomTarget`, estados `pos`/`docked`/`frozen`). El componente quedó más simple.
+- Misi se renderiza en **posición fija** (esquina inferior derecha, `DOCK`, por encima de la barra de tabs).
+- Se conserva la "vida" en el sitio: el balanceo suave `misi-float`, el brinco al recibir mensaje, la transparencia por canvas, las emociones por video, la pausa por `visibilitychange` y el respeto a `prefers-reduced-motion`.
+
+---
+
 ## [5.0.0] — 2026-07-27 · 🎉 De proyecto a producto
 
 Hito mayor. La app deja de ser un experimento y pasa a ser una herramienta real para el día a día de la pareja. Este `major` no introduce cambios de arquitectura ni breaking changes técnicos — **no se flipeó ningún flag** (`read_from_normalized`, `dual_write_normalized` y `cas_version_check` quedan como estaban); el salto de versión es simbólico y reconoce la madurez alcanzada en UX, estabilidad y en Misi.

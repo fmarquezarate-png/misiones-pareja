@@ -45,46 +45,14 @@ const EMOTIONS = {
 
 const SIZE = 68;          // tamaño visible en CSS px
 const RENDER = 160;       // resolución interna del canvas (nítido en pantallas retina)
-const MARGIN = 14;        // distancia mínima a los bordes de la pantalla
-const HEADER_SAFE = 76;   // no invadir el header
-const SPEED = 26;         // px/seg al deambular (calmo, no correteando)
-const DOCK = { rightGap: 16, bottomGap: 100 }; // posición fija cuando el chat está abierto
-
-// Zona "hogar" de Misi: en vez de deambular por TODA la pantalla (que tapaba
-// eventos y se sentía errático — feedback de Ana/Fran), Misi se mueve dentro de
-// una caja acotada anclada a la esquina inferior derecha, justo donde se aparca
-// al abrir el chat. Se mueve de forma local y lógica, sin cruzar el contenido.
-const ZONE_W = 150;       // ancho de la zona de merodeo
-const ZONE_H = 200;       // alto de la zona de merodeo
-// Descanso entre movimientos: al llegar a un punto, Misi se queda quieto un
-// rato antes de elegir el siguiente — así no está flotando sin parar.
-const DWELL_MIN = 1.8, DWELL_MAX = 4.2;
+// Posición FIJA de Misi: esquina inferior derecha, por encima de la barra de
+// tabs. Misi ya no deambula por la pantalla — se queda en su sitio haciendo sus
+// animaciones/emociones ahí mismo (pedido de Fran). El único "movimiento" es el
+// bob suave en el sitio (misi-float) y las animaciones de cada emoción.
+const DOCK = { rightGap: 16, bottomGap: 100 };
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
-function randomTarget(bounds) {
-  const { minX, maxX, minY, maxY } = bounds;
-  return {
-    x: minX + Math.random() * Math.max(1, maxX - minX),
-    y: minY + Math.random() * Math.max(1, maxY - minY),
-  };
-}
-
-// Caja de merodeo anclada a la esquina inferior derecha (dentro de límites
-// seguros: lejos del header y de la barra de tabs). Misi nunca sale de aquí.
-function getBounds(liftForTabBar) {
-  const w = typeof window !== "undefined" ? window.innerWidth : 400;
-  const h = typeof window !== "undefined" ? window.innerHeight : 800;
-  const maxX = Math.max(MARGIN, w - SIZE - MARGIN);
-  const maxY = Math.max(HEADER_SAFE, h - SIZE - (liftForTabBar ? 168 : 100));
-  return {
-    minX: Math.max(MARGIN, maxX - ZONE_W),
-    maxX,
-    minY: Math.max(HEADER_SAFE, maxY - ZONE_H),
-    maxY,
-  };
-}
 
 // Chroma-key: recorta pixels cercanos al blanco de estudio, con degradado
 // suave para no dejar un borde duro alrededor del robot.
@@ -185,81 +153,6 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
   const [ready, setReady] = useState(false);
   const [bump, setBump] = useState(false);
 
-  // --- Deambular: posición animada por rAF, con blandas curvas hacia un
-  // waypoint aleatorio que se renueva cada pocos segundos. Se congela (dock
-  // fijo abajo a la derecha, como antes) si el usuario pidió menos
-  // movimiento o si el chat está abierto (para no tapar la conversación).
-  const boundsRef = useRef(getBounds(liftForTabBar));
-  const dock = () => {
-    const w = typeof window !== "undefined" ? window.innerWidth : 400;
-    const h = typeof window !== "undefined" ? window.innerHeight : 800;
-    return { x: w - SIZE - DOCK.rightGap, y: h - SIZE - (liftForTabBar ? DOCK.bottomGap + 68 : DOCK.bottomGap) };
-  };
-  const [pos, setPos] = useState(() => dock());
-  const posRef = useRef(pos);
-  const targetRef = useRef(dock());
-  const frozen = reduce; // el "dock" al abrir el chat se maneja abajo con `docked`
-  const [docked, setDocked] = useState(false);
-
-  useEffect(() => {
-    boundsRef.current = getBounds(liftForTabBar);
-    const onResize = () => { boundsRef.current = getBounds(liftForTabBar); };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [liftForTabBar]);
-
-  // Detecta "chat abierto" vía la prop emotion (pensando/leyendo) para
-  // aparcarse quieto y no molestar mientras se conversa.
-  useEffect(() => {
-    setDocked(emotion === "pensando" || emotion === "leyendo");
-  }, [emotion]);
-
-  useEffect(() => {
-    if (frozen) return;
-    let raf;
-    let lastTs = performance.now();
-    let dwell = 0; // segundos de descanso restantes tras llegar a un punto
-
-    const loop = (ts) => {
-      raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, (ts - lastTs) / 1000);
-      lastTs = ts;
-      if (document.hidden) return;
-
-      const cur = posRef.current;
-
-      if (docked) {
-        // Chat abierto → va (rápido) a su posición de aparcado fija.
-        targetRef.current = dock();
-      } else {
-        // Merodeo: solo elige un punto nuevo cuando ya llegó al anterior y
-        // terminó su descanso — así se mueve a ratos, no sin parar.
-        const tgt = targetRef.current;
-        const arrived = Math.hypot(tgt.x - cur.x, tgt.y - cur.y) <= 0.6;
-        if (arrived) {
-          dwell -= dt;
-          if (dwell <= 0) {
-            targetRef.current = randomTarget(boundsRef.current);
-            dwell = DWELL_MIN + Math.random() * (DWELL_MAX - DWELL_MIN);
-          }
-        }
-      }
-
-      const tgt = targetRef.current;
-      const dx = tgt.x - cur.x, dy = tgt.y - cur.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist > 0.5) {
-        const step = Math.min(dist, SPEED * dt * (docked ? 2.8 : 1));
-        const next = { x: cur.x + (dx / dist) * step, y: cur.y + (dy / dist) * step };
-        posRef.current = next;
-        setPos(next);
-      }
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frozen, docked]);
-
   useEffect(() => {
     if (unread > 0) { setBump(true); const t = setTimeout(() => setBump(false), 600); return () => clearTimeout(t); }
   }, [unread]);
@@ -279,14 +172,13 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
   const label = EMOTIONS[emotion]?.label ?? "";
   const wrapperStyle = {
     position: "fixed",
-    left: frozen ? undefined : pos.x,
-    top: frozen ? undefined : pos.y,
-    right: frozen ? 16 : undefined,
-    bottom: frozen ? (liftForTabBar ? 168 : 100) : undefined,
+    right: DOCK.rightGap,
+    bottom: liftForTabBar ? DOCK.bottomGap + 68 : DOCK.bottomGap,
     zIndex: 350,
     width: SIZE, height: SIZE,
     border: "none", background: "transparent", cursor: "pointer", padding: 0,
-    transition: frozen ? "none" : undefined,
+    // Único movimiento: bob suave en el sitio (o "brinco" al recibir mensaje).
+    // Misi NO se desplaza por la pantalla.
     animation: bump ? "misi-bump 0.5s ease" : "misi-float 3.4s ease-in-out infinite",
     filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.45))",
   };
