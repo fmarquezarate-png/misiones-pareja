@@ -1527,17 +1527,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return Object.keys(d.weeks).find(k => d.weeks[k]?.missions?.some(m => m.id === id)) ?? null;
   };
 
-  const cycleStatusGlobal = (wn, yr, id) => {
+  // target opcional: si se pasa, fija ese status en vez de avanzar al siguiente
+  // (lo usa el panel de acción del Home para elegir estado directo). Sin él,
+  // se comporta como siempre: avanza al siguiente en STATUS_ORDER.
+  const cycleStatusGlobal = (wn, yr, id, target) => {
     const hint = isoWeekKey(wn, yr);
     const wCur = data.weeks[hint];
     const mCur = wCur?.missions?.find(x => x.id === id)
       ?? Object.values(data.weeks).flatMap(w => w.missions||[]).find(m => m.id === id);
-    const nx = mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null;
+    const nx = target ?? (mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null);
     update(d => {
       const key = resolveWeekKey(d, hint, id); if (!key) return d;
       const w = d.weeks[key];
       const m = w.missions.find(x=>x.id===id); if (!m) return d;
-      const nxx = STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
+      const nxx = target ?? STATUS_ORDER[(STATUS_ORDER.indexOf(m.status)+1)%STATUS_ORDER.length];
       let next = { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.map(x=>x.id===id?{...x,status:nxx,completedAt:nxx==="DONE"?Date.now():null}:x) } } };
       if (nxx==="DONE" && m.carriedFrom) next = syncCarryDone(next, key, id);
       return next;
@@ -1928,6 +1931,7 @@ ${sorted.map(m=>{
               p1Photo={data.settings?.photos?.person1}
               p2Photo={data.settings?.photos?.person2}
               onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
+              onSetStatus={(id, st) => cycleStatusGlobal(todayWn, todayYr, id, st)}
               onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
               onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
               weeksData={data.weeks}

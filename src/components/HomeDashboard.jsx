@@ -2,7 +2,7 @@ import { useState } from "react";
 import { T, homeHero } from "../styles.js";
 const eyebrow = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700 };
 import { badgeStyle } from "../styles.js";
-import { DEFAULT_COLORS } from "../constants.js";
+import { DEFAULT_COLORS, STATUS, STATUS_ORDER } from "../constants.js";
 import { PHRASES } from "../phrases.js";
 import WeekStrip from "./WeekStrip.jsx";
 
@@ -265,9 +265,169 @@ function PersonRing({ name, photo, pct, clrAccent, onClick }) {
   );
 }
 
+// Panel de acción de una tarea, abierto al tocar una fila de "Próximos" o
+// "Atrasadas" en el Home (pedido de Ana: esos paneles antes eran inertes).
+// Permite (1) cambiar el estado con un toque y (2) editar título, fecha,
+// hora y persona sin salir del Inicio. El estado se aplica al instante
+// (onSetStatus, que dispara las celebraciones/push de "hecho"); los demás
+// campos se juntan en un borrador local y se guardan con "Guardar".
+function MissionActionSheet({ mission, colors, p1, p2, onSetStatus, onMissionPatch, onDelete, onClose }) {
+  const clr = colors || DEFAULT_COLORS;
+  const [title, setTitle] = useState(mission.title || "");
+  const [date, setDate]   = useState(mission.date || "");
+  const [time, setTime]   = useState(mission.time || "");
+  const [who, setWho]     = useState(mission.who || "together");
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const whoOpts = [
+    { key:"person1",  label:p1 || "Persona 1", color:clr.person1 },
+    { key:"person2",  label:p2 || "Persona 2", color:clr.person2 },
+    { key:"together", label:"Juntos",          color:clr.together },
+  ];
+
+  const dirty =
+    title.trim() !== (mission.title || "") ||
+    date !== (mission.date || "") ||
+    time !== (mission.time || "") ||
+    who !== (mission.who || "together");
+
+  const save = () => {
+    if (dirty && onMissionPatch) {
+      const patch = {};
+      if (title.trim() && title.trim() !== mission.title) patch.title = title.trim();
+      if (date !== (mission.date || "")) patch.date = date || null;
+      if (time !== (mission.time || "")) patch.time = time || null;
+      if (who !== (mission.who || "together")) patch.who = who;
+      if (Object.keys(patch).length) onMissionPatch(mission.id, patch);
+    }
+    onClose();
+  };
+
+  const inputStyle = {
+    width:"100%", boxSizing:"border-box", padding:"9px 11px", borderRadius:9,
+    background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)",
+    color:"var(--t-text,#f8f4ff)", fontSize:13, fontFamily:"inherit", outline:"none",
+  };
+  const fieldLabel = { fontSize:10, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:5, display:"block" };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:110, cursor:"pointer" }} />
+      <div onClick={e => e.stopPropagation()} style={{
+        position:"fixed", left:0, right:0, bottom:0, zIndex:120,
+        background:"var(--t-card,rgba(8,5,18,0.98))",
+        borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.3))",
+        borderRadius:"18px 18px 0 0",
+        padding:"14px 18px calc(24px + env(safe-area-inset-bottom))",
+        maxHeight:"82vh", overflowY:"auto",
+      }}>
+        <div style={{ width:32, height:3, background:"rgba(128,128,128,0.3)", borderRadius:99, margin:"0 auto 14px" }} />
+
+        {/* Estado — botones directos */}
+        <span style={fieldLabel}>Estado</span>
+        <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+          {STATUS_ORDER.map(st => {
+            const meta = STATUS[st];
+            const active = mission.status === st;
+            return (
+              <button key={st}
+                onClick={() => { if (!active && onSetStatus) onSetStatus(mission.id, st); }}
+                style={{
+                  flex:1, padding:"8px 4px", borderRadius:9, cursor:"pointer", fontFamily:"inherit",
+                  fontSize:10.5, fontWeight:700, lineHeight:1.3,
+                  background: active ? meta.bg : "rgba(128,128,128,0.06)",
+                  border:`1px solid ${active ? meta.border : "rgba(128,128,128,0.14)"}`,
+                  color: active ? meta.color : "var(--t-text-muted,#8b7fa8)",
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                }}>
+                <span style={{ fontSize:15 }}>{meta.icon}</span>
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Campos editables */}
+        <div style={{ marginBottom:11 }}>
+          <span style={fieldLabel}>Título</span>
+          <input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} placeholder="Título de la tarea" />
+        </div>
+        <div style={{ display:"flex", gap:8, marginBottom:11 }}>
+          <div style={{ flex:1 }}>
+            <span style={fieldLabel}>Fecha</span>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ flex:1 }}>
+            <span style={fieldLabel}>Hora</span>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ marginBottom:16 }}>
+          <span style={fieldLabel}>Persona</span>
+          <div style={{ display:"flex", gap:6 }}>
+            {whoOpts.map(o => {
+              const active = who === o.key;
+              return (
+                <button key={o.key} onClick={() => setWho(o.key)}
+                  style={{
+                    flex:1, padding:"8px 4px", borderRadius:9, cursor:"pointer", fontFamily:"inherit",
+                    fontSize:11.5, fontWeight:600,
+                    background: active ? `${o.color}22` : "rgba(128,128,128,0.06)",
+                    border:`1px solid ${active ? o.color+"88" : "rgba(128,128,128,0.14)"}`,
+                    color: active ? "var(--t-text,#f8f4ff)" : "var(--t-text-muted,#8b7fa8)",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                  }}>
+                  <span style={{ width:9, height:9, borderRadius:99, background:o.color, flexShrink:0 }} />
+                  <span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>{o.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          {confirmDel ? (
+            <>
+              <button onClick={() => { onDelete && onDelete(mission.id); onClose(); }}
+                style={{ flex:1, padding:"11px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                  fontSize:13, fontWeight:700, background:"rgba(248,113,113,0.16)",
+                  border:"1px solid rgba(248,113,113,0.4)", color:"#f87171" }}>
+                Sí, eliminar
+              </button>
+              <button onClick={() => setConfirmDel(false)}
+                style={{ flex:1, padding:"11px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                  fontSize:13, fontWeight:600, background:"rgba(128,128,128,0.1)",
+                  border:"1px solid rgba(128,128,128,0.2)", color:"var(--t-text-muted,#8b7fa8)" }}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setConfirmDel(true)}
+                style={{ padding:"11px 14px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                  fontSize:15, background:"rgba(248,113,113,0.1)",
+                  border:"1px solid rgba(248,113,113,0.28)", color:"#f87171" }}
+                title="Eliminar tarea">🗑️</button>
+              <button onClick={save}
+                style={{ flex:1, padding:"11px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                  fontSize:13.5, fontWeight:700, color:"#fff",
+                  background: dirty ? `linear-gradient(135deg, ${clr.person1}, ${clr.person2})` : "rgba(128,128,128,0.18)",
+                  border:"none" }}>
+                {dirty ? "Guardar cambios" : "Listo"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function HomeDashboard({
   week, missions, goals: _goals = [], colors, p1, p2, photo, p1Photo, p2Photo,
-  onMissionPatch: _onMissionPatch, onCycleStatus, onDeleteMission: _onDeleteMission,
+  onMissionPatch, onCycleStatus, onSetStatus, onDeleteMission,
   onOpenWrapped, hasWrappedAvailable,
   weeksData,
   pushSupported, pushSubscribed, onActivatePush,
@@ -275,6 +435,7 @@ export default function HomeDashboard({
   const clr = colors || DEFAULT_COLORS;
   const [daySheet, setDaySheet]     = useState(null);
   const [personSheet, setPersonSheet] = useState(null); // "p1" | "p2" | null
+  const [actionMission, setActionMission] = useState(null); // misión abierta en el panel de acción
 
   const todayStr = fmtDate(new Date());
 
@@ -430,7 +591,8 @@ export default function HomeDashboard({
           {upcoming3.length === 0 ? (
             <div style={{fontSize:11, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Nada agendado 🌿</div>
           ) : upcoming3.map(m => (
-            <div key={m.id} style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+            <div key={m.id} onClick={() => setActionMission(m.id)}
+              style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)", cursor:"pointer" }}>
               <div style={{fontSize:11.5, fontWeight:600, color:"var(--t-text,#f8f4ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                 {m.emoji||"📅"} {m.title}
               </div>
@@ -445,7 +607,8 @@ export default function HomeDashboard({
           {overdue3.length === 0 ? (
             <div style={{fontSize:11, color:T.green, fontStyle:"italic"}}>¡Al día! 🎉</div>
           ) : overdue3.map(m => (
-            <div key={m.id} style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+            <div key={m.id} onClick={() => setActionMission(m.id)}
+              style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)", cursor:"pointer" }}>
               <div style={{fontSize:11.5, fontWeight:600, color:"var(--t-error,#f87171)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                 {m.emoji||"🎯"} {m.title}
               </div>
@@ -599,6 +762,25 @@ export default function HomeDashboard({
           pendingMissions={p2Pending} onCycleStatus={onCycleStatus}
         />
       )}
+
+      {/* Panel de acción de tarea (desde Próximos / Atrasadas) — la misión se
+          resuelve en vivo de allMissions para que el estado se refleje al toque
+          y el panel se cierre solo si la tarea desaparece (borrado). */}
+      {actionMission && (() => {
+        const actionM = allMissions.find(m => m.id === actionMission);
+        if (!actionM) return null;
+        return (
+          <MissionActionSheet
+            key={actionMission}
+            mission={actionM}
+            colors={colors} p1={p1} p2={p2}
+            onSetStatus={onSetStatus}
+            onMissionPatch={onMissionPatch}
+            onDelete={onDeleteMission}
+            onClose={() => setActionMission(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
