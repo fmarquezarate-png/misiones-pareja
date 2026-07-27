@@ -7,6 +7,37 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.32.1] — 2026-07-25 · Misi: merodeo acotado y con calma
+
+### 🤖 Misi deja de deambular por toda la pantalla (feedback de Ana y Fran)
+
+El roaming de v4.31.0 elegía un waypoint aleatorio en **todo** el viewport cada 4-9s → Misi cruzaba la pantalla, tapaba eventos y se sentía errático. Ahora:
+
+- **Zona acotada**: Misi se mueve dentro de una caja (`ZONE_W` 150 × `ZONE_H` 200) anclada a la esquina inferior derecha, justo donde se aparca al abrir el chat. Nunca cruza el contenido central ni sube al área de los paneles de eventos.
+- **Descanso entre movimientos**: al llegar a un punto, espera `DWELL_MIN`–`DWELL_MAX` (1.8–4.2s) antes de elegir el siguiente, en vez de re-targetear sin parar. Velocidad bajada de 34 a 26 px/s.
+- Se mantiene el aparcado fijo (dock) mientras el chat está abierto y el respeto a `prefers-reduced-motion`.
+
+---
+
+## [4.32.0] — 2026-07-25 · Inicio: tareas de "Próximos" y "Atrasadas" accionables
+
+### ✋ Los paneles de pendientes dejan de ser inertes (feedback de Ana)
+
+Antes, las tarjetas de "Próximos" y "Atrasadas" del Home solo mostraban la tarea — no se podía hacer nada con ellas sin navegar a otra vista. Ahora, tocar una tarea abre un **panel de acción** (`MissionActionSheet`) que permite, sin salir del Inicio:
+
+- **Cambiar estado** con un toque (TBC · ASAP · En curso · Hecho).
+- **Editar** título, fecha, hora y persona.
+- **Eliminar** la tarea (con confirmación en dos pasos).
+
+Detalles de implementación:
+
+- El cambio de estado se enruta por `cycleStatusGlobal`, que ahora acepta un `target` opcional para fijar un estado concreto en vez de solo avanzar al siguiente — así se preservan **todas** las consecuencias de marcar "Hecho" (suma al %, `track`, push a la pareja vía `runAfterSave`, animación `TaskCongrat`/`JuntosMoment`, sync de `carriedFrom`).
+- La edición de campos usa `patchMissionGlobal` y el borrado `deleteMissionGlobal` — exactamente los mismos handlers que ya usa `MissionCard` en la vista de Semana, ambos cross-week vía `resolveWeekKey`. No se introduce ningún path de mutación nuevo.
+- La misión abierta se resuelve **en vivo** desde `allMissions` en cada render, para que el estado seleccionado se refleje al instante y el panel se cierre solo si la tarea se elimina.
+- Los campos editables viven en un borrador local y se aplican al pulsar "Guardar"; el estado se aplica al instante.
+
+---
+
 ## [4.31.0] — 2026-07-25 · Misi cobra vida: deambula por la app con transparencia real
 
 ### 🤖 Misi ya no es un botón fijo — ahora vive dentro de la app
