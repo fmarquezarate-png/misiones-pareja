@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [4.32.1] — 2026-07-25 · Misi: merodeo acotado y con calma
+
+### 🤖 Misi deja de deambular por toda la pantalla (feedback de Ana y Fran)
+
+El roaming de v4.31.0 elegía un waypoint aleatorio en **todo** el viewport cada 4-9s → Misi cruzaba la pantalla, tapaba eventos y se sentía errático. Ahora:
+
+- **Zona acotada**: Misi se mueve dentro de una caja (`ZONE_W` 150 × `ZONE_H` 200) anclada a la esquina inferior derecha, justo donde se aparca al abrir el chat. Nunca cruza el contenido central ni sube al área de los paneles de eventos.
+- **Descanso entre movimientos**: al llegar a un punto, espera `DWELL_MIN`–`DWELL_MAX` (1.8–4.2s) antes de elegir el siguiente, en vez de re-targetear sin parar. Velocidad bajada de 34 a 26 px/s.
+- Se mantiene el aparcado fijo (dock) mientras el chat está abierto y el respeto a `prefers-reduced-motion`.
+
+---
+
 ## [4.32.0] — 2026-07-25 · Inicio: tareas de "Próximos" y "Atrasadas" accionables
 
 ### ✋ Los paneles de pendientes dejan de ser inertes (feedback de Ana)
