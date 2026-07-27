@@ -62,7 +62,7 @@ const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.js
 const ActivityLog = lazy(() => import("./components/ActivityLog.jsx"));
 const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
 const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
-import MisiMascot from "./components/MisiMascot.jsx";
+import MisiLiveLayer from "./components/MisiLiveLayer.jsx";
 const MisiChatPanel = lazy(() => import("./components/MisiChatPanel.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
@@ -286,11 +286,41 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [capsuleNudge,    setCapsuleNudge]    = useState(false);  // aviso "tienes una cápsula lista" — 1x/día, nunca se auto-abre
   const [viewingCapsule,  setViewingCapsule]  = useState(null);   // capsule object en vista, o null
   const [misiChatOpen, setMisiChatOpen] = useState(false);
-  const [misiThinking, setMisiThinking] = useState(false); // esperando la respuesta de Vento
-  const [misiIdle,     setMisiIdle]     = useState(false); // sin interacción hace rato → "durmiendo"
+  const [misiThinking, setMisiThinking] = useState(false); // esperando la respuesta de la IA
+  const [misiIdleTier, setMisiIdleTier] = useState("none"); // "none" | "cansado" (3min) | "durmiendo" (10min)
+  const [misiInspirado, setMisiInspirado] = useState(false); // festejo breve al completar una misión
   const [moodSurveyOpen,    setMoodSurveyOpen]    = useState(false);
   const [moodSurveyPrefill, setMoodSurveyPrefill] = useState(null); // null | "person1" | "person2"
   const [moodEditEntry,     setMoodEditEntry]     = useState(null);  // mood entry being edited, or null
+
+  // Misi "viva" — detecta inactividad real del usuario (mouse/touch/teclado/
+  // scroll) para pasar de alegre → cansado (3min) → durmiendo (10min). Antes
+  // este estado existía pero nunca se activaba (siempre alegre).
+  useEffect(() => {
+    let lastActivity = Date.now();
+    const bump = () => { lastActivity = Date.now(); };
+    const events = ["mousemove", "mousedown", "touchstart", "keydown", "scroll", "wheel"];
+    events.forEach(ev => window.addEventListener(ev, bump, { passive: true }));
+    const iv = setInterval(() => {
+      const idleMs = Date.now() - lastActivity;
+      if (idleMs > 10 * 60 * 1000) setMisiIdleTier("durmiendo");
+      else if (idleMs > 3 * 60 * 1000) setMisiIdleTier("cansado");
+      else setMisiIdleTier("none");
+    }, 5000);
+    return () => {
+      events.forEach(ev => window.removeEventListener(ev, bump));
+      clearInterval(iv);
+    };
+  }, []);
+
+  // Festejo breve: cuando se completa una misión (taskCongrat), Misi se pone
+  // "inspirado" un momento y vuelve a su estado normal.
+  useEffect(() => {
+    if (!taskCongrat) return;
+    setMisiInspirado(true);
+    const t = setTimeout(() => setMisiInspirado(false), 4000);
+    return () => clearTimeout(t);
+  }, [taskCongrat]);
 
   const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
 
@@ -989,14 +1019,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => { window.removeEventListener("online", up); window.removeEventListener("offline", dn); };
   }, []);
 
-  // Misi se "duerme" tras 5 min sin interacción — cualquier toque/tecla la despierta
-  useEffect(() => {
-    let t = setTimeout(() => setMisiIdle(true), 5 * 60 * 1000);
-    const wake = () => { setMisiIdle(false); clearTimeout(t); t = setTimeout(() => setMisiIdle(true), 5 * 60 * 1000); };
-    window.addEventListener("pointerdown", wake);
-    window.addEventListener("keydown", wake);
-    return () => { clearTimeout(t); window.removeEventListener("pointerdown", wake); window.removeEventListener("keydown", wake); };
-  }, []);
+  // (detección de inactividad de Misi: ver el useEffect con setMisiIdleTier
+  // más arriba, junto a la declaración de estado — reemplaza esta lógica)
 
   // Retry pending save when reconnecting — vía el path unificado (CAS + rebase)
   useEffect(() => {
@@ -2252,11 +2276,19 @@ ${sorted.map(m=>{
         </Suspense>
       )}
 
-      {/* Misi — mascota + chat. leyendo: conversación abierta pero sin esperar
-          respuesta. escribiendo: esperando a Vento. durmiendo: 5min inactivo.
-          alegre: default, chat cerrado. */}
-      <MisiMascot
-        emotion={misiThinking ? "escribiendo" : misiChatOpen ? "leyendo" : misiIdle ? "durmiendo" : "alegre"}
+      {/* Misi — vive y deambula por la app. Prioridad de emociones:
+          escribiendo (esperando IA) > pensando (chat abierto) >
+          inspirado (festejo al completar misión) > cansado/durmiendo
+          (inactividad) > alegre (default). */}
+      <MisiLiveLayer
+        emotion={
+          misiThinking ? "escribiendo"
+          : misiChatOpen ? "pensando"
+          : misiInspirado ? "inspirado"
+          : misiIdleTier === "durmiendo" ? "durmiendo"
+          : misiIdleTier === "cansado" ? "cansado"
+          : "alegre"
+        }
         onClick={() => setMisiChatOpen(true)}
         liftForTabBar={bottomBar.enabled && bottomBar.tabs.length > 0}
       />

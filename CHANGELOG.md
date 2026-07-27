@@ -7,7 +7,7 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [4.31.0] — 2026-07-24 · Inicio: tareas de "Próximos" y "Atrasadas" accionables
+## [4.32.0] — 2026-07-25 · Inicio: tareas de "Próximos" y "Atrasadas" accionables
 
 ### ✋ Los paneles de pendientes dejan de ser inertes (feedback de Ana)
 
@@ -23,6 +23,43 @@ Detalles de implementación:
 - La edición de campos usa `patchMissionGlobal` y el borrado `deleteMissionGlobal` — exactamente los mismos handlers que ya usa `MissionCard` en la vista de Semana, ambos cross-week vía `resolveWeekKey`. No se introduce ningún path de mutación nuevo.
 - La misión abierta se resuelve **en vivo** desde `allMissions` en cada render, para que el estado seleccionado se refleje al instante y el panel se cierre solo si la tarea se elimina.
 - Los campos editables viven en un borrador local y se aplican al pulsar "Guardar"; el estado se aplica al instante.
+
+---
+
+## [4.31.0] — 2026-07-25 · Misi cobra vida: deambula por la app con transparencia real
+
+### 🤖 Misi ya no es un botón fijo — ahora vive dentro de la app
+
+Reemplazado `MisiMascot` (burbuja circular fija abajo a la derecha) por `MisiLiveLayer`:
+mismo click-para-abrir-chat, pero ahora **deambula** por la pantalla (dentro de
+márgenes seguros, lejos del header y de la barra de tabs) en vez de quedarse
+clavado en una esquina. Se aparca automáticamente en su posición de siempre
+mientras el chat está abierto, para no tapar la conversación.
+
+### 🎬 Transparencia real (chroma-key en canvas), no un truco de fondo blanco
+
+Los clips de Misi tienen fondo blanco de estudio. Antes se disimulaba haciendo
+que el fondo del botón fuera también blanco — funcionaba solo mientras Misi
+quedara siempre sobre fondo claro. Ahora cada frame se dibuja en un `<canvas>`
+oculto y se recorta el blanco pixel a pixel (con borde suave anti-halo), así
+Misi se ve transparente de verdad sobre cualquier fondo de la app. Se eligió
+canvas + chroma-key en vez de video con canal alpha porque WebM/VP9 alpha no
+anda de forma confiable en iOS Safari.
+
+### 😪💡 Nuevas emociones: cansado, inspirado, y pensando dedicado
+
+- **cansado**: tras 3 minutos sin interacción (antes esto nunca se activaba —
+  el estado `misiIdle` existía en el código pero no se actualizaba nunca).
+- **durmiendo**: ahora a los 10 minutos de inactividad (antes el temporizador
+  de 5 min tampoco se disparaba realmente).
+- **inspirado**: festejo breve (4s) cada vez que se completa una misión.
+- **pensando**: clip dedicado nuevo para cuando el chat está abierto — antes
+  reusaba el clip de "escribiendo", ahora tiene su propia animación.
+
+Clips nuevos extraídos y recortados de las 3 fuentes de video Kling AI del
+robot Misi, recodificados al mismo formato que los existentes (224×224,
+20fps, H264 crf30): `misi-cansado.mp4`, `misi-inspirado.mp4`, `misi-pensando.mp4`
+(+ posters `.jpg`).
 
 ---
 
