@@ -1836,13 +1836,16 @@ ${sorted.map(m=>{
 
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
-      {/* Offline banner */}
-      {!isOnline && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", paddingTop:"calc(8px + env(safe-area-inset-top))", paddingBottom:8, paddingLeft:16, paddingRight:16, zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
+      {/* Offline banner — anchored just BELOW the sticky Topbar (52px + safe-area-inset-top,
+          matching Topbar.jsx) instead of top:0. It used to sit fixed at the very top with a
+          higher z-index than the Topbar, covering the hamburger/home/search buttons the whole
+          time the couple was offline or mid-sync. */}
+      {!isOnline && <div style={{ position:"fixed", top:"calc(52px + env(safe-area-inset-top))", left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", paddingTop:8, paddingBottom:8, paddingLeft:16, paddingRight:16, zIndex:70, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
         <span style={{ fontSize:16 }}>📡</span>
         <span style={{ flex:1 }}>Sin conexión · Los cambios se guardan localmente y se sincronizarán al reconectar</span>
         {pendingSave && <span style={{ fontSize:10, color:"#fb923c" }}>⏳ pendiente</span>}
       </div>}
-      {isOnline && pendingSave && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", paddingTop:"calc(6px + env(safe-area-inset-top))", paddingBottom:6, paddingLeft:16, paddingRight:16, zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
+      {isOnline && pendingSave && <div style={{ position:"fixed", top:"calc(52px + env(safe-area-inset-top))", left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", paddingTop:6, paddingBottom:6, paddingLeft:16, paddingRight:16, zIndex:70, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
         <span>🔄</span><span>Sincronizando cambios pendientes…</span>
       </div>}
 
