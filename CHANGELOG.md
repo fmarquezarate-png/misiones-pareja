@@ -7,6 +7,40 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.0] — 2026-07-27 · Misi funcionando de verdad: chat con datos reales + Misi viva
+
+Versión mayor porque cierra el ciclo completo de la reconstrucción de Misi:
+deja de ser un bot roto/desconectado y pasa a ser un asistente que responde
+con el contexto real de cada pareja y que vive dentro de la app.
+
+### 🤖 Chat de Misi arreglado y reconectado a los datos reales de la pareja
+
+- El chat dejó de funcionar por dos causas encadenadas: primero el proveedor
+  Vento usaba un token que expiraba semanalmente; se migró la función
+  `misi-chat` a llamar directamente a OpenAI (`gpt-4o-mini`).
+- Al migrar, el chat perdió el contexto real de `app_data` (misiones, semana,
+  objetivos, reparto por persona) durante un tiempo — el código que reconstruye
+  ese contexto ya estaba en `main`, pero el Edge Function en producción nunca
+  se había vuelto a desplegar tras el merge, así que seguía sirviendo una
+  versión vieja. Redesplegado y verificado en producción con datos reales de
+  dos parejas distintas: Misi ahora responde citando misiones, horarios y
+  responsables reales de la semana en curso.
+
+### 🎬 Misi ya vive dentro de la app (ver [4.31.0])
+
+Se mantiene todo lo de `MisiLiveLayer`: deambula por la pantalla con
+transparencia real (chroma-key en canvas), se aparca al abrir el chat, y
+tiene emociones nuevas (cansado, durmiendo, inspirado, pensando).
+
+### 🔜 Próximo (v5.1.0)
+
+Ahora mismo Misi "flota" por cualquier parte de la pantalla. El siguiente
+paso es que **camine** en vez de flotar, limitado a la franja inferior de
+la pantalla, con movimientos con sentido (caminar hacia un punto, pararse,
+girar) en lugar de desplazamiento flotante libre.
+
+---
+
 ## [4.31.0] — 2026-07-25 · Misi cobra vida: deambula por la app con transparencia real
 
 ### 🤖 Misi ya no es un botón fijo — ahora vive dentro de la app
