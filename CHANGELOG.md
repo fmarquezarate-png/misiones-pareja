@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.3] — 2026-07-28 · Botones flotantes en Inicio
+
+### ➕ Añadir tarea o evento sin salir del Home
+
+- **Dos botones redondos (FAB)** en la esquina inferior derecha del Home: uno para añadir una tarea (✅) y otro para añadir un evento (📅). Reutilizan el mismo formulario y flujo que los botones "+ Tarea" / "+ Evento" de la vista Semana (`AddMissionForm`), cambiando automáticamente a la pestaña Semana con el formulario abierto y el tipo preseleccionado.
+- Posicionados por encima de la barra de tabs inferior (`zIndex:75`, por debajo de menús y drawers) para no tapar ni ser tapados por la navegación.
+
+---
+
 ## [5.0.2] — 2026-07-28 · Resiliencia offline
 
 ### 📶 La app abre sin internet y no pierde guardados
