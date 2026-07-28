@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.2] — 2026-07-28 · Resiliencia offline
+
+### 📶 La app abre sin internet y no pierde guardados
+
+- **App shell offline**: el service worker ahora registra una `NavigationRoute` (workbox-routing) enlazada al `index.html` precacheado, así cualquier navegación de página completa se sirve offline — antes solo funcionaba la ruta exacta `/`, y los shortcuts de la PWA usan query strings (`/?tab=chat`, `/?action=add`) que no coincidían con la precache.
+- **Guardado offline confirmado**: se verificó que `saveLocalBackup` ya se dispara antes de cualquier intento de red cuando `!navigator.onLine` (fix histórico de v4.18.0, sin cambios).
+- **Banners de estado reposicionados**: los avisos de "sin conexión" y "sincronizando" tapaban los botones del menú superior (hamburguesa/inicio/buscar) al quedar en `top:0` por encima del Topbar sticky. Se movieron a `top: calc(52px + env(safe-area-inset-top))` con `zIndex:70`, justo debajo del Topbar (`zIndex:80`).
+
+---
+
 ## [5.0.1] — 2026-07-27 · Misi se queda quieto en su sitio
 
 ### 📍 Misi deja de deambular por completo (pedido de Fran)
