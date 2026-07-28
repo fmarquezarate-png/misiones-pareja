@@ -1947,25 +1947,58 @@ ${sorted.map(m=>{
           const { week:todayWn, year:todayYr } = getWeekAndYear(new Date());
           const todayWkey = isoWeekKey(todayWn, todayYr);
           const todayWeekData = data.weeks[todayWkey] || { missions:[], epicObjective:"" };
+          const fabBottom = bottomBar.enabled && bottomBar.tabs.length > 0
+            ? "calc(78px + env(safe-area-inset-bottom))"
+            : "calc(22px + env(safe-area-inset-bottom))";
           return (
-            <HomeDashboard
-              week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
-              missions={todayWeekData.missions || []}
-              goals={data.goals || []}
-              colors={colors}
-              p1={p1} p2={p2}
-              photo={data.settings?.photos?.couple}
-              p1Photo={data.settings?.photos?.person1}
-              p2Photo={data.settings?.photos?.person2}
-              onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
-              onSetStatus={(id, st) => cycleStatusGlobal(todayWn, todayYr, id, st)}
-              onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
-              onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
-              weeksData={data.weeks}
-              pushSupported={pushSupported}
-              pushSubscribed={pushSubscribed}
-              onActivatePush={handlePushToggle}
-            />
+            <>
+              <HomeDashboard
+                week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
+                missions={todayWeekData.missions || []}
+                goals={data.goals || []}
+                colors={colors}
+                p1={p1} p2={p2}
+                photo={data.settings?.photos?.couple}
+                p1Photo={data.settings?.photos?.person1}
+                p2Photo={data.settings?.photos?.person2}
+                onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
+                onSetStatus={(id, st) => cycleStatusGlobal(todayWn, todayYr, id, st)}
+                onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
+                onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
+                weeksData={data.weeks}
+                pushSupported={pushSupported}
+                pushSubscribed={pushSubscribed}
+                onActivatePush={handlePushToggle}
+              />
+              {/* FABs redondos: + Tarea / + Evento */}
+              <div style={{
+                position:"fixed", right:16, bottom:fabBottom, zIndex:75,
+                display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+              }}>
+                <button
+                  onClick={() => { setNewM(p=>({...p,type:"event",emoji:"📅"})); setShowAddForm(true); setActiveTab("current"); }}
+                  aria-label="Añadir evento"
+                  title="Añadir evento"
+                  style={{
+                    width:48, height:48, borderRadius:"50%", border:"1px solid rgba(96,165,250,0.35)",
+                    background:"linear-gradient(135deg,#3b82f6,#60a5fa)", color:"#fff",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:20, cursor:"pointer", boxShadow:"0 4px 14px rgba(59,130,246,0.45)",
+                  }}
+                >📅</button>
+                <button
+                  onClick={() => { setNewM(p=>({...p,type:"task",emoji:"🎯"})); setShowAddForm(true); setActiveTab("current"); }}
+                  aria-label="Añadir tarea"
+                  title="Añadir tarea"
+                  style={{
+                    width:56, height:56, borderRadius:"50%", border:"1px solid rgba(167,139,250,0.4)",
+                    background:"linear-gradient(135deg,#a78bfa,#f472b6)", color:"#fff",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:24, cursor:"pointer", boxShadow:"0 4px 16px rgba(167,139,250,0.5)",
+                  }}
+                >✅</button>
+              </div>
+            </>
           );
         })()}
 
