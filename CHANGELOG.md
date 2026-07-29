@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.4] — 2026-07-28 · Fix: los botones flotantes quedaban tapados por Misi
+
+### 🐛 Los FAB de + Tarea / + Evento no se podían pulsar
+
+- Los dos botones flotantes del Home introducidos en v5.0.3 estaban en la esquina inferior **derecha**, el mismo sitio fijo donde vive Misi (`zIndex:350`, por encima de todo lo demás) — Misi los tapaba y no se podían pulsar.
+- Se movieron a la esquina inferior **izquierda**, dejando a Misi su sitio de siempre a la derecha.
+
+---
+
 ## [5.0.3] — 2026-07-28 · Botones flotantes en Inicio
 
 ### ➕ Añadir tarea o evento sin salir del Home
