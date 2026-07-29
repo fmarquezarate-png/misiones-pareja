@@ -1970,9 +1970,9 @@ ${sorted.map(m=>{
                 pushSubscribed={pushSubscribed}
                 onActivatePush={handlePushToggle}
               />
-              {/* FABs redondos: + Tarea / + Evento */}
+              {/* FABs redondos: + Tarea / + Evento — lado izquierdo, Misi vive en el derecho (zIndex:350) */}
               <div style={{
-                position:"fixed", right:16, bottom:fabBottom, zIndex:75,
+                position:"fixed", left:16, bottom:fabBottom, zIndex:75,
                 display:"flex", flexDirection:"column", alignItems:"center", gap:12,
               }}>
                 <button
