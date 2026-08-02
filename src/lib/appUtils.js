@@ -189,6 +189,33 @@ export function applyCarryOver(data) {
   return { ...data, weeks: { ...data.weeks, [currKey]: { ...currW, missions: [...(currW.missions || []), ...carried, ...newSeriesMissions] } } };
 }
 
+// Añade misiones (de carry-over o de serie, ya calculadas por applyCarryOver) a
+// una semana, deduplicando por identidad. Es idempotente y SEGURO ANTE REBASE:
+// cuando un conflicto CAS re-aplica el mutador sobre los datos frescos de la
+// pareja, no pisa esos datos ni duplica lo que el otro dispositivo ya carreó.
+// Reglas de dedup (espejo de applyCarryOver): no re-agrega por id ya presente,
+// ni un carry cuyo original (carriedFrom) o título ya existe, ni una serie
+// (seriesId) ya instanciada esta semana. Si la semana no existe, la crea con
+// weekMeta {wn, yr}.
+export function mergeMissionsInto(data, weekKey, missions, weekMeta = null) {
+  if (!missions?.length) return data;
+  const w = data.weeks[weekKey]
+    || (weekMeta ? { weekNumber: weekMeta.wn, year: weekMeta.yr, epicObjective: "", missions: [], createdAt: Date.now(), workHours: { person1: 0, person2: 0 } } : null);
+  if (!w) return data;
+  const ids = new Set((w.missions || []).map(m => m.id));
+  const carried = new Set((w.missions || []).filter(m => m.carriedFrom).map(m => m.carriedFrom));
+  const series = new Set((w.missions || []).filter(m => m.seriesId).map(m => m.seriesId));
+  const titles = new Set((w.missions || []).map(m => m.title));
+  const toAdd = missions.filter(m => {
+    if (ids.has(m.id)) return false;
+    if (m.carriedFrom) return !carried.has(m.carriedFrom) && !titles.has(m.title);
+    if (m.seriesId) return !series.has(m.seriesId);
+    return true;
+  });
+  if (!toAdd.length) return data;
+  return { ...data, weeks: { ...data.weeks, [weekKey]: { ...w, missions: [...(w.missions || []), ...toAdd] } } };
+}
+
 export function syncCarryDone(data, weekKey, missionId) {
   const week = data.weeks[weekKey]; if (!week) return data;
   const mission = week.missions.find(m => m.id === missionId);

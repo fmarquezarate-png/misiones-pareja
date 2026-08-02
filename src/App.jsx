@@ -64,7 +64,7 @@ const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
 const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
 import MisiLiveLayer from "./components/MisiLiveLayer.jsx";
 const MisiChatPanel = lazy(() => import("./components/MisiChatPanel.jsx"));
-import { useSwipe, repairMisplacedMissions, applyCarryOver, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
+import { useSwipe, repairMisplacedMissions, applyCarryOver, mergeMissionsInto, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
 
 
 
@@ -1551,13 +1551,17 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const currKey = isoWeekKey(base.currentWeekNumber, base.currentYear);
     const beforeIds = new Set((base.weeks[currKey]?.missions || []).map(m => m.id));
     const after = applyCarryOver(base);
-    update(() => after); // reducer puro
-    // Dual-write fuera del reducer (efecto secundario).
-    for (const m of (after.weeks[currKey]?.missions || [])) {
-      if (!beforeIds.has(m.id)) {
-        insertNormalizedMission(coupleId, currKey, after.currentWeekNumber, after.currentYear, m)
-          .catch(e => console.error("[dual_write] carry insert:", e));
-      }
+    // Misiones nuevas generadas por el carry (uids ya fijados por applyCarryOver).
+    const newMissions = (after.weeks[currKey]?.missions || []).filter(m => !beforeIds.has(m.id));
+    if (!newMissions.length) return;
+    // Reducer GRANULAR y puro: añade solo esas misiones (dedup por identidad).
+    // Antes era `update(() => after)` (replace-all): en un conflicto CAS el
+    // rebase devolvía `after` y descartaba los cambios frescos de la pareja.
+    update(d => mergeMissionsInto(d, currKey, newMissions, { wn: base.currentWeekNumber, yr: base.currentYear }));
+    // Dual-write fuera del reducer (efecto secundario), con los mismos uids.
+    for (const m of newMissions) {
+      insertNormalizedMission(coupleId, currKey, after.currentWeekNumber, after.currentYear, m)
+        .catch(e => console.error("[dual_write] carry insert:", e));
     }
   };
   const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
@@ -1678,10 +1682,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
   };
   const runRepair = () => {
-    const { data: fixed, moved } = repairMisplacedMissions(dataRef.current || data);
+    const { moved } = repairMisplacedMissions(dataRef.current || data);
     if (moved === 0) { alert("✅ Todo en orden — ningún evento fuera de su semana."); return; }
     alert(`✅ ${moved} evento${moved>1?"s":""} reubicado${moved>1?"s":""} a su semana correcta.`);
-    update(() => fixed); // reducer puro
+    // Reducer GRANULAR y puro: repairMisplacedMissions no genera uids (mueve
+    // misiones existentes), así que re-repararlo sobre `d` es seguro ante rebase
+    // (recompone datos frescos) — antes `update(() => fixed)` pisaba a la pareja.
+    update(d => repairMisplacedMissions(d).data);
   };
 
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
