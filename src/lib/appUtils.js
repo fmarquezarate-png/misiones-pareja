@@ -59,6 +59,11 @@ export const scheduleReminders = (data, p1, p2) => {
     const offset = OFFSETS[m.reminder]; if (offset === undefined) return;
     const fireAt = new Date(`${m.date}T${m.time}:00`).getTime() - offset;
     if (fireAt <= now) return;
+    // setTimeout usa un entero de 32 bits: cualquier retraso > ~24.85 días
+    // desborda y dispara de inmediato. Los eventos así de lejanos se re-agendan
+    // solos al reabrir la app (este effect corre en cada carga), así que aquí
+    // simplemente los saltamos hasta que estén dentro del rango seguro.
+    if (fireAt - now > 2147483647) return;
     const who = m.who === "person1" ? p1 : m.who === "person2" ? p2 : "Juntos";
     const label = { ontime: "¡Ahora!", "15min": "En 15 min", "30min": "En 30 min", "1h": "En 1 hora", "1day": "Mañana" }[m.reminder] || "";
     _rTimers.push(setTimeout(() => showNotif(`${m.emoji} ${m.title}`, `${label} · ${who}`, { tag: `rem-${m.id}` }), fireAt - now));

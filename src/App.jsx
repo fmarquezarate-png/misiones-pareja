@@ -369,6 +369,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   // Pull from Supabase and update local. Never pushes — push happens via auto-save.
   const smartSync = async () => {
+    // Guard anti-pérdida: si hay ediciones locales sin guardar (timer de save
+    // en vuelo, save corriendo, o mutadores sin confirmar), NO refrescamos —
+    // sobrescribir `data` con lo remoto se comería el cambio del usuario. El
+    // guardado pendiente sigue su curso y el rebase-on-conflict protege ante
+    // cambios de la pareja. Mismo criterio que el re-fetch de visibilitychange.
+    if (saveTimerRef.current || isSavingRef.current || unconfirmedRef.current.length > 0) {
+      showSyncMsg("Tienes cambios sin guardar — se guardan primero");
+      return;
+    }
     setSyncing(true);
     setSyncError(null);
     try {
@@ -1439,7 +1448,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const startTime = newM.time || (hasEnd ? "00:00" : null);
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
     const isEv = newM.type === "event";
-    const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
+    const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", reminder:(newM.reminder && newM.reminder !== "none") ? newM.reminder : null, seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
     patchWeek(w => ({ ...w, missions:[...(w.missions||[]), mission] }));
     insertNormalizedMission(coupleId, wkey, data.currentWeekNumber, data.currentYear, mission).catch(e => console.error("[dual_write] insert:", e));
     // Push tras el save confirmado: la pareja recibe la notificación solo cuando
@@ -1470,6 +1479,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(data.currentWeekNumber, data.currentYear, id) }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
+    // syncCarryDone también marca DONE la misión ORIGINAL (semana anterior) en el
+    // blob; ese cambio de status hay que dual-escribirlo también, o la tabla
+    // normalizada queda desincronizada (5º black hole, ver CLAUDE.md §6).
+    if (nx === "DONE" && mCur?.carriedFrom) updateNormalizedMissionStatus(coupleId, mCur.carriedFrom, "DONE").catch(e => console.error("[dual_write] carry-orig status:", e));
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
       if (mCur.who === "together") {
@@ -1573,6 +1586,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
+    // Ver nota en cycleStatus: dual-write del status del original arrastrado.
+    if (nx === "DONE" && mCur?.carriedFrom) updateNormalizedMissionStatus(coupleId, mCur.carriedFrom, "DONE").catch(e => console.error("[dual_write] carry-orig status:", e));
     if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(wn, yr, id) }, sessionUserId)); }
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
