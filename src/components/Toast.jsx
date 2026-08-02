@@ -11,8 +11,8 @@ export function useToast() {
 
   useEffect(() => {
     if (!toast) return;
-    if (toast.kind === "success" || toast.kind === "error") {
-      const ms = toast.kind === "error" ? 7000 : 4000;
+    if (toast.kind === "success" || toast.kind === "error" || toast.kind === "undo") {
+      const ms = toast.kind === "error" ? 7000 : toast.kind === "undo" ? 5000 : 4000;
       const id = setTimeout(() => setToast(null), ms);
       return () => clearTimeout(id);
     }
@@ -25,6 +25,7 @@ const palette = {
   loading: { color: "#a78bfa", border: "rgba(167,139,250,0.5)" },
   success: { color: "#34d399", border: "rgba(52,211,153,0.5)" },
   error:   { color: "#fb923c", border: "rgba(251,146,60,0.5)"  },
+  undo:    { color: "#f8f4ff", border: "rgba(248,113,113,0.45)" },
 };
 
 export default function Toast({ toast, onDismiss }) {
@@ -86,7 +87,22 @@ export default function Toast({ toast, onDismiss }) {
         }}>Reintentar</button>
       )}
 
-      {(toast.kind === "success" || toast.kind === "error") && (
+      {toast.kind === "undo" && toast.onUndo && (
+        <button onClick={() => { toast.onUndo(); onDismiss(); }} style={{
+          background: "rgba(248,113,113,0.18)",
+          border: "1px solid rgba(248,113,113,0.4)",
+          color: "#fca5a5",
+          fontSize: 11,
+          padding: "4px 10px",
+          borderRadius: 7,
+          fontWeight: 700,
+          fontFamily: "inherit",
+          marginLeft: 4,
+          cursor: "pointer",
+        }}>Deshacer</button>
+      )}
+
+      {(toast.kind === "success" || toast.kind === "error" || toast.kind === "undo") && (
         <button onClick={onDismiss} aria-label="Cerrar" style={{
           background:"none", border:"none", color: p.color, opacity:0.6, cursor:"pointer", fontSize:16, padding:0, marginLeft:4, lineHeight:1, fontFamily:"inherit",
         }}>×</button>

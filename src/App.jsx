@@ -1516,11 +1516,32 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     }
   };
 
+  // Restaura una misión borrada (deshacer). Reducer puro; los efectos van fuera.
+  const restoreMission = (m, weekKey, wn, yr) => {
+    update(d => {
+      const w = d.weeks[weekKey] || { weekNumber: wn, year: yr, epicObjective: "", missions: [], createdAt: Date.now(), workHours: { person1: 0, person2: 0 } };
+      if (w.missions.some(x => x.id === m.id)) return d; // ya está (doble undo)
+      return { ...d, weeks: { ...d.weeks, [weekKey]: { ...w, missions: [...w.missions, m] } } };
+    });
+    insertNormalizedMission(coupleId, weekKey, wn, yr, m).catch(e => console.error("[dual_write] undo-insert:", e));
+    logActivity(`restauró ${m.emoji||"🎯"} «${m.title}»`);
+  };
+
   const delMission = id => {
     const mDel = data.weeks[wkey]?.missions?.find(m => m.id === id);
-    deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
-    patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
-    if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
+    const delWkey = wkey, delWn = data.currentWeekNumber, delYr = data.currentYear;
+    // 0.5: confirmación (evita el borrado accidental por la × pegada al orbe) +
+    // toast "Deshacer" (5s) que restaura la tarea tal cual, blob y tabla.
+    confirm(
+      mDel ? `¿Eliminar «${mDel.title}»?` : "¿Eliminar esta tarea?",
+      () => {
+        deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
+        patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
+        if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
+        if (mDel) pushToast({ kind:"undo", text:`Eliminado: ${mDel.emoji||"🎯"} ${mDel.title}`, onUndo: () => restoreMission(mDel, delWkey, delWn, delYr) });
+      },
+      { confirmLabel: "Eliminar", cancelLabel: "Cancelar", danger: true }
+    );
   };
   const { week:todayWeek, year:todayYear } = getWeekAndYear();
   const isCurrentWeek = data.currentWeekNumber===todayWeek && data.currentYear===todayYear;
