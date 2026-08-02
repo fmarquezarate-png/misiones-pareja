@@ -1879,13 +1879,16 @@ ${sorted.map(m=>{
 
       {/* Hidden file input for import */}
       <input ref={importFileRef} type="file" accept=".json" onChange={handleImport} style={{ display:"none" }} />
-      {/* Offline banner */}
-      {!isOnline && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", paddingTop:"calc(8px + env(safe-area-inset-top))", paddingBottom:8, paddingLeft:16, paddingRight:16, zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
+      {/* Offline banner — anchored just BELOW the sticky Topbar (52px + safe-area-inset-top,
+          matching Topbar.jsx) instead of top:0. It used to sit fixed at the very top with a
+          higher z-index than the Topbar, covering the hamburger/home/search buttons the whole
+          time the couple was offline or mid-sync. */}
+      {!isOnline && <div style={{ position:"fixed", top:"calc(52px + env(safe-area-inset-top))", left:0, right:0, background:"rgba(30,20,10,0.97)", borderBottom:"1px solid rgba(251,146,60,0.4)", paddingTop:8, paddingBottom:8, paddingLeft:16, paddingRight:16, zIndex:70, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#fdba74" }}>
         <span style={{ fontSize:16 }}>📡</span>
         <span style={{ flex:1 }}>Sin conexión · Los cambios se guardan localmente y se sincronizarán al reconectar</span>
         {pendingSave && <span style={{ fontSize:10, color:"#fb923c" }}>⏳ pendiente</span>}
       </div>}
-      {isOnline && pendingSave && <div style={{ position:"fixed", top:0, left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", paddingTop:"calc(6px + env(safe-area-inset-top))", paddingBottom:6, paddingLeft:16, paddingRight:16, zIndex:500, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
+      {isOnline && pendingSave && <div style={{ position:"fixed", top:"calc(52px + env(safe-area-inset-top))", left:0, right:0, background:"rgba(10,20,30,0.97)", borderBottom:"1px solid rgba(96,165,250,0.4)", paddingTop:6, paddingBottom:6, paddingLeft:16, paddingRight:16, zIndex:70, display:"flex", alignItems:"center", gap:8, fontSize:12, color:"#60a5fa" }}>
         <span>🔄</span><span>Sincronizando cambios pendientes…</span>
       </div>}
 
@@ -1987,25 +1990,58 @@ ${sorted.map(m=>{
           const { week:todayWn, year:todayYr } = getWeekAndYear(new Date());
           const todayWkey = isoWeekKey(todayWn, todayYr);
           const todayWeekData = data.weeks[todayWkey] || { missions:[], epicObjective:"" };
+          const fabBottom = bottomBar.enabled && bottomBar.tabs.length > 0
+            ? "calc(78px + env(safe-area-inset-bottom))"
+            : "calc(22px + env(safe-area-inset-bottom))";
           return (
-            <HomeDashboard
-              week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
-              missions={todayWeekData.missions || []}
-              goals={data.goals || []}
-              colors={colors}
-              p1={p1} p2={p2}
-              photo={data.settings?.photos?.couple}
-              p1Photo={data.settings?.photos?.person1}
-              p2Photo={data.settings?.photos?.person2}
-              onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
-              onSetStatus={(id, st) => cycleStatusGlobal(todayWn, todayYr, id, st)}
-              onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
-              onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
-              weeksData={data.weeks}
-              pushSupported={pushSupported}
-              pushSubscribed={pushSubscribed}
-              onActivatePush={handlePushToggle}
-            />
+            <>
+              <HomeDashboard
+                week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
+                missions={todayWeekData.missions || []}
+                goals={data.goals || []}
+                colors={colors}
+                p1={p1} p2={p2}
+                photo={data.settings?.photos?.couple}
+                p1Photo={data.settings?.photos?.person1}
+                p2Photo={data.settings?.photos?.person2}
+                onCycleStatus={id => cycleStatusGlobal(todayWn, todayYr, id)}
+                onSetStatus={(id, st) => cycleStatusGlobal(todayWn, todayYr, id, st)}
+                onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
+                onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
+                weeksData={data.weeks}
+                pushSupported={pushSupported}
+                pushSubscribed={pushSubscribed}
+                onActivatePush={handlePushToggle}
+              />
+              {/* FABs redondos: + Tarea / + Evento — lado izquierdo, Misi vive en el derecho (zIndex:350) */}
+              <div style={{
+                position:"fixed", left:16, bottom:fabBottom, zIndex:75,
+                display:"flex", flexDirection:"column", alignItems:"center", gap:12,
+              }}>
+                <button
+                  onClick={() => { setNewM(p=>({...p,type:"event",emoji:"📅"})); setShowAddForm(true); setActiveTab("current"); }}
+                  aria-label="Añadir evento"
+                  title="Añadir evento"
+                  style={{
+                    width:48, height:48, borderRadius:"50%", border:"1px solid rgba(96,165,250,0.35)",
+                    background:"linear-gradient(135deg,#3b82f6,#60a5fa)", color:"#fff",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:20, cursor:"pointer", boxShadow:"0 4px 14px rgba(59,130,246,0.45)",
+                  }}
+                >📅</button>
+                <button
+                  onClick={() => { setNewM(p=>({...p,type:"task",emoji:"🎯"})); setShowAddForm(true); setActiveTab("current"); }}
+                  aria-label="Añadir tarea"
+                  title="Añadir tarea"
+                  style={{
+                    width:56, height:56, borderRadius:"50%", border:"1px solid rgba(167,139,250,0.4)",
+                    background:"linear-gradient(135deg,#a78bfa,#f472b6)", color:"#fff",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:24, cursor:"pointer", boxShadow:"0 4px 16px rgba(167,139,250,0.5)",
+                  }}
+                >✅</button>
+              </div>
+            </>
           );
         })()}
 

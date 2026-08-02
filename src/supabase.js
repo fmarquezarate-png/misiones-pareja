@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { isValidAppData } from "./lib/validation.js";
+import { track } from "./lib/track.js";
 export { isValidAppData };
 
 const supabase = createClient(
@@ -176,7 +177,13 @@ export function saveLocalBackup(appData, coupleId) {
   try {
     localStorage.setItem(localKey(coupleId), JSON.stringify(appData));
     localStorage.setItem(localTsKey(coupleId), new Date().toISOString());
-  } catch { /* quota exceeded – silent */ }
+  } catch (e) {
+    // Last line of defense when there's no network (e.g. localStorage quota
+    // exceeded, aggressive Safari private mode). Don't block the user, but
+    // leave a trace — silent failure here means a lost-data report with no
+    // way to diagnose it.
+    track("local_backup_failed", { error: e?.name || String(e), coupleId });
+  }
 }
 
 export function loadLocalBackup(coupleId) {

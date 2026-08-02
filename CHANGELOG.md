@@ -7,7 +7,7 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
-## [5.0.2] — 2026-07-27 · Bloque 0 — bugs de pérdida de datos y features rotas (auditoría multi-agente)
+## [5.0.5] — 2026-07-27 · Bloque 0 — bugs de pérdida de datos y features rotas (auditoría multi-agente)
 
 Tras una auditoría profunda con 5 agentes en paralelo (correctitud, rendimiento, UX, arquitectura de datos, testing), este release cierra los 7 hallazgos de mayor prioridad: features silenciosamente rotas y caminos de pérdida de datos. Todos con red de tests.
 
@@ -19,6 +19,34 @@ Tras una auditoría profunda con 5 agentes en paralelo (correctitud, rendimiento
 - **0.3 — Carry-over/repair rebase-safe** (`runCarryOver`/`runRepair`): eran reducers "replace-all" (`() => after`) que en un conflicto CAS descartaban los cambios frescos de la pareja (§8). Ahora granulares: nuevo helper puro `mergeMissionsInto` (dedup por identidad) y `update(d => repairMisplacedMissions(d).data)`.
 - **0.7 — Código muerto y divergente**: eliminadas las copias viejas de `repairMisplacedMissions`/`applyCarryOver`/`syncCarryDone` en `utils.js` (se usan las de `appUtils.js`).
 - **Tests:** `carryover.test.js` con 19 casos (incl. el escenario de rebase). Total del proyecto: **42 → 61**.
+
+---
+
+## [5.0.4] — 2026-07-28 · Fix: los botones flotantes quedaban tapados por Misi
+
+### 🐛 Los FAB de + Tarea / + Evento no se podían pulsar
+
+- Los dos botones flotantes del Home introducidos en v5.0.3 estaban en la esquina inferior **derecha**, el mismo sitio fijo donde vive Misi (`zIndex:350`, por encima de todo lo demás) — Misi los tapaba y no se podían pulsar.
+- Se movieron a la esquina inferior **izquierda**, dejando a Misi su sitio de siempre a la derecha.
+
+---
+
+## [5.0.3] — 2026-07-28 · Botones flotantes en Inicio
+
+### ➕ Añadir tarea o evento sin salir del Home
+
+- **Dos botones redondos (FAB)** en la esquina inferior derecha del Home: uno para añadir una tarea (✅) y otro para añadir un evento (📅). Reutilizan el mismo formulario y flujo que los botones "+ Tarea" / "+ Evento" de la vista Semana (`AddMissionForm`), cambiando automáticamente a la pestaña Semana con el formulario abierto y el tipo preseleccionado.
+- Posicionados por encima de la barra de tabs inferior (`zIndex:75`, por debajo de menús y drawers) para no tapar ni ser tapados por la navegación.
+
+---
+
+## [5.0.2] — 2026-07-28 · Resiliencia offline
+
+### 📶 La app abre sin internet y no pierde guardados
+
+- **App shell offline**: el service worker ahora registra una `NavigationRoute` (workbox-routing) enlazada al `index.html` precacheado, así cualquier navegación de página completa se sirve offline — antes solo funcionaba la ruta exacta `/`, y los shortcuts de la PWA usan query strings (`/?tab=chat`, `/?action=add`) que no coincidían con la precache.
+- **Guardado offline confirmado**: se verificó que `saveLocalBackup` ya se dispara antes de cualquier intento de red cuando `!navigator.onLine` (fix histórico de v4.18.0, sin cambios).
+- **Banners de estado reposicionados**: los avisos de "sin conexión" y "sincronizando" tapaban los botones del menú superior (hamburguesa/inicio/buscar) al quedar en `top:0` por encima del Topbar sticky. Se movieron a `top: calc(52px + env(safe-area-inset-top))` con `zIndex:70`, justo debajo del Topbar (`zIndex:80`).
 
 ---
 
