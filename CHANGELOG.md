@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.0.2] — 2026-07-27 · Bloque 0 — bugs de pérdida de datos y features rotas (auditoría multi-agente)
+
+Tras una auditoría profunda con 5 agentes en paralelo (correctitud, rendimiento, UX, arquitectura de datos, testing), este release cierra los 7 hallazgos de mayor prioridad: features silenciosamente rotas y caminos de pérdida de datos. Todos con red de tests.
+
+- **0.1 — Recordatorio perdido al crear evento** (`App.jsx` `addMission`): el objeto `mission` omitía `reminder`, así que un recordatorio elegido al crear nunca agendaba notificación (solo funcionaba si el evento se editaba después). Ahora se incluye.
+- **0.4 — Overflow de `setTimeout` en recordatorios lejanos** (`appUtils.js` `scheduleReminders`): un retraso > 2³¹ ms (~24.85 días) desbordaba el timer de 32 bits y disparaba de inmediato. Se salta el agendado hasta que el evento entra en rango (se re-agenda solo en cada carga).
+- **0.6 — 5º black hole de dual-write** (`cycleStatus`/`cycleStatusGlobal`): al completar una misión arrastrada, `syncCarryDone` marcaba DONE el original en el blob pero no lo dual-escribía. Ahora sí (`updateNormalizedMissionStatus` del original).
+- **0.2 — Pull-to-refresh comía ediciones sin guardar** (`smartSync`): no guardaba contra `unconfirmedRef`/`saveTimerRef`/`isSavingRef` como sí hace el re-fetch de `visibilitychange`. Ahora, si hay cambios sin guardar, no sobrescribe `data`.
+- **0.5 — Borrado sin red en la vista de Semana** (`delMission`): la × instantánea (pegada al orbe) causaba borrados accidentales. Ahora hay confirmación (`useConfirm`) **y** un toast "Deshacer" (5s, nuevo `kind: "undo"` en `Toast.jsx`) que restaura la tarea tal cual (blob + dual-write) vía `restoreMission`.
+- **0.3 — Carry-over/repair rebase-safe** (`runCarryOver`/`runRepair`): eran reducers "replace-all" (`() => after`) que en un conflicto CAS descartaban los cambios frescos de la pareja (§8). Ahora granulares: nuevo helper puro `mergeMissionsInto` (dedup por identidad) y `update(d => repairMisplacedMissions(d).data)`.
+- **0.7 — Código muerto y divergente**: eliminadas las copias viejas de `repairMisplacedMissions`/`applyCarryOver`/`syncCarryDone` en `utils.js` (se usan las de `appUtils.js`).
+- **Tests:** `carryover.test.js` con 19 casos (incl. el escenario de rebase). Total del proyecto: **42 → 61**.
+
+---
+
 ## [5.0.1] — 2026-07-27 · Misi se queda quieto en su sitio
 
 ### 📍 Misi deja de deambular por completo (pedido de Fran)
