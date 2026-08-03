@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.1.1] — 2026-07-27 · Bloque 2 (rendimiento/iOS)
+
+Optimizaciones de la auditoría multi-agente, foco iPhone/WKWebView. Sin cambios visibles de UX. 65 tests verdes.
+
+- **2.2 — Posters de Misi**: `misi-alegre.jpg`, `misi-neutral.jpg`, `misi-durmiendo.jpg` eran 960×1072 (~150-175KB) para mostrarse a 68px. Redimensionados a 144×144 (~4.5KB c/u) → **~460KB menos** de descarga+decode por cold start. (Herramienta: `sharp`, usado una vez y desinstalado — no queda como dependencia.)
+- **2.1 — Chroma-key de Misi**: el recorte del fondo (`getImageData`+loop de píxeles+`putImageData`) corría en cada frame de `requestAnimationFrame` (~60fps) aunque el video fuente es ~20fps. Throttle a ~20fps → ~66% menos trabajo de píxel en el hilo principal (batería/calor en iPhone).
+- **2.3 — `phrases.js` diferido**: las 500 frases (~18KB) se importaban eager en `HomeDashboard` (se monta siempre) para mostrar UNA. Ahora `import()` dinámico → salen del chunk `index` (300.7 → 291KB) y no se parsean en cada arranque.
+- **2.4 — Doble descarga del blob**: el arranque hacía `loadDataWithVersion` (para la versión CAS) **y** `loadData` (para los datos) — dos `SELECT data` del blob completo. Unificado: en el path de blob (el único activo) la versión viene en la misma lectura. Un round-trip de red menos en cada cold start. El path normalizado (hoy inactivo) conserva su lectura de versión aparte.
+- **2.5 — `React.memo`**: diferido a propósito — requiere estabilizar decenas de callbacks del monolito de estado con `useCallback` (riesgo medio, ganancia incierta para 2 usuarios). Se retomará con su propio análisis.
+
+---
+
 ## [5.1.0] — 2026-07-27 · Bloque 1 (UX) + recurrencia en eventos
 
 Lote de UX de la auditoría multi-agente (Bloque 1) más una feature pedida por el usuario. Todo con red de tests (65 en total).

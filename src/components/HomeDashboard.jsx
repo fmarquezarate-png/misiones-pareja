@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { T, homeHero } from "../styles.js";
 const eyebrow = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700 };
 import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS, STATUS, STATUS_ORDER } from "../constants.js";
-import { PHRASES } from "../phrases.js";
 import WeekStrip from "./WeekStrip.jsx";
 
 const W = {
@@ -436,6 +435,21 @@ export default function HomeDashboard({
   const [daySheet, setDaySheet]     = useState(null);
   const [personSheet, setPersonSheet] = useState(null); // "p1" | "p2" | null
   const [actionMission, setActionMission] = useState(null); // misión abierta en el panel de acción
+  // Frase del día: PHRASES son ~18KB (500 frases) para mostrar UNA. Se carga
+  // diferida (import dinámico) para no inflar el chunk que se parsea en cada
+  // arranque — HomeDashboard se monta siempre. Aparece un instante después.
+  const [dailyPhrase, setDailyPhrase] = useState("");
+  useEffect(() => {
+    let alive = true;
+    import("../phrases.js").then(m => {
+      if (!alive) return;
+      const arr = m.PHRASES || [];
+      if (!arr.length) return;
+      const key = parseInt(fmtDate(new Date()).replace(/-/g, ""));
+      setDailyPhrase(arr[key % arr.length]);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const todayStr = fmtDate(new Date());
 
@@ -707,15 +721,17 @@ export default function HomeDashboard({
         </div>
       )}
 
-      {/* Daily phrase */}
-      <div style={{ textAlign:"center", padding:"2px 16px 4px" }}>
-        <span style={{
-          fontFamily:"'Fraunces', Georgia, serif",
-          fontStyle:"italic", fontSize:15,
-          color:"var(--t-text-muted,#8b7fa8)",
-          lineHeight:1.5, letterSpacing:0.2,
-        }}>"{PHRASES[parseInt(todayStr.replace(/-/g,"")) % PHRASES.length]}"</span>
-      </div>
+      {/* Daily phrase (cargada diferida) */}
+      {dailyPhrase && (
+        <div style={{ textAlign:"center", padding:"2px 16px 4px" }}>
+          <span style={{
+            fontFamily:"'Fraunces', Georgia, serif",
+            fontStyle:"italic", fontSize:15,
+            color:"var(--t-text-muted,#8b7fa8)",
+            lineHeight:1.5, letterSpacing:0.2,
+          }}>"{dailyPhrase}"</span>
+        </div>
+      )}
 
       {/* Push nudge widget — visible si push soportado, no suscrito y no descartado 3 veces */}
       {pushSupported && !pushSubscribed && (() => {

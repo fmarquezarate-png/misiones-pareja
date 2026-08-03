@@ -109,10 +109,18 @@ function MisiCanvas({ emotion, size, style, videoRef, onFirstFrame }) {
     off.height = RENDER;
     const offCtx = off.getContext("2d", { willReadFrequently: true });
 
-    const tick = () => {
+    // El chroma-key (getImageData + loop de píxeles + putImageData) es caro y
+    // corría en CADA frame de rAF (~60fps) aunque el video fuente es ~20fps —
+    // la mitad de los frames procesados eran idénticos. Throttle a ~20fps:
+    // menos CPU/batería en iPhone sin pérdida visible.
+    const FRAME_MS = 1000 / 20;
+    let lastProcess = 0;
+    const tick = (ts) => {
       rafRef.current = requestAnimationFrame(tick);
       const v = videoRef.current;
       if (!v || !readyRef.current || v.paused || v.readyState < 2) return;
+      if (ts - lastProcess < FRAME_MS) return; // salta frames redundantes
+      lastProcess = ts;
       offCtx.drawImage(v, 0, 0, RENDER, RENDER);
       let frame;
       try {

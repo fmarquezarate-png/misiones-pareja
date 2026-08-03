@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { loadData, loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
+import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
 import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
@@ -473,11 +473,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setLoading(false); // show immediately — Supabase will update silently
       }
 
-      // Leer version para CAS — no interrumpe el flujo existente
-      loadDataWithVersion(coupleId).then(({ version }) => {
-        dataVersionRef.current = version;
-        console.debug("[CAS] version cargada:", version);
-      });
+      const useNormalized = isEnabled("read_from_normalized");
+      // La tabla normalizada no trae la versión CAS (vive en app_data); solo en
+      // ese path (hoy inactivo) hace falta una lectura aparte para la versión.
+      // En el path de blob, la versión viene en la MISMA lectura que los datos
+      // (loadDataWithVersion) — antes esto se descargaba dos veces el blob
+      // completo en cada arranque en frío (una sola para leer la versión).
+      if (useNormalized) {
+        loadDataWithVersion(coupleId).then(({ version }) => {
+          dataVersionRef.current = version;
+          console.debug("[CAS] version cargada:", version);
+        }).catch(() => {});
+      }
 
       // Background: fetch authoritative data from Supabase
       // Sprint G-2: si read_from_normalized está activo, lee missions+goals de tablas
@@ -488,10 +495,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // fetch tras un cold start — un reintento con request nueva casi siempre
       // responde de inmediato, evitando caer a la pantalla de error de más.
       try {
+        let loadedVersion = null;
         let base = await withTimeoutRetry(
-          () => isEnabled("read_from_normalized") ? loadFromNormalized(coupleId) : loadData(coupleId),
+          () => useNormalized
+            ? loadFromNormalized(coupleId)
+            : loadDataWithVersion(coupleId).then(r => { loadedVersion = r.version; return r.data; }),
           10000, "loadData"
         ).catch(e => { console.warn("[load]", e.message); return null; });
+        // Path de blob: la versión CAS llegó junto con los datos, sin 2ª descarga.
+        if (!useNormalized) { dataVersionRef.current = loadedVersion; console.debug("[CAS] version cargada:", loadedVersion); }
         let isRealData = !!base;
         let didMigrate = false;
 
