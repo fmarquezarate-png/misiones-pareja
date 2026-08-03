@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
 import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
 import { applyReactionToggle, hasReacted } from "./lib/reactions.js";
+import { nudgeMessage } from "./lib/nudge.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -1735,6 +1736,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     }
   };
 
+  // "Dar un toque" (3.2): aviso intencional a la pareja sobre una tarea. Es
+  // transitorio (solo push, no cambia el blob) → se envía directo, no por
+  // runAfterSave (no hay guardado que esperar). El deep-link lleva a la misión.
+  const nudgeMission = (m, intent) => {
+    if (!m) return;
+    const body = nudgeMessage(intent, personName, m);
+    sendContextualPush(coupleId, { body, tag: `mp-nudge-${m.id}`, url: missionPushUrl(data.currentWeekNumber, data.currentYear, m.id) }, sessionUserId)
+      .catch(e => console.warn("[nudge] push:", e.message));
+    pushToast({ kind: "success", text: "👉 Toque enviado" });
+    track("nudge_sent", { intent });
+  };
+
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
   const addGoal = g => patchGoals(gs => [...gs, { ...g, id:uid(), active:true, createdAt:Date.now() }]);
   const updateGoal = (id, patch) => patchGoals(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
@@ -2173,7 +2186,7 @@ ${sorted.map(m=>{
             const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
             const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
             const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
-            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />} />;
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} onNudge={intent=>nudgeMission(m, intent)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />} />;
           })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
@@ -2205,7 +2218,7 @@ ${sorted.map(m=>{
                 );
               }
               return sorted.map(m=>(
-                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
+                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} onNudge={intent=>nudgeMission(m, intent)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
               ));
             })()}
           </div>}

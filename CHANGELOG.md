@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.3.0] — 2026-07-27 · Bloque 3.2 — "Dar un toque" (nudge con intención)
+
+Segunda feature del Bloque 3. Un aviso intencional a la pareja sobre una tarea, con matiz de tono. 80 tests.
+
+### 👉 Menú de intenciones
+
+- Botón 👉 en cada tarjeta de misión/evento (vista de Semana). Abre un menú con 3 opciones: **🙏 ¿te encargas tú?**, **⏰ recuérdalo**, **💜 ¡gracias por esto!**.
+- Cada opción manda un **push contextual** con ese tono a la pareja (excluyéndote), con deep-link a la misión: p.ej. *"Fran pregunta: ¿te encargas de 🧹 «Limpiar la cocina»? 🙏"*.
+- Es **transitorio** (solo notificación, no toca el blob) → se envía directo, no por `runAfterSave`. Toast de confirmación al emisor.
+
+### Implementación
+
+- `lib/nudge.js`: `nudgeMessage(intent, senderName, mission)` + `NUDGE_INTENTS` (puro, testeable). **6 tests** en `nudge.test.js`.
+- Componente `NudgeMenu.jsx` (botón + popover), reutilizado en `MissionCard` junto a `Reactions`.
+- `nudgeMission` en App.jsx: push directo vía `sendContextualPush` + `track("nudge_sent")`.
+
+---
+
 ## [5.2.0] — 2026-07-27 · Bloque 3.1 — Reacciones/kudos de pareja
 
 Primera feature del Bloque 3 (capa "cariño"). Reacciones en **tareas/eventos y mensajes de chat**, con push al reaccionar. 74 tests.

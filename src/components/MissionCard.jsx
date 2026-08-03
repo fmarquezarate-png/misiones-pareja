@@ -5,10 +5,11 @@ import { googleCalendarUrl, uid, relTime } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 import StatusOrb from "./StatusOrb.jsx";
 import Reactions from "./Reactions.jsx";
+import NudgeMenu from "./NudgeMenu.jsx";
 
 // highlighted: true cuando se llega a esta misión desde una notificación push
 // o un resultado de búsqueda — hace scroll y marca la tarjeta unos segundos.
-export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId, highlighted, reactions, onToggleReaction }) {
+export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId, highlighted, reactions, onToggleReaction, onNudge }) {
   const [expanded, setExpanded] = useState(false);
   const [popping, setPopping] = useState(false);
   const cardRef = useRef(null);
@@ -171,13 +172,16 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
           </div>
         </div>
       )}
-      {onToggleReaction && (
-        <div style={{ padding:"0 2px 2px" }}>
-          <Reactions
-            reactions={reactions}
-            myPersonId={sessionPersonId}
-            onToggle={e => onToggleReaction(mission.id, e, { kind:"mission", title: mission.title })}
-          />
+      {(onToggleReaction || onNudge) && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"0 2px 2px" }}>
+          {onToggleReaction ? (
+            <Reactions
+              reactions={reactions}
+              myPersonId={sessionPersonId}
+              onToggle={e => onToggleReaction(mission.id, e, { kind:"mission", title: mission.title })}
+            />
+          ) : <span />}
+          {onNudge && <NudgeMenu onNudge={intent => onNudge(intent)} align="right" />}
         </div>
       )}
     </div>
