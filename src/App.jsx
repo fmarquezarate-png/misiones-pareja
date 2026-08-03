@@ -3,6 +3,8 @@ import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveL
 import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
 import { applyReactionToggle, hasReacted } from "./lib/reactions.js";
 import { nudgeMessage } from "./lib/nudge.js";
+import { shouldShowPlanningRitual } from "./lib/ritual.js";
+import PlanningRitual from "./components/PlanningRitual.jsx";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -2052,6 +2054,21 @@ ${sorted.map(m=>{
             : "calc(22px + env(safe-area-inset-bottom))";
           return (
             <>
+              {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
+                <PlanningRitual
+                  onNotifyPartner={() => {
+                    sendContextualPush(coupleId, { body: `${personName} te invita a planificar la semana juntos 🗓️`, tag: "mp-ritual", url: "/?tab=home" }, sessionUserId)
+                      .catch(e => console.warn("[ritual] push:", e.message));
+                    pushToast({ kind: "success", text: "👉 Invitación enviada" });
+                    track("ritual_notify");
+                  }}
+                  onComplete={() => {
+                    update(d => ({ ...d, settings: { ...d.settings, ritual: { ...(d.settings?.ritual || {}), lastDoneWeek: todayWkey } } }));
+                    pushToast({ kind: "success", text: "🎉 ¡Semana planificada juntos!" });
+                    track("ritual_completed");
+                  }}
+                />
+              )}
               <HomeDashboard
                 week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}
                 missions={todayWeekData.missions || []}

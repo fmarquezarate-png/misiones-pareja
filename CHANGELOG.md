@@ -7,6 +7,26 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.4.0] — 2026-08-03 · Bloque 3.4 — Ritual de planificación conjunta (opt-in)
+
+Cierre del Bloque 3. Un momento semanal, opcional, para que la pareja planifique la semana junta. 89 tests.
+
+### 🗓️ Ritual (desactivado por defecto)
+
+- **Opt-in en Perfil → Avisos**: toggle "Planificar la semana juntos" + selector de día (Lun–Dom). Se guarda en `settings.ritual = { enabled, day, lastDoneWeek }`.
+- El día elegido aparece un **banner en el inicio** ("Ritual de planificación"). Se puede posponer ("Ahora no") sin marcarlo hecho.
+- **Modal guiado** con 4 pasos marcables: repasar la semana pasada · añadir misiones · agendar lo importante · elegir un momento para ustedes.
+- Botón **"Avisar a mi pareja"** → push de invitación. **"Terminar ritual"** marca `lastDoneWeek` → no vuelve a insistir esa semana (reaparece la siguiente).
+
+### Implementación
+
+- `lib/ritual.js`: `shouldShowPlanningRitual(ritual, date, weekKey)`, `RITUAL_DAYS`, `RITUAL_STEPS`, `ritualDefaults()` (puro). **9 tests** en `ritual.test.js`.
+- Componente `PlanningRitual.jsx` (banner + modal, estado de sesión propio). Render en el tab home de App.jsx con `todayWkey`.
+- Toggle + selector de día en `ProfileModal.jsx` (patrón batched del `save()`, preserva `lastDoneWeek`).
+- **3.3 (rotación de turnos) descartada** por decisión de producto — añadía complejidad a la recurrencia sin valor claro.
+
+---
+
 ## [5.3.0] — 2026-07-27 · Bloque 3.2 — "Dar un toque" (nudge con intención)
 
 Segunda feature del Bloque 3. Un aviso intencional a la pareja sobre una tarea, con matiz de tono. 80 tests.

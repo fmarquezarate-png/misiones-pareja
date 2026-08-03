@@ -5,6 +5,7 @@ import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 import { ALL_TABS } from "./BottomTabBar.jsx";
 import { secureToken } from "../utils.js";
+import { RITUAL_DAYS } from "../lib/ritual.js";
 
 const PM_MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const PM_DAYS   = [31,29,31,30,31,30,31,31,30,31,30,31]; // days per month (feb=29 for picker)
@@ -40,6 +41,9 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
   const [notifGoals,       setNotifGoals]       = useState(defNotif.goalDeadlines !== false);
   const [notifBriefing,    setNotifBriefing]    = useState(defNotif.dailyBriefing === true);
   const [notifBriefTime,   setNotifBriefTime]   = useState(defNotif.briefingTime || "08:00");
+  const defRitual = settings.ritual || {};
+  const [ritualOn,  setRitualOn]  = useState(defRitual.enabled === true);
+  const [ritualDay, setRitualDay] = useState(defRitual.day ?? 0);
   const [notifPermission,  setNotifPermission]  = useState(typeof Notification !== "undefined" ? Notification.permission : "denied");
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
@@ -125,6 +129,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
     update(d=>({...d, settings:{...d.settings,
       person1:p1.trim()||"Persona 1", person2:p2.trim()||"Persona 2",
       colors, coupleEmoji, photos, notifications,
+      ritual: { enabled: ritualOn, day: ritualDay, lastDoneWeek: d.settings?.ritual?.lastDoneWeek ?? null },
       person1Birthday: bday1M ? `${bday1M}-${bday1D}` : "",
       person2Birthday: bday2M ? `${bday2M}-${bday2D}` : "",
       anniversaryDate: anniv || null,
@@ -483,6 +488,29 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                       </div>
                     )}
                   </>
+                )}
+              </div>
+
+              <SectionTitle>Ritual de planificación</SectionTitle>
+              <div style={{ background:"var(--t-accent-soft,rgba(167,139,250,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: ritualOn ? 14 : 0 }}>
+                  <div style={{ flex:1, minWidth:0, paddingRight:12 }}>
+                    <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>🗓️ Planificar la semana juntos</div>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:2, lineHeight:1.5 }}>Un recordatorio en el inicio, el día que elijan, para sentarse a organizar la semana en pareja</div>
+                  </div>
+                  <button onClick={()=>setRitualOn(v=>!v)}
+                    style={{ width:40, height:22, borderRadius:99, background:ritualOn?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
+                    <span style={{ position:"absolute", top:3, left:ritualOn?20:3, width:16, height:16, borderRadius:99, background:"#fff", transition:"left 0.2s", display:"block" }} />
+                  </button>
+                </div>
+                {ritualOn && (
+                  <div style={{ display:"flex", alignItems:"center", gap:10, paddingTop:12, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
+                    <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", flexShrink:0 }}>¿Qué día?</span>
+                    <select value={ritualDay} onChange={e=>setRitualDay(parseInt(e.target.value))}
+                      style={{ ...S.inputSm, colorScheme:"dark", flex:1 }}>
+                      {RITUAL_DAYS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                    </select>
+                  </div>
                 )}
               </div>
 
