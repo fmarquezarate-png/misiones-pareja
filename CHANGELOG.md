@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.8.0] — 2026-08-03 · Bloque 4.4 — Recap semanal discoverable (cierre Bloque 4)
+
+El `WrappedModal` ya funcionaba (pop-up del lunes + botón en Perfil) pero el banner del inicio estaba dormido: `HomeDashboard` declaraba `onOpenWrapped`/`hasWrappedAvailable` y App nunca los pasaba. 114 tests.
+
+### ✨ Acceso al recap desde el inicio
+
+- Banner en el inicio a **principios de semana (Lun-Mié)** si la semana previa tiene datos y aún no se vio el recap. Comparte la marca `mp-wrapped-wk-${prevKey}` con el pop-up automático → **no redundante**: si ya lo viste el lunes, no aparece.
+- Se abre con `showMonthlyOption:false` y `monthKey:null` para no marcar por error el recap mensual como visto.
+
+### Implementación
+
+- `lib/wrapped.js`: `shouldOfferWrapped(date, prevWeekHasMissions, alreadySeen)` (puro). **5 tests**.
+- App.jsx: cómputo de `prevWkey`/`offerWrapped` en el tab home, props `hasWrappedAvailable`/`onOpenWrapped` conectadas a `HomeDashboard` (banner preexistente).
+
+---
+
 ## [5.7.0] — 2026-08-03 · Bloque 4.3 — "Nuestro momento" (sugeridor de citas)
 
 Convierte "no sé qué hacer" en un evento en el plan. 109 tests.

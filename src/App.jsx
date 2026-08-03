@@ -10,6 +10,7 @@ import UpcomingDates from "./components/UpcomingDates.jsx";
 import { makeLoveNote } from "./lib/loveNote.js";
 import LoveNote from "./components/LoveNote.jsx";
 import DateIdea from "./components/DateIdea.jsx";
+import { shouldOfferWrapped } from "./lib/wrapped.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -2094,6 +2095,13 @@ ${sorted.map(m=>{
             : "calc(22px + env(safe-area-inset-bottom))";
           const upcoming = upcomingDates({ settings: data.settings, birthdays: data.birthdays }, new Date(), 30);
           const partnerName = personName === p1 ? p2 : personName === p2 ? p1 : (p2 || "tu pareja");
+          // Recap semanal (4.4): banner discoverable a principios de semana.
+          const prevDate = new Date(); prevDate.setDate(prevDate.getDate() - 7);
+          const { week: pw, year: py } = getWeekAndYear(prevDate);
+          const prevWkey = isoWeekKey(pw, py);
+          const prevHasMissions = (data.weeks[prevWkey]?.missions?.length || 0) > 0;
+          const wrappedSeen = typeof localStorage !== "undefined" && !!localStorage.getItem(`mp-wrapped-wk-${prevWkey}`);
+          const offerWrapped = shouldOfferWrapped(new Date(), prevHasMissions, wrappedSeen);
           return (
             <>
               <LoveNote note={data.loveNote} myName={personName} partnerName={partnerName}
@@ -2129,6 +2137,8 @@ ${sorted.map(m=>{
                 onMissionPatch={(id, patch) => patchMissionGlobal(todayWn, todayYr, id, patch)}
                 onDeleteMission={id => deleteMissionGlobal(todayWn, todayYr, id)}
                 weeksData={data.weeks}
+                hasWrappedAvailable={offerWrapped}
+                onOpenWrapped={() => setWrappedConfig({ showWeekly: true, showMonthlyOption: false, prevKey: prevWkey, monthKey: null })}
                 pushSupported={pushSupported}
                 pushSubscribed={pushSubscribed}
                 onActivatePush={handlePushToggle}
