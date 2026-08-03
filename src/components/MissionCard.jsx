@@ -4,10 +4,11 @@ import { CATEGORIES, CAT_MAP, getMCats, DEFAULT_COLORS, STATUS } from "../consta
 import { googleCalendarUrl, uid, relTime } from "../utils.js";
 import EmojiSelect from "./EmojiSelect.jsx";
 import StatusOrb from "./StatusOrb.jsx";
+import Reactions from "./Reactions.jsx";
 
 // highlighted: true cuando se llega a esta misión desde una notificación push
 // o un resultado de búsqueda — hace scroll y marca la tarjeta unos segundos.
-export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId, highlighted }) {
+export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch, p1, p2, colors, goals, weeksData, sessionPersonId, highlighted, reactions, onToggleReaction }) {
   const [expanded, setExpanded] = useState(false);
   const [popping, setPopping] = useState(false);
   const cardRef = useRef(null);
@@ -168,6 +169,15 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
                 style={{ background:commentText.trim()?"rgba(96,165,250,0.15)":"rgba(128,128,128,0.06)", border:`1px solid ${commentText.trim()?"rgba(96,165,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:commentText.trim()?"#60a5fa":"var(--t-text-dim,#4a4166)", padding:"6px 12px", cursor:commentText.trim()?"pointer":"default", fontSize:13, fontFamily:"inherit", flexShrink:0 }}>➤</button>
             </div>
           </div>
+        </div>
+      )}
+      {onToggleReaction && (
+        <div style={{ padding:"0 2px 2px" }}>
+          <Reactions
+            reactions={reactions}
+            myPersonId={sessionPersonId}
+            onToggle={e => onToggleReaction(mission.id, e, { kind:"mission", title: mission.title })}
+          />
         </div>
       )}
     </div>

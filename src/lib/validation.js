@@ -15,6 +15,7 @@ export function isValidAppData(d) {
     }
   }
   if (d.activity !== undefined && !Array.isArray(d.activity)) return false;
+  if (d.reactions !== undefined && (typeof d.reactions !== "object" || Array.isArray(d.reactions))) return false;
   if (d.timeCapsules !== undefined) {
     if (!Array.isArray(d.timeCapsules)) return false;
     for (const c of d.timeCapsules) {

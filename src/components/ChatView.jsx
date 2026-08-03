@@ -4,8 +4,9 @@ import { sendContextualPush } from "../lib/push.js";
 import { showNotif } from "../lib/appUtils.js";
 import { STICKERS } from "../lib/stickers.js";
 import { S } from "../styles.js";
+import Reactions from "./Reactions.jsx";
 
-export default function ChatView({ coupleId, personName, sessionUserId, chatNotifEnabled }) {
+export default function ChatView({ coupleId, personName, sessionUserId, chatNotifEnabled, reactions, myPersonId, onToggleReaction }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -81,6 +82,14 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
                 }}>
                   {m.content}
                 </div>
+              )}
+              {onToggleReaction && (
+                <Reactions
+                  reactions={reactions?.[m.id]}
+                  myPersonId={myPersonId}
+                  align={isMe ? "right" : "left"}
+                  onToggle={e => onToggleReaction(m.id, e, { kind: "message", title: m.emoji === "sticker" ? "un sticker" : (m.content || "").slice(0, 24) })}
+                />
               )}
               <div style={{ fontSize: 10, color: "var(--t-text-dim,#3d3360)", marginTop: 2, marginLeft: 4, marginRight: 4 }}>
                 {new Date(m.created_at).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}

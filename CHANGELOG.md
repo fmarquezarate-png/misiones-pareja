@@ -7,6 +7,27 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.2.0] — 2026-07-27 · Bloque 3.1 — Reacciones/kudos de pareja
+
+Primera feature del Bloque 3 (capa "cariño"). Reacciones en **tareas/eventos y mensajes de chat**, con push al reaccionar. 74 tests.
+
+### 👏 Reaccionar a lo del otro
+
+- Set fijo de un toque: 👏 ❤️ 🔥 😂 🎉 👍. Volver a tocar la misma reacción la quita.
+- **Superficies:** tarjetas de misión/evento en la vista de Semana (lista y timeline) + mensajes de chat.
+- **Push al añadir** (no al quitar), excluyéndote a ti: "Fran reaccionó ❤️ a «Comprar pan»".
+
+### 🏗️ Sin dependencia del Externo (decisión de arquitectura)
+
+Aunque el alcance elegido incluía el chat (cuyos mensajes viven en una tabla de Supabase), **no** se tocó la base de datos: las reacciones (de tareas Y de chat) se guardan en el **blob compartido** (`data.reactions[targetId] = { emoji: [personId] }`, keyeado por id de misión o de mensaje). Así se sincronizan por el mismo CAS/realtime que el resto del estado, sin schema ni tarea bloqueante para el Externo, y sin `net.http_post` en triggers.
+
+- Componente reutilizable `Reactions.jsx` (barra + picker).
+- Lógica pura extraída a `lib/reactions.js` (`applyReactionToggle`, `hasReacted`) — reducer puro e idempotente (seguro ante rebase CAS). **9 tests** en `reactions.test.js`.
+- `toggleReaction` en App.jsx: intent (`added`) calculado sobre estado fresco antes del reducer; push vía `runAfterSave` (tras confirmar el guardado).
+- `isValidAppData` valida el nuevo campo `reactions` (objeto).
+
+---
+
 ## [5.1.1] — 2026-07-27 · Bloque 2 (rendimiento/iOS)
 
 Optimizaciones de la auditoría multi-agente, foco iPhone/WKWebView. Sin cambios visibles de UX. 65 tests verdes.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
 import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
+import { applyReactionToggle, hasReacted } from "./lib/reactions.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -1718,6 +1719,22 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     update(d => repairMisplacedMissions(d).data);
   };
 
+  // Reacciones/kudos de pareja (3.1). targetId = id de misión o de mensaje de
+  // chat. Estado en el blob (data.reactions[targetId] = { emoji: [personId] }).
+  // Reducer PURO (el intent `added` se calcula antes, sobre el estado fresco);
+  // el push va fuera del reducer (runAfterSave), tras confirmar el guardado.
+  const toggleReaction = (targetId, emoji, meta = {}) => {
+    if (!targetId || !emoji) return;
+    const myId = sessionPersonId || "person1";
+    const added = !hasReacted((dataRef.current || data).reactions, targetId, emoji, myId);
+    update(d => ({ ...d, reactions: applyReactionToggle(d.reactions, targetId, emoji, myId, added) }));
+    if (added) {
+      track("reaction_added", { kind: meta.kind || "mission" });
+      const label = meta.title ? `«${meta.title}»` : (meta.kind === "message" ? "tu mensaje" : "algo tuyo");
+      runAfterSave(() => sendContextualPush(coupleId, { body: `${personName} reaccionó ${emoji} a ${label}`, tag: `mp-react-${targetId}`, url: meta.url || "" }, sessionUserId));
+    }
+  };
+
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
   const addGoal = g => patchGoals(gs => [...gs, { ...g, id:uid(), active:true, createdAt:Date.now() }]);
   const updateGoal = (id, patch) => patchGoals(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
@@ -2156,7 +2173,7 @@ ${sorted.map(m=>{
             const mon = weekStartDate(data.currentWeekNumber, data.currentYear);
             const weekDays = Array.from({ length:7 }, (_, i) => new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()+i));
             const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
-            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />} />;
+            return <WeekTimeline missions={filtered} weekDays={weekDays} renderCard={m=><MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />} />;
           })() : <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {(()=>{
               const filtered=(week.missions||[]).filter(m=>(!globalPersonFilter.length||globalPersonFilter.includes(m.who))&&(!globalCatFilter.length||getMCats(m).some(c=>globalCatFilter.includes(c))));
@@ -2188,7 +2205,7 @@ ${sorted.map(m=>{
                 );
               }
               return sorted.map(m=>(
-                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
+                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
               ));
             })()}
           </div>}
@@ -2213,7 +2230,7 @@ ${sorted.map(m=>{
 
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
-        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} sessionUserId={sessionUserId} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} />}
+        {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} sessionUserId={sessionUserId} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} reactions={data.reactions} myPersonId={sessionPersonId} onToggleReaction={toggleReaction} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
