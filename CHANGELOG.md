@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.6.0] — 2026-08-03 · Bloque 4.2 — Notitas de amor
+
+Mensajito corto y fijado que un miembro deja para el otro. 104 tests.
+
+### 💌 Notita
+
+- Card en el inicio: la notita actual (con autor) + botones para **cambiar**, **quitar** (solo el autor) o **responder** (la pareja). Sin notita, un botón discreto para crear la primera.
+- Al enviar, **push a la pareja** (`💌 {nombre} te dejó una notita`) tras confirmar el blob (`runAfterSave`). La nueva reemplaza a la anterior. Máx 140 caracteres.
+- Estado en `data.loveNote = { text, fromName, at }`.
+
+### Implementación
+
+- `lib/loveNote.js`: `makeLoveNote(text, fromName, at)` (puro; vacío → null = quitar; trunca a `LOVE_NOTE_MAX`). **5 tests**.
+- Componente `LoveNote.jsx` (view + compose, identifica autor por `myName`).
+- `saveLoveNote` en App.jsx (update puro + push en `runAfterSave` + track).
+
+---
+
 ## [5.5.0] — 2026-08-03 · Bloque 4.1 — Fechas importantes con aviso
 
 Primera del Bloque 4. Aprovecha datos que ya existían en `settings` (cumpleaños de la pareja + aniversario) pero que no se usaban para avisar. 99 tests.

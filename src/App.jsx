@@ -7,6 +7,8 @@ import { shouldShowPlanningRitual } from "./lib/ritual.js";
 import PlanningRitual from "./components/PlanningRitual.jsx";
 import { upcomingDates } from "./lib/importantDates.js";
 import UpcomingDates from "./components/UpcomingDates.jsx";
+import { makeLoveNote } from "./lib/loveNote.js";
+import LoveNote from "./components/LoveNote.jsx";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -1763,6 +1765,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     track("nudge_sent", { intent });
   };
 
+  // Notita de amor (4.2): reemplaza la notita actual y avisa a la pareja tras
+  // confirmar el blob (runAfterSave, no antes — la pareja debe poder leerla).
+  const saveLoveNote = (text) => {
+    const note = makeLoveNote(text, personName, Date.now());
+    update(d => ({ ...d, loveNote: note }));
+    if (note) {
+      runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
+      track("lovenote_set");
+      pushToast({ kind: "success", text: "💌 Notita enviada" });
+    } else {
+      pushToast({ kind: "info", text: "Notita quitada" });
+    }
+  };
+
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
   const addGoal = g => patchGoals(gs => [...gs, { ...g, id:uid(), active:true, createdAt:Date.now() }]);
   const updateGoal = (id, patch) => patchGoals(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
@@ -2066,8 +2082,11 @@ ${sorted.map(m=>{
             ? "calc(78px + env(safe-area-inset-bottom))"
             : "calc(22px + env(safe-area-inset-bottom))";
           const upcoming = upcomingDates({ settings: data.settings, birthdays: data.birthdays }, new Date(), 30);
+          const partnerName = personName === p1 ? p2 : personName === p2 ? p1 : (p2 || "tu pareja");
           return (
             <>
+              <LoveNote note={data.loveNote} myName={personName} partnerName={partnerName}
+                onSave={saveLoveNote} onClear={() => saveLoveNote("")} />
               <UpcomingDates items={upcoming} max={3} />
               {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
                 <PlanningRitual
