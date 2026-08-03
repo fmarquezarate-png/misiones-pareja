@@ -5,6 +5,8 @@ import { applyReactionToggle, hasReacted } from "./lib/reactions.js";
 import { nudgeMessage } from "./lib/nudge.js";
 import { shouldShowPlanningRitual } from "./lib/ritual.js";
 import PlanningRitual from "./components/PlanningRitual.jsx";
+import { upcomingDates } from "./lib/importantDates.js";
+import UpcomingDates from "./components/UpcomingDates.jsx";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -826,23 +828,34 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => window.removeEventListener("wcFilterChange", handler);
   }, [checkMatchDay]);
 
-  // Birthday reminders (toast: today + day before)
+  // Birthday/anniversary reminders (toast: today + day before). Incluye los
+  // cumpleaños de la pareja (settings) y el aniversario, no solo el array libre.
   useEffect(() => {
-    if (loading || !data?.birthdays?.length) return;
+    if (loading) return;
+    const s = data?.settings || {};
+    const list = [...(data?.birthdays || [])];
+    if (s.person1Birthday) list.push({ name: s.person1 || "Persona 1", date: s.person1Birthday, emoji: "🎂" });
+    if (s.person2Birthday) list.push({ name: s.person2 || "Persona 2", date: s.person2Birthday, emoji: "🎂" });
+    const anniMMDD = /^\d{4}-\d{2}-\d{2}$/.test(s.anniversaryDate || "") ? s.anniversaryDate.slice(5) : null;
+    if (!list.length && !anniMMDD) return;
     const today = new Date();
     const todayStr    = `${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
     const tomorrowD   = new Date(today); tomorrowD.setDate(today.getDate()+1);
     const tomorrowStr = `${String(tomorrowD.getMonth()+1).padStart(2,"0")}-${String(tomorrowD.getDate()).padStart(2,"0")}`;
     const toastKey    = `mp-bday-toast-${today.toDateString()}`;
     if (localStorage.getItem(toastKey)) return;
-    const todays    = data.birthdays.filter(b => b.date === todayStr);
-    const tomorrows = data.birthdays.filter(b => b.date === tomorrowStr);
-    if (!todays.length && !tomorrows.length) return;
+    const todays    = list.filter(b => b.date === todayStr);
+    const tomorrows = list.filter(b => b.date === tomorrowStr);
+    const annivToday    = anniMMDD === todayStr;
+    const annivTomorrow = anniMMDD === tomorrowStr;
+    if (!todays.length && !tomorrows.length && !annivToday && !annivTomorrow) return;
     localStorage.setItem(toastKey, "1");
-    todays.forEach(b => pushToast({ kind:"success", text:`🎂 ¡Hoy es el cumpleaños de ${b.name}!` }));
-    tomorrows.forEach(b => pushToast({ kind:"info", text:`🎂 Mañana es el cumpleaños de ${b.name}` }));
+    todays.forEach(b => pushToast({ kind:"success", text:`${b.emoji||"🎂"} ¡Hoy es el cumpleaños de ${b.name}!` }));
+    tomorrows.forEach(b => pushToast({ kind:"info", text:`${b.emoji||"🎂"} Mañana es el cumpleaños de ${b.name}` }));
+    if (annivToday)    pushToast({ kind:"success", text:"💍 ¡Hoy es vuestro aniversario!" });
+    if (annivTomorrow) pushToast({ kind:"info", text:"💍 Mañana es vuestro aniversario" });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, data?.birthdays]);
+  }, [loading, data?.birthdays, data?.settings]);
 
   // Mood survey auto-trigger: shows once per day after 18:00
   useEffect(() => {
@@ -2052,8 +2065,10 @@ ${sorted.map(m=>{
           const fabBottom = bottomBar.enabled && bottomBar.tabs.length > 0
             ? "calc(78px + env(safe-area-inset-bottom))"
             : "calc(22px + env(safe-area-inset-bottom))";
+          const upcoming = upcomingDates({ settings: data.settings, birthdays: data.birthdays }, new Date(), 30);
           return (
             <>
+              <UpcomingDates items={upcoming} max={3} />
               {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
                 <PlanningRitual
                   onNotifyPartner={() => {

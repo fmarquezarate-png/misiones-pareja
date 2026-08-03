@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.5.0] — 2026-08-03 · Bloque 4.1 — Fechas importantes con aviso
+
+Primera del Bloque 4. Aprovecha datos que ya existían en `settings` (cumpleaños de la pareja + aniversario) pero que no se usaban para avisar. 99 tests.
+
+### 💫 Próximas fechas
+
+- **Tarjeta en el inicio** que unifica y ordena por cercanía: cumpleaños de person1/person2, aniversario (con nº de años en la próxima ocurrencia) y el array libre `birthdays`. Ventana de 30 días, máx 3 visibles, resalta las que faltan ≤3 días.
+- **Aviso ampliado**: el toast de "hoy/mañana" ahora incluye los cumpleaños de la pareja y el aniversario, no solo la lista de cumpleaños.
+
+### Implementación
+
+- `lib/importantDates.js`: `upcomingDates({settings, birthdays}, today, windowDays)`, `daysUntilMMDD`, `daysUntilLabel` (puro, `today` inyectable). **10 tests**.
+- Componente `UpcomingDates.jsx`, render en el tab home con `upcomingDates(...)`.
+- Efecto de recordatorio en App.jsx extendido a settings (pareja + aniversario), con guard `localStorage` diario intacto.
+
+---
+
 ## [5.4.0] — 2026-08-03 · Bloque 3.4 — Ritual de planificación conjunta (opt-in)
 
 Cierre del Bloque 3. Un momento semanal, opcional, para que la pareja planifique la semana junta. 89 tests.
