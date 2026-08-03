@@ -9,6 +9,7 @@ import { upcomingDates } from "./lib/importantDates.js";
 import UpcomingDates from "./components/UpcomingDates.jsx";
 import { makeLoveNote } from "./lib/loveNote.js";
 import LoveNote from "./components/LoveNote.jsx";
+import DateIdea from "./components/DateIdea.jsx";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -1779,6 +1780,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     }
   };
 
+  // "Nuestro momento" (4.3): prellena el formulario de evento con la idea y
+  // lleva a la vista de semana para que la pareja solo elija fecha.
+  const addDateIdea = (idea) => {
+    if (!idea) return;
+    setNewM(p => ({ ...p, type: "event", emoji: idea.emoji, title: idea.title, categories: idea.category ? [idea.category] : [], who: "together" }));
+    setShowAddForm(true);
+    setActiveTab("current");
+    track("date_idea_add", { title: idea.title });
+  };
+
   const patchGoals = fn => update(d => ({ ...d, goals: fn(d.goals||[]) }));
   const addGoal = g => patchGoals(gs => [...gs, { ...g, id:uid(), active:true, createdAt:Date.now() }]);
   const updateGoal = (id, patch) => patchGoals(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
@@ -2088,6 +2099,7 @@ ${sorted.map(m=>{
               <LoveNote note={data.loveNote} myName={personName} partnerName={partnerName}
                 onSave={saveLoveNote} onClear={() => saveLoveNote("")} />
               <UpcomingDates items={upcoming} max={3} />
+              <DateIdea onAdd={addDateIdea} seed={new Date().getDate()} />
               {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
                 <PlanningRitual
                   onNotifyPartner={() => {

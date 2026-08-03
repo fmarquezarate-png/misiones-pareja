@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.7.0] — 2026-08-03 · Bloque 4.3 — "Nuestro momento" (sugeridor de citas)
+
+Convierte "no sé qué hacer" en un evento en el plan. 109 tests.
+
+### 💞 Sugeridor
+
+- Card en el inicio con una idea de plan en pareja (16 ideas curadas con emoji + categoría). "🔄 Otra idea" rota; "Añadir al plan" **prellena el formulario de evento** (título/emoji/categoría, `who: together`) y lleva a la vista de semana para poner fecha — reutiliza el flujo de creación existente.
+- Variedad diaria por `seed` (día del mes), sin aleatoriedad no determinista.
+
+### Implementación
+
+- `lib/dateIdeas.js`: `DATE_IDEAS` + `pickDateIdea(index)` (circular, tolera negativos/vacío). **5 tests**.
+- Componente `DateIdea.jsx`.
+- `addDateIdea` en App.jsx (prefill `newM` + `setShowAddForm` + `setActiveTab("current")` + track).
+
+---
+
 ## [5.6.0] — 2026-08-03 · Bloque 4.2 — Notitas de amor
 
 Mensajito corto y fijado que un miembro deja para el otro. 104 tests.

@@ -2,6 +2,7 @@
 // se cargue en el bundle inicial. ~100KB de texto que solo hace falta cuando
 // el usuario abre 'Ver cambios' en el menú lateral (import() dinámico en SideMenu.jsx).
 export const CHANGELOG = [
+  { v:"5.7.0", date:"2026-08-03", notes:["Nuestro momento 💞 ¿Sin ideas para un plan juntos? En el inicio tienes un sugeridor de citas: dale a 'Otra idea' hasta que te guste una y 'Añadir al plan' la mete en el formulario de evento ya rellenada — solo tienes que ponerle fecha."] },
   { v:"5.6.0", date:"2026-08-03", notes:["Notitas de amor 💌 Deja un mensajito corto fijado en el inicio para tu pareja: aparece en su pantalla de inicio y le llega un aviso. Puede responderte con la suya. La nueva notita reemplaza a la anterior — algo pequeño y bonito para el día a día."] },
   { v:"5.5.0", date:"2026-08-03", notes:["Fechas importantes 💫 En el inicio verás una tarjeta con las próximas fechas señaladas (cumpleaños vuestros y de tus contactos, y vuestro aniversario con los años que cumplís), ordenadas por cercanía. Además ahora también recibes aviso el día y la víspera del cumpleaños de cada uno y de vuestro aniversario, no solo de los cumpleaños de la lista."] },
   { v:"5.4.0", date:"2026-08-03", notes:["Nuevo ritual de planificación semanal 🗓️ (opcional). Actívalo desde Perfil → Avisos y elige un día: ese día aparecerá en el inicio un recordatorio para sentaros juntos a organizar la semana, con una guía de 4 pasos que podéis ir marcando y un botón para avisar a tu pareja. Viene desactivado; si no lo enciendes, nada cambia."] },
