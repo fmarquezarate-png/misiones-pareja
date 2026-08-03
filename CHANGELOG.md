@@ -7,6 +7,34 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.1.0] — 2026-07-27 · Bloque 1 (UX) + recurrencia en eventos
+
+Lote de UX de la auditoría multi-agente (Bloque 1) más una feature pedida por el usuario. Todo con red de tests (65 en total).
+
+### 🔁 Recurrencia también en eventos (pedido del usuario)
+
+- La UI de "recurrente" (semanal/bisemanal/mensual) dejó de estar gateada a `!isEvent` en `AddMissionForm` — ahora aplica a eventos también.
+- `applyCarryOver` (`appUtils.js`): al instanciar una serie, si la misión es un **evento** se le asigna **fecha real** — el mismo día de la semana que el original, dentro de la semana destino (`eventInstanceDate`), conservando `time`/`endTime`/`duration` y desplazando `endDate` el mismo delta si es multi-día. Las tareas recurrentes siguen instanciándose sin fecha (`date:null`), como antes.
+- **`toCarry` ahora excluye eventos**: un evento no-DONE ya no se arrastra a la semana siguiente como pendiente sin fecha (los eventos están anclados a un día). Bugfix latente que pasa a ser relevante con la recurrencia.
+- Tests: 4 casos nuevos de recurrencia de eventos en `carryover.test.js`.
+
+### 📱 Barra de navegación inferior encendida por defecto (1.1)
+
+- Default cambiado a `enabled: true` (`Inicio · Semana · Calendario · Ánimo`). Antes las 14 secciones vivían solo tras la hamburguesa. Sigue personalizable/apagable en Perfil.
+
+### 🌱 Estado vacío en la vista de Semana (1.2)
+
+- Antes, una semana sin misiones renderizaba en blanco. Ahora muestra un estado vacío cálido con CTA ("Añadir la primera"), y distingue "semana en blanco" de "nada coincide con los filtros".
+
+### ✨ Pulido (1.3 + 1.6)
+
+- **Skeletons** (`ViewLoadingFallback`) al abrir vistas lazy, en vez del "Cargando…" pelado.
+- **Onboarding**: propuesta de valor cálida en la pantalla inicial (orientada a quien recibe la invitación) antes de crear/unirse.
+
+_Nota: la barra inferior mantiene "Ánimo" (decisión del usuario); el tono del score se deja como está (decisión del usuario)._
+
+---
+
 ## [5.0.5] — 2026-07-27 · Bloque 0 — bugs de pérdida de datos y features rotas (auditoría multi-agente)
 
 Tras una auditoría profunda con 5 agentes en paralelo (correctitud, rendimiento, UX, arquitectura de datos, testing), este release cierra los 7 hallazgos de mayor prioridad: features silenciosamente rotas y caminos de pérdida de datos. Todos con red de tests.

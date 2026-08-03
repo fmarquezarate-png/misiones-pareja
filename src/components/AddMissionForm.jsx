@@ -207,8 +207,8 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
           {activeGoals.map(g=><option key={g.id} value={g.id}>{g.emoji} {g.title}</option>)}
         </select>
       </div>}
-      {!isEvent&&<div style={{ marginBottom:10 }}>
-        <label style={S.label}>🔁 Tarea recurrente</label>
+      <div style={{ marginBottom:10 }}>
+        <label style={S.label}>🔁 {isEvent ? "Evento recurrente" : "Tarea recurrente"}</label>
         <div style={{ display:"flex", gap:4 }}>
           {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
             <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
@@ -219,7 +219,7 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
           <label style={S.label}>📅 Repetir hasta (opcional)</label>
           <input type="date" value={newM.seriesEndDate||""} onChange={e=>setNewM(p=>({...p,seriesEndDate:e.target.value}))} style={{...S.inputSm,colorScheme:"dark"}} />
         </div>}
-      </div>}
+      </div>
       <div style={{ display:"flex", gap:6, justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" }}>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
           {STATUS_ORDER.map(s=><button key={s} onClick={()=>setNewM(p=>({...p,status:s}))} style={{ ...badgeStyle(s), opacity:newM.status===s?1:0.35 }}>{STATUS[s].icon} {STATUS[s].label}</button>)}

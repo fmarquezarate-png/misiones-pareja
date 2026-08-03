@@ -109,6 +109,44 @@ describe("applyCarryOver", () => {
   });
 });
 
+describe("applyCarryOver — eventos recurrentes (feature nueva)", () => {
+  const buildEv = (prevMissions) => ({
+    currentWeekNumber: 10, currentYear: 2026,
+    weeks: { "2026-W09": wk(9, 2026, prevMissions), "2026-W10": wk(10, 2026, []) },
+  });
+
+  it("instancia un evento recurrente semanal CON fecha real (mismo día de semana), no date:null", () => {
+    // 2026-02-25 es miércoles.
+    const out = applyCarryOver(buildEv([{ id: "e", title: "cita", type: "event", status: "TBC", date: "2026-02-25", time: "18:00", endTime: "19:00", seriesPattern: "weekly", seriesId: "s1" }]));
+    const inst = out.weeks["2026-W10"].missions.find(m => m.seriesId === "s1");
+    expect(inst).toBeTruthy();
+    expect(inst.type).toBe("event");
+    expect(inst.date).toBeTruthy();
+    expect(inst.time).toBe("18:00");
+    expect(inst.endTime).toBe("19:00");
+    // mismo día de la semana que el original
+    expect(new Date(inst.date + "T00:00").getDay()).toBe(new Date("2026-02-25T00:00").getDay());
+  });
+
+  it("desplaza endDate el mismo delta en eventos recurrentes multi-día", () => {
+    const out = applyCarryOver(buildEv([{ id: "e", title: "viaje", type: "event", status: "TBC", date: "2026-02-25", endDate: "2026-02-27", seriesPattern: "weekly", seriesId: "s1" }]));
+    const inst = out.weeks["2026-W10"].missions.find(m => m.seriesId === "s1");
+    const span = Math.round((new Date(inst.endDate + "T00:00") - new Date(inst.date + "T00:00")) / 86400000);
+    expect(span).toBe(2); // conserva la duración de 2 días
+  });
+
+  it("NO arrastra un evento no completado como pendiente sin fecha (toCarry excluye eventos)", () => {
+    const out = applyCarryOver(buildEv([{ id: "e", title: "cena", type: "event", status: "TBC", date: "2026-02-25" }]));
+    expect(out.weeks["2026-W10"].missions).toHaveLength(0);
+  });
+
+  it("una TAREA recurrente sigue instanciándose sin fecha (date:null)", () => {
+    const out = applyCarryOver(buildEv([{ id: "t", title: "regar", type: "task", status: "TBC", seriesPattern: "weekly", seriesId: "s2" }]));
+    const inst = out.weeks["2026-W10"].missions.find(m => m.seriesId === "s2");
+    expect(inst.date).toBe(null);
+  });
+});
+
 describe("repairMisplacedMissions", () => {
   it("mueve una misión cuya fecha cae en otra semana a la correcta", () => {
     // Fecha real de la misión: 2026-03-04 → su semana ISO.

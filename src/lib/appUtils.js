@@ -132,6 +132,26 @@ export function repairMisplacedMissions(data) {
   return { data: { ...data, weeks }, moved };
 }
 
+// Fecha (yyyy-mm-dd) del mismo día de la semana que `srcDate`, pero dentro de la
+// semana ISO (wn/yr) indicada. Para instanciar EVENTOS recurrentes: "cita los
+// miércoles" cae en el miércoles de cada semana (a diferencia de las tareas
+// recurrentes, que se instancian sin fecha como pendientes).
+export function eventInstanceDate(srcDate, wn, yr) {
+  const src = new Date(srcDate + "T00:00");
+  if (isNaN(src.getTime())) return srcDate;
+  const dowMon = (src.getDay() + 6) % 7; // 0=lunes … 6=domingo
+  const mon = weekStartDate(wn, yr);
+  const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + dowMon);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+const _shiftYmd = (ymd, deltaDays) => {
+  const d = new Date(ymd + "T00:00");
+  if (isNaN(d.getTime())) return ymd;
+  d.setDate(d.getDate() + deltaDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const _ymdDelta = (a, b) => Math.round((new Date(b + "T00:00") - new Date(a + "T00:00")) / 86400000);
+
 export function applyCarryOver(data) {
   const { currentWeekNumber: cwn, currentYear: cyr } = data;
   const { wn: pwn, yr: pyr } = prevWeekFn(cwn, cyr);
@@ -141,7 +161,10 @@ export function applyCarryOver(data) {
   const existingCarriedIds = new Set((currW.missions || []).filter(m => m.carriedFrom).map(m => m.carriedFrom));
   const existingTitles = new Set((currW.missions || []).map(m => m.title));
   const existingSeriesIds = new Set((currW.missions || []).filter(m => m.seriesId).map(m => m.seriesId));
-  const toCarry = (prevW.missions || []).filter(m => m.status !== "DONE" && !existingCarriedIds.has(m.id) && !existingTitles.has(m.title));
+  // Los EVENTOS no se arrastran como pendientes sin fecha (están anclados a un
+  // día): un evento que ya pasó se queda en su semana. Solo las TAREAS se
+  // arrastran. Los eventos recurrentes se re-instancian abajo con fecha real.
+  const toCarry = (prevW.missions || []).filter(m => m.type !== "event" && m.status !== "DONE" && !existingCarriedIds.has(m.id) && !existingTitles.has(m.title));
 
   const { wn: p2wn, yr: p2yr } = prevWeekFn(pwn, pyr);
   const prev2W = data.weeks[isoWeekKey(p2wn, p2yr)];
@@ -182,7 +205,19 @@ export function applyCarryOver(data) {
       return !prevSeriesIds.has(m.seriesId);
     }
     return false;
-  }).map(m => ({ ...m, id: uid(), carriedFrom: null, carriedFromWeek: null, date: null, createdAt: Date.now(), completedAt: null, status: "TBC" }));
+  }).map(m => {
+    const inst = { ...m, id: uid(), carriedFrom: null, carriedFromWeek: null, createdAt: Date.now(), completedAt: null, status: "TBC" };
+    if (m.type === "event" && m.date) {
+      // Evento recurrente → instancia CON fecha real (mismo día de la semana),
+      // conservando hora/duración; si es multi-día, desplaza endDate el mismo delta.
+      const newDate = eventInstanceDate(m.date, cwn, cyr);
+      inst.date = newDate;
+      if (m.endDate) inst.endDate = _shiftYmd(m.endDate, _ymdDelta(m.date, newDate));
+    } else {
+      inst.date = null; // tarea recurrente → pendiente sin fecha (como siempre)
+    }
+    return inst;
+  });
 
   if (!toCarry.length && !newSeriesMissions.length) return data;
   const carried = toCarry.map(m => ({ ...m, id: uid(), carriedFrom: m.id, carriedFromWeek: prevKey, date: null, createdAt: Date.now(), completedAt: null, status: m.status === "ASAP" ? "ASAP" : "TBC" }));

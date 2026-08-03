@@ -9,7 +9,7 @@ import WeekTimeline from "./components/WeekTimeline.jsx";
 import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 const LinksView = lazy(() => import("./components/LinksView.jsx"));
 import { useConfirm } from "./components/ConfirmModal.jsx";
-import { SkeletonDashboard } from "./components/Skeleton.jsx";
+import { SkeletonDashboard, SkeletonCard } from "./components/Skeleton.jsx";
 import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr, withTimeout, withTimeoutRetry } from "./utils.js";
 import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
 import { S } from "./styles.js";
@@ -76,6 +76,18 @@ function ModalLoadingFallback() {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:150, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+    </div>
+  );
+}
+
+// Fallback de carga para las vistas lazy (Stats, Calendario, Gastos, etc.):
+// skeletons coherentes con el arranque en vez de un "Cargando…" pelado.
+function ViewLoadingFallback() {
+  return (
+    <div style={{ maxWidth:640, margin:"0 auto", padding:"8px 0" }}>
+      <SkeletonCard rows={3} />
+      <SkeletonCard rows={2} />
+      <SkeletonCard rows={2} />
     </div>
   );
 }
@@ -249,8 +261,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [localThemeId, setLocalThemeId] = useState(null);
   const [localFontId,  setLocalFontId]  = useState(null);
   const [bottomBar, setBottomBar] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("mp-bottom-bar") || "null") || { enabled: false, tabs: ["home","current","calendar","mood"] }; }
-    catch { return { enabled: false, tabs: ["home","current","calendar","mood"] }; }
+    // Encendida por defecto (v5.1): la navegación con el pulgar es la fricción #1
+    // del uso diario — antes las 14 secciones vivían solo tras la hamburguesa.
+    // Sigue siendo personalizable/apagable desde Perfil.
+    try { return JSON.parse(localStorage.getItem("mp-bottom-bar") || "null") || { enabled: true, tabs: ["home","current","calendar","mood"] }; }
+    catch { return { enabled: true, tabs: ["home","current","calendar","mood"] }; }
   });
   const updateBottomBar = cfg => { setBottomBar(cfg); localStorage.setItem("mp-bottom-bar", JSON.stringify(cfg)); };
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
@@ -2140,6 +2155,26 @@ ${sorted.map(m=>{
                 if(weekSort==="status"){return STATUS_ORDER.indexOf(a.status)-STATUS_ORDER.indexOf(b.status);}
                 return 0;
               });
+              if (!sorted.length) {
+                const filtersActive = globalPersonFilter.length || globalCatFilter.length;
+                return (
+                  <div style={{ textAlign:"center", padding:"36px 20px", color:"var(--t-text-muted,#8b7fa8)" }}>
+                    <div style={{ fontSize:40, marginBottom:10 }}>{filtersActive ? "🔍" : "🌱"}</div>
+                    {filtersActive ? (
+                      <div style={{ fontSize:13 }}>Nada coincide con los filtros activos.</div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize:14, fontWeight:600, color:"var(--t-text,#f0e8ff)", marginBottom:4 }}>Semana en blanco</div>
+                        <div style={{ fontSize:12.5, lineHeight:1.5, marginBottom:16 }}>Aún no hay nada esta semana.<br/>Añadid vuestra primera tarea o evento juntos 💪</div>
+                        <button onClick={()=>{ setNewM(p=>({...p,type:"task",emoji:"🎯"})); setShowAddForm(true); }}
+                          style={{ background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:99, color:"#fff", fontSize:13, fontWeight:600, padding:"9px 20px", cursor:"pointer", fontFamily:"inherit" }}>
+                          ✅ Añadir la primera
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              }
               return sorted.map(m=>(
                 <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
               ));
@@ -2147,7 +2182,7 @@ ${sorted.map(m=>{
           </div>}
         </div>}
 
-        <Suspense fallback={<div style={{ textAlign:"center", padding:"60px 0", color:"var(--t-text-dim,#4a4166)", fontSize:13 }}>Cargando…</div>}>
+        <Suspense fallback={<ViewLoadingFallback />}>
         {activeTab==="calendar" && <CalendarView
           allDatedMissions={allDated} p1={p1} p2={p2} colors={colors} personFilter={globalPersonFilter} catFilter={globalCatFilter} goals={data.goals||[]}
           onPatchMission={patchMissionGlobal} onDeleteMission={deleteMissionGlobal} onPatchAllFutureSeries={patchAllFutureSeries}

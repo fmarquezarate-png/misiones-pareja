@@ -42,6 +42,19 @@ export default function OnboardingScreen({ session, onDone }) {
 
         {step === "choice" && (
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {/* Propuesta de valor cálida — la primera impresión de quien se une
+                (típicamente la persona escéptica). Antes se saltaba directo a los
+                botones de crear/unirse sin explicar el "para qué". */}
+            <div style={{ background:"rgba(167,139,250,0.08)", border:"1px solid rgba(167,139,250,0.18)", borderRadius:14, padding:"14px 16px", marginBottom:6 }}>
+              <div style={{ fontSize:13.5, lineHeight:1.55, color:"var(--t-text,#f0e8ff)", textAlign:"center" }}>
+                Vuestro espacio privado para llevar la semana <strong>juntos</strong>: planes y tareas compartidas, quién se encarga de qué, y un calendario que veis los dos.
+              </div>
+              <div style={{ display:"flex", justifyContent:"center", gap:12, marginTop:12, fontSize:11, color:"var(--t-text-muted,#8b7fa8)", flexWrap:"wrap" }}>
+                <span>🗓️ Planificáis juntos</span>
+                <span>🤝 Repartís tareas</span>
+                <span>💬 Todo en un sitio</span>
+              </div>
+            </div>
             <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", textAlign:"center", marginBottom:8 }}>¿Qué quieres hacer?</div>
             <button onClick={() => setStep("create")}
               style={{ ...btnStyle, background:"linear-gradient(135deg,#f472b6,#a78bfa)" }}>
