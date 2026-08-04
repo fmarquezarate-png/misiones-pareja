@@ -38,6 +38,7 @@ import ClickSparkles from "./components/ClickSparkles.jsx";
 import MatchDayTheme from "./components/MatchDayTheme.jsx";
 import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
 const BirthdaysView = lazy(() => import("./components/BirthdaysView.jsx"));
+const NotesWallView = lazy(() => import("./components/NotesWallView.jsx"));
 const MoodSurvey = lazy(() => import("./components/MoodSurvey.jsx"));
 const MoodView = lazy(() => import("./components/MoodView.jsx"));
 const WishlistView = lazy(() => import("./components/WishlistView.jsx"));
@@ -573,6 +574,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         if (goalRepaired) { base = goalRepaired; didMigrate = true; }
 
         if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
+        // v5.10.0: la notita única (v5.6.0) pasa a ser un historial (muro).
+        if (!base.loveNotes) { base = { ...base, loveNotes: base.loveNote ? [{ id: uid(), ...base.loveNote }] : [] }; didMigrate = true; }
 
         // Aviso NO bloqueante (decisión de diseño v4.25.0): si el remoto trae
         // muchas menos misiones que la copia local previa, avisar — pero no
@@ -673,7 +676,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule","notes"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -1766,18 +1769,22 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     track("nudge_sent", { intent });
   };
 
-  // Notita de amor (4.2): reemplaza la notita actual y avisa a la pareja tras
-  // confirmar el blob (runAfterSave, no antes — la pareja debe poder leerla).
-  const saveLoveNote = (text) => {
+  // Notita de amor (4.2 → muro 5.10.0): las notitas viven en data.loveNotes
+  // (historial, más reciente primero). La más reciente es la que se fija en el
+  // inicio. Al añadir, se avisa a la pareja tras confirmar el blob (runAfterSave,
+  // no antes — la pareja debe poder leerla).
+  const addLoveNote = (text) => {
     const note = makeLoveNote(text, personName, Date.now());
-    update(d => ({ ...d, loveNote: note }));
-    if (note) {
-      runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
-      track("lovenote_set");
-      pushToast({ kind: "success", text: "💌 Notita enviada" });
-    } else {
-      pushToast({ kind: "info", text: "Notita quitada" });
-    }
+    if (!note) return;
+    const entry = { id: uid(), ...note };
+    update(d => ({ ...d, loveNotes: [entry, ...(d.loveNotes || [])].slice(0, 50), loveNote: undefined }));
+    runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
+    track("lovenote_set");
+    pushToast({ kind: "success", text: "💌 Notita enviada" });
+  };
+  const deleteLoveNote = (id) => {
+    update(d => ({ ...d, loveNotes: (d.loveNotes || []).filter(n => n.id !== id) }));
+    pushToast({ kind: "info", text: "Notita quitada" });
   };
 
   // "Nuestro momento" (4.3): prellena el formulario de evento con la idea y
@@ -2094,6 +2101,7 @@ ${sorted.map(m=>{
             : "calc(22px + env(safe-area-inset-bottom))";
           const upcoming = upcomingDates({ settings: data.settings, birthdays: data.birthdays }, new Date(), 30);
           const partnerName = personName === p1 ? p2 : personName === p2 ? p1 : (p2 || "tu pareja");
+          const currentNote = (data.loveNotes || [])[0] || null;
           // Recap semanal (4.4): banner discoverable a principios de semana.
           const prevDate = new Date(); prevDate.setDate(prevDate.getDate() - 7);
           const { week: pw, year: py } = getWeekAndYear(prevDate);
@@ -2103,8 +2111,8 @@ ${sorted.map(m=>{
           const offerWrapped = shouldOfferWrapped(new Date(), prevHasMissions, wrappedSeen);
           return (
             <>
-              <LoveNote note={data.loveNote} myName={personName} partnerName={partnerName}
-                onSave={saveLoveNote} onClear={() => saveLoveNote("")} />
+              <LoveNote note={currentNote} myName={personName} partnerName={partnerName}
+                onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
               <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />
               {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
                 <PlanningRitual
@@ -2319,6 +2327,14 @@ ${sorted.map(m=>{
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
         {activeTab==="links" && <LinksView links={data.links||[]} onSave={links=>update(d=>({...d,links}))} />}
+
+        {activeTab==="notes" && <NotesWallView
+          notes={data.loveNotes||[]}
+          myName={personName}
+          partnerName={p1===personName ? p2 : p1}
+          onAdd={addLoveNote}
+          onDelete={deleteLoveNote}
+        />}
 
         {activeTab==="birthdays" && <BirthdaysView
           birthdays={data.birthdays||[]}

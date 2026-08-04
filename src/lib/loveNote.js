@@ -10,3 +10,16 @@ export function makeLoveNote(text, fromName, at) {
   if (!t) return null;
   return { text: t.slice(0, LOVE_NOTE_MAX), fromName: fromName || "", at: at || null };
 }
+
+// Etiqueta corta de fecha para el muro: hoy / ayer / d de mes.
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+export function noteDateLabel(at, now = new Date()) {
+  if (!at) return "";
+  const d = new Date(at);
+  if (isNaN(d.getTime())) return "";
+  const dayStart = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((dayStart(now) - dayStart(d)) / 86400000);
+  if (diffDays === 0) return "hoy";
+  if (diffDays === 1) return "ayer";
+  return `${d.getDate()} ${MESES[d.getMonth()]}`;
+}

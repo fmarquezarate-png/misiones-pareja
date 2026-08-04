@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.10.0] — 2026-08-04 · Muro de notitas (pestaña en "Nosotros")
+
+Las notitas de amor pasan de una única (v5.6.0) a un historial. 119 tests.
+
+### 💌 Pestaña Notitas
+
+- Nueva pestaña **Notitas** en el submenú "Nosotros" (`SideMenu` + `VALID` tabs): compose arriba + lista de burbujas con autor y fecha (hoy/ayer/d mes).
+- Estado migrado de `data.loveNote` (objeto único) a **`data.loveNotes`** (array, más reciente primero, cap 50). Migración automática en carga: la notita previa se conserva como primer elemento.
+- La **más reciente se fija en el inicio** (deriva de `loveNotes[0]`). Añadir desde el inicio o el muro avisa a la pareja (`runAfterSave`). Se puede quitar cualquiera.
+
+### Implementación
+
+- `lib/loveNote.js`: nuevo `noteDateLabel(at, now)` (puro; hoy/ayer/d mes). **+2 tests**.
+- Componente `NotesWallView.jsx` (lazy, mismo boundary Suspense que las demás vistas).
+- App.jsx: `saveLoveNote` refactorizado en `addLoveNote` (prepend + push) + `deleteLoveNote(id)`; migración `loveNote → loveNotes`; inicio usa `currentNote = loveNotes[0]`.
+
+---
+
 ## [5.9.0] — 2026-08-04 · Consolidación del inicio (densidad)
 
 Respuesta al riesgo de densidad del Bloque 4 (4 tarjetas apiladas sobre el hero). 117 tests. **Revertible** (basta volver a renderizar `UpcomingDates` + `DateIdea` por separado).

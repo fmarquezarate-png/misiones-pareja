@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { makeLoveNote, LOVE_NOTE_MAX } from "../lib/loveNote.js";
+import { makeLoveNote, LOVE_NOTE_MAX, noteDateLabel } from "../lib/loveNote.js";
 
 describe("makeLoveNote", () => {
   it("construye la notita con autor y timestamp", () => {
@@ -19,5 +19,18 @@ describe("makeLoveNote", () => {
   });
   it("tolera autor/at faltantes", () => {
     expect(makeLoveNote("hey")).toEqual({ text: "hey", fromName: "", at: null });
+  });
+});
+
+describe("noteDateLabel", () => {
+  const now = new Date(2026, 7, 4, 12, 0); // 4 ago 2026
+  it("hoy / ayer / fecha corta", () => {
+    expect(noteDateLabel(new Date(2026, 7, 4, 9, 0).getTime(), now)).toBe("hoy");
+    expect(noteDateLabel(new Date(2026, 7, 3, 22, 0).getTime(), now)).toBe("ayer");
+    expect(noteDateLabel(new Date(2026, 6, 20).getTime(), now)).toBe("20 jul");
+  });
+  it("timestamp vacío o inválido → cadena vacía", () => {
+    expect(noteDateLabel(null, now)).toBe("");
+    expect(noteDateLabel(NaN, now)).toBe("");
   });
 });
