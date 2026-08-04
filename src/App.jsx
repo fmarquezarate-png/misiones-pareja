@@ -6,10 +6,9 @@ import { nudgeMessage } from "./lib/nudge.js";
 import { shouldShowPlanningRitual } from "./lib/ritual.js";
 import PlanningRitual from "./components/PlanningRitual.jsx";
 import { upcomingDates } from "./lib/importantDates.js";
-import UpcomingDates from "./components/UpcomingDates.jsx";
 import { makeLoveNote } from "./lib/loveNote.js";
 import LoveNote from "./components/LoveNote.jsx";
-import DateIdea from "./components/DateIdea.jsx";
+import HomeHighlight from "./components/HomeHighlight.jsx";
 import { shouldOfferWrapped } from "./lib/wrapped.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
@@ -2106,8 +2105,7 @@ ${sorted.map(m=>{
             <>
               <LoveNote note={data.loveNote} myName={personName} partnerName={partnerName}
                 onSave={saveLoveNote} onClear={() => saveLoveNote("")} />
-              <UpcomingDates items={upcoming} max={3} />
-              <DateIdea onAdd={addDateIdea} seed={new Date().getDate()} />
+              <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />
               {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
                 <PlanningRitual
                   onNotifyPartner={() => {

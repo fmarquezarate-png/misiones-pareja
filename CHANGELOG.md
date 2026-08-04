@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.9.0] — 2026-08-04 · Consolidación del inicio (densidad)
+
+Respuesta al riesgo de densidad del Bloque 4 (4 tarjetas apiladas sobre el hero). 117 tests. **Revertible** (basta volver a renderizar `UpcomingDates` + `DateIdea` por separado).
+
+### ✨ Tarjeta del día
+
+- `UpcomingDates` + `DateIdea` se fusionan en `HomeHighlight`: muestra **fechas próximas solo si hay algo inminente (≤7 días)**; en caso contrario, "Nuestro momento". De ~4 tarjetas a ~2 (notita + highlight; ritual solo su día).
+- La notita de amor se mantiene aparte (es un mensaje, no una sugerencia).
+
+### Implementación
+
+- `lib/homeHighlight.js`: `hasImminentDate(upcoming, withinDays)` (puro). **3 tests**.
+- Componente `HomeHighlight.jsx` (envuelve los dos existentes; sin lógica duplicada).
+- App.jsx: un solo `<HomeHighlight>` en el tab home; imports directos de `UpcomingDates`/`DateIdea` retirados de App (los usa el wrapper).
+
+---
+
 ## [5.8.0] — 2026-08-03 · Bloque 4.4 — Recap semanal discoverable (cierre Bloque 4)
 
 El `WrappedModal` ya funcionaba (pop-up del lunes + botón en Perfil) pero el banner del inicio estaba dormido: `HomeDashboard` declaraba `onOpenWrapped`/`hasWrappedAvailable` y App nunca los pasaba. 114 tests.
