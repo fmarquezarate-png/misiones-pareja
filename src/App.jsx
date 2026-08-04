@@ -10,6 +10,8 @@ import { makeLoveNote } from "./lib/loveNote.js";
 import LoveNote from "./components/LoveNote.jsx";
 import HomeHighlight from "./components/HomeHighlight.jsx";
 import { shouldOfferWrapped } from "./lib/wrapped.js";
+import { todaysGratitudes, GRATITUDE_MAX } from "./lib/gratitude.js";
+import GratitudeCard from "./components/GratitudeCard.jsx";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -1787,6 +1789,18 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     pushToast({ kind: "info", text: "Notita quitada" });
   };
 
+  // Gratitud del día (5.11.0): "gracias" a la pareja, con push tras confirmar
+  // el blob. Historial en data.gratitudes (más reciente primero).
+  const addGratitude = (text) => {
+    const t = (text || "").trim();
+    if (!t) return;
+    const entry = { id: uid(), text: t.slice(0, GRATITUDE_MAX), fromName: personName, at: Date.now() };
+    update(d => ({ ...d, gratitudes: [entry, ...(d.gratitudes || [])].slice(0, 200) }));
+    runAfterSave(() => sendContextualPush(coupleId, { body: `🙏 ${personName} te agradeció: ${entry.text.slice(0, 80)}`, tag: "mp-gratitude", url: "/?tab=home" }, sessionUserId));
+    track("gratitude_sent");
+    pushToast({ kind: "success", text: "🙏 Gracias enviado" });
+  };
+
   // "Nuestro momento" (4.3): prellena el formulario de evento con la idea y
   // lleva a la vista de semana para que la pareja solo elija fecha.
   const addDateIdea = (idea) => {
@@ -2102,6 +2116,7 @@ ${sorted.map(m=>{
           const upcoming = upcomingDates({ settings: data.settings, birthdays: data.birthdays }, new Date(), 30);
           const partnerName = personName === p1 ? p2 : personName === p2 ? p1 : (p2 || "tu pareja");
           const currentNote = (data.loveNotes || [])[0] || null;
+          const { mine: myGratitude, received: recvGratitude } = todaysGratitudes(data.gratitudes || [], personName, new Date());
           // Recap semanal (4.4): banner discoverable a principios de semana.
           const prevDate = new Date(); prevDate.setDate(prevDate.getDate() - 7);
           const { week: pw, year: py } = getWeekAndYear(prevDate);
@@ -2113,6 +2128,7 @@ ${sorted.map(m=>{
             <>
               <LoveNote note={currentNote} myName={personName} partnerName={partnerName}
                 onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
+              <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude} />
               <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />
               {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
                 <PlanningRitual

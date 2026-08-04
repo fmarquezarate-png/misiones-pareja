@@ -2,6 +2,7 @@
 // se cargue en el bundle inicial. ~100KB de texto que solo hace falta cuando
 // el usuario abre 'Ver cambios' en el menú lateral (import() dinámico en SideMenu.jsx).
 export const CHANGELOG = [
+  { v:"5.11.0", date:"2026-08-04", notes:["Gratitud del día 🙏 En el inicio puedes dejar un 'gracias' diario a tu pareja por un detalle o gesto. Le llega un aviso y, cuando ella también agradece algo, lo ves ahí mismo. El recordatorio desaparece en cuanto lo usas (o si lo pospones), para no molestar."] },
   { v:"5.10.0", date:"2026-08-04", notes:["Muro de notitas 💌 Ahora tus notitas de amor no se pierden: hay una nueva pestaña 'Notitas' en el menú de Nosotros con todo el historial. Escribe desde ahí o desde el inicio; la más reciente sigue fijándose en la pantalla de inicio de tu pareja. Puedes quitar las que quieras."] },
   { v:"5.9.0", date:"2026-08-04", notes:["Inicio más limpio ✨ Hemos juntado las tarjetas del inicio en una sola 'tarjeta del día': te muestra las próximas fechas solo cuando hay algo cerca (7 días o menos) y, si no, una idea de plan en pareja. Menos ruido, y cada cosa aparece cuando toca."] },
   { v:"5.8.0", date:"2026-08-03", notes:["Recap de la semana más a mano ✨ El resumen semanal ya no aparece solo el lunes: si te lo perdiste, tienes un acceso en el inicio a principios de semana (lun-mié) para verlo cuando quieras. Desaparece en cuanto lo abres."] },

@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.11.0] — 2026-08-04 · Gratitud del día
+
+Un "gracias" diario a la pareja, con push y reciprocidad visible. 124 tests.
+
+### 🙏 Gratitud
+
+- Prompt en el inicio "¿Qué le agradeces hoy a {pareja}?". Al enviar: se guarda en `data.gratitudes` (historial, newest-first, cap 200) y **push a la pareja** (`runAfterSave`).
+- **Transitorio y no intrusivo**: el prompt se colapsa a una confirmación una vez enviado el gracias del día, o se puede posponer ("✕"). Si la pareja te agradeció algo hoy, aparece en la misma tarjeta (💛). Se auto-oculta cuando no hay nada del día.
+
+### Implementación
+
+- `lib/gratitude.js`: `todaysGratitudes(gratitudes, myName, today)` → `{ mine, received }` del día (puro, newest-first). **5 tests**.
+- Componente `GratitudeCard.jsx` (prompt/confirmación/recibida + dismiss de sesión).
+- `addGratitude` en App.jsx (prepend + push + track); render en el tab home.
+
+---
+
 ## [5.10.0] — 2026-08-04 · Muro de notitas (pestaña en "Nosotros")
 
 Las notitas de amor pasan de una única (v5.6.0) a un historial. 119 tests.
