@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
-import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
+import { countMissions, countProtectedItems, assessProtectedWrite, isBackupUsable } from "./lib/dataGuards.js";
 import { applyReactionToggle, hasReacted } from "./lib/reactions.js";
 import { nudgeMessage } from "./lib/nudge.js";
 import { shouldShowPlanningRitual } from "./lib/ritual.js";
@@ -244,7 +244,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const runSaveRef      = useRef(null);  // latest runSave closure, para que el timer de debounce siempre use coupleId actual
   // ── Write-guard (v4.25.0): misiones del último estado CONFIRMADO (cargado
   // del server, guardado con éxito, o traído por realtime) — la referencia
-  // contra la que assessWrite mide caídas masivas. null = sin referencia aún.
+  // contra la que assessProtectedWrite mide caídas masivas. null = sin referencia aún.
   const lastConfirmedCountRef = useRef(null);
   const writeGuardActiveRef   = useRef(false); // diálogo de confirmación pendiente — suprime re-intentos de save
   const writeOverrideRef      = useRef(false); // el usuario confirmó "guardar igual" — válido para el próximo save
@@ -413,7 +413,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (remote) {
         // Sync version BEFORE setState so the next save uses the correct version
         dataVersionRef.current = version ?? null;
-        lastConfirmedCountRef.current = countMissions(remote);
+        lastConfirmedCountRef.current = countProtectedItems(remote);
         setData(prev => {
           if (JSON.stringify(remote) === JSON.stringify(prev)) {
             showSyncMsg("✓ Ya estás al día");
@@ -463,7 +463,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (diffSec > 30) throw new Error(`updated_at tiene ${diffSec}s de antigüedad — el write no se aplicó. Revisa RLS o sesión.`);
       // forcePush es una acción explícita del usuario ("Subir a Supabase") —
       // lo subido pasa a ser la referencia confirmada del write-guard.
-      lastConfirmedCountRef.current = countMissions(data);
+      lastConfirmedCountRef.current = countProtectedItems(data);
       showSyncMsg(`✅ Guardado en Supabase · ${timeStr} (hace ${diffSec}s)`);
     } catch (e) {
       setSyncError(e.message);
@@ -480,7 +480,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         let fast = { ...local.data };
         if (!fast.settings) fast.settings = DEFAULT_SETTINGS;
         if (!fast.goals) fast.goals = SEED.goals;
-        lastConfirmedCountRef.current = countMissions(fast);
+        lastConfirmedCountRef.current = countProtectedItems(fast);
         setData(fast);
         setLoading(false); // show immediately — Supabase will update silently
       }
@@ -585,14 +585,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         // pareja desde otro dispositivo. El guard DURO vive en la escritura
         // (runSave), que es donde el daño se vuelve irreversible.
         if (isRealData && local?.data?.weeks) {
-          const loadVerdict = assessWrite(countMissions(local.data), base);
+          const loadVerdict = assessProtectedWrite(countProtectedItems(local.data), base);
           if (loadVerdict.blocked) {
             console.warn(`[load] el servidor devolvió ${loadVerdict.next} misiones; la copia local tenía ${loadVerdict.prev}`);
             track("load_drop_notice", { prev: loadVerdict.prev, next: loadVerdict.next });
             pushToast({ kind: "error", text: `⚠️ El servidor devolvió ${loadVerdict.next} actividades y tu copia local tenía ${loadVerdict.prev}. Si te faltan datos, no edites nada y avisa.` });
           }
         }
-        lastConfirmedCountRef.current = countMissions(base);
+        lastConfirmedCountRef.current = countProtectedItems(base);
         setData(base);
         setLoading(false);
 
@@ -1014,7 +1014,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Estado confirmado del servidor (la pareja guardó) — actualizar la
       // referencia del write-guard, si no el próximo save local compararía
       // contra un conteo viejo y daría un falso positivo.
-      lastConfirmedCountRef.current = countMissions(remoteData);
+      lastConfirmedCountRef.current = countProtectedItems(remoteData);
       setData(() => remoteData);
     }, () => pendingSaveRef.current || !!saveTimerRef.current || isSavingRef.current || unconfirmedRef.current.length > 0);
     return () => { supabase.removeChannel(channel); };
@@ -1030,19 +1030,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
         if (dataRef.current && coupleId && isValidAppData(dataRef.current)) {
-          // Write-guard: este flush bypassea runSave — sin este check, ir a
-          // background con un estado sospechoso lo guardaría sin preguntar.
-          // Si bloquea, no se pierde nada: al volver a foreground el save
-          // normal re-evalúa y muestra el diálogo de confirmación.
-          const verdict = assessWrite(lastConfirmedCountRef.current, dataRef.current);
-          if (verdict.blocked && !writeOverrideRef.current) {
-            console.warn("[write-guard] flush a background bloqueado:", verdict);
-            return;
-          }
-          saveWithRetry(dataRef.current, coupleId, {
-            retries: 1, baseDelay: 300,
-            getLatestData: () => dataRef.current,
-          }).catch(() => {});
+          saveLocalBackup(dataRef.current, coupleId);
+          runSaveRef.current?.();
         }
       }
     };
@@ -1056,7 +1045,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         // ediciones locales sin guardar — si las hay, el rebase-on-conflict las protege.
         loadDataWithVersion(coupleId).then(({ data: fresh, version }) => {
           if (fresh && isValidAppData(fresh)) {
-            lastConfirmedCountRef.current = countMissions(fresh);
+            lastConfirmedCountRef.current = countProtectedItems(fresh);
             setData(fresh);
             dataVersionRef.current = version ?? null;
           }
@@ -1161,7 +1150,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     // pregunta explícitamente. "Cancelar" descarta el cambio y recarga.
     if (writeGuardActiveRef.current) return; // diálogo pendiente — no reintentar en bucle
     if (!writeOverrideRef.current) {
-      const verdict = assessWrite(lastConfirmedCountRef.current, cur);
+      const verdict = assessProtectedWrite(lastConfirmedCountRef.current, cur);
       if (verdict.blocked) {
         writeGuardActiveRef.current = true;
         setSavingState("idle");
@@ -1187,7 +1176,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
                 const { data: fresh, version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "guard:reload");
                 if (fresh && isValidAppData(fresh)) {
                   dataVersionRef.current = version ?? null;
-                  lastConfirmedCountRef.current = countMissions(fresh);
+                  lastConfirmedCountRef.current = countProtectedItems(fresh);
                   setData(fresh);
                   saveLocalBackup(fresh, coupleId);
                   pushToast({ kind: "success", text: "✅ Cambio descartado — datos recuperados del servidor" });
@@ -1289,7 +1278,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // Write-guard: el override era para ESTE save; el estado recién
       // persistido pasa a ser la nueva referencia confirmada.
       writeOverrideRef.current = false;
-      lastConfirmedCountRef.current = countMissions(toSave);
+      lastConfirmedCountRef.current = countProtectedItems(toSave);
       setSyncError(null);
       if (unconfirmedRef.current.length === 0) setPendingSave(false);
       setSavingState("saved");
@@ -1398,7 +1387,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (!restored.settings) restored.settings = DEFAULT_SETTINGS;
     if (!restored.goals) restored.goals = SEED.goals;
     track("backup_restored", { missions: countMissions(restored), backupAt: backupOffer.created_at });
-    lastConfirmedCountRef.current = countMissions(restored);
+    lastConfirmedCountRef.current = countProtectedItems(restored);
     dataVersionRef.current = null; // versión desconocida → el save cae al path retry (seguro)
     setData(restored);
     saveLocalBackup(restored, coupleId);
