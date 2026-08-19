@@ -34,6 +34,30 @@ export function countMissions(d) {
   return n;
 }
 
+function countArray(d, key) {
+  return Array.isArray(d?.[key]) ? d[key].length : 0;
+}
+
+export function countProtectedItems(d) {
+  return {
+    missions: countMissions(d),
+    gastos: countArray(d, "gastos"),
+    gastosProyectos: countArray(d, "gastosProyectos"),
+  };
+}
+
+function assessDrop(prev, next, label, opts) {
+  const { threshold, minPrevDrop, minPrevWipe } = opts;
+  if (typeof prev !== "number" || !Number.isFinite(prev)) return null;
+  if (next === 0 && prev >= minPrevWipe) {
+    return { blocked: true, reason: `${label}_wipe`, prev, next, label };
+  }
+  if (prev >= minPrevDrop && next < prev * (1 - threshold)) {
+    return { blocked: true, reason: `${label}_mass_drop`, prev, next, label };
+  }
+  return null;
+}
+
 // ¿Es seguro persistir `nextData` cuando el último estado CONFIRMADO tenía
 // `prevCount` misiones? Devuelve { blocked, reason?, prev, next }.
 // prevCount == null → sin referencia (primer arranque, restore) → nunca bloquea.
@@ -47,13 +71,28 @@ export function assessWrite(prevCount, nextData, opts = {}) {
   if (typeof prevCount !== "number" || !Number.isFinite(prevCount)) {
     return { blocked: false, prev: null, next };
   }
-  if (next === 0 && prevCount >= minPrevWipe) {
-    return { blocked: true, reason: "wipe", prev: prevCount, next };
-  }
-  if (prevCount >= minPrevDrop && next < prevCount * (1 - threshold)) {
-    return { blocked: true, reason: "mass_drop", prev: prevCount, next };
-  }
+  const blocked = assessDrop(prevCount, next, "missions", { threshold, minPrevDrop, minPrevWipe });
+  if (blocked) return { ...blocked, reason: blocked.reason.replace("missions_", ""), prev: prevCount };
   return { blocked: false, prev: prevCount, next };
+}
+
+export function assessProtectedWrite(prevCounts, nextData, opts = {}) {
+  const {
+    threshold = DROP_THRESHOLD,
+    minPrevDrop = MIN_PREV_FOR_DROP,
+    minPrevWipe = MIN_PREV_FOR_WIPE,
+  } = opts;
+  const nextCounts = countProtectedItems(nextData);
+  if (!prevCounts || typeof prevCounts !== "object") {
+    return { blocked: false, prev: null, next: nextCounts };
+  }
+
+  for (const label of ["missions", "gastos", "gastosProyectos"]) {
+    const blocked = assessDrop(prevCounts[label], nextCounts[label], label, { threshold, minPrevDrop, minPrevWipe });
+    if (blocked) return { ...blocked, prev: prevCounts[label], next: nextCounts[label], prevCounts, nextCounts };
+  }
+
+  return { blocked: false, prev: prevCounts, next: nextCounts };
 }
 
 // ¿Esta fila de app_data_backups sirve para ofrecerla como restauración?

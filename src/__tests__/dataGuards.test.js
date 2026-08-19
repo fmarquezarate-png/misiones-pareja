@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { countMissions, assessWrite, isBackupUsable } from "../lib/dataGuards.js";
+import { countMissions, countProtectedItems, assessProtectedWrite, assessWrite, isBackupUsable } from "../lib/dataGuards.js";
 
 // Helpers: blobs mínimos con N misiones repartidas en semanas
 const blobWith = (n) => {
@@ -26,6 +26,17 @@ describe("countMissions", () => {
     expect(countMissions({})).toBe(0);
     expect(countMissions({ weeks: null })).toBe(0);
     expect(countMissions({ weeks: { w: { missions: "no-array" } } })).toBe(0);
+  });
+});
+
+describe("countProtectedItems", () => {
+  it("cuenta misiones, gastos y proyectos de gastos", () => {
+    const d = {
+      ...blobWith(3),
+      gastos: [{ id: "g1" }, { id: "g2" }],
+      gastosProyectos: [{ id: "p1" }],
+    };
+    expect(countProtectedItems(d)).toEqual({ missions: 3, gastos: 2, gastosProyectos: 1 });
   });
 });
 
@@ -66,6 +77,22 @@ describe("assessWrite — caída masiva bloqueada", () => {
   it("bloquea también si el 'vacío' es un blob corrupto que cuenta 0", () => {
     // app_data corrupto (weeks roto) cuenta 0 misiones → mismo bloqueo que un wipe
     expect(assessWrite(10, { weeks: null }).blocked).toBe(true);
+  });
+});
+
+describe("assessProtectedWrite — gastos protegidos", () => {
+  it("bloquea una caída masiva de gastos aunque las misiones no cambien", () => {
+    const prev = { missions: 50, gastos: 10, gastosProyectos: 2 };
+    const next = { ...blobWith(50), gastos: [{ id: "g1" }], gastosProyectos: [{ id: "p1" }, { id: "p2" }] };
+    const v = assessProtectedWrite(prev, next);
+    expect(v).toMatchObject({ blocked: true, reason: "gastos_mass_drop", prev: 10, next: 1, label: "gastos" });
+  });
+
+  it("bloquea un vaciado de proyectos de gastos", () => {
+    const prev = { missions: 50, gastos: 10, gastosProyectos: 3 };
+    const next = { ...blobWith(50), gastos: Array.from({ length: 10 }, (_, i) => ({ id: `g${i}` })), gastosProyectos: [] };
+    const v = assessProtectedWrite(prev, next);
+    expect(v).toMatchObject({ blocked: true, reason: "gastosProyectos_wipe", prev: 3, next: 0, label: "gastosProyectos" });
   });
 });
 
