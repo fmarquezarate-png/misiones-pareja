@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackup, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
+import { loadDataWithVersion, loadFromNormalized, saveData, saveWithRetry, saveLocalBackup, loadLocalBackupAsync, loadLatestBackup, exportData, importData, signOut, getSession, onAuthChange, getMyCoupleId, subscribeToUpdates, repairGoalIdLinks, loadMessages, subscribeToMessages } from "./supabase.js";
 import { countMissions, assessWrite, isBackupUsable } from "./lib/dataGuards.js";
 import { applyReactionToggle, hasReacted } from "./lib/reactions.js";
 import { nudgeMessage } from "./lib/nudge.js";
@@ -474,8 +474,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   useEffect(() => {
     (async () => {
-      // Fast path: render local backup instantly (zero network wait for returning users)
-      const local = loadLocalBackup(coupleId);
+      // Fast path: pinta la copia local al instante (cero espera de red para
+      // quien vuelve). Async: lee la copia DURABLE (IndexedDB) además de la
+      // caché rápida (localStorage) y usa la más reciente — así, si localStorage
+      // se perdió por cuota/evicción, seguimos teniendo datos con los que
+      // arrancar en vez de caer a la pantalla de error. El coste es ~ms de IDB.
+      const local = await loadLocalBackupAsync(coupleId).catch(() => null);
       if (local?.data?.weeks) {
         let fast = { ...local.data };
         if (!fast.settings) fast.settings = DEFAULT_SETTINGS;
@@ -483,6 +487,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         lastConfirmedCountRef.current = countMissions(fast);
         setData(fast);
         setLoading(false); // show immediately — Supabase will update silently
+      }
+
+      // Offline explícito (navigator.onLine === false): no gastar 10-20s en un
+      // fetch que sabemos que va a fallar. Con copia local, seguimos con ella (ya
+      // pintada) y al reconectar se sincroniza. Sin copia, pantalla de "sin
+      // conexión" amable — nunca la de integridad de datos. (Con señal DÉBIL,
+      // onLine sigue true: ese caso va por el path normal, donde el fast path
+      // de arriba ya nos ha salvado si había copia durable.)
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (local?.data?.weeks) { setLoading(false); return; }
+        setError("__offline__");
+        setLoading(false);
+        return;
       }
 
       const useNormalized = isEnabled("read_from_normalized");
@@ -595,6 +612,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         lastConfirmedCountRef.current = countMissions(base);
         setData(base);
         setLoading(false);
+        // Persistir SIEMPRE la copia durable tras una carga exitosa. El path de
+        // blob (loadDataWithVersion, el activo) no escribía backup local en la
+        // carga — solo lo hacían saveData y realtime. Sin esto, IndexedDB no se
+        // poblaba hasta la primera edición: quien solo abre y cierra se quedaba
+        // sin copia durable y, en el siguiente arranque con mala señal, caía a la
+        // pantalla de error. Con esto, cada carga exitosa deja copia offline.
+        if (isRealData) saveLocalBackup(base, coupleId);
 
         // Best-effort: si el save de migración cuelga, no bloquear el arranque —
         // el sistema de saves debounced lo reintentará con la próxima edición.
@@ -1054,7 +1078,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         // Re-fetch silencioso (data + version juntas) para sincronizar cambios que
         // llegaron mientras la pestaña estaba en segundo plano. Solo si NO hay
         // ediciones locales sin guardar — si las hay, el rebase-on-conflict las protege.
-        loadDataWithVersion(coupleId).then(({ data: fresh, version }) => {
+        withTimeout(loadDataWithVersion(coupleId), 10000, "visRefresh").then(({ data: fresh, version }) => {
           if (fresh && isValidAppData(fresh)) {
             lastConfirmedCountRef.current = countMissions(fresh);
             setData(fresh);
@@ -1079,6 +1103,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     window.addEventListener("offline", dn);
     return () => { window.removeEventListener("online", up); window.removeEventListener("offline", dn); };
   }, []);
+
+  // Si estamos en la pantalla "sin conexión" (arranque sin caché ni red) y vuelve
+  // la señal, recargar solo para completar el primer arranque sin que el usuario
+  // tenga que tocar "Reintentar".
+  useEffect(() => {
+    if (isOnline && error === "__offline__") window.location.reload();
+  }, [isOnline, error]);
 
   // (detección de inactividad de Misi: ver el useEffect con setMisiIdleTier
   // más arriba, junto a la declaración de estado — reemplaza esta lógica)
@@ -1419,6 +1450,19 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         <div style={{ flex:1, height:14, borderRadius:8, background:"linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.09) 50%,rgba(255,255,255,0.04) 75%)", backgroundSize:"200% 100%", animation:"sk-pulse 1.6s ease-in-out infinite" }} />
       </div>
       <SkeletonDashboard />
+    </div>
+  );
+
+  if (error === "__offline__") return (
+    <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui", padding:20 }}>
+      <div style={{ textAlign:"center", maxWidth:340 }}>
+        <div style={{ fontSize:48, marginBottom:12 }}>📡</div>
+        <div style={{ fontSize:17, fontWeight:600, marginBottom:8 }}>Sin conexión</div>
+        <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13.5, lineHeight:1.6, marginBottom:18 }}>
+          No hemos podido conectar la primera vez en este dispositivo. En cuanto tengas señal, tus datos aparecerán. Nada se pierde.
+        </div>
+        <button onClick={() => window.location.reload()} style={{ background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:10, color:"#fff", padding:"10px 24px", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:600 }}>Reintentar</button>
+      </div>
     </div>
   );
 

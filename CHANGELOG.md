@@ -7,6 +7,29 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.12.0] — 2026-08-20 · Resiliencia offline / mala señal (fix definitivo)
+
+Arreglo de raíz del cuelgue "se queda cargando → pantalla de error" con poca o ninguna señal. 129 tests. Ver fila nueva en `CLAUDE.md` §5.
+
+### 📡 Causa raíz
+
+La copia local (fast-path de arranque + fallback offline) vivía **solo en `localStorage`** (~5MB, síncrono). Con fotos en base64 en el blob, `saveLocalBackup` superaba la cuota → `QuotaExceededError` tragado → **sin copia local**. iOS además desaloja `localStorage`. Y el path de blob (`loadDataWithVersion`) no escribía backup en la carga. Sin copia local, una carga con señal débil (donde `navigator.onLine` sigue `true` y el `fetch` cuelga) agotaba ~20s y caía a la pantalla de error, sin modo offline.
+
+### Solución
+
+- **Persistencia DURABLE en IndexedDB** (`src/lib/localStore.js`, ~cientos de MB): `saveLocalBackup` escribe en IDB (durable) **y** localStorage (caché rápida); `loadLocalBackupAsync` lee la más reciente de ambas (`pickFreshest`, puro, **6 tests**) y repuebla localStorage si se perdió. El arranque usa la versión async.
+- **Toda carga exitosa persiste la copia durable** (`saveLocalBackup(base)` tras `setData`) — antes solo lo hacían guardados/realtime, así que quien solo abría y cerraba se quedaba sin copia.
+- **Offline explícito** (`!navigator.onLine`): short-circuit sin esperar a la red. Con copia local sigue con ella; sin copia, pantalla "📡 Sin conexión" amable (no la de integridad) que **auto-recarga al volver la señal**.
+- **`visibilitychange` refresh** envuelto en `withTimeout` (no deja promesas colgadas con señal débil).
+
+### Implementación
+
+- Nuevo `src/lib/localStore.js` (wrapper IndexedDB + `pickFreshest`). `localStore.test.js` (6 tests).
+- `supabase.js`: `saveLocalBackup` dual (IDB+localStorage), nuevo `loadLocalBackupAsync`.
+- `App.jsx`: fast-path async durable, short-circuit offline + auto-recarga, persistencia en carga, refresh con timeout, pantalla offline dedicada.
+
+---
+
 ## [5.11.0] — 2026-08-04 · Gratitud del día
 
 Un "gracias" diario a la pareja, con push y reciprocidad visible. 124 tests.

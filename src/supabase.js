@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { isValidAppData } from "./lib/validation.js";
 import { track } from "./lib/track.js";
+import { idbGet, idbSet, pickFreshest } from "./lib/localStore.js";
 export { isValidAppData };
 
 const supabase = createClient(
@@ -174,18 +175,24 @@ export async function joinCouple(code, personName) {
 /* ── localStorage helpers ──────────────────────────────────────────────── */
 
 export function saveLocalBackup(appData, coupleId) {
+  const ts = new Date().toISOString();
+  // Durable: IndexedDB (cientos de MB, sobrevive mejor a la evicción de iOS).
+  // Best-effort, sin await — es la copia que salva el arranque offline cuando
+  // localStorage no está (cuota superada por fotos base64, o desalojado).
+  idbSet(localKey(coupleId), { data: appData, ts })
+    .catch(e => track("idb_backup_failed", { error: e?.name || String(e), coupleId }));
+  // Caché rápida: localStorage (lectura síncrona en el arranque). Puede lanzar
+  // QuotaExceededError con el blob grande — no pasa nada, IDB es la copia durable.
   try {
     localStorage.setItem(localKey(coupleId), JSON.stringify(appData));
-    localStorage.setItem(localTsKey(coupleId), new Date().toISOString());
+    localStorage.setItem(localTsKey(coupleId), ts);
   } catch (e) {
-    // Last line of defense when there's no network (e.g. localStorage quota
-    // exceeded, aggressive Safari private mode). Don't block the user, but
-    // leave a trace — silent failure here means a lost-data report with no
-    // way to diagnose it.
     track("local_backup_failed", { error: e?.name || String(e), coupleId });
   }
 }
 
+// Lectura síncrona (solo localStorage) — se conserva para los sitios que la usan
+// fuera de un contexto async. Para el arranque, preferir loadLocalBackupAsync.
 export function loadLocalBackup(coupleId) {
   try {
     const key = coupleId ? localKey(coupleId) : "couple-missions-backup";
@@ -196,6 +203,27 @@ export function loadLocalBackup(coupleId) {
     if (e instanceof DOMException && e.name === "SecurityError") return { error: "unavailable" };
     return null;
   }
+}
+
+// Lectura DURABLE para el arranque: devuelve la copia más reciente entre
+// IndexedDB (durable) y localStorage (rápida). Es la que evita la pantalla de
+// error cuando localStorage se perdió pero IDB sí tiene los datos.
+export async function loadLocalBackupAsync(coupleId) {
+  const ls = loadLocalBackup(coupleId);
+  const lsCopy = ls && ls.data ? ls : null;
+  let idb = null;
+  try { idb = await idbGet(localKey(coupleId)); } catch { /* IDB no disponible — usar localStorage */ }
+  const idbCopy = idb && idb.data ? idb : null;
+  const best = pickFreshest(idbCopy, lsCopy);
+  // Si localStorage estaba vacío/perdido pero IDB tenía datos, repoblar la caché
+  // rápida para que el siguiente arranque sea instantáneo (best-effort).
+  if (best && best === idbCopy && !lsCopy) {
+    try {
+      localStorage.setItem(localKey(coupleId), JSON.stringify(best.data));
+      localStorage.setItem(localTsKey(coupleId), best.ts || new Date().toISOString());
+    } catch { /* cuota — da igual, IDB sigue siendo la copia durable */ }
+  }
+  return best;
 }
 
 /* ── Export / Import ───────────────────────────────────────────────────── */
