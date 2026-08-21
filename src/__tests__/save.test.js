@@ -45,4 +45,22 @@ describe("rebaseMutators — recuperación de conflicto CAS", () => {
     const merged = rebaseMutators(fresh, [throws, addZ], ok);
     expect(merged.weeks.w.missions.map((m) => m.id)).toEqual(["Z"]);
   });
+
+  it("onDrop se llama cuando un mutador lanza (telemetría, no silencioso)", () => {
+    const reasons = [];
+    const throws = () => { throw new Error("x"); };
+    rebaseMutators({ weeks: {} }, [throws], ok, (r) => reasons.push(r));
+    expect(reasons).toEqual(["mutator_threw"]);
+  });
+
+  it("onDrop se llama con 'invalid_result' si el rebase queda inválido", () => {
+    const reasons = [];
+    const badOk = () => false;
+    rebaseMutators({ weeks: {} }, [(d) => d], badOk, (r) => reasons.push(r));
+    expect(reasons).toContain("invalid_result");
+  });
+
+  it("onDrop es opcional — no rompe si no se pasa", () => {
+    expect(() => rebaseMutators({ weeks: {} }, [() => { throw new Error("x"); }], ok)).not.toThrow();
+  });
 });

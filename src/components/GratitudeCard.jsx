@@ -6,10 +6,15 @@ import { GRATITUDE_MAX } from "../lib/gratitude.js";
 // de la pareja hoy. Se auto-oculta cuando no hay nada relevante que mostrar.
 export default function GratitudeCard({ mine, received, partnerName, onSend }) {
   const [text, setText] = useState("");
-  const [dismissed, setDismissed] = useState(false);
+  // "Ahora no" persistido por día (si no, reaparece al cambiar de pestaña/realtime).
+  const dismissKey = (() => { const d = new Date(); return `mp-grat-dismiss-${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; })();
+  const [dismissed, setDismissed] = useState(() => { try { return !!localStorage.getItem(dismissKey); } catch { return false; } });
+  const dismiss = () => { setDismissed(true); try { localStorage.setItem(dismissKey, "1"); } catch { /* modo privado */ } };
 
   const showPrompt = !mine && !dismissed;
-  if (!showPrompt && !mine && !received) return null;
+  // Densidad (workshop v5): si ya agradecí hoy y no hay nada recibido, no ocupar
+  // espacio en el inicio con una confirmación permanente.
+  if (!showPrompt && !received) return null;
 
   const send = () => { const t = text.trim(); if (!t) return; onSend?.(t); setText(""); };
 
@@ -34,9 +39,10 @@ export default function GratitudeCard({ mine, received, partnerName, onSend }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t-text,#f0e8ff)" }}>🙏 ¿Qué le agradeces hoy a {partnerName || "tu pareja"}?</div>
-            <button onClick={() => setDismissed(true)} aria-label="Ahora no" title="Ahora no" style={{
-              width: 24, height: 24, flexShrink: 0, borderRadius: 99, cursor: "pointer", fontFamily: "inherit",
-              fontSize: 12, color: "var(--t-text-muted,#8b7fa8)", background: "transparent", border: "none",
+            <button onClick={dismiss} aria-label="Ahora no" title="Ahora no" style={{
+              width: 40, height: 40, marginRight: -10, marginTop: -8, flexShrink: 0, borderRadius: 99, cursor: "pointer",
+              fontFamily: "inherit", fontSize: 13, color: "var(--t-text-muted,#8b7fa8)", background: "transparent",
+              border: "none", display: "flex", alignItems: "center", justifyContent: "center",
             }}>✕</button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>

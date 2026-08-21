@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.16.0] — 2026-08-22 · Workshop v5 — lote UX + robustez (P1/P2)
+
+145 tests. Cierra varios P1/P2 del workshop sin tocar Supabase.
+
+### UX (UI/UX)
+- **Densidad del inicio:** en día de ritual, `HomeHighlight` se oculta (el ritual ocupa el hueco inspiracional). El "¿Qué agradeces hoy?" **persiste el "Ahora no" por día** (`localStorage`) y ya no muestra una confirmación permanente → menos tarjetas apiladas sobre el progreso de la semana.
+- **Microcopy de error honesto:** "No se pudo guardar **ahora mismo**" (antes culpaba a "una conexión inestable", cuando la causa raíz era el servidor).
+- **Detalle técnico colapsado** tras "▸ Detalle para Fran" (no expandido por defecto).
+- **Áreas de toque** ≥40px en ✕ de gratitud (era 24px).
+
+### Robustez (Analista / Scanner)
+- **[C-P1-2] Telemetría de rebase:** `rebaseMutators` acepta `onDrop` → `track("rebase_mutator_dropped", {reason})`; un descarte de la intención del usuario ya no es invisible. **3 tests.**
+- **Reacciones huérfanas:** borrar una misión limpia `data.reactions[id]` (antes se acumulaban en el blob).
+- **Tags de push únicos** para "completó": `mp-mission-done-${id}` (antes fijo → varias completadas se colapsaban en una notificación).
+- **Flag muerto eliminado:** `idb_offline_queue` (cero referencias en el código).
+
+---
+
 ## [5.15.0] — 2026-08-21 · Lote P0 del Workshop v5
 
 Cierre de los P0 que destapó el workshop (ver `WORKSHOP_v5_CONSOLIDADO_2026-08-21.md`), incl. regresiones de v5.14.0. 142 tests.

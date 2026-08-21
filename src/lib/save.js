@@ -15,17 +15,24 @@
  * @param {object} fresh   estado fresco traído de la DB (datos de la pareja)
  * @param {Array<(d:object)=>object>} mutators  mutadores locales sin confirmar
  * @param {(d:object)=>boolean} isValid  validador estructural
+ * @param {(reason:string)=>void} [onDrop]  callback opcional cuando se descarta
+ *        la intención del usuario (telemetría) — "mutator_threw" | "invalid_result".
+ *        Se mantiene como callback para no romper la pureza de este módulo.
  * @returns {object} estado fusionado (fresh + intención local) o fresh si inválido
  */
-export function rebaseMutators(fresh, mutators, isValid) {
+export function rebaseMutators(fresh, mutators, isValid, onDrop) {
   let rebased = fresh;
   for (const m of mutators) {
     try {
       rebased = m(rebased);
     } catch {
       // Un mutador que falla sobre datos frescos (p.ej. la misión que tocaba
-      // ya no existe) se ignora — la intención ya no aplica.
+      // ya no existe) se ignora — la intención ya no aplica. Pero un descarte
+      // de intención del usuario NO puede ser invisible: lo señalamos.
+      try { onDrop?.("mutator_threw"); } catch { /* telemetría nunca rompe el save */ }
     }
   }
-  return isValid(rebased) ? rebased : fresh;
+  if (isValid(rebased)) return rebased;
+  try { onDrop?.("invalid_result"); } catch { /* idem */ }
+  return fresh;
 }

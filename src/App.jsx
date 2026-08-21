@@ -288,6 +288,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [syncing, setSyncing]       = useState(false);
   const [syncError, setSyncError]   = useState(null);   // string | null
   const [saveErrDetail, setSaveErrDetail] = useState(null); // detalle técnico real del fallo de guardado (diagnóstico)
+  const [saveErrDetailOpen, setSaveErrDetailOpen] = useState(false); // detalle técnico colapsado por defecto (no asustar a Marta)
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
   const [notifGranted, _setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
@@ -1347,7 +1348,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             }
             dataVersionRef.current = version;
             confirming = unconfirmedRef.current.slice(); // incluye edits llegados durante el save
-            const rebased = rebaseMutators(fresh, confirming, isValidAppData);
+            const rebased = rebaseMutators(fresh, confirming, isValidAppData, reason => track("rebase_mutator_dropped", { reason, coupleId }));
             toSave = rebased;
             setData(rebased); // reflejar el merge en la UI
           } else {
@@ -1424,7 +1425,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       let blobSize = 0; try { blobSize = JSON.stringify(toSave).length; } catch { /* circular */ }
       track("save_error", { message: e.message.slice(0, 200), code: e.code, coupleId, blob_size: blobSize });
       setSaveErrDetail(prev => `${prev ? prev + " || " : ""}${e.code ? `[${e.code}] ` : ""}${e.message}`.slice(0, 400));
-      setSyncError("No se pudo guardar por una conexión inestable. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola.");
+      setSyncError("No se pudo guardar ahora mismo. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola.");
       setPendingSave(true);
       setSavingState("error");
       showSyncMsg("⚠ Error al guardar — reintentando…");
@@ -1653,7 +1654,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     });
     if (nx === "DONE" && mCur) track("mission_completed", { who: mCur.who, hasGoal: !!mCur.goalId, week: wCur?.weekNumber });
     if (nx === "DONE" && mCur) logActivity(`completó ${mCur.emoji||"🎯"} «${mCur.title}»`);
-    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(data.currentWeekNumber, data.currentYear, id) }, sessionUserId)); }
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:`mp-mission-done-${id}`, url:missionPushUrl(data.currentWeekNumber, data.currentYear, id) }, sessionUserId)); }
     if (nx) pushToast({ kind: "success", text: `${STATUS[nx].icon} ${STATUS[nx].label}` });
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     // syncCarryDone también marca DONE la misión ORIGINAL (semana anterior) en el
@@ -1713,7 +1714,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       mDel ? `¿Eliminar «${mDel.title}»?` : "¿Eliminar esta tarea?",
       () => {
         deleteNormalizedMission(coupleId, id).catch(e => console.error("[dual_write] delete:", e));
-        patchWeek(w => ({ ...w, missions:w.missions.filter(m=>m.id!==id) }));
+        update(d => {
+          const w = d.weeks[delWkey] || { missions: [] };
+          const reactions = { ...(d.reactions || {}) }; delete reactions[id]; // no dejar reacciones huérfanas
+          return { ...d, weeks: { ...d.weeks, [delWkey]: { ...w, missions: (w.missions || []).filter(m => m.id !== id) } }, reactions };
+        });
         if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
         if (mDel) pushToast({ kind:"undo", text:`Eliminado: ${mDel.emoji||"🎯"} ${mDel.title}`, onUndo: () => restoreMission(mDel, delWkey, delWn, delYr) });
       },
@@ -1790,7 +1795,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx) updateNormalizedMissionStatus(coupleId, id, nx).catch(e => console.error("[dual_write] status:", e));
     // Ver nota en cycleStatus: dual-write del status del original arrastrado.
     if (nx === "DONE" && mCur?.carriedFrom) updateNormalizedMissionStatus(coupleId, mCur.carriedFrom, "DONE").catch(e => console.error("[dual_write] carry-orig status:", e));
-    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:"mp-mission-done", url:missionPushUrl(wn, yr, id) }, sessionUserId)); }
+    if (nx === "DONE" && mCur) { const b = `${personName} completó: ${mCur.emoji||"🎯"} ${mCur.title}`; runAfterSave(() => sendContextualPush(coupleId, { body:b, tag:`mp-mission-done-${id}`, url:missionPushUrl(wn, yr, id) }, sessionUserId)); }
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
       if (mCur.who === "together") {
@@ -1854,7 +1859,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     update(d => {
       const key = resolveWeekKey(d, hint, id); if (!key) return d;
       const w = d.weeks[key];
-      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.filter(x=>x.id!==id) } } };
+      const reactions = { ...(d.reactions || {}) }; delete reactions[id]; // no dejar reacciones huérfanas
+      return { ...d, weeks: { ...d.weeks, [key]: { ...w, missions: w.missions.filter(x=>x.id!==id) } }, reactions };
     });
     if (mDel) logActivity(`eliminó ${mDel.emoji||"🎯"} «${mDel.title}»`);
   };
@@ -2168,10 +2174,17 @@ ${sorted.map(m=>{
           </div>
           {saveErrDetail && (
             <div style={{ borderTop:"1px solid rgba(251,146,60,0.25)", paddingTop:8 }}>
-              <div style={{ fontSize:10, color:"rgba(251,146,60,0.7)", marginBottom:4, letterSpacing:0.5 }}>DETALLE TÉCNICO (mándaselo a Fran) · v{APP_VERSION}</div>
-              <div style={{ fontFamily:"ui-monospace,Menlo,monospace", fontSize:11, color:"#fdba74", wordBreak:"break-word", lineHeight:1.45, background:"rgba(0,0,0,0.35)", borderRadius:6, padding:"6px 8px" }}>{saveErrDetail}</div>
-              <button onClick={() => { try { navigator.clipboard?.writeText(`v${APP_VERSION} · ${saveErrDetail}`); pushToast({ kind:"success", text:"Copiado — pégalo en el chat" }); } catch { /* sin clipboard */ } }}
-                style={{ marginTop:6, background:"rgba(251,146,60,0.15)", border:"1px solid rgba(251,146,60,0.4)", borderRadius:8, color:"#fdba74", cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:600, padding:"5px 12px" }}>📋 Copiar detalle</button>
+              <button onClick={() => setSaveErrDetailOpen(o => !o)}
+                style={{ background:"none", border:"none", color:"rgba(251,146,60,0.7)", cursor:"pointer", fontFamily:"inherit", fontSize:10, letterSpacing:0.5, padding:0, display:"flex", alignItems:"center", gap:4 }}>
+                <span style={{ transition:"transform 0.15s", transform: saveErrDetailOpen ? "rotate(90deg)" : "none" }}>▸</span> DETALLE PARA FRAN
+              </button>
+              {saveErrDetailOpen && (
+                <>
+                  <div style={{ fontFamily:"ui-monospace,Menlo,monospace", fontSize:11, color:"#fdba74", wordBreak:"break-word", lineHeight:1.45, background:"rgba(0,0,0,0.35)", borderRadius:6, padding:"6px 8px", marginTop:6 }}>v{APP_VERSION} · {saveErrDetail}</div>
+                  <button onClick={() => { try { navigator.clipboard?.writeText(`v${APP_VERSION} · ${saveErrDetail}`); pushToast({ kind:"success", text:"Copiado — pégalo en el chat" }); } catch { /* sin clipboard */ } }}
+                    style={{ marginTop:6, background:"rgba(251,146,60,0.15)", border:"1px solid rgba(251,146,60,0.4)", borderRadius:8, color:"#fdba74", cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:600, padding:"5px 12px" }}>📋 Copiar detalle</button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -2259,6 +2272,7 @@ ${sorted.map(m=>{
           const partnerName = personName === p1 ? p2 : personName === p2 ? p1 : (p2 || "tu pareja");
           const currentNote = (data.loveNotes || [])[0] || null;
           const { mine: myGratitude, received: recvGratitude } = todaysGratitudes(data.gratitudes || [], personName, new Date());
+          const showRitual = shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey);
           // Recap semanal (4.4): banner discoverable a principios de semana.
           const prevDate = new Date(); prevDate.setDate(prevDate.getDate() - 7);
           const { week: pw, year: py } = getWeekAndYear(prevDate);
@@ -2271,8 +2285,10 @@ ${sorted.map(m=>{
               <LoveNote note={currentNote} myName={personName} partnerName={partnerName}
                 onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
               <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude} />
-              <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />
-              {shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey) && (
+              {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
+                  inspiracional; HomeHighlight (fechas/idea) se oculta ese día. */}
+              {!showRitual && <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />}
+              {showRitual && (
                 <PlanningRitual
                   onNotifyPartner={() => {
                     sendContextualPush(coupleId, { body: `${personName} te invita a planificar la semana juntos 🗓️`, tag: "mp-ritual", url: "/?tab=home" }, sessionUserId)

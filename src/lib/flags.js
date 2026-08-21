@@ -13,7 +13,6 @@ const DEFAULTS = {
   goals_drilldown_enabled: true,
   dual_write_normalized: true,
   cas_version_check: true,
-  idb_offline_queue: false,
   // ⚠️ false desde v4.5.2: `patchM` (edición de campos en la vista de semana actual)
   // NO sincronizaba la tabla `missions` — 4º black hole no documentado. Con el flag en
   // true, toda edición de fecha/hora/persona desde la vista principal desaparecía al
