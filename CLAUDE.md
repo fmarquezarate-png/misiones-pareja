@@ -199,5 +199,6 @@ Mientras estos 3 paths no tengan su `updateNormalizedMission`, `read_from_normal
 - [`WORKSHOP_v4_1_ESTADO_ACTUAL.md`](./WORKSHOP_v4_1_ESTADO_ACTUAL.md) — postmortem v4.0.x, revisión de roles, nuevos agentes QA/DevOps
 - [`WORKSHOP_v4_2_VISION_2036.md`](./WORKSHOP_v4_2_VISION_2036.md) — visión 10 años por agente, patrones sistémicos
 - [`WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md`](./WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md) — informe ejecutivo workshop live 28/05 con todos los agentes
+- [`WORKSHOP_v5_CONSOLIDADO_2026-08-21.md`](./WORKSHOP_v5_CONSOLIDADO_2026-08-21.md) — workshop live 21/08 (v5.14.0): post-mortem de la saga de guardado/offline + auditoría de los Bloques 3/4/5. Backlog P0/P1/P2 vigente.
 - [`ANALISIS_TECNICO_2026-05-14.md`](./ANALISIS_TECNICO_2026-05-14.md) — auditoría técnica
 - `docs/agents/*.md` — perfil por agente
