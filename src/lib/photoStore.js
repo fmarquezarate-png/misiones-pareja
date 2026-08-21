@@ -79,6 +79,21 @@ export function uploadCapsulePhoto(userId, capsuleId, fileOrDataUrl) {
   return uploadPhoto(userId, "capsules", capsuleId, fileOrDataUrl);
 }
 
+// Avatar (kind="avatars"): person1 / person2 / couple.
+export function uploadAvatarPhoto(userId, key, fileOrDataUrl) {
+  return uploadPhoto(userId, "avatars", key, fileOrDataUrl);
+}
+
+// Migración pura de avatares: sustituye los `settings.photos[k]` base64 por su
+// URL de Storage para las claves presentes en urlMap. Devuelve el settings nuevo.
+export function applyAvatarMigration(settings, urlMap) {
+  const photos = { ...(settings?.photos || {}) };
+  for (const k of Object.keys(urlMap || {})) {
+    if (isInlinePhoto(photos[k])) photos[k] = urlMap[k];
+  }
+  return { ...(settings || {}), photos };
+}
+
 // Extrae el path del objeto a partir de su URL pública del bucket `photos`. Puro.
 // Devuelve null si la URL no apunta a este bucket (p.ej. es todavía un dataURL).
 export function storagePathFromUrl(url) {

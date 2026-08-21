@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.18.0] — 2026-08-22 · Workshop v5 — avatares a Storage + docs + pin (P2)
+
+Completa la regla "nada de base64 en el blob". 156 tests.
+
+- **Avatares fuera del blob:** `ProfileModal` sube los avatares (`person1`/`person2`/`couple`) al bucket `photos` de Storage (fallback base64 si falla); la migración de arranque los barre junto a semanas y cápsulas (`applyAvatarMigration`, **2 tests**). Con esto **ninguna imagen vive en base64 dentro de `app_data.data`** — cierra la preocupación del Scanner sobre el path de fotos.
+- **[Redactor D-P1-1] Resync `CLAUDE.md §6`:** documentado que `patchM` ya no existe (consolidado en `patchMissionGlobal`) y el "5º black hole" (status de la arrastrada) ya cubierto.
+- **[DevOps P2] `vite-plugin-pwa` pineado** a `0.17.5` exacto (era `^0.17.0`, semver 0.x puede romper en minors) — blinda el ciclo del Service Worker.
+
+---
+
 ## [5.17.0] — 2026-08-22 · Workshop v5 — refactors testeables (P1/P2)
 
 Sin cambios de comportamiento. 154 tests (+9).

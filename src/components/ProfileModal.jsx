@@ -6,6 +6,7 @@ import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 import { ALL_TABS } from "./BottomTabBar.jsx";
 import { secureToken } from "../utils.js";
 import { RITUAL_DAYS } from "../lib/ritual.js";
+import { uploadAvatarPhoto } from "../lib/photoStore.js";
 
 const PM_MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const PM_DAYS   = [31,29,31,30,31,30,31,31,30,31,30,31]; // days per month (feb=29 for picker)
@@ -107,7 +108,11 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
     const file = e.target.files?.[0]; if (!file) return;
     try {
       const b64 = await compressAvatar(file);
-      setPhotos(p=>({...p,[key]:b64}));
+      // Avatar → Storage (fuera del blob). Fallback a base64 si la subida falla.
+      let val = b64;
+      try { val = await uploadAvatarPhoto(sessionUserId, key, b64); }
+      catch (up) { console.warn("[avatar] subida falló, guardo base64:", up.message); }
+      setPhotos(p=>({...p,[key]:val}));
     } catch (err) {
       console.warn("[avatar]", err.message);
     } finally {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extFromMime, isInlinePhoto, dataUrlToBlob, storagePathFromUrl, applyWeekPhotoMigration, applyCapsulePhotoMigration } from "../lib/photoStore.js";
+import { extFromMime, isInlinePhoto, dataUrlToBlob, storagePathFromUrl, applyWeekPhotoMigration, applyCapsulePhotoMigration, applyAvatarMigration } from "../lib/photoStore.js";
 
 describe("extFromMime", () => {
   it("jpeg → jpg", () => expect(extFromMime("image/jpeg")).toBe("jpg"));
@@ -81,5 +81,19 @@ describe("applyCapsulePhotoMigration", () => {
   });
   it("tolera lista vacía", () => {
     expect(applyCapsulePhotoMigration(undefined, {})).toEqual([]);
+  });
+});
+
+describe("applyAvatarMigration", () => {
+  it("sustituye avatares base64 por URL solo en las keys de urlMap", () => {
+    const settings = { person1: "Fran", photos: { person1: "data:image/jpeg;base64,AAAA", person2: "https://x/p2.jpg", couple: "data:image/jpeg;base64,CCCC" } };
+    const out = applyAvatarMigration(settings, { person1: "https://s/p1.jpg" });
+    expect(out.photos.person1).toBe("https://s/p1.jpg");
+    expect(out.photos.person2).toBe("https://x/p2.jpg"); // ya era URL, intacta
+    expect(out.photos.couple).toBe("data:image/jpeg;base64,CCCC"); // no en urlMap, intacta
+    expect(out.person1).toBe("Fran"); // resto de settings intacto
+  });
+  it("tolera settings/photos ausentes", () => {
+    expect(applyAvatarMigration(undefined, {}).photos).toEqual({});
   });
 });

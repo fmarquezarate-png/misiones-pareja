@@ -165,9 +165,9 @@ Cada bug en producción se convierte en regla técnica o arquitectónica aquí. 
 
 La tabla `missions` tiene **dual-write activo desde v3.9.2** (23/05). El backfill del Sprint D (20/05) tenía 252 filas. Con el dual-write, cada nueva misión, borrado y cambio de status se propaga en tiempo real a la tabla.
 
-**Estado actual (03/06 — v4.5.2) — `read_from_normalized` REVERTIDO A FALSE:**
-- `dual_write_normalized: true` — activo y cableado. Desde v4.5.2 los CUATRO mutadores de campos sincronizan la tabla: `patchM`, `patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver` (antes `patchM` era un black hole no documentado).
-- `read_from_normalized: **false**` — **el blob es la única fuente de lectura y escritura.** Se revirtió en v4.5.2 porque `patchM` no dual-escribía → ediciones de fecha/hora de la vista de semana desaparecían al recargar. Además la tabla carece de columnas `endDate`/`endTime`/`goalId`, así que no puede ser fuente completa.
+**Estado actual (21/08 — v5.x, resync workshop v5) — `read_from_normalized` FALSE:**
+- `dual_write_normalized: true` — activo y cableado. **Nota v5.x (resync):** `patchM` **ya no existe como mutador separado** — se consolidó en `patchMissionGlobal` (que sí dual-escribe). Los paths de mutación que sincronizan la tabla hoy: `patchMissionGlobal`, `patchAllFutureSeries`, `applyCarryOver` y el status (`updateNormalizedMissionStatus`, incl. la misión original arrastrada por `syncCarryDone`, el "5º black hole" ya cubierto). El patrón `*NormalizedMission` sigue vigente.
+- `read_from_normalized: **false**` — **el blob es la única fuente de lectura y escritura.** La tabla `missions` carece de columnas `endDate`/`endTime`/`goalId`, así que no puede ser fuente completa. Ningún trabajo de v5.x tocó ese schema.
 - **Para reactivar `read_from_normalized: true` se requiere:** (1) los 4 mutadores dual-write verificados (hecho en v4.5.2), (2) schema con TODAS las columnas, (3) Scanner sign-off, (4) verificación en staging.
 - Safety check permanente en `loadFromNormalized`: si tabla < 80% del blob → fallback automático al blob (solo relevante si se reactiva el flag).
 

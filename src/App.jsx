@@ -14,7 +14,7 @@ import { computeStreakDelta } from "./lib/streak.js";
 import { migrateBlob } from "./lib/migrateBlob.js";
 import { todaysGratitudes, GRATITUDE_MAX } from "./lib/gratitude.js";
 import GratitudeCard from "./components/GratitudeCard.jsx";
-import { uploadWeekPhoto, uploadCapsulePhoto, isInlinePhoto, applyWeekPhotoMigration, applyCapsulePhotoMigration } from "./lib/photoStore.js";
+import { uploadWeekPhoto, uploadCapsulePhoto, uploadAvatarPhoto, isInlinePhoto, applyWeekPhotoMigration, applyCapsulePhotoMigration, applyAvatarMigration } from "./lib/photoStore.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -877,7 +877,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (loading || !data || !sessionUserId || photoMigrationRef.current) return;
     const weekKeys = Object.keys(data.weeks || {}).filter(k => isInlinePhoto(data.weeks[k]?.photo));
     const capsules = (data.timeCapsules || []).filter(c => isInlinePhoto(c?.photo));
-    if (!weekKeys.length && !capsules.length) return;
+    const avatarKeys = ["person1", "person2", "couple"].filter(k => isInlinePhoto(data.settings?.photos?.[k]));
+    if (!weekKeys.length && !capsules.length && !avatarKeys.length) return;
     photoMigrationRef.current = true;
     (async () => {
       try {
@@ -891,14 +892,20 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
           try { capUrls[c.id] = await withTimeout(uploadCapsulePhoto(sessionUserId, c.id, c.photo), 20000, "migrateCapsulePhoto"); }
           catch (err) { console.warn("[migratePhoto] capsule", c.id, err.message); }
         }
-        const count = Object.keys(weekUrls).length + Object.keys(capUrls).length;
+        const avatarUrls = {};
+        for (const k of avatarKeys) {
+          try { avatarUrls[k] = await withTimeout(uploadAvatarPhoto(sessionUserId, k, data.settings.photos[k]), 20000, "migrateAvatar"); }
+          catch (err) { console.warn("[migratePhoto] avatar", k, err.message); }
+        }
+        const count = Object.keys(weekUrls).length + Object.keys(capUrls).length + Object.keys(avatarUrls).length;
         if (!count) return; // todos fallaron → el guard se libera en finally y se reintenta
         update(d => ({
           ...d,
           weeks: applyWeekPhotoMigration(d.weeks, weekUrls),
           timeCapsules: applyCapsulePhotoMigration(d.timeCapsules, capUrls),
+          settings: applyAvatarMigration(d.settings, avatarUrls),
         }));
-        track("photos_migrated", { weeks: Object.keys(weekUrls).length, capsules: Object.keys(capUrls).length });
+        track("photos_migrated", { weeks: Object.keys(weekUrls).length, capsules: Object.keys(capUrls).length, avatars: Object.keys(avatarUrls).length });
         pushToast({ kind: "success", text: `📸 ${count} foto${count===1?"":"s"} optimizada${count===1?"":"s"} — la app irá más rápida` });
       } finally {
         // Liberar el guard: si quedaron fotos sin migrar (fallos), el próximo
