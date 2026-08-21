@@ -2,9 +2,24 @@ import { useState } from "react";
 import { getWeekAndYear, isoWeekKey } from "../utils.js";
 import { S } from "../styles.js";
 import { getMCats } from "../constants.js";
+import { uploadWeekPhoto } from "../lib/photoStore.js";
 
-export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCatFilter, update, setActiveTab, setLightboxSrc, compressImage, downloadWeekICS, p1, p2 }) {
+export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCatFilter, update, setActiveTab, setLightboxSrc, compressImage, downloadWeekICS, p1, p2, sessionUserId }) {
   const [histWeekRange, setHistWeekRange] = useState("all");
+
+  // Foto de semana → Storage (fuera del blob). Si la subida falla, se guarda
+  // como base64 en el blob (comportamiento antiguo) para no perder la foto.
+  const pickWeekPhoto = async (e, key) => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    const b64 = await compressImage(f);
+    try {
+      const url = await uploadWeekPhoto(sessionUserId, key, b64);
+      update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photoUrl: url, photo: null } } }));
+    } catch (err) {
+      console.warn("[weekPhoto] subida falló, guardo local:", err.message);
+      update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photo: b64 } } }));
+    }
+  };
 
   const { week: _htw, year: _hty } = getWeekAndYear();
   const _htodayKey = isoWeekKey(_htw, _hty);
@@ -51,22 +66,22 @@ export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCat
                 </div>
                 <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
               </div>
-              {w.photo
+              {(w.photoUrl || w.photo)
                 ? <div style={{ position:"relative", flexShrink:0 }}>
-                    <img src={w.photo} onClick={() => setLightboxSrc(w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
-                    <button onClick={() => update(d => ({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null}}}))}
+                    <img src={w.photoUrl || w.photo} onClick={() => setLightboxSrc(w.photoUrl || w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
+                    <button onClick={() => update(d => ({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null,photoUrl:null}}}))}
                       style={{ position:"absolute", top:-5, right:-5, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
                   </div>
                 : <div style={{ flexShrink:0, display:"flex", gap:4 }}>
                     <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Tomar foto">
                       📷
                       <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
-                        onChange={async e => { const f=e.target.files[0]; if(!f)return; const b64=await compressImage(f); update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}})); e.target.value=""; }} />
+                        onChange={e => pickWeekPhoto(e, key)} />
                     </label>
                     <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Elegir de galería">
                       🖼️
                       <input type="file" accept="image/*" style={{ display:"none" }}
-                        onChange={async e => { const f=e.target.files[0]; if(!f)return; const b64=await compressImage(f); update(d=>({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:b64}}})); e.target.value=""; }} />
+                        onChange={e => pickWeekPhoto(e, key)} />
                     </label>
                   </div>
               }
@@ -76,9 +91,9 @@ export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCat
                 <button onClick={() => downloadWeekICS(w, key, p1, p2)} style={{ ...S.btnSecondary, fontSize:11, padding:"4px 10px", borderColor:"rgba(52,211,153,0.25)", color:"#34d399", width:"100%" }}>📅 Importar semana {w.weekNumber} a Google Calendar (.ics)</button>
               </div>
             )}
-            {w.photo && (
-              <div style={{ marginTop:8, position:"relative", cursor:"zoom-in" }} onClick={() => setLightboxSrc(w.photo)}>
-                <img src={w.photo} style={{ width:"100%", borderRadius:10, maxHeight:130, objectFit:"cover", display:"block" }} alt="foto semana" />
+            {(w.photoUrl || w.photo) && (
+              <div style={{ marginTop:8, position:"relative", cursor:"zoom-in" }} onClick={() => setLightboxSrc(w.photoUrl || w.photo)}>
+                <img src={w.photoUrl || w.photo} style={{ width:"100%", borderRadius:10, maxHeight:130, objectFit:"cover", display:"block" }} alt="foto semana" />
                 <div style={{ position:"absolute", inset:0, borderRadius:10, background:"rgba(0,0,0,0)", display:"flex", alignItems:"flex-end", justifyContent:"flex-end", padding:6 }}>
                   <span style={{ background:"rgba(0,0,0,0.45)", borderRadius:6, fontSize:10, color:"#f8f4ff", padding:"2px 7px", backdropFilter:"blur(4px)" }}>🔍 Ver completa</span>
                 </div>

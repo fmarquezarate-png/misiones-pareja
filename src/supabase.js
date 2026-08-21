@@ -5,8 +5,10 @@ import { idbGet, idbSet, pickFreshest } from "./lib/localStore.js";
 export { isValidAppData };
 
 const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
+  // Fallbacks solo para el entorno de test (sin env vars). En producción Vite
+  // inyecta los valores reales en build, así que el fallback nunca se usa.
+  import.meta.env.VITE_SUPABASE_URL || "http://localhost:54321",
+  import.meta.env.VITE_SUPABASE_ANON_KEY || "test-anon-key"
 );
 
 const localKey   = id => `couple-missions-${id}`;

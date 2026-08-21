@@ -49,6 +49,17 @@ registerRoute(
   })
 );
 
+// Fotos de semana en Supabase Storage (v5.14.0: salen del blob). CacheFirst para
+// que el histórico siga mostrando las fotos ya vistas sin conexión — antes vivían
+// en el blob (offline gratis); al externalizarlas, esta caché recupera esa ventaja.
+registerRoute(
+  ({ url }) => url.pathname.includes('/storage/v1/object/public/photos/'),
+  new CacheFirst({
+    cacheName: 'week-photos',
+    plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 180 })],
+  })
+);
+
 // ── Push notifications ────────────────────────────────────────────────────────
 
 self.addEventListener('push', event => {

@@ -12,6 +12,7 @@ import HomeHighlight from "./components/HomeHighlight.jsx";
 import { shouldOfferWrapped } from "./lib/wrapped.js";
 import { todaysGratitudes, GRATITUDE_MAX } from "./lib/gratitude.js";
 import GratitudeCard from "./components/GratitudeCard.jsx";
+import { uploadWeekPhoto, isInlinePhoto } from "./lib/photoStore.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -250,6 +251,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const writeOverrideRef      = useRef(false); // el usuario confirmó "guardar igual" — válido para el próximo save
   const confirmRef            = useRef(null);  // espejo de confirm() (regla de closures de CLAUDE.md)
   const moodOuterTimerRef    = useRef(null); // outer 18:00 timer — stored in ref so recursive reschedule can clear it
+  const photoMigrationRef    = useRef(false); // migración de fotos de semana base64 → Storage (una sola vez por sesión)
   const moodInnerTimerRef    = useRef(null); // inner 1400ms delay timer before showing popup
   const matchDayTimerRef     = useRef(null); // 1200ms delay before showing match-day overlay
   const [activeTab,       setActiveTab]       = useState("home");
@@ -860,6 +862,38 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     window.addEventListener("wcFilterChange", handler);
     return () => window.removeEventListener("wcFilterChange", handler);
   }, [checkMatchDay]);
+
+  // Migración de fotos de semana FUERA del blob (v5.14.0). Las fotos base64
+  // acumuladas (~4MB) son la causa raíz de los timeouts de guardado. Al cargar,
+  // se suben a Storage una a una y se reemplazan por su URL, adelgazando el blob
+  // a ~200KB. Best-effort, en segundo plano, una sola vez; los uploads van fuera
+  // del reducer de update (que debe ser puro).
+  useEffect(() => {
+    if (loading || !data || !sessionUserId || photoMigrationRef.current) return;
+    const keys = Object.keys(data.weeks || {}).filter(k => isInlinePhoto(data.weeks[k]?.photo));
+    if (!keys.length) return;
+    photoMigrationRef.current = true;
+    (async () => {
+      const urlMap = {};
+      for (const k of keys) {
+        try {
+          urlMap[k] = await withTimeout(uploadWeekPhoto(sessionUserId, k, data.weeks[k].photo), 20000, "migratePhoto");
+        } catch (err) { console.warn("[migratePhoto]", k, err.message); }
+      }
+      const migrated = Object.keys(urlMap);
+      if (!migrated.length) return;
+      update(d => {
+        const nw = { ...d.weeks };
+        for (const k of migrated) {
+          if (isInlinePhoto(nw[k]?.photo)) nw[k] = { ...nw[k], photoUrl: urlMap[k], photo: null };
+        }
+        return { ...d, weeks: nw };
+      });
+      track("week_photos_migrated", { count: migrated.length });
+      pushToast({ kind: "success", text: `📸 ${migrated.length} foto${migrated.length===1?"":"s"} optimizada${migrated.length===1?"":"s"} — la app irá más rápida` });
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, data, sessionUserId]);
 
   // Birthday/anniversary reminders (toast: today + day before). Incluye los
   // cumpleaños de la pareja (settings) y el aniversario, no solo el array libre.
@@ -2411,7 +2445,7 @@ ${sorted.map(m=>{
           onCycleStatus={cycleStatusGlobal}
         />}
 
-        {activeTab==="history" && <HistoryView weeks={data.weeks} wkey={wkey} globalPersonFilter={globalPersonFilter} globalCatFilter={globalCatFilter} update={update} setActiveTab={setActiveTab} setLightboxSrc={setLightboxSrc} compressImage={compressImage} downloadWeekICS={downloadWeekICS} p1={p1} p2={p2} />}
+        {activeTab==="history" && <HistoryView weeks={data.weeks} wkey={wkey} globalPersonFilter={globalPersonFilter} globalCatFilter={globalCatFilter} update={update} setActiveTab={setActiveTab} setLightboxSrc={setLightboxSrc} compressImage={compressImage} downloadWeekICS={downloadWeekICS} p1={p1} p2={p2} sessionUserId={sessionUserId} />}
 
         {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
 

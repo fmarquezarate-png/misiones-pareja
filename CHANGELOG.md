@@ -7,6 +7,30 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.14.0] — 2026-08-21 · CAUSA RAÍZ del error al guardar: fotos fuera del blob
+
+Diagnosticado con acceso directo a Supabase. 134 tests. Ver fila nueva en `CLAUDE.md` §5.
+
+### 🔎 Diagnóstico (con datos del servidor)
+
+- El blob `app_data.data` de la pareja pesaba **4 MB**; **3.8 MB eran fotos de semana en base64** dentro de `weeks` (una por semana, >1 año).
+- El rol `authenticated` tenía **`statement_timeout = 8s`**. Cada guardado reescribe 4 MB + el trigger `backup_app_data` los copia otra vez → bajo carga se pasa de 8s → Postgres cancela la escritura. Logs: **65 timeouts en 24h**. La versión avanzaba cuando sí entraba → "a veces guarda". En iOS peor (4 MB revientan localStorage).
+
+### Solución
+
+- **Alivio inmediato (server-side):** `statement_timeout` del rol `authenticated` 8s → **20s**. Efecto inmediato sin actualizar la app.
+- **Cura de raíz (client-side):** fotos de semana **fuera del blob** → bucket público `photos` de Storage. El blob guarda solo `week.photoUrl`. Blob de 4 MB → **~200 KB**.
+  - `src/lib/photoStore.js`: `uploadWeekPhoto` (a `photos/{userId}/weeks/…`) + helpers puros (`dataUrlToBlob`, `extFromMime`, `isInlinePhoto`). **7 tests**.
+  - `HistoryView.jsx`: sube a Storage al elegir foto (fallback a base64 si la subida falla); lee `photoUrl || photo`.
+  - **Migración automática** al cargar (`App.jsx`): sube las fotos base64 existentes a Storage y adelgaza el blob, una vez, en segundo plano. Sin pérdida.
+  - `sw.js`: caché `week-photos` (CacheFirst) para ver fotos offline como antes.
+
+### Regla
+
+Nada de imágenes/binarios base64 dentro del blob `app_data.data` — van a Storage, el blob solo referencia la URL.
+
+---
+
 ## [5.13.1] — 2026-08-21 · Diagnóstico del error de guardado (temporal)
 
 El fix v5.13.0 no resolvió el error (reportado con WiFi bueno + v5.13.0 confirmada → **no es red**; el `throw` viene de otro punto, probablemente el servidor rechaza la escritura: RLS/sesión/RPC). El mensaje "conexión inestable" ocultaba la causa real. Este build la **expone** para diagnosticar sin acceso a Supabase.
