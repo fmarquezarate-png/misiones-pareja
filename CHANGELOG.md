@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.17.0] — 2026-08-22 · Workshop v5 — refactors testeables (P1/P2)
+
+Sin cambios de comportamiento. 154 tests (+9).
+
+- **[Programador P2] `computeStreakDelta`** (`lib/streak.js`): extraído el cálculo del anillo de racha que estaba **duplicado verbatim** en `cycleStatus` y `cycleStatusGlobal` (~22 líneas × 2). Ahora puro y testeado (**4 tests**). Un ajuste a la fórmula se hace en un solo sitio.
+- **[Q-P1-1] `migrateBlob`** (`lib/migrateBlob.js`): extraídas las migraciones de forma del blob (birthdays, `loveNote→loveNotes`) del `useEffect` de carga a una función pura idempotente + **5 tests** (incl. "no se pierde el histórico de notitas" e idempotencia).
+
+---
+
 ## [5.16.0] — 2026-08-22 · Workshop v5 — lote UX + robustez (P1/P2)
 
 145 tests. Cierra varios P1/P2 del workshop sin tocar Supabase.

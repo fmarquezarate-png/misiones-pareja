@@ -10,6 +10,8 @@ import { makeLoveNote } from "./lib/loveNote.js";
 import LoveNote from "./components/LoveNote.jsx";
 import HomeHighlight from "./components/HomeHighlight.jsx";
 import { shouldOfferWrapped } from "./lib/wrapped.js";
+import { computeStreakDelta } from "./lib/streak.js";
+import { migrateBlob } from "./lib/migrateBlob.js";
 import { todaysGratitudes, GRATITUDE_MAX } from "./lib/gratitude.js";
 import GratitudeCard from "./components/GratitudeCard.jsx";
 import { uploadWeekPhoto, uploadCapsulePhoto, isInlinePhoto, applyWeekPhotoMigration, applyCapsulePhotoMigration } from "./lib/photoStore.js";
@@ -597,9 +599,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
           .catch(e => { console.warn("[load]", e.message); return null; });
         if (goalRepaired) { base = goalRepaired; didMigrate = true; }
 
-        if (!base.birthdays) { base = { ...base, birthdays: [] }; didMigrate = true; }
-        // v5.10.0: la notita única (v5.6.0) pasa a ser un historial (muro).
-        if (!base.loveNotes) { base = { ...base, loveNotes: base.loveNote ? [{ id: uid(), ...base.loveNote }] : [] }; didMigrate = true; }
+        // Migraciones puras de forma del blob (birthdays, loveNote→loveNotes).
+        { const mig = migrateBlob(base); base = mig.data; if (mig.changed) didMigrate = true; }
 
         // Aviso NO bloqueante (decisión de diseño v4.25.0): si el remoto trae
         // muchas menos misiones que la copia local previa, avisar — pero no
@@ -1669,27 +1670,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         // Fórmula idéntica al anillo personal de HomeDashboard:
         // últimos 15 días, excluyendo eventos / futuras / completedLate,
         // incluyendo misiones del dueño + "together"
-        const todayStr = localDateStr();
-        const { week: tWn, year: tYr } = getWeekAndYear(new Date());
-        const todayWkey = isoWeekKey(tWn, tYr);
-        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
-        const { week: cWn, year: cYr } = getWeekAndYear(cutoff);
-        const cutoffWkey = isoWeekKey(cWn, cYr);
-        const last15 = Object.entries(data.weeks)
-          .filter(([k]) => k >= cutoffWkey && k <= todayWkey)
-          .flatMap(([,w]) => (w.missions||[]).filter(m => m.type !== "event" && (!m.date || m.date <= todayStr)));
-        const personMs = last15.filter(m => mCur.who === "person1"
-          ? (m.who === "person1" || m.who === "together")
-          : (m.who === "person2" || m.who === "together"));
-        const active = personMs.filter(m => !m.completedLate);
-        const total = active.length;
-        if (total > 0 && active.some(m => m.id === mCur.id)) {
-          const doneBefore = active.filter(m => m.status === "DONE").length;
-          const beforePct  = Math.round((doneBefore / total) * 100);
-          const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
-          const color = mCur.who === "person1" ? clr.person1 : clr.person2;
-          setTaskCongrat({ mission: mCur, beforePct, afterPct, delta: afterPct - beforePct, color });
-        }
+        const congrat = computeStreakDelta(data.weeks, mCur, clr, new Date());
+        if (congrat) setTaskCongrat(congrat);
       }
     }
   };
@@ -1802,27 +1784,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
         // Fórmula idéntica al anillo personal de HomeDashboard
-        const todayStr = localDateStr();
-        const { week: tWn, year: tYr } = getWeekAndYear(new Date());
-        const todayWkey = isoWeekKey(tWn, tYr);
-        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 14);
-        const { week: cWn, year: cYr } = getWeekAndYear(cutoff);
-        const cutoffWkey = isoWeekKey(cWn, cYr);
-        const last15 = Object.entries(data.weeks)
-          .filter(([k]) => k >= cutoffWkey && k <= todayWkey)
-          .flatMap(([,w]) => (w.missions||[]).filter(m => m.type !== "event" && (!m.date || m.date <= todayStr)));
-        const personMs = last15.filter(m => mCur.who === "person1"
-          ? (m.who === "person1" || m.who === "together")
-          : (m.who === "person2" || m.who === "together"));
-        const active = personMs.filter(m => !m.completedLate);
-        const total = active.length;
-        if (total > 0 && active.some(m => m.id === mCur.id)) {
-          const doneBefore = active.filter(m => m.status === "DONE").length;
-          const beforePct  = Math.round((doneBefore / total) * 100);
-          const afterPct   = Math.round(((doneBefore + 1) / total) * 100);
-          const color = mCur.who === "person1" ? clr.person1 : clr.person2;
-          setTaskCongrat({ mission: mCur, beforePct, afterPct, delta: afterPct - beforePct, color });
-        }
+        const congrat = computeStreakDelta(data.weeks, mCur, clr, new Date());
+        if (congrat) setTaskCongrat(congrat);
       }
     }
   };
