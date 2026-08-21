@@ -1278,7 +1278,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         saveLocalBackup(toSave, coupleId);
       } else {
         let saved = false;
-        for (let attempt = 0; attempt < 6 && !saved; attempt++) {
+        for (let attempt = 0; attempt < 3 && !saved; attempt++) {
           // Retry seguro ante cuelgue (mismo patrón que el path de lectura,
           // v4.22.4): si el intento colgado en realidad ya escribió en el
           // servidor, el reintento con la misma versión vieja simplemente
@@ -1303,7 +1303,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             toSave = rebased;
             setData(rebased); // reflejar el merge en la UI
           } else {
-            // casDisabled / error transitorio del RPC → last-write-wins.
+            // casDisabled / error del RPC (p.ej. RLS filtra la fila devuelta) →
+            // last-write-wins. Log del error real para diagnóstico si lo hubo.
+            if (result.error) track("cas_rpc_error", { couple_id: coupleId, msg: String(result.error.message || result.error).slice(0, 120) });
             await withTimeoutRetry(() => saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "save:fallbackRetry");
             const { version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:fallbackVersion").catch(() => ({ version: null }));
             dataVersionRef.current = version ?? null;
@@ -1311,7 +1313,22 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
             saved = true;
           }
         }
-        if (!saved) throw new Error("Conflictos repetidos al guardar — reintentando");
+        // El bucle CAS no convergió: conflictos repetidos, REALES (los dos
+        // guardando a la vez) o FALSOS (un RPC que devuelve vacío en éxito por
+        // RLS haría que CADA guardado pareciera conflicto → "error" recurrente
+        // en ambas plataformas aunque el dato sí se escriba). En vez de lanzar
+        // error, hacer un last-write-wins seguro: `toSave` ya está rebasado
+        // sobre los datos frescos del último reload, así que sube exactamente el
+        // estado fusionado — no pisa nada de la pareja. Esto convierte el "error
+        // al guardar" recurrente en un guardado correcto.
+        if (!saved) {
+          track("cas_no_converge_fallback", { couple_id: coupleId });
+          await withTimeoutRetry(() => saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "save:convergeFallback");
+          const { version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:convergeVersion").catch(() => ({ version: null }));
+          dataVersionRef.current = version ?? null;
+          saveLocalBackup(toSave, coupleId);
+          saved = true;
+        }
       }
 
       // Confirmado: quitar de unconfirmedRef exactamente los mutadores persistidos.

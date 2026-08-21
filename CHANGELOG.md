@@ -7,6 +7,27 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.13.0] — 2026-08-21 · Fix "error al guardar" recurrente (ambas plataformas)
+
+Reportado: el error de guardado salía a los DOS miembros (iPhone y Android), aunque la app se usara bien. Al ser común a ambas plataformas → no es iOS, es el path de guardado. 129 tests. Ver fila nueva en `CLAUDE.md` §5.
+
+### 💾 Causa raíz (cliente)
+
+El bucle CAS de `runSave` reintentaba hasta **6 veces** ante `conflict` y, si no convergía, hacía `throw` → banner de error. Si el RPC `save_app_data_cas` devuelve vacío en un guardado **exitoso** (RLS filtra la fila del `RETURNING`) o hay alta contención real entre la pareja, **cada** guardado parece conflicto → 6 rebases → error, en ambas plataformas, aunque el dato sí se escriba. El `throw` no intentaba el fallback seguro.
+
+### Solución
+
+- Bucle CAS de 6 → **3 intentos** (no encadenar timeouts largos, importante en iOS).
+- Si no converge: en vez de `throw`, **last-write-wins seguro** (`saveWithRetry`) del `toSave` ya **rebasado** sobre los datos frescos del último reload → sube el estado fusionado, **no pisa a la pareja**. El "error" recurrente pasa a guardado correcto.
+- Telemetría de diagnóstico: `cas_rpc_error` (mensaje real del RPC cuando lo hay) y `cas_no_converge_fallback`.
+- El banner de error queda **solo** para el caso legítimo: red realmente caída tras agotar reintentos (el dato sigue guardado localmente y se reintenta al reconectar).
+
+### Nota de diagnóstico
+
+Sin acceso a Supabase en la sesión (el conector pide login interactivo), el arreglo es 100% cliente y cubre tanto el conflicto real como el falso del RPC. Si el error persistiera tras esto, la causa estaría en el servidor (definición del RPC/RLS) y haría falta revisar `save_app_data_cas` en la consola de Supabase.
+
+---
+
 ## [5.12.0] — 2026-08-20 · Resiliencia offline / mala señal (fix definitivo)
 
 Arreglo de raíz del cuelgue "se queda cargando → pantalla de error" con poca o ninguna señal. 129 tests. Ver fila nueva en `CLAUDE.md` §5.
