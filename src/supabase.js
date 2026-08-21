@@ -474,7 +474,10 @@ export async function saveData(appData, coupleId) {
     if (error.code === "PGRST301" || error.message?.includes("JWT")) {
       throw Object.assign(new Error("Sesión expirada. Por favor vuelve a iniciar sesión."), { code: "SESSION_EXPIRED" });
     }
-    throw new Error("Error al guardar: " + error.message);
+    // Adjuntar code/details/hint de Supabase — clave para diagnosticar RLS,
+    // constraints o statement timeout desde el propio dispositivo del usuario.
+    const detail = [error.code && `code=${error.code}`, error.details && `details=${error.details}`, error.hint && `hint=${error.hint}`].filter(Boolean).join(" · ");
+    throw Object.assign(new Error("upsert app_data: " + error.message + (detail ? ` (${detail})` : "")), { code: error.code });
   }
 }
 

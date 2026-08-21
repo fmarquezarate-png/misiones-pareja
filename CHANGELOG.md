@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.13.1] — 2026-08-21 · Diagnóstico del error de guardado (temporal)
+
+El fix v5.13.0 no resolvió el error (reportado con WiFi bueno + v5.13.0 confirmada → **no es red**; el `throw` viene de otro punto, probablemente el servidor rechaza la escritura: RLS/sesión/RPC). El mensaje "conexión inestable" ocultaba la causa real. Este build la **expone** para diagnosticar sin acceso a Supabase.
+
+- Nuevo estado `saveErrDetail`: captura el mensaje real de la excepción (con `code`) y del RPC (`result.error`).
+- `saveData` adjunta ahora `code`/`details`/`hint` del error de Supabase al throw (clave para RLS/constraint/timeout).
+- El banner de error de guardado muestra el **detalle técnico** en monospace + botón "Copiar detalle" + versión. Se limpia en cuanto un guardado va bien.
+- Telemetría `cas_rpc_error`/`save_error` enriquecida con `code`.
+
+Temporal: se retirará (o suavizará) una vez identificada y corregida la causa raíz.
+
+---
+
 ## [5.13.0] — 2026-08-21 · Fix "error al guardar" recurrente (ambas plataformas)
 
 Reportado: el error de guardado salía a los DOS miembros (iPhone y Android), aunque la app se usara bien. Al ser común a ambas plataformas → no es iOS, es el path de guardado. 129 tests. Ver fila nueva en `CLAUDE.md` §5.

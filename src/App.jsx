@@ -284,6 +284,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
   const [syncError, setSyncError]   = useState(null);   // string | null
+  const [saveErrDetail, setSaveErrDetail] = useState(null); // detalle técnico real del fallo de guardado (diagnóstico)
   const [syncMsg,   setSyncMsg]     = useState(null);   // feedback message
   const [tutorialStep, setTutorialStep] = useState(null); // null = hidden
   const [notifGranted, _setNotifGranted] = useState(typeof Notification!=="undefined" && Notification.permission==="granted");
@@ -1305,7 +1306,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
           } else {
             // casDisabled / error del RPC (p.ej. RLS filtra la fila devuelta) →
             // last-write-wins. Log del error real para diagnóstico si lo hubo.
-            if (result.error) track("cas_rpc_error", { couple_id: coupleId, msg: String(result.error.message || result.error).slice(0, 120) });
+            if (result.error) {
+              const rpcMsg = String(result.error.message || result.error);
+              const rpcCode = result.error.code ? `[${result.error.code}] ` : "";
+              track("cas_rpc_error", { couple_id: coupleId, msg: rpcMsg.slice(0, 120), code: result.error.code });
+              setSaveErrDetail(`RPC save_app_data_cas: ${rpcCode}${rpcMsg}`.slice(0, 300));
+            }
             await withTimeoutRetry(() => saveWithRetry(toSave, coupleId, { getLatestData: () => dataRef.current }), 20000, "save:fallbackRetry");
             const { version } = await withTimeoutRetry(() => loadDataWithVersion(coupleId), 10000, "save:fallbackVersion").catch(() => ({ version: null }));
             dataVersionRef.current = version ?? null;
@@ -1339,6 +1345,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       writeOverrideRef.current = false;
       lastConfirmedCountRef.current = countMissions(toSave);
       setSyncError(null);
+      setSaveErrDetail(null);
       if (unconfirmedRef.current.length === 0) setPendingSave(false);
       setSavingState("saved");
       pushToast({ kind: "success", text: "✅ Guardado" });
@@ -1359,7 +1366,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // en este dispositivo al principio de runSave, y sigue en
       // unconfirmedRef hasta confirmarse — scheduleSave() reintenta solo.
       console.warn("[save] falló tras reintento:", e.message);
-      track("save_error", { message: e.message.slice(0, 200), coupleId });
+      track("save_error", { message: e.message.slice(0, 200), code: e.code, coupleId });
+      setSaveErrDetail(prev => `${prev ? prev + " || " : ""}${e.code ? `[${e.code}] ` : ""}${e.message}`.slice(0, 400));
       setSyncError("No se pudo guardar por una conexión inestable. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola.");
       setPendingSave(true);
       setSavingState("error");
@@ -2089,10 +2097,20 @@ ${sorted.map(m=>{
       )}
       {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && (
-        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(20,8,6,0.97)", border:"1px solid rgba(251,146,60,0.5)", borderRadius:12, padding:"10px 16px 10px 14px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:340, textAlign:"left", backdropFilter:"blur(8px)", display:"flex", alignItems:"flex-start", gap:8, boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
-          <span style={{ flexShrink:0, fontSize:14 }}>⚠</span>
-          <span style={{ flex:1, lineHeight:1.5, wordBreak:"break-word" }}>{syncError}</span>
-          <button onClick={() => setSyncError(null)} style={{ flexShrink:0, background:"none", border:"none", color:"rgba(251,146,60,0.5)", cursor:"pointer", fontSize:16, padding:"0 0 0 4px", lineHeight:1 }}>×</button>
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(20,8,6,0.97)", border:"1px solid rgba(251,146,60,0.5)", borderRadius:12, padding:"10px 16px 10px 14px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:340, textAlign:"left", backdropFilter:"blur(8px)", display:"flex", flexDirection:"column", gap:8, boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+            <span style={{ flexShrink:0, fontSize:14 }}>⚠</span>
+            <span style={{ flex:1, lineHeight:1.5, wordBreak:"break-word" }}>{syncError}</span>
+            <button onClick={() => { setSyncError(null); setSaveErrDetail(null); }} style={{ flexShrink:0, background:"none", border:"none", color:"rgba(251,146,60,0.5)", cursor:"pointer", fontSize:16, padding:"0 0 0 4px", lineHeight:1 }}>×</button>
+          </div>
+          {saveErrDetail && (
+            <div style={{ borderTop:"1px solid rgba(251,146,60,0.25)", paddingTop:8 }}>
+              <div style={{ fontSize:10, color:"rgba(251,146,60,0.7)", marginBottom:4, letterSpacing:0.5 }}>DETALLE TÉCNICO (mándaselo a Fran) · v{APP_VERSION}</div>
+              <div style={{ fontFamily:"ui-monospace,Menlo,monospace", fontSize:11, color:"#fdba74", wordBreak:"break-word", lineHeight:1.45, background:"rgba(0,0,0,0.35)", borderRadius:6, padding:"6px 8px" }}>{saveErrDetail}</div>
+              <button onClick={() => { try { navigator.clipboard?.writeText(`v${APP_VERSION} · ${saveErrDetail}`); pushToast({ kind:"success", text:"Copiado — pégalo en el chat" }); } catch { /* sin clipboard */ } }}
+                style={{ marginTop:6, background:"rgba(251,146,60,0.15)", border:"1px solid rgba(251,146,60,0.4)", borderRadius:8, color:"#fdba74", cursor:"pointer", fontFamily:"inherit", fontSize:11, fontWeight:600, padding:"5px 12px" }}>📋 Copiar detalle</button>
+            </div>
+          )}
         </div>
       )}
 
