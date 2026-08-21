@@ -4,10 +4,12 @@
 > Convocado tras la saga de guardado/offline (v5.12.0 → v5.14.0) y los Bloques 3/4/5
 > de features de conexión de pareja. Formato heredado de `WORKSHOP_v4_3_CONSOLIDADO`.
 
-**Nota de proceso:** se convocaron 8 agentes en paralelo. **5 completaron** su auditoría
-sobre el repo real (Programador, Analista, Experto en Datos, Forense, DevOps). **3 quedaron
-cortados por un límite de sesión de la plataforma** (Scanner, QA, UI/UX) — sus secciones las
-completó el **Coordinador** con auditoría directa del código y quedan marcadas como tal.
+**Nota de proceso:** se convocaron 8 agentes en paralelo. 5 completaron a la primera (Programador,
+Analista, Experto en Datos, Forense, DevOps); 3 (Scanner, QA, UI/UX) quedaron cortados por un
+límite de sesión de la plataforma y se **reconvocaron después** — **los 8 completaron su auditoría
+sobre el repo real.** El re-run de Scanner/QA/UI/UX aportó hallazgos nuevos de peso (fotos de cápsula
+y avatares aún en base64, áreas de toque por debajo de 44px, cobertura de tests de la orquestación
+de guardado) integrados en el backlog de abajo.
 
 ---
 
@@ -34,9 +36,16 @@ Pero el workshop destapó que **el fix de v5.14.0 dejó tres regresiones/deudas 
 - **[P0/P1 Datos] Los "dos backups" son una ilusión:** `snapshot_app_data` es un fósil (solo la
   1ª foto de cada pareja por `ON CONFLICT DO NOTHING`), y `backup_app_data` es amplificación de
   escritura sin retención viva (85MB acumulados).
+- **[P0] La cura de fotos está INCOMPLETA** (hallazgo del re-run de Scanner): la migración solo saca
+  las fotos de SEMANA; las **fotos de Cápsula del Tiempo (`capsule.photo`) y los avatares
+  (`settings.photos.*`) siguen en base64 dentro del blob** → la causa raíz del `statement_timeout`
+  sigue latente y volverá con el uso.
+- **[P0 UX] El gesto estrella no se puede tocar:** el botón 👉 "dar un toque" mide 24px y la ✕ de
+  quitar foto 16px (mínimo iOS = 44px); y subir una foto de semana no muestra ningún "subiendo…" →
+  parece colgada 3-6s.
 
 Consenso del equipo: **el incendio está apagado, pero el fix creó humo nuevo que hay que ventilar
-antes de dar el sprint por cerrado.**
+antes de dar el sprint por cerrado — y la cura de fotos hay que terminarla (cápsulas + avatares).**
 
 ---
 
@@ -205,62 +214,135 @@ Externo) · [P0] documentar bucket `photos` como prerequisito de infra + reconci
 smoke-check post-deploy de `/version.json`.
 **Paridad:** repo↔repo perfecta; **repo↔infra derivada** (timeout + bucket viven solo en Supabase).
 
-### Scanner *(Coordinador — el agente cayó por límite de sesión de la plataforma)*
-- **[OK] Migración `loveNote`→`loveNotes` limpia:** ningún componente lee ya `data.loveNote`
-  singular (grep confirma solo la referencia en el comentario de `loveNote.js`). El inicio deriva de
-  `loveNotes[0]`; el muro y el inicio no divergen.
-- **[P1] Fuga de fotos huérfanas** (coincide con Datos/Analista): sin `deleteWeekPhoto`, cada
-  reemplazo/borrado abandona el objeto en Storage.
-- **[P1] Migración de fotos no auto-reintentable** (coincide con Programador/Analista): ref latcheado
-  antes del await.
-- **[P2] Push de nudge/gratitud/notita/ritual:** todos usan `sendContextualPush(..., sessionUserId)`
-  (excluyen al emisor) con tags únicos (`mp-nudge-{id}`, `mp-gratitude`, `mp-lovenote`, `mp-ritual`)
-  — correcto. La notita/gratitud/ritual dependen de `runAfterSave`/envío directo bien aplicado.
-- **Sign-off:** doy sign-off de los paths de features de conexión (reacciones/nudge/ritual/notitas/
-  gratitud/fechas/sugeridor/homeHighlight) y de la lectura `photoUrl || photo`. **No doy sign-off**
-  del path de subida/migración de fotos hasta cerrar los dos P1 (huérfanos + reintento).
+### Scanner
+Escaneé los 9 libs nuevos, sus 9 componentes, los handlers en `App.jsx` y los paths de lectura de
+foto/notita/reacción/gratitud en todas las vistas que comparten esos datos.
+- **[P1] `capsule.photo` (Cápsula del Tiempo) sigue como base64 DENTRO del blob — 2ª fuente de bloat
+  que reintroduce la causa raíz de v5.14.0.** `TimeCapsuleView.jsx:51` (`toDataURL(0.75)`, 800px) →
+  `App.jsx` `createTimeCapsule` guarda `photo: photo||null` en `data.timeCapsules[]`. La migración de
+  v5.14.0 SOLO barre `week.photo`; las fotos de cápsula NO se suben a Storage nunca, se acumulan, y
+  `TimeCapsuleReveal.jsx:44` las renderiza raw. La regla §5 "nada de base64 en el blob" se cumple
+  para semanas pero **se viola para cápsulas.** Es el hallazgo que más importa: sin esto, el "error
+  al guardar" vuelve con el uso.
+- **[P1] Foto de semana nueva "no cambia" si la subida falla y ya había `photoUrl`.**
+  `HistoryView.jsx` (catch de `pickWeekPhoto`) guarda `photo:b64` pero NO limpia `photoUrl`; el render
+  usa `w.photoUrl || w.photo` → el usuario ve la FOTO VIEJA, no la que acaba de elegir. Fix: en el
+  catch, `photoUrl:null` junto a `photo:b64`.
+- **[P2] `sessionPersonId` cae a `"person1"` en reacciones si el nombre no matchea `p1`/`p2`.**
+  `App.jsx` `toggleReaction` hace `myId = sessionPersonId || "person1"`. Nombres no configurados/
+  mayúsculas/espacios → AMBOS miembros reaccionan como `"person1"` y colisionan. Afecta también
+  `c.from === sessionPersonId` en cápsulas.
+- **[P2] Dos modelos de identidad conviviendo:** notitas/gratitud deciden autoría por
+  `fromName === myName` (`LoveNote.jsx:48`, `NotesWallView.jsx:52`, `gratitude.js:19`) → si un
+  miembro se renombra, sus notitas/gratitudes pasadas dejan de matchear y pierde el botón "Quitar";
+  las reacciones (person-id estable) no sufren esto.
+- **[P2] Reacciones huérfanas:** `delMission`/`deleteMissionGlobal` no limpian `data.reactions[id]` →
+  el mapa acumula entradas de misiones/mensajes inexistentes en el mismo blob que intentamos adelgazar.
+- **[P2] Migración de fotos: ref latcheado antes del async** (confirma a Analista/Programador) con un
+  matiz: el guard `isInlinePhoto(nw[k]?.photo)` evita pisar, pero podría escribir un `photoUrl`
+  derivado de un base64 VIEJO sobre una foto nueva en una ventana estrecha.
+- **[P2] Avatares (`settings.photos.*`) siguen en base64 en el blob** (`ProfileModal.jsx:99`,
+  `toDataURL(0.8)`). Acotado (3, se reemplazan) pero contradice la regla absoluta; candidato al mismo
+  `photoStore` tras migrar cápsulas.
+- **[P2] Tags de push fijos colapsan eventos** (`mp-lovenote`/`mp-gratitude`/`mp-ritual`/
+  `mp-mission-done`): varias completadas seguidas se colapsan en una notificación. **Confirmado que
+  NINGÚN componente lee ya `data.loveNote` singular** — la migración `loveNote→loveNotes` es limpia,
+  inicio (`loveNotes[0]`) y muro derivan de la misma fuente, no divergen.
 
-### QA *(Coordinador — el agente cayó por límite de sesión de la plataforma)*
-- **Cobertura:** 134 tests. Existen `save.test.js` y `save-integration.test.js` (el path de save no
-  está a cero), pero **la máquina CAS de `runSave` inline no tiene test directo** de sus ramas
-  conflict/rpc-error/no-converge.
-- **Sin test la migración de fotos** (`App.jsx`) ni el **path de subida** de `photoStore` (solo hay
-  tests de sus helpers puros `dataUrlToBlob`/`extFromMime`/`isInlinePhoto`). Falta el contrato "si
-  falla a medias, no se pierde ninguna foto ni se corrompe el blob".
-- **Contratos en riesgo por la sesión:** consolidación del inicio (`HomeHighlight` elige
-  `UpcomingDates` vs `DateIdea`) y migración `loveNote→loveNotes` — sin test de regresión.
-- **Riesgo de producción:** ~30 fotos migrando a la vez en el primer arranque de la pareja real;
-  el fallback base64 puede reinflar el blob si Storage falla (ver Analista P0).
+**Backlog Scanner:** [P1] fotos de cápsula a Storage (`createTimeCapsule` + barrido en migración) ·
+[P1] limpiar `photoUrl` en el fallback base64 de `HistoryView`. Reducers `update(fn)` de las
+features nuevas **verificados puros** (`uid()`/`Date.now()` fuera del reducer, push en
+`runAfterSave`/directo) — seguros ante rebase-on-conflict, sin excepciones.
+**Sign-off:** DOY sign-off a reacciones (reducer puro/idempotente, exclusión del emisor), notitas/muro
+(migración limpia) y reducers de gratitud/ritual/cápsula. **NO doy sign-off** al path de fotos como
+"libre de bloat" (cápsulas + avatares en base64 → §5 incompleta), NI al **modelo de identidad**
+(mezcla nombre-string vs person-id con fallback silencioso a `"person1"`) — hay que unificar en
+person-id antes de darlo por cerrado.
 
-**Checklist de regresión v5.14.0 (pareja real, iOS + Android):** (1) guardar cambios repetidos sin
-"error"; (2) abrir Histórico → toast "📸 fotos optimizadas", verificar que se ven todas; (3) blob de
-la pareja < 500KB tras migrar (verificable por Externo); (4) subir foto nueva → aparece y persiste
-tras recargar; (5) quitar foto → desaparece de ambos dispositivos; (6) offline: histórico muestra
-fotos ya vistas; (7) notita/gratitud/nudge llegan a la pareja, no a uno mismo; (8) inicio no empuja
-el progreso de la semana fuera de vista.
-**Backlog QA:** [P1] test del contrato de migración de fotos (fallo parcial no pierde datos) · [P1]
-tests directos de las ramas de `runSave` (tras extraerlo, ver Programador) · [P2] test de regresión
-`loveNotes`/`HomeHighlight`.
+### QA
+Abrí los cuatro archivos y corrí la suite: **134/134 verde, 16 files, 2.84s**. Pero "verde" engaña:
+casi toda la cobertura es de funciones puras de `lib/`; los paths que esta sesión tocó de verdad no
+tienen ni un test que los ejecute.
+- **`save.test.js` + `save-integration.test.js` (14 tests) prueban `rebaseMutators`/`isValidAppData`,
+  NO `runSave`.** El "Escenario 5" simula el loop con un `mockCAS` escrito a mano, no el `saveWithCAS`
+  real ni el bucle `for(attempt<3)`. Las tres ramas críticas viven inline en `App.jsx` **sin
+  cobertura**: `result.conflict` + re-snapshot, `cas_rpc_error`→fallback, y `cas_no_converge_fallback`.
+- **`photoStore.test.js` solo cubre helpers puros — `uploadWeekPhoto`, el corazón de v5.14.0, no tiene
+  test.** Sin cobertura: el path `${userId}/weeks/...` (que la RLS EXIGE empiece por `{userId}/`), los
+  `throw` de error/sin-publicUrl, y el sanitizado de la weekKey. Un cambio de formato de path rompería
+  la RLS en producción sin que ningún test se entere.
+- **La migración de fotos no tiene test, y su contrato de seguridad es el más importante de la
+  release** ("si falla a medias no se pierde ninguna foto ni se corrompe el blob"). Hoy se cumple por
+  dos guardas correctas pero **embebidas en un `useEffect` → intesteables** tal cual.
+- **Chicken-and-egg: el save que dispara la migración TODAVÍA carga las fotos no migradas.** Si 5 de
+  30 suben antes de que el resto cuelgue, el `update()` guarda un blob que aún tiene ~25 base64 (~3MB)
+  → puede pegar contra el mismo `statement_timeout` que intenta evitar. Y el toast "📸 optimizadas"
+  salta tras `update()`, que solo AGENDA el save debounced — **no espera confirmación.**
+- **Reinflación real y silenciosa** (`HistoryView` catch): el fallback reescribe base64 al blob sin
+  toast ni `track()` — el `console.warn` es invisible. "Nada de base64 en el blob" es solo happy-path.
+- **`localStore.test.js` cubre solo `pickFreshest`** — el pegamento con IndexedDB (`saveLocalBackup`,
+  `loadLocalBackupAsync`, tragado de `QuotaExceededError`), donde estaba el bug de cuota, sin test.
+- **Migración `loveNote→loveNotes` sin test** (riesgo bajo: produce ≤1 entrada, no hay histórico
+  plural que perder — pero es una línea untesteada sin función pura).
+- **`HomeHighlight` bien cubierto** (11 líneas, `hasImminentDate` con 3 tests de borde). En verde.
 
-### UI/UX *(Coordinador — el agente cayó por límite de sesión de la plataforma)*
-- **[P1] Densidad del inicio:** en un día "cargado" el inicio apila **LoveNote + GratitudeCard +
-  HomeHighlight + banner de ritual** (`App.jsx:2242-2247`) ANTES del `HomeDashboard` → el progreso
-  de la semana queda empujado hacia abajo en iPhone. La consolidación (v5.9.0) ayudó (fusionó
-  fechas+sugeridor en `HomeHighlight`), pero gratitud y notita siguen sumando. Revisar prioridad/
-  colapso cuando coinciden 3+.
-- **[P1] Sin feedback al subir foto de semana:** `pickWeekPhoto` no tiene estado "subiendo…" — como
-  ahora sube a Storage (puede tardar en móvil), Marta ve que "no pasa nada" tras elegir la foto.
-  Añadir spinner/estado por semana.
-- **[P0-UX] El mensaje "conexión inestable" era deshonesto:** el error real era un timeout de
-  servidor, no la red. `saveErrDetail` (v5.13.1) lo mitiga mostrando el detalle técnico, pero el
-  titular sigue culpando a la conexión. Debe decir la verdad ("estamos guardando, puede tardar")
-  sin inventar una causa.
-- **[P2] Toast de migración "📸 X fotos optimizadas — la app irá más rápida":** tranquiliza, correcto.
+**Checklist de regresión v5.14.0 (pareja real, iOS+Android, ~15 min):** (1) migración camino feliz:
+toast + miniaturas siguen viéndose, persisten como `photoUrl` tras recargar; (2) no se pierde nada:
+contar fotos antes/después = igual; (3) migración parcial/mala señal: las no migradas siguen visibles
+(base64), sin error ni blob corrupto, y terminan al recuperar señal; (4) reinflación: subir foto con
+señal cortada → sigue apareciendo (hoy NO avisa); (5) blob adelgazado: un save normal completa sin
+"error"; (6) conflicto CAS: A y B editan casi a la vez → ambas ediciones sobreviven; (7) cuelgue:
+nunca el texto crudo `timeout: saveWithCAS…`, siempre el mensaje amable; (8) offline durable: reabrir
+en avión pinta desde IndexedDB, no pantalla de error ni "Persona 1/2" vacío; (9) notitas tras
+migración: la v5.6.0 aparece en el muro; (10) inicio consolidado: fecha ≤7d muestra "Próximas fechas",
+si no la idea de plan; (11) ciclo misión (crear/editar/ciclar/refrescar persiste); (12) SW/versión:
+recarga a v5.14.0, no queda en `waiting`.
+**Backlog QA:** [P0] extraer el reducer de migración a `applyPhotoMigration(data, urlMap)` puro +
+`photoMigration.test.js` (contrato "no se pierde ninguna foto") · [P0] extender `photoStore.test.js`
+para `uploadWeekPhoto` con `supabase.storage` mockeado (path empieza por `{userId}/`, throws) · [P1]
+`migrations.test.js` (loveNote→loveNotes + birthdays, idempotencia) · [P1/P2] extraer
+`decideSaveStep(...)` puro de `runSave` + tests de las ramas; `track()` en el fallback base64.
 
-**Backlog UI/UX:** [P1] estado "subiendo…" en foto de semana · [P1] regla de densidad del inicio
-(máx N tarjetas / colapso) · [P2] revisar copy del banner de error de guardado.
-**Línea roja:** el mensaje que culpa a la "conexión" cuando el problema es del servidor confunde a
-Marta y la manda a reiniciar el router — no dejo pasar copy que diagnostica mal por ella.
+### UI/UX
+Reviso desde la óptica de Marta (iPhone, PWA instalada, una mano, línea 5). Todo con archivo:línea.
+- **[P1] Densidad del inicio — un lunes cargado empuja el progreso de la semana fuera de pantalla.**
+  Orden en `App.jsx:2242-2261`: `LoveNote`→`GratitudeCard`→`HomeHighlight`→banner `PlanningRitual`→
+  recién entonces `HomeDashboard`. Un lunes con notita + prompt de gratitud + ritual = **4 tarjetas
+  de ~90-120px = ~400-450px** antes del header del dashboard → el progreso de la semana (el motivo de
+  abrir la app) queda bajo el fold en un iPhone SE/mini. `HomeHighlight` solo colapsa 2→1; los otros
+  tres no ceden espacio. **No basta.**
+- **[P0] Subir foto de semana parece que se colgó — no hay estado "subiendo…".** `pickWeekPhoto`
+  (`HistoryView.jsx:12-22`) hace `await uploadWeekPhoto` (red, 3-6s en línea 5) pero el `<label>`
+  📷/🖼️ no cambia: sin spinner, sin deshabilitar, sin preview optimista. Marta toca, no pasa nada
+  visible → cree que falló, retoca (posible doble subida) o se va. Anti-patrón "parece congelado",
+  ahora en la subida.
+- **[P0] Áreas de toque por debajo de 44px — dos casi inusables.** **👉 Nudge** (`NudgeMenu.jsx:12`)
+  = **24×24px**, el gesto estrella de conexión, pegado a `Reactions` → Marta abre reacciones queriendo
+  dar un toque. **✕ quitar foto** (`HistoryView.jsx:72`) = **16×16px** superpuesta a una miniatura con
+  `onClick` de lightbox → acierta el zoom en vez de la ✕, y sin `aria-label`. También bajo 40px: ✕ de
+  gratitud (24) y de ritual (26), botones Quitar/Cambiar/Responder de notita (~28-30), y 📷/🖼️ (32,
+  sin `aria-label`, solo `title` que en táctil no se lee). Los toggles del ritual sí son grandes ✓.
+- **[P1] El mensaje "conexión inestable" acusa al wifi de Marta cuando la causa era el servidor.**
+  `App.jsx:1405`. La 2ª frase ("Tu cambio quedó guardado… reintentará sola") es excelente; el titular
+  la manda a reiniciar el router por un `statement_timeout` que no es suyo. Copy neutro: "No se pudo
+  guardar ahora mismo".
+- **[P1] El "Ahora no" de la gratitud no persiste — el prompt reaparece.** `GratitudeCard.jsx:9`
+  guarda `dismissed` en estado local; al remontar (cambio de pestaña, realtime) vuelve a `false` y el
+  prompt reaparece aunque Marta ya dijo que no. Persistir por día en `localStorage` (patrón `wrapped`).
+- **[P2] "DETALLE TÉCNICO" monospace (v5.13.1):** la etiqueta "(mándaselo a Fran)" lo salva
+  reencuadrándolo como "no es para ti", pero la caja negra bajo el ⚠ compite con el mensaje humano.
+  Aceptable si va **colapsada** tras un "▸ Detalle para Fran", no expandida por defecto.
+- **[P2] Zona bottom-center saturada:** `pushNudge`/`syncMsg`/`syncError`/toasts comparten `bottom:90`
+  → pueden pisarse. Hay guardas parciales (`syncError && !syncMsg`) pero no un stack ordenado. El toast
+  "📸 optimizadas" (correcto, "la app irá más rápida" reencuadra la jerga) puede quedar tapado.
+
+**Backlog UI/UX:** [P0] estado "subiendo…" + preview optimista en foto de semana · [P0] áreas de toque
+≥44px en 👉 nudge y ✕ quitar foto (+ `aria-label`) · [P1] microcopy de error neutro + detalle técnico
+colapsado · [P1] presupuesto de densidad (máx 2 tarjetas de conexión sobre `HomeDashboard`; persistir
+"Ahora no" de gratitud por día).
+**Línea roja:** no dejo pasar (1) subir foto sin ningún "subiendo…" (parece colgada segundos), (2) el
+👉 a 24px y la ✕ a 16px (el gesto estrella que no se puede tocar es peor que no tenerlo), y (3) culpar
+a "su conexión" por un timeout de servidor.
 
 ### Externo (Supabase) — *ejecutado en esta sesión con acceso directo (MCP)*
 - ✅ **`ALTER ROLE authenticated SET statement_timeout = '20s'`** (verificado: `rolconfig` =
@@ -301,11 +383,21 @@ Marta y la manda a reiniciar el router — no dejo pasar copy que diagnostica ma
 
 ### P0 — Crítico (≤48h)
 - **C-P0-1** No reinyectar base64 al fallar el upload de foto (o, si se mantiene, instrumentar con
-  `track("week_photo_upload_failed", {blob_size})` y avisar al usuario). *(Programador + Analista)*
+  `track("week_photo_upload_failed", {blob_size})` y avisar al usuario). En el catch, limpiar también
+  `photoUrl` (Scanner: hoy muestra la foto vieja). *(Programador + Analista + Scanner)*
 - **C-P0-2** `deleteWeekPhoto(url)` + engancharlo en borrado/reemplazo de foto (cierra la fuga de
   Storage). *(Programador)*
 - **C-P0-3** Añadir `blob_size`/`photo_bytes` a `track("save_error")` y a un `save_ok` muestreado.
   *(Programador + Forense)*
+- **C-P0-4** **Cápsulas del tiempo y avatares a Storage** (`createTimeCapsule` + `ProfileModal` +
+  barrido en la migración): mientras sigan en base64 en el blob, la cura de v5.14.0 está incompleta y
+  la causa raíz sigue latente. *(Scanner)*
+- **C-P0-5 (UI/UX)** Estado "subiendo…" + preview optimista en la subida de foto de semana (hoy parece
+  colgada 3-6s); y áreas de toque ≥44px + `aria-label` en 👉 nudge (24px) y ✕ quitar foto (16px).
+  *(UI/UX)*
+- **Q-P0-1** Extraer el reducer de migración a `applyPhotoMigration(data, urlMap)` puro +
+  `photoMigration.test.js` (contrato "no se pierde ninguna foto"); extender `photoStore.test.js` para
+  `uploadWeekPhoto` (path `{userId}/`, throws). *(QA)*
 - **E-P0-1** `DROP TRIGGER trg_snapshot_app_data` + retención `pg_cron` (≤30/pareja) en
   `backup_app_data` + purga de blobs pre-migración + `VACUUM`. *(Externo)*
 - **E-P0-2** Versionar `statement_timeout='20s'` (migración idempotente) + documentar bucket
@@ -320,12 +412,22 @@ Marta y la manda a reiniciar el router — no dejo pasar copy que diagnostica ma
 - **D-P1-1** Resincronizar `CLAUDE.md §6` y `TAREAS_SQL` con el código real. *(Redactor)*
 - **E-P1-1** Verificar `RETURNING`/RLS del RPC `save_app_data_cas` (¿false-conflict real?). *(Externo)*
 - **F-P1-1** Dashboard/endpoint de lectura de `events` (`?diagnose=events`). *(Forense)*
+- **C-P1-5** Migración robusta: el save que dispara la migración aún carga las base64 no migradas
+  (chicken-and-egg, QA) → migrar en lotes o esperar confirmación antes del toast "optimizadas". *(QA)*
+- **U-P1-1** Presupuesto de densidad del inicio (máx 2 tarjetas de conexión sobre `HomeDashboard`) +
+  persistir el "Ahora no" de gratitud por día + microcopy de error neutro + detalle técnico colapsado.
+  *(UI/UX)*
+- **S-P1-1** Unificar el modelo de identidad de las features de conexión en **person-id** (hoy
+  notitas/gratitud usan `fromName===myName`, se rompe al renombrar; reacciones caen a `"person1"` si
+  el nombre no matchea). *(Scanner)*
+- **Q-P1-1** `migrations.test.js` (loveNote→loveNotes + birthdays, idempotencia). *(QA)*
 
 ### P2 — Deuda técnica
 - De-duplicar `taskCongrat` (`computeStreakDelta`) · resolver `idb_offline_queue` · pinear
   `vite-plugin-pwa` · eliminar `netlify.toml` · smoke-check `/version.json` post-deploy · limpiar
-  huérfana `42a03092` · evaluar bucket `photos` privado · regla de densidad del inicio · plan
-  chat→tabla `messages`.
+  huérfana `42a03092` · evaluar bucket `photos` privado · plan chat→tabla `messages` · **limpiar
+  `data.reactions[id]` al borrar misión** (Scanner: reacciones huérfanas) · **tags de push únicos**
+  para `mission-done` · stack ordenado de overlays bottom-center (UI/UX).
 
 ---
 
