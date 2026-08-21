@@ -12,7 +12,7 @@ import HomeHighlight from "./components/HomeHighlight.jsx";
 import { shouldOfferWrapped } from "./lib/wrapped.js";
 import { todaysGratitudes, GRATITUDE_MAX } from "./lib/gratitude.js";
 import GratitudeCard from "./components/GratitudeCard.jsx";
-import { uploadWeekPhoto, isInlinePhoto } from "./lib/photoStore.js";
+import { uploadWeekPhoto, uploadCapsulePhoto, isInlinePhoto, applyWeekPhotoMigration, applyCapsulePhotoMigration } from "./lib/photoStore.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
 import Toast, { useToast } from "./components/Toast.jsx";
@@ -251,7 +251,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const writeOverrideRef      = useRef(false); // el usuario confirmó "guardar igual" — válido para el próximo save
   const confirmRef            = useRef(null);  // espejo de confirm() (regla de closures de CLAUDE.md)
   const moodOuterTimerRef    = useRef(null); // outer 18:00 timer — stored in ref so recursive reschedule can clear it
-  const photoMigrationRef    = useRef(false); // migración de fotos de semana base64 → Storage (una sola vez por sesión)
+  const photoMigrationRef    = useRef(false); // migración de fotos base64 → Storage (guard "en curso")
+  const saveOkSampleRef      = useRef(0);     // contador para muestrear save_ok (blob_size) 1 de cada 20
   const moodInnerTimerRef    = useRef(null); // inner 1400ms delay timer before showing popup
   const matchDayTimerRef     = useRef(null); // 1200ms delay before showing match-day overlay
   const [activeTab,       setActiveTab]       = useState("home");
@@ -863,34 +864,46 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => window.removeEventListener("wcFilterChange", handler);
   }, [checkMatchDay]);
 
-  // Migración de fotos de semana FUERA del blob (v5.14.0). Las fotos base64
-  // acumuladas (~4MB) son la causa raíz de los timeouts de guardado. Al cargar,
-  // se suben a Storage una a una y se reemplazan por su URL, adelgazando el blob
-  // a ~200KB. Best-effort, en segundo plano, una sola vez; los uploads van fuera
-  // del reducer de update (que debe ser puro).
+  // Migración de fotos FUERA del blob (v5.14.0 semanas, v5.15.0 cápsulas). Las
+  // fotos base64 son la causa raíz de los timeouts de guardado. Al cargar se
+  // suben a Storage y se reemplazan por su URL. Los uploads van fuera del reducer
+  // (que debe ser puro). El guard es "en curso" (no un latch permanente): si esta
+  // vez fallan todos (offline), se reintenta en el próximo cambio de estado o
+  // recarga; si migra parte, el `update` cambia `data` y el efecto continúa con
+  // las que faltan. Nunca deja la migración a medias latcheada.
   useEffect(() => {
     if (loading || !data || !sessionUserId || photoMigrationRef.current) return;
-    const keys = Object.keys(data.weeks || {}).filter(k => isInlinePhoto(data.weeks[k]?.photo));
-    if (!keys.length) return;
+    const weekKeys = Object.keys(data.weeks || {}).filter(k => isInlinePhoto(data.weeks[k]?.photo));
+    const capsules = (data.timeCapsules || []).filter(c => isInlinePhoto(c?.photo));
+    if (!weekKeys.length && !capsules.length) return;
     photoMigrationRef.current = true;
     (async () => {
-      const urlMap = {};
-      for (const k of keys) {
-        try {
-          urlMap[k] = await withTimeout(uploadWeekPhoto(sessionUserId, k, data.weeks[k].photo), 20000, "migratePhoto");
-        } catch (err) { console.warn("[migratePhoto]", k, err.message); }
-      }
-      const migrated = Object.keys(urlMap);
-      if (!migrated.length) return;
-      update(d => {
-        const nw = { ...d.weeks };
-        for (const k of migrated) {
-          if (isInlinePhoto(nw[k]?.photo)) nw[k] = { ...nw[k], photoUrl: urlMap[k], photo: null };
+      try {
+        const weekUrls = {};
+        for (const k of weekKeys) {
+          try { weekUrls[k] = await withTimeout(uploadWeekPhoto(sessionUserId, k, data.weeks[k].photo), 20000, "migrateWeekPhoto"); }
+          catch (err) { console.warn("[migratePhoto] week", k, err.message); }
         }
-        return { ...d, weeks: nw };
-      });
-      track("week_photos_migrated", { count: migrated.length });
-      pushToast({ kind: "success", text: `📸 ${migrated.length} foto${migrated.length===1?"":"s"} optimizada${migrated.length===1?"":"s"} — la app irá más rápida` });
+        const capUrls = {};
+        for (const c of capsules) {
+          try { capUrls[c.id] = await withTimeout(uploadCapsulePhoto(sessionUserId, c.id, c.photo), 20000, "migrateCapsulePhoto"); }
+          catch (err) { console.warn("[migratePhoto] capsule", c.id, err.message); }
+        }
+        const count = Object.keys(weekUrls).length + Object.keys(capUrls).length;
+        if (!count) return; // todos fallaron → el guard se libera en finally y se reintenta
+        update(d => ({
+          ...d,
+          weeks: applyWeekPhotoMigration(d.weeks, weekUrls),
+          timeCapsules: applyCapsulePhotoMigration(d.timeCapsules, capUrls),
+        }));
+        track("photos_migrated", { weeks: Object.keys(weekUrls).length, capsules: Object.keys(capUrls).length });
+        pushToast({ kind: "success", text: `📸 ${count} foto${count===1?"":"s"} optimizada${count===1?"":"s"} — la app irá más rápida` });
+      } finally {
+        // Liberar el guard: si quedaron fotos sin migrar (fallos), el próximo
+        // cambio de `data` (o recarga) reintenta; si migró, el `update` re-dispara
+        // el efecto y continúa con el resto.
+        photoMigrationRef.current = false;
+      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, data, sessionUserId]);
@@ -1381,6 +1394,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       setSyncError(null);
       setSaveErrDetail(null);
       if (unconfirmedRef.current.length === 0) setPendingSave(false);
+      // Muestreo de save_ok con blob_size (1 de cada 20): vigila el tamaño del
+      // blob en producción para detectar crecimiento ANTES de que sea un timeout.
+      if ((saveOkSampleRef.current++ % 20) === 0) {
+        let blobSize = 0; try { blobSize = JSON.stringify(toSave).length; } catch { /* circular */ }
+        track("save_ok", { coupleId, blob_size: blobSize });
+      }
       setSavingState("saved");
       pushToast({ kind: "success", text: "✅ Guardado" });
       setTimeout(() => setSavingState("idle"), 2000);
@@ -1400,7 +1419,10 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       // en este dispositivo al principio de runSave, y sigue en
       // unconfirmedRef hasta confirmarse — scheduleSave() reintenta solo.
       console.warn("[save] falló tras reintento:", e.message);
-      track("save_error", { message: e.message.slice(0, 200), code: e.code, coupleId });
+      // blob_size: el número que resolvió la saga v5.14.0. Debe ir en CADA fallo
+      // de guardado para que "blob gigante" sea diagnosticable sin abrir Supabase.
+      let blobSize = 0; try { blobSize = JSON.stringify(toSave).length; } catch { /* circular */ }
+      track("save_error", { message: e.message.slice(0, 200), code: e.code, coupleId, blob_size: blobSize });
       setSaveErrDetail(prev => `${prev ? prev + " || " : ""}${e.code ? `[${e.code}] ` : ""}${e.message}`.slice(0, 400));
       setSyncError("No se pudo guardar por una conexión inestable. Tu cambio quedó guardado en este dispositivo y la app va a reintentar sola.");
       setPendingSave(true);
@@ -1940,8 +1962,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     update(d => ({ ...d, moods: (d.moods||[]).filter(m => m.id !== idOrTs && m.ts !== idOrTs) }));
   };
 
-  const createTimeCapsule = ({ title, message, photo, unlockDate, from }) => {
-    const capsule = { id: uid(), title, message, photo: photo || null, unlockDate, from, createdAt: Date.now(), viewedAt: null };
+  const createTimeCapsule = async ({ title, message, photo, unlockDate, from }) => {
+    const id = uid();
+    // Foto de cápsula → Storage (fuera del blob). Fallback a base64 si falla.
+    let photoUrl = null, photoInline = null;
+    if (photo) {
+      try { photoUrl = await uploadCapsulePhoto(sessionUserId, id, photo); }
+      catch (e) { console.warn("[capsule] subida foto falló, guardo local:", e.message); track("capsule_photo_upload_failed", { error: e.message?.slice(0, 120) }); photoInline = photo; }
+    }
+    const capsule = { id, title, message, photoUrl, photo: photoInline, unlockDate, from, createdAt: Date.now(), viewedAt: null };
     update(d => ({ ...d, timeCapsules: [...(d.timeCapsules||[]), capsule] }));
     pushToast({ kind: "success", text: "🔒 Cápsula sellada — se abrirá el " + unlockDate });
   };
@@ -2445,7 +2474,7 @@ ${sorted.map(m=>{
           onCycleStatus={cycleStatusGlobal}
         />}
 
-        {activeTab==="history" && <HistoryView weeks={data.weeks} wkey={wkey} globalPersonFilter={globalPersonFilter} globalCatFilter={globalCatFilter} update={update} setActiveTab={setActiveTab} setLightboxSrc={setLightboxSrc} compressImage={compressImage} downloadWeekICS={downloadWeekICS} p1={p1} p2={p2} sessionUserId={sessionUserId} />}
+        {activeTab==="history" && <HistoryView weeks={data.weeks} wkey={wkey} globalPersonFilter={globalPersonFilter} globalCatFilter={globalCatFilter} update={update} setActiveTab={setActiveTab} setLightboxSrc={setLightboxSrc} compressImage={compressImage} downloadWeekICS={downloadWeekICS} p1={p1} p2={p2} sessionUserId={sessionUserId} pushToast={pushToast} />}
 
         {activeTab==="goals" && <GoalsView goals={data.goals||[]} weeks={data.weeks} cwn={data.currentWeekNumber} cyr={data.currentYear} p1={p1} p2={p2} colors={colors} onAdd={addGoal} onUpdate={updateGoal} onDelete={deleteGoal} />}
 

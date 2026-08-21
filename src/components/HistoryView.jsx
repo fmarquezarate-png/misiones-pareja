@@ -2,23 +2,42 @@ import { useState } from "react";
 import { getWeekAndYear, isoWeekKey } from "../utils.js";
 import { S } from "../styles.js";
 import { getMCats } from "../constants.js";
-import { uploadWeekPhoto } from "../lib/photoStore.js";
+import { uploadWeekPhoto, deletePhotoByUrl } from "../lib/photoStore.js";
+import { track } from "../lib/track.js";
 
-export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCatFilter, update, setActiveTab, setLightboxSrc, compressImage, downloadWeekICS, p1, p2, sessionUserId }) {
+export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCatFilter, update, setActiveTab, setLightboxSrc, compressImage, downloadWeekICS, p1, p2, sessionUserId, pushToast }) {
   const [histWeekRange, setHistWeekRange] = useState("all");
+  const [uploadingKey, setUploadingKey] = useState(null); // semana con subida en curso → spinner
 
-  // Foto de semana → Storage (fuera del blob). Si la subida falla, se guarda
-  // como base64 en el blob (comportamiento antiguo) para no perder la foto.
+  // Foto de semana → Storage (fuera del blob). Muestra "subiendo…" mientras dura.
   const pickWeekPhoto = async (e, key) => {
     const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-    const b64 = await compressImage(f);
+    setUploadingKey(key);
+    const prevUrl = weeks[key]?.photoUrl; // para borrar la vieja de Storage al reemplazar
     try {
-      const url = await uploadWeekPhoto(sessionUserId, key, b64);
-      update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photoUrl: url, photo: null } } }));
-    } catch (err) {
-      console.warn("[weekPhoto] subida falló, guardo local:", err.message);
-      update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photo: b64 } } }));
+      const b64 = await compressImage(f);
+      try {
+        const url = await uploadWeekPhoto(sessionUserId, key, b64);
+        update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photoUrl: url, photo: null } } }));
+        if (prevUrl) deletePhotoByUrl(prevUrl); // best-effort, no bloquea
+      } catch (err) {
+        // Fallback: guardar base64 para no perder la foto, pero limpiar photoUrl
+        // (si no, se mostraría la foto vieja) y AVISAR — reinyectar base64 al blob
+        // revive la causa raíz de v5.14.0, así que no puede ser silencioso.
+        console.warn("[weekPhoto] subida falló, guardo local:", err.message);
+        track("week_photo_upload_failed", { error: err.message?.slice(0, 120) });
+        update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photo: b64, photoUrl: null } } }));
+        pushToast?.({ kind: "info", text: "📷 Foto guardada, pero no se pudo subir — se reintentará al recargar" });
+      }
+    } finally {
+      setUploadingKey(null);
     }
+  };
+
+  const removeWeekPhoto = (key) => {
+    const url = weeks[key]?.photoUrl;
+    update(d => ({ ...d, weeks: { ...d.weeks, [key]: { ...d.weeks[key], photo: null, photoUrl: null } } }));
+    if (url) deletePhotoByUrl(url); // best-effort
   };
 
   const { week: _htw, year: _hty } = getWeekAndYear();
@@ -66,19 +85,25 @@ export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCat
                 </div>
                 <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
               </div>
-              {(w.photoUrl || w.photo)
+              {uploadingKey === key
+                ? <div style={{ flexShrink:0, width:44, height:44, borderRadius:8, background:"rgba(128,128,128,0.08)", border:"1px solid rgba(167,139,250,0.2)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2 }} aria-label="Subiendo foto">
+                    <span style={{ fontSize:14, animation:"hv-spin 0.9s linear infinite" }}>⏳</span>
+                    <span style={{ fontSize:7, color:"var(--t-text-dim,#6b5f88)" }}>subiendo</span>
+                    <style>{`@keyframes hv-spin{to{transform:rotate(360deg)}}`}</style>
+                  </div>
+                : (w.photoUrl || w.photo)
                 ? <div style={{ position:"relative", flexShrink:0 }}>
                     <img src={w.photoUrl || w.photo} onClick={() => setLightboxSrc(w.photoUrl || w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
-                    <button onClick={() => update(d => ({...d,weeks:{...d.weeks,[key]:{...d.weeks[key],photo:null,photoUrl:null}}}))}
-                      style={{ position:"absolute", top:-5, right:-5, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:9, width:16, height:16, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
+                    <button onClick={() => removeWeekPhoto(key)} aria-label="Quitar foto de la semana" title="Quitar foto"
+                      style={{ position:"absolute", top:-8, right:-8, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:13, width:26, height:26, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>✕</button>
                   </div>
-                : <div style={{ flexShrink:0, display:"flex", gap:4 }}>
-                    <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Tomar foto">
+                : <div style={{ flexShrink:0, display:"flex", gap:6 }}>
+                    <label aria-label="Tomar foto de la semana" style={{ width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:16 }} title="Tomar foto">
                       📷
                       <input type="file" accept="image/*" capture="environment" style={{ display:"none" }}
                         onChange={e => pickWeekPhoto(e, key)} />
                     </label>
-                    <label style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:14 }} title="Elegir de galería">
+                    <label aria-label="Elegir foto de la galería" style={{ width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:16 }} title="Elegir de galería">
                       🖼️
                       <input type="file" accept="image/*" style={{ display:"none" }}
                         onChange={e => pickWeekPhoto(e, key)} />

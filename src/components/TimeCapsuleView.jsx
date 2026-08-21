@@ -177,7 +177,7 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
         ) : opened.map(c => (
           <button key={c.id} onClick={() => onView(c.id)}
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"rgba(128,128,128,0.05)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px", marginBottom:6, cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
-            <span style={{ fontSize:20, flexShrink:0 }}>{c.photo ? "🖼️" : "💌"}</span>
+            <span style={{ fontSize:20, flexShrink:0 }}>{(c.photoUrl || c.photo) ? "🖼️" : "💌"}</span>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontSize:13, color:"var(--t-text,#f0e8ff)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.title || "Cápsula del tiempo"}</div>
               <div style={{ fontSize:11, color:personColor(c.from) }}>{personName(c.from)} · abierta el {c.unlockDate}</div>

@@ -10,10 +10,17 @@ export default function NudgeMenu({ onNudge, align = "right" }) {
       <button onClick={() => setOpen(o => !o)} title="Dar un toque a tu pareja"
         aria-label="Dar un toque a tu pareja"
         style={{
-          width: 24, height: 24, borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 13,
-          background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.28)",
-          color: "#60a5fa", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
-        }}>👉</button>
+          // Área de toque ≥40px (padding transparente) con el "botón" visible a 26px.
+          width: 40, height: 40, padding: 0, borderRadius: 99, cursor: "pointer", fontFamily: "inherit",
+          fontSize: 15, background: "transparent", border: "none",
+          display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+        }}>
+        <span style={{
+          width: 28, height: 28, borderRadius: 99, background: "rgba(96,165,250,0.1)",
+          border: "1px solid rgba(96,165,250,0.28)", color: "#60a5fa",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>👉</span>
+      </button>
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 200 }} />

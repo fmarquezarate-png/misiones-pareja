@@ -40,8 +40,8 @@ export default function TimeCapsuleReveal({ capsule, p1, p2, colors, onClose }) 
             <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:18 }}>
               Escrita por <strong style={{ color:accent }}>{personName(capsule.from)}</strong> · sellada el {new Date(capsule.createdAt).toISOString().slice(0,10)}
             </div>
-            {capsule.photo && (
-              <img src={capsule.photo} alt="" style={{ width:"100%", maxHeight:260, objectFit:"cover", borderRadius:14, marginBottom:18, border:`1px solid ${accent}30` }} />
+            {(capsule.photoUrl || capsule.photo) && (
+              <img src={capsule.photoUrl || capsule.photo} alt="" style={{ width:"100%", maxHeight:260, objectFit:"cover", borderRadius:14, marginBottom:18, border:`1px solid ${accent}30` }} />
             )}
             <div style={{ fontSize:15, color:"var(--t-text,#f0e8ff)", lineHeight:1.7, whiteSpace:"pre-wrap", textAlign:"left", marginBottom:22 }}>
               {capsule.message}

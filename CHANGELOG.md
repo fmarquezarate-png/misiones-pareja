@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.15.0] — 2026-08-21 · Lote P0 del Workshop v5
+
+Cierre de los P0 que destapó el workshop (ver `WORKSHOP_v5_CONSOLIDADO_2026-08-21.md`), incl. regresiones de v5.14.0. 142 tests.
+
+### Cliente
+- **[C-P0-4] Fotos de Cápsula del Tiempo fuera del blob** (Scanner: la migración de v5.14.0 solo barría `week.photo`; las cápsulas seguían en base64 → causa raíz latente). `createTimeCapsule` sube a Storage (`uploadCapsulePhoto`), la migración de arranque barre semanas **y** cápsulas, y las vistas leen `photoUrl || photo`. *(Avatares en base64 quedan como P2: acotados ~65KB, no son la bomba latente.)*
+- **[C-P0-1] Fallback de foto no silencioso** (Analista/QA): si la subida falla, se avisa (`track("week_photo_upload_failed")` + toast) y se limpia `photoUrl` (Scanner: antes mostraba la foto vieja).
+- **[C-P0-2] `deletePhotoByUrl`**: al reemplazar/quitar una foto se borra el objeto viejo de Storage (cierra la fuga de huérfanas).
+- **[C-P0-3] `blob_size` en la telemetría** (Forense): `save_error` lleva ahora `blob_size`; `save_ok` muestreado (1/20) también → el tamaño del blob es diagnosticable sin abrir Supabase.
+- **[C-P0-5 / UI-UX] "Subiendo…"** con spinner al subir foto de semana; **áreas de toque ≥40px** + `aria-label` en 👉 nudge (era 24px) y ✕ quitar foto (era 16px).
+- **Migración robusta** (Analista/Programador/Scanner): guard "en curso" en vez de latch permanente → reintenta si falla; reductores puros `applyWeekPhotoMigration`/`applyCapsulePhotoMigration` (**8 tests nuevos**) + `storagePathFromUrl`.
+
+### Infra (server-side, aplicado vía MCP + versionado)
+- `supabase/migrations/20260821_save_perf_photos.sql`: **[E-P0-2]** documenta y hace reproducible el `statement_timeout='20s'` y el bucket `photos`; **[E-P0-1]** `DROP TRIGGER trg_snapshot_app_data` (fósil) + retención de `app_data_backups` (≤30/pareja, purga + `pg_cron` semanal si disponible).
+
+---
+
 ## [5.14.0] — 2026-08-21 · CAUSA RAÍZ del error al guardar: fotos fuera del blob
 
 Diagnosticado con acceso directo a Supabase. 134 tests. Ver fila nueva en `CLAUDE.md` §5.

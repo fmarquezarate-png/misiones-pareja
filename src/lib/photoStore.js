@@ -33,15 +33,69 @@ export function isInlinePhoto(v) {
   return typeof v === "string" && v.startsWith("data:");
 }
 
-// Sube una foto (Blob o dataURL) al bucket `photos` y devuelve su URL pública.
-// userId = carpeta propia (lo exige la RLS del bucket: `{userId}/...`). Lanza si falla.
-export async function uploadWeekPhoto(userId, weekKey, fileOrDataUrl) {
-  if (!userId) throw new Error("uploadWeekPhoto: sin userId");
+// Aplica una migración de fotos de semana: para cada clave en urlMap cuya foto
+// SIGUE siendo base64, sustituye `photo` (base64) por `photoUrl` (Storage). Puro.
+// El guard `isInlinePhoto` evita pisar una foto nueva que llegó por realtime a
+// mitad de la migración. Nunca corrompe `weeks`.
+export function applyWeekPhotoMigration(weeks, urlMap) {
+  const nw = { ...(weeks || {}) };
+  for (const k of Object.keys(urlMap || {})) {
+    if (nw[k] && isInlinePhoto(nw[k].photo)) nw[k] = { ...nw[k], photoUrl: urlMap[k], photo: null };
+  }
+  return nw;
+}
+
+// Igual para el array de cápsulas del tiempo (identificadas por id). Puro.
+export function applyCapsulePhotoMigration(capsules, urlMap) {
+  return (capsules || []).map(c =>
+    (c && isInlinePhoto(c.photo) && (urlMap || {})[c.id])
+      ? { ...c, photoUrl: urlMap[c.id], photo: null }
+      : c
+  );
+}
+
+// Sube una foto (Blob o dataURL) al bucket `photos` bajo `{userId}/{kind}/...` y
+// devuelve su URL pública. `{userId}/` lo EXIGE la RLS del bucket. Lanza si falla.
+export async function uploadPhoto(userId, kind, key, fileOrDataUrl) {
+  if (!userId) throw new Error("uploadPhoto: sin userId");
   const blob = typeof fileOrDataUrl === "string" ? dataUrlToBlob(fileOrDataUrl) : fileOrDataUrl;
-  const path = `${userId}/weeks/${String(weekKey).replace(/[^\w-]/g, "")}-${uid()}.${extFromMime(blob.type)}`;
+  const safeKind = String(kind || "misc").replace(/[^\w-]/g, "") || "misc";
+  const safeKey = String(key || "x").replace(/[^\w-]/g, "");
+  const path = `${userId}/${safeKind}/${safeKey}-${uid()}.${extFromMime(blob.type)}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || "image/jpeg", upsert: false });
   if (error) throw new Error("upload: " + error.message);
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   if (!data?.publicUrl) throw new Error("upload: sin publicUrl");
   return data.publicUrl;
+}
+
+// Foto de semana (kind="weeks") — se mantiene la firma para los callers existentes.
+export function uploadWeekPhoto(userId, weekKey, fileOrDataUrl) {
+  return uploadPhoto(userId, "weeks", weekKey, fileOrDataUrl);
+}
+
+// Foto de cápsula del tiempo (kind="capsules").
+export function uploadCapsulePhoto(userId, capsuleId, fileOrDataUrl) {
+  return uploadPhoto(userId, "capsules", capsuleId, fileOrDataUrl);
+}
+
+// Extrae el path del objeto a partir de su URL pública del bucket `photos`. Puro.
+// Devuelve null si la URL no apunta a este bucket (p.ej. es todavía un dataURL).
+export function storagePathFromUrl(url) {
+  const s = String(url || "");
+  const marker = `/storage/v1/object/public/${BUCKET}/`;
+  const i = s.indexOf(marker);
+  if (i === -1) return null;
+  return decodeURIComponent(s.slice(i + marker.length).split("?")[0]) || null;
+}
+
+// Borra una foto de Storage a partir de su URL pública. Best-effort (no lanza):
+// una foto huérfana no debe romper la operación del usuario.
+export async function deletePhotoByUrl(url) {
+  const path = storagePathFromUrl(url);
+  if (!path) return false;
+  try {
+    const { error } = await supabase.storage.from(BUCKET).remove([path]);
+    return !error;
+  } catch { return false; }
 }
