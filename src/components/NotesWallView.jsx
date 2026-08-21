@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { LOVE_NOTE_MAX, noteDateLabel } from "../lib/loveNote.js";
+import { isMineEntry } from "../lib/identity.js";
 
 // Muro de notitas (submenú Nosotros): historial de mensajitos de amor. Compose
 // arriba + lista de burbujas con autor y fecha. La más reciente es la que se
 // fija en el inicio.
-export default function NotesWallView({ notes = [], myName, partnerName, onAdd, onDelete }) {
+export default function NotesWallView({ notes = [], myName, myPersonId, partnerName, onAdd, onDelete }) {
   const [text, setText] = useState("");
   const send = () => { const t = text.trim(); if (!t) return; onAdd?.(t); setText(""); };
 
@@ -49,7 +50,7 @@ export default function NotesWallView({ notes = [], myName, partnerName, onAdd, 
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {notes.map(n => {
-            const mine = n.fromName === myName;
+            const mine = isMineEntry(n, myName, myPersonId);
             return (
               <div key={n.id} style={{
                 padding: "12px 14px", borderRadius: 14,

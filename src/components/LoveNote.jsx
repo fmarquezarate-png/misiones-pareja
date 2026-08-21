@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { LOVE_NOTE_MAX } from "../lib/loveNote.js";
+import { isMineEntry } from "../lib/identity.js";
 
 // Tarjeta de notita de amor. Muestra la notita actual y permite escribir una
 // nueva (reemplaza). Sin notita, muestra solo un botón discreto para crear la
-// primera. `myName` decide si el usuario es el autor (puede quitarla).
-export default function LoveNote({ note, myName, partnerName, onSave, onClear }) {
+// primera. La autoría se decide por person-id (o nombre en notitas antiguas).
+export default function LoveNote({ note, myName, myPersonId, partnerName, onSave, onClear }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
+  const noteIsMine = note && isMineEntry(note, myName, myPersonId);
 
-  const start = () => { setText(note?.fromName === myName ? note.text : ""); setEditing(true); };
+  const start = () => { setText(noteIsMine ? note.text : ""); setEditing(true); };
   const send = () => { const t = text.trim(); if (!t) return; onSave(t); setEditing(false); setText(""); };
 
   if (editing) {
@@ -45,7 +47,7 @@ export default function LoveNote({ note, myName, partnerName, onSave, onClear })
     );
   }
 
-  const mine = note.fromName === myName;
+  const mine = noteIsMine;
   return (
     <div style={cardStyle}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>

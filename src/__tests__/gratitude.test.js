@@ -37,6 +37,15 @@ describe("todaysGratitudes", () => {
     expect(todaysGratitudes([{ fromName: "Fran" }, null], "Fran", today)).toEqual({ mine: null, received: null });
   });
 
+  it("distingue mía/recibida por person-id (sobrevive a renombrarse)", () => {
+    const g = todaysGratitudes([
+      { id: "1", fromId: "person1", fromName: "Nombre Viejo", text: "mía", at: at(9) },
+      { id: "2", fromId: "person2", fromName: "Ana", text: "recibida", at: at(8) },
+    ], "Nombre Nuevo", today, "person1");
+    expect(g.mine?.text).toBe("mía");       // por id, aunque el nombre cambió
+    expect(g.received?.text).toBe("recibida");
+  });
+
   it("GRATITUDE_MAX es un límite razonable", () => {
     expect(GRATITUDE_MAX).toBeGreaterThan(50);
   });

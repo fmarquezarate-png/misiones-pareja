@@ -1880,7 +1880,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const addLoveNote = (text) => {
     const note = makeLoveNote(text, personName, Date.now());
     if (!note) return;
-    const entry = { id: uid(), ...note };
+    const entry = { id: uid(), fromId: sessionPersonId, ...note };
     update(d => ({ ...d, loveNotes: [entry, ...(d.loveNotes || [])].slice(0, 50), loveNote: undefined }));
     runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
     track("lovenote_set");
@@ -1896,7 +1896,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const addGratitude = (text) => {
     const t = (text || "").trim();
     if (!t) return;
-    const entry = { id: uid(), text: t.slice(0, GRATITUDE_MAX), fromName: personName, at: Date.now() };
+    const entry = { id: uid(), text: t.slice(0, GRATITUDE_MAX), fromName: personName, fromId: sessionPersonId, at: Date.now() };
     update(d => ({ ...d, gratitudes: [entry, ...(d.gratitudes || [])].slice(0, 200) }));
     runAfterSave(() => sendContextualPush(coupleId, { body: `🙏 ${personName} te agradeció: ${entry.text.slice(0, 80)}`, tag: "mp-gratitude", url: "/?tab=home" }, sessionUserId));
     track("gratitude_sent");
@@ -2242,7 +2242,7 @@ ${sorted.map(m=>{
           const upcoming = upcomingDates({ settings: data.settings, birthdays: data.birthdays }, new Date(), 30);
           const partnerName = personName === p1 ? p2 : personName === p2 ? p1 : (p2 || "tu pareja");
           const currentNote = (data.loveNotes || [])[0] || null;
-          const { mine: myGratitude, received: recvGratitude } = todaysGratitudes(data.gratitudes || [], personName, new Date());
+          const { mine: myGratitude, received: recvGratitude } = todaysGratitudes(data.gratitudes || [], personName, new Date(), sessionPersonId);
           const showRitual = shouldShowPlanningRitual(data.settings?.ritual, new Date(), todayWkey);
           // Recap semanal (4.4): banner discoverable a principios de semana.
           const prevDate = new Date(); prevDate.setDate(prevDate.getDate() - 7);
@@ -2253,7 +2253,7 @@ ${sorted.map(m=>{
           const offerWrapped = shouldOfferWrapped(new Date(), prevHasMissions, wrappedSeen);
           return (
             <>
-              <LoveNote note={currentNote} myName={personName} partnerName={partnerName}
+              <LoveNote note={currentNote} myName={personName} myPersonId={sessionPersonId} partnerName={partnerName}
                 onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
               <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude} />
               {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
@@ -2476,6 +2476,7 @@ ${sorted.map(m=>{
         {activeTab==="notes" && <NotesWallView
           notes={data.loveNotes||[]}
           myName={personName}
+          myPersonId={sessionPersonId}
           partnerName={p1===personName ? p2 : p1}
           onAdd={addLoveNote}
           onDelete={deleteLoveNote}

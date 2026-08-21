@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.20.0] — 2026-08-23 · Workshop v5 — identidad por person-id (S-P1-1)
+
+168 tests (+6). Cierra el último ítem sustancial de cliente del workshop.
+
+- **Autoría estable** de notitas y gratitud: `lib/identity.js` `isMineEntry(entry, myName, myPersonId)` decide por **person-id** cuando existe (sobrevive a renombrarse en Perfil), con **fallback a nombre** para entradas anteriores. Las nuevas entradas guardan `fromId: sessionPersonId`.
+- `todaysGratitudes` acepta `myPersonId`; `LoveNote`/`NotesWallView` reciben `myPersonId`. **6 tests** (`identity.test.js` + caso `fromId` en `gratitude.test.js`).
+- *Pendiente relacionado (P2, no cerrado): el fallback `sessionPersonId || "person1"` en reacciones cuando el nombre no matchea — requiere repensar la derivación de person-id, fuera de este lote.*
+
+---
+
 ## [5.19.0] — 2026-08-23 · Workshop v5 — `decideSaveStep` testeable (P1)
 
 Sin cambios de comportamiento. 162 tests (+6).
