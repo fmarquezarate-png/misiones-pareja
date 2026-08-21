@@ -20,6 +20,26 @@
  *        Se mantiene como callback para no romper la pureza de este módulo.
  * @returns {object} estado fusionado (fresh + intención local) o fresh si inválido
  */
+/**
+ * Decide la acción del bucle CAS dado el resultado de `saveWithCAS`. Pura y
+ * testeable — aísla la lógica de decisión que históricamente ha sido la más
+ * frágil del guardado (ver tabla de bugs de CLAUDE.md §5).
+ *
+ *  - "success"  → el save entró en el servidor; confirmar y terminar.
+ *  - "rebase"   → conflicto de versión (la pareja guardó primero); recargar
+ *                 fresco y re-aplicar los mutadores locales encima.
+ *  - "fallback" → error del RPC (o CAS deshabilitado, o resultado nulo);
+ *                 last-write-wins seguro con `saveWithRetry`.
+ *
+ * @param {{success?:boolean, conflict?:boolean, error?:any, casDisabled?:boolean}|null} result
+ * @returns {"success"|"rebase"|"fallback"}
+ */
+export function decideSaveStep(result) {
+  if (result && result.success) return "success";
+  if (result && result.conflict) return "rebase";
+  return "fallback";
+}
+
 export function rebaseMutators(fresh, mutators, isValid, onDrop) {
   let rebased = fresh;
   for (const m of mutators) {

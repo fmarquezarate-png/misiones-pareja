@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rebaseMutators } from "../lib/save.js";
+import { rebaseMutators, decideSaveStep } from "../lib/save.js";
 
 // Validador estructural mínimo equivalente al de la app (sin importar
 // supabase.js, que instancia el cliente al cargar y no tiene env en tests).
@@ -62,5 +62,28 @@ describe("rebaseMutators — recuperación de conflicto CAS", () => {
 
   it("onDrop es opcional — no rompe si no se pasa", () => {
     expect(() => rebaseMutators({ weeks: {} }, [() => { throw new Error("x"); }], ok)).not.toThrow();
+  });
+});
+
+describe("decideSaveStep — decisión del bucle CAS", () => {
+  it("success cuando el RPC devolvió fila (save entró)", () => {
+    expect(decideSaveStep({ success: true, newVersion: 5 })).toBe("success");
+  });
+  it("rebase cuando hay conflicto de versión", () => {
+    expect(decideSaveStep({ success: false, conflict: true })).toBe("rebase");
+  });
+  it("fallback ante error del RPC", () => {
+    expect(decideSaveStep({ success: false, error: { code: "57014" } })).toBe("fallback");
+  });
+  it("fallback si CAS está deshabilitado", () => {
+    expect(decideSaveStep({ success: false, casDisabled: true })).toBe("fallback");
+  });
+  it("fallback ante resultado nulo/indefinido (nunca lanza)", () => {
+    expect(decideSaveStep(null)).toBe("fallback");
+    expect(decideSaveStep(undefined)).toBe("fallback");
+    expect(decideSaveStep({})).toBe("fallback");
+  });
+  it("success tiene prioridad sobre conflict si ambos estuvieran (defensivo)", () => {
+    expect(decideSaveStep({ success: true, conflict: true })).toBe("success");
   });
 });

@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.19.0] — 2026-08-23 · Workshop v5 — `decideSaveStep` testeable (P1)
+
+Sin cambios de comportamiento. 162 tests (+6).
+
+- **[C-P1-3 / QA] `decideSaveStep(result)`** (`lib/save.js`): extraída la decisión del bucle CAS (`success`/`rebase`/`fallback`) — la lógica más frágil históricamente (media tabla de bugs de §5) — a una función **pura + 6 tests** que blindan el contrato (RPC con fila → success, sin fila → rebase, error/casDisabled/nulo → fallback). `runSave` la usa; la orquestación (loop, timeouts, awaits) queda inline. Refactor conservador y verificado, sin tocar el flujo.
+
+---
+
 ## [5.18.0] — 2026-08-22 · Workshop v5 — avatares a Storage + docs + pin (P2)
 
 Completa la regla "nada de base64 en el blob". 156 tests.

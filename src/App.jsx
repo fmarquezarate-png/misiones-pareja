@@ -47,7 +47,7 @@ const NotesWallView = lazy(() => import("./components/NotesWallView.jsx"));
 const MoodSurvey = lazy(() => import("./components/MoodSurvey.jsx"));
 const MoodView = lazy(() => import("./components/MoodView.jsx"));
 const WishlistView = lazy(() => import("./components/WishlistView.jsx"));
-import { rebaseMutators } from "./lib/save.js";
+import { rebaseMutators, decideSaveStep } from "./lib/save.js";
 
 import DevBackfillPanel from "./components/DevBackfillPanel.jsx";
 const GoalsView = lazy(() => import("./views/GoalsView.jsx"));
@@ -1342,11 +1342,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
           // detecta el conflicto (rama `result.conflict` abajo) y hace el
           // rebase habitual — nunca duplica ni pierde el cambio.
           const result = await withTimeoutRetry(() => saveWithCAS(coupleId, toSave, dataVersionRef.current), 15000, "saveWithCAS");
-          if (result.success) {
+          const step = decideSaveStep(result);
+          if (step === "success") {
             dataVersionRef.current = result.newVersion;
             saveLocalBackup(toSave, coupleId);
             saved = true;
-          } else if (result.conflict) {
+          } else if (step === "rebase") {
             // La pareja guardó primero. Recargar fresco y RE-APLICAR nuestros
             // mutadores encima — no descartamos nada.
             track("cas_conflict", { couple_id: coupleId });
