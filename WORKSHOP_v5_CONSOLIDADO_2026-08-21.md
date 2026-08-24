@@ -47,6 +47,11 @@ Pero el workshop destapó que **el fix de v5.14.0 dejó tres regresiones/deudas 
 Consenso del equipo: **el incendio está apagado, pero el fix creó humo nuevo que hay que ventilar
 antes de dar el sprint por cerrado — y la cura de fotos hay que terminarla (cápsulas + avatares).**
 
+> **✅ CONFIRMADO EN PRODUCCIÓN (23/08/2026):** tras la migración de fotos (semanas + cápsulas +
+> avatares, v5.14.0–v5.18.0), medido en Supabase: el blob de la pareja **bajó de ~4 MB a 58 kB**
+> (~70×). Causa raíz del `statement_timeout` curada con datos, no por intuición. Limpieza server-side
+> aplicada (timeout 20s, `DROP trg_snapshot_app_data` fósil, retención de backups + VACUUM).
+
 ---
 
 ## 2. Estado actual del sistema
