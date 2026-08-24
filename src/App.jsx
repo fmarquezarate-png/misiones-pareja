@@ -79,7 +79,7 @@ const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
 const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
 import MisiLiveLayer from "./components/MisiLiveLayer.jsx";
 const MisiChatPanel = lazy(() => import("./components/MisiChatPanel.jsx"));
-import { useSwipe, repairMisplacedMissions, applyCarryOver, mergeMissionsInto, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange } from "./lib/appUtils.js";
+import { useSwipe, repairMisplacedMissions, applyCarryOver, mergeMissionsInto, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange, dailyEventInstances } from "./lib/appUtils.js";
 
 
 
@@ -1636,7 +1636,15 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
     const isEv = newM.type === "event";
     const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", reminder:(newM.reminder && newM.reminder !== "none") ? newM.reminder : null, seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
-    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), mission] }));
+    // Evento DIARIO: el carry-over solo rellena semanas FUTURAS, así que aquí
+    // creamos también los días restantes de la semana actual (desde la fecha
+    // elegida hasta el domingo), acotado por seriesEndDate. Single-day cada uno.
+    const dailyExtras = (isEv && newM.seriesPattern === "daily" && mission.date)
+      ? dailyEventInstances(mission, data.currentWeekNumber, data.currentYear, mission.date)
+          .filter(ds => ds !== mission.date)
+          .map(ds => ({ ...mission, id:uid(), date:ds, endDate:null, endTime:null, createdAt:Date.now() }))
+      : [];
+    patchWeek(w => ({ ...w, missions:[...(w.missions||[]), mission, ...dailyExtras] }));
     insertNormalizedMission(coupleId, wkey, data.currentWeekNumber, data.currentYear, mission).catch(e => console.error("[dual_write] insert:", e));
     // Push tras el save confirmado: la pareja recibe la notificación solo cuando
     // los datos frescos ya están en la DB y puede leerlos (no antes).

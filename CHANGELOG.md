@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.21.0] — 2026-08-24 · Recurrencia "Diario" en eventos
+
+Nueva opción de recurrencia. 175 tests (+7).
+
+### 🔁 Diario
+
+- Nueva opción **"Diario"** en la recurrencia de eventos (junto a Semanal/Bisemanal/Mensual), con "Repetir hasta" opcional.
+- **Modelo:** el motor de recurrencia es semana-a-semana; para diario se generan **7 instancias por semana** (una por día, single-day, misma hora), con **dedup por (serie, fecha)**. Al crear un evento diario a mitad de semana, se rellenan también los días restantes de la semana actual (desde la fecha elegida) — el carry-over cubre las semanas futuras.
+- Una **tarea** diaria (sin fecha) se trata como semanal (no explota a 7).
+
+### Implementación
+
+- `lib/appUtils.js`: `dailyEventInstances(m, wn, yr, fromDate)` puro; `applyCarryOver` refactorizado a `flatMap` con rama diaria (dedup por fecha) — comportamiento del resto de patrones intacto.
+- `App.jsx addMission`: relleno de la semana de creación para eventos diarios.
+- `AddMissionForm` (opción + `flexWrap` para 5 botones), etiquetas "Diario" en `MissionCard`/`CalendarView`.
+- **7 tests** nuevos en `carryover.test.js` (helper puro + generación/tope/dedup/tarea).
+
+---
+
 ## [5.20.0] — 2026-08-23 · Workshop v5 — identidad por person-id (S-P1-1)
 
 168 tests (+6). Cierra el último ítem sustancial de cliente del workshop.

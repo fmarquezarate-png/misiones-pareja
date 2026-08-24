@@ -342,7 +342,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
             })()}
             {editingMission.mission.seriesId && onPatchAllFutureSeries && (
               <div style={{ background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
-                <div style={{ fontSize: 11, color: "#34d399", fontWeight: 600, marginBottom: 6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern === "weekly" ? "Semanal" : editingMission.mission.seriesPattern === "biweekly" ? "Bisemanal" : "Mensual"}</div>
+                <div style={{ fontSize: 11, color: "#34d399", fontWeight: 600, marginBottom: 6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern === "daily" ? "Diario" : editingMission.mission.seriesPattern === "weekly" ? "Semanal" : editingMission.mission.seriesPattern === "biweekly" ? "Bisemanal" : "Mensual"}</div>
                 <div style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)", marginBottom: 8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
                 <button onClick={() => {
                   const fromWkey = isoWeekKey(editingMission.wn, editingMission.yr);

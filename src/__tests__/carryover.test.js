@@ -4,8 +4,19 @@ import {
   applyCarryOver,
   repairMisplacedMissions,
   syncCarryDone,
+  dailyEventInstances,
+  weekStartDate,
 } from "../lib/appUtils.js";
 import { getWeekAndYear, isoWeekKey } from "../utils.js";
+
+// Fechas Mon..Sun de una semana ISO, en YYYY-MM-DD.
+const weekDays = (wn, yr) => {
+  const mon = weekStartDate(wn, yr);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+};
 
 // Semana mínima válida para estas funciones puras.
 const wk = (weekNumber, year, missions = []) => ({
@@ -144,6 +155,61 @@ describe("applyCarryOver — eventos recurrentes (feature nueva)", () => {
     const out = applyCarryOver(buildEv([{ id: "t", title: "regar", type: "task", status: "TBC", seriesPattern: "weekly", seriesId: "s2" }]));
     const inst = out.weeks["2026-W10"].missions.find(m => m.seriesId === "s2");
     expect(inst.date).toBe(null);
+  });
+});
+
+describe("dailyEventInstances (puro)", () => {
+  it("devuelve los 7 días de la semana sin fromDate ni fin", () => {
+    expect(dailyEventInstances({}, 10, 2026, null)).toEqual(weekDays(10, 2026));
+  });
+  it("recorta por fromDate (desde ese día hasta el domingo)", () => {
+    const days = weekDays(10, 2026);
+    expect(dailyEventInstances({}, 10, 2026, days[3])).toEqual(days.slice(3));
+  });
+  it("recorta por seriesEndDate (hasta ese día inclusive)", () => {
+    const days = weekDays(10, 2026);
+    expect(dailyEventInstances({ seriesEndDate: days[2] }, 10, 2026, null)).toEqual(days.slice(0, 3));
+  });
+});
+
+describe("applyCarryOver — eventos DIARIOS (feature nueva)", () => {
+  const buildEv = (prevMissions, currMissions = []) => ({
+    currentWeekNumber: 10, currentYear: 2026,
+    weeks: { "2026-W09": wk(9, 2026, prevMissions), "2026-W10": wk(10, 2026, currMissions) },
+  });
+  const dailyEv = (extra = {}) => ({ id: "e", title: "pastilla", type: "event", status: "TBC", date: "2026-02-25", time: "09:00", seriesPattern: "daily", seriesId: "s1", ...extra });
+
+  it("genera 7 instancias (una por día), single-day, misma hora", () => {
+    const out = applyCarryOver(buildEv([dailyEv()]));
+    const insts = out.weeks["2026-W10"].missions.filter(m => m.seriesId === "s1");
+    expect(insts).toHaveLength(7);
+    expect(insts.every(m => m.time === "09:00")).toBe(true);
+    expect(insts.every(m => m.endDate == null)).toBe(true);
+    expect(insts.map(m => m.date).sort()).toEqual(weekDays(10, 2026));
+  });
+
+  it("respeta seriesEndDate (no pasa del fin)", () => {
+    const end = weekDays(10, 2026)[2];
+    const out = applyCarryOver(buildEv([dailyEv({ seriesEndDate: end })]));
+    const insts = out.weeks["2026-W10"].missions.filter(m => m.seriesId === "s1");
+    expect(insts.map(m => m.date).sort()).toEqual(weekDays(10, 2026).slice(0, 3));
+  });
+
+  it("dedup por fecha: no re-crea un día que ya existe en la semana", () => {
+    const day0 = weekDays(10, 2026)[0];
+    const existing = { id: "x", title: "pastilla", type: "event", status: "TBC", date: day0, seriesId: "s1", seriesPattern: "daily" };
+    const out = applyCarryOver(buildEv([dailyEv()], [existing]));
+    const insts = out.weeks["2026-W10"].missions.filter(m => m.seriesId === "s1");
+    expect(insts).toHaveLength(7); // 1 existente + 6 nuevos
+    expect(insts.filter(m => m.date === day0)).toHaveLength(1); // sin duplicar
+  });
+
+  it("una TAREA diaria NO explota a 7: se trata como semanal (instancia de serie única, date null)", () => {
+    const out = applyCarryOver(buildEv([{ id: "t", title: "meditar", type: "task", status: "TBC", seriesPattern: "daily", seriesId: "s3" }]));
+    // La instancia de SERIE (carriedFrom null) — aparte del carry-over normal preexistente.
+    const seriesInsts = out.weeks["2026-W10"].missions.filter(m => m.seriesId === "s3" && !m.carriedFrom);
+    expect(seriesInsts).toHaveLength(1);
+    expect(seriesInsts[0].date).toBe(null);
   });
 });
 

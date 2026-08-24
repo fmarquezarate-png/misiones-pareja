@@ -150,6 +150,22 @@ const _shiftYmd = (ymd, deltaDays) => {
   d.setDate(d.getDate() + deltaDays);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
+
+// Fechas (YYYY-MM-DD) de las instancias DIARIAS de un evento recurrente para la
+// semana (wn, yr): un día por cada día de la semana desde `fromDate` (o el lunes
+// si es null) hasta el domingo, acotado por `seriesEndDate`. Puro y testeable.
+export function dailyEventInstances(m, wn, yr, fromDate) {
+  const mon = weekStartDate(wn, yr);
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const ds = ymd(new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i));
+    if (fromDate && ds < fromDate) continue;               // no antes del inicio elegido
+    if (m?.seriesEndDate && ds > m.seriesEndDate) continue; // no después del fin de la serie
+    out.push(ds);
+  }
+  return out;
+}
 const _ymdDelta = (a, b) => Math.round((new Date(b + "T00:00") - new Date(a + "T00:00")) / 86400000);
 
 export function applyCarryOver(data) {
@@ -189,34 +205,47 @@ export function applyCarryOver(data) {
     return !(cyr > eYr || (cyr === eYr && cwn > eWn));
   };
 
-  const newSeriesMissions = allSeriesSources.filter(m => {
-    if (existingSeriesIds.has(m.seriesId)) return false;
-    if (!seriesEndOk(m)) return false;
-    if (m.seriesPattern === "weekly") return true;
-    if (m.seriesPattern === "monthly") return isFirstWeekOfMonth;
-    if (m.seriesPattern === "biweekly") {
+  // Para deduplicar eventos DIARIOS por (serie, fecha) — no por serie entera.
+  const existingSeriesDatePairs = new Set(
+    (currW.missions || []).filter(m => m.seriesId && m.date).map(m => `${m.seriesId}|${m.date}`)
+  );
+  const mkInst = (m, dateVal) => ({ ...m, id: uid(), carriedFrom: null, carriedFromWeek: null, createdAt: Date.now(), completedAt: null, status: "TBC", date: dateVal });
+
+  const newSeriesMissions = allSeriesSources.flatMap(m => {
+    if (!seriesEndOk(m)) return [];
+    const isDaily = m.seriesPattern === "daily";
+    const isEventWithDate = m.type === "event" && m.date;
+
+    // Evento DIARIO → una instancia por CADA día de la semana, single-day,
+    // deduplicando por fecha (no por serie: la serie no es "presente/ausente").
+    if (isDaily && isEventWithDate) {
+      return dailyEventInstances(m, cwn, cyr, null)
+        .filter(ds => !existingSeriesDatePairs.has(`${m.seriesId}|${ds}`))
+        .map(ds => ({ ...mkInst(m, ds), endDate: null, endTime: null }));
+    }
+
+    // Resto de patrones (y tarea diaria ≈ semanal): 1 instancia/semana, dedup por serie.
+    if (existingSeriesIds.has(m.seriesId)) return [];
+    let due = false;
+    if (m.seriesPattern === "weekly" || isDaily) due = true; // tarea diaria se trata como semanal
+    else if (m.seriesPattern === "monthly") due = isFirstWeekOfMonth;
+    else if (m.seriesPattern === "biweekly") {
       if (m.seriesStartWeek != null && m.seriesStartYear != null) {
-        // Suma semanas ISO reales de cada año intermedio — algunos años tienen 53, no 52
         let weeksDiff = cwn - m.seriesStartWeek;
         for (let y = m.seriesStartYear; y < cyr; y++) weeksDiff += isoWeeksInYear(y);
         for (let y = cyr; y < m.seriesStartYear; y++) weeksDiff -= isoWeeksInYear(y);
-        return weeksDiff % 2 === 0;
-      }
-      return !prevSeriesIds.has(m.seriesId);
+        due = weeksDiff % 2 === 0;
+      } else due = !prevSeriesIds.has(m.seriesId);
     }
-    return false;
-  }).map(m => {
-    const inst = { ...m, id: uid(), carriedFrom: null, carriedFromWeek: null, createdAt: Date.now(), completedAt: null, status: "TBC" };
-    if (m.type === "event" && m.date) {
-      // Evento recurrente → instancia CON fecha real (mismo día de la semana),
-      // conservando hora/duración; si es multi-día, desplaza endDate el mismo delta.
+    if (!due) return [];
+
+    if (isEventWithDate) {
       const newDate = eventInstanceDate(m.date, cwn, cyr);
-      inst.date = newDate;
+      const inst = mkInst(m, newDate);
       if (m.endDate) inst.endDate = _shiftYmd(m.endDate, _ymdDelta(m.date, newDate));
-    } else {
-      inst.date = null; // tarea recurrente → pendiente sin fecha (como siempre)
+      return [inst];
     }
-    return inst;
+    return [mkInst(m, null)]; // tarea recurrente → pendiente sin fecha
   });
 
   if (!toCarry.length && !newSeriesMissions.length) return data;

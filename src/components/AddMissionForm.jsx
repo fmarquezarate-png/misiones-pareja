@@ -209,10 +209,10 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
       </div>}
       <div style={{ marginBottom:10 }}>
         <label style={S.label}>🔁 {isEvent ? "Evento recurrente" : "Tarea recurrente"}</label>
-        <div style={{ display:"flex", gap:4 }}>
-          {[{id:"",label:"Una vez"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
+        <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+          {[{id:"",label:"Una vez"},{id:"daily",label:"Diario"},{id:"weekly",label:"Semanal"},{id:"biweekly",label:"Bisemanal"},{id:"monthly",label:"Mensual"}].map(o=>(
             <button key={o.id} onClick={()=>setNewM(p=>({...p,seriesPattern:o.id,seriesEndDate:"",seriesId:o.id?p.seriesId||uid():undefined}))}
-              style={{ flex:1, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
+              style={{ flex:"1 1 52px", minWidth:52, background:newM.seriesPattern===o.id?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${newM.seriesPattern===o.id?"rgba(167,139,250,0.5)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:newM.seriesPattern===o.id?"#c4b8ff":"#6b5f88", padding:"5px 6px", cursor:"pointer", fontSize:11, fontFamily:"inherit", fontWeight:newM.seriesPattern===o.id?600:400 }}>{o.label}</button>
           ))}
         </div>
         {newM.seriesPattern && <div style={{ marginTop:8 }}>
