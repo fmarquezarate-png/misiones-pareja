@@ -34,6 +34,8 @@ WHERE id IN (
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    -- Re-ejecutable: quitar el job previo (si lo hay) antes de re-crearlo.
+    BEGIN PERFORM cron.unschedule('app_data_backups_retention'); EXCEPTION WHEN OTHERS THEN NULL; END;
     PERFORM cron.schedule(
       'app_data_backups_retention',
       '0 4 * * 0',
