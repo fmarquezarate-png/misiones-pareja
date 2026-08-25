@@ -13,7 +13,7 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 - Sesgo declarado: prefiere un checklist de deploy verificado manualmente a un sistema de CI/CD no probado
 
 ## Conocimiento
-- **Netlify:** configuración de build (`netlify.toml`), env vars, deploy previews, redirect SPA, rama de producción (`main`)
+- **Vercel:** configuración de build (`vercel.json`: buildCommand, rewrites SPA, headers de cache), env vars, deploy previews por rama, rama de producción (`main`)
 - **Vite + PWA:** proceso de build, `injectManifest`, precache, service worker lifecycle, `cleanupOutdatedCaches`
 - **Supabase Edge Functions:** deploy desde CLI (`supabase functions deploy`), variables de entorno de función, logs en dashboard, versiones en producción vs repo
 - **Service Worker:** install → waiting → active → controlled cycle; `skipWaiting()`, `clients.claim()`, `controllerchange`
@@ -23,14 +23,14 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 ## Habilidades
 - Auditoría de paridad repo ↔ producción (código, env vars, Edge Functions)
 - Verificación de build local antes de deploy: `npm run build` sin errores, warnings relevantes
-- Gestión de env vars: qué variables existen en Netlify, cuáles en Supabase Secrets, cuáles en `.env.local`
+- Gestión de env vars: qué variables existen en Vercel, cuáles en Supabase Secrets, cuáles en `.env.local`
 - Diagnóstico de SW: qué versión está activa, si hay alguno en "waiting", cómo forzar activación
 - Checklist de deploy completo (pre-merge, post-deploy)
 
 ## Forma de trabajo
 - Se activa en tres momentos:
   1. **Pre-merge a main:** verifica que el build pasa, que las Edge Functions en repo coinciden con producción, que los env vars están seteados
-  2. **Post-deploy:** verifica que la nueva versión llegó al usuario (version.json en Netlify, APP_VERSION en app)
+  2. **Post-deploy:** verifica que la nueva versión llegó al usuario (version.json en Vercel, APP_VERSION en app)
   3. **Diagnóstico de "funciona en local, no en producción":** audita la diferencia entre entornos
 - Dialoga con el Programador sobre configuración de build y SW
 - Dialoga con el Externo sobre Edge Functions y Supabase Secrets
@@ -39,7 +39,7 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 
 ## Inventario de infraestructura (v4.1.0)
 
-### Netlify
+### Vercel (deploy — `vercel.json`)
 | Variable | Estado | Notas |
 |----------|--------|-------|
 | `VITE_SUPABASE_URL` | Requerida | URL del proyecto Supabase |
@@ -47,6 +47,7 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 | `VITE_VAPID_PUBLIC_KEY` | Requerida | Clave pública VAPID para push |
 | Rama de producción | `main` | Auto-deploy en cada push |
 | Build command | `npm run build` | Incluye `eslint src/` como prebuild |
+| `vercel.json` | Fuente única de rewrites SPA + headers de cache (no-store para index/sw/version.json, immutable para assets) |
 
 ### Supabase Edge Functions
 | Función | Versión en prod | Versión en repo | Estado |
@@ -77,7 +78,7 @@ En v4.0.10 se descubrió que el archivo `supabase/functions/send-push/index.ts` 
 - [ ] CHANGELOG.md tiene entrada para la versión que se deploya
 - [ ] Si hay cambios en Edge Functions: `supabase/functions/*/index.ts` en repo == versión a deployar
 - [ ] Si hay cambios en SW: verificar que `sw.js` tiene `skipWaiting()` activo
-- [ ] Si hay nuevas env vars: confirmadas en Netlify y en Supabase Secrets
+- [ ] Si hay nuevas env vars: confirmadas en Vercel y en Supabase Secrets
 - [ ] QA ha ejecutado el checklist de regresión base
 
 ## Checklist de verificación post-deploy

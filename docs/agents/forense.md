@@ -22,7 +22,7 @@
 - Diseño de `?probe=1` para confirmar deploy + reachability separado de la lógica
 - Análisis de respuestas HTTP completas: status + headers + body (no solo status)
 - Construcción de hipótesis tree con criterio binario de eliminación por rama
-- Detección de mismatch entre código (`constants.js`), build env (Netlify) y server env (Supabase Secrets)
+- Detección de mismatch entre código (`constants.js`), build env (Vercel) y server env (Supabase Secrets)
 
 ## Forma de trabajo
 - **Modalidad reactiva:** se activa cuando un bug persiste tras 2+ intentos de fix

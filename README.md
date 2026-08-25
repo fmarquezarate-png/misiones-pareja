@@ -23,7 +23,7 @@ Acceso por código de pareja — sin email, sin contraseña. Instalable en iOS, 
 | Persistencia | Supabase — blob JSON en `app_data` + tablas normalizadas (`missions`, `goals`, `couple_settings`) |
 | Guardado | CAS (Compare-And-Swap) con rebase-on-conflict — nunca se pierden datos en edición concurrente |
 | Push | Web Push API + Edge Function `send-push` en Supabase |
-| Despliegue | Netlify (deploy automático desde `main`) |
+| Despliegue | Vercel (deploy automático desde `main`) |
 | CI | GitHub Actions — lint + test + build en cada push y PR |
 | Tests | Vitest |
 
@@ -76,7 +76,7 @@ misiones-pareja/
 │   └── version.json             # Versión para detección de updates
 ├── index.html
 ├── vite.config.js
-├── netlify.toml
+├── vercel.json
 └── package.json
 ```
 
@@ -201,7 +201,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 VITE_VAPID_PUBLIC_KEY=<clave pública VAPID>
 ```
 
-En Netlify: **Site settings → Environment variables**.
+En Vercel: **Project Settings → Environment Variables**.
 
 ---
 
@@ -229,7 +229,7 @@ npm run lint     # ESLint — 0 errores requeridos para build
 
 ## Despliegue
 
-- **Plataforma:** Netlify
+- **Plataforma:** Vercel
 - **Rama de producción:** `main`
 - **Build command:** `npm run build` (incluye `eslint --max-warnings 0`)
 - **Publish directory:** `dist`

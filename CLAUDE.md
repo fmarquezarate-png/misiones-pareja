@@ -7,7 +7,7 @@
 
 ## 1. Qué es el proyecto
 
-**Misiones de Pareja** — PWA de planificación semanal para parejas (React 18 + Vite 5 + Supabase + Netlify). Single page, sin router, datos compartidos por `coupleId`. Persistencia: blob JSON en `app_data.data` + dual-write a tablas normalizadas (Sprint G en curso).
+**Misiones de Pareja** — PWA de planificación semanal para parejas (React 18 + Vite 5 + Supabase + Vercel). Single page, sin router, datos compartidos por `coupleId`. Persistencia: blob JSON en `app_data.data` + dual-write a tablas normalizadas (Sprint G en curso).
 
 - **Versión actual:** ver `src/constants.js → APP_VERSION`
 - **Branch activo:** `claude/modest-heisenberg-zB9mn`
