@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.23.2] — 2026-08-25 · Fix: barra inferior se "despegaba" al hacer scroll (iOS)
+
+Reportado por vídeo: en la vista de Semana (iPhone), al hacer scroll rápido la `BottomTabBar` (`position:fixed; bottom:0`) aparecía a mitad de pantalla con contenido arriba y abajo. Diagnóstico: en reposo la barra está bien (CSS lo garantiza); el "mid-screen" solo ocurre DURANTE el scroll con inercia — el compositor de iOS desincroniza los `position:fixed` en layouts de body-scroll con `backdrop-filter`. No es un crash ni viene de las animaciones de v5.23.0.
+
+- `BottomTabBar.jsx`: `transform: translateZ(0)` + `will-change: transform` → promociona la barra a su propia capa de compositor para que iOS la mantenga estable durante el scroll. Seguro: la nav no tiene descendientes `position:fixed`, así que el nuevo containing-block no afecta a nada. (El Topbar se deja: es `sticky` y contiene un overlay `fixed` — promocionarlo rompería el menú de ajustes.)
+
+Nota: fix de baja-riesgo no verificable on-device desde el entorno; si el efecto persiste, la cura definitiva es un contenedor de scroll dedicado (bars fuera del flujo de scroll), cambio mayor a probar en iPhone.
+
+---
+
 ## [5.23.1] — 2026-08-25 · Fix: la actualización del SW ya no interrumpe al usuario
 
 Reportado por vídeo: la app se recargó a mitad de edición (era la auto-actualización 5.22→5.23 del Service Worker; `controllerchange`→`reload` incondicional en `main.jsx`). No era un crash (ErrorBoundary muestra otra pantalla; telemetría sin `app_error`). 183 tests.

@@ -29,6 +29,13 @@ export default function BottomTabBar({ tabs, activeTab, onTabChange, badges = {}
       paddingBottom: "env(safe-area-inset-bottom)",
       backdropFilter: "blur(12px)",
       WebkitBackdropFilter: "blur(12px)",
+      // iOS: forzar capa propia de compositor para que la barra fija NO se
+      // "despegue" a mitad de pantalla durante el scroll con inercia (bug clásico
+      // de position:fixed + body-scroll en PWAs de iPhone). Seguro: esta nav no
+      // tiene descendientes position:fixed, así que el nuevo containing-block no
+      // afecta a nada.
+      transform: "translateZ(0)",
+      willChange: "transform",
     }}>
       {tabDefs.map(tab => {
         const active = activeTab === tab.id;
