@@ -200,5 +200,6 @@ Mientras estos 3 paths no tengan su `updateNormalizedMission`, `read_from_normal
 - [`WORKSHOP_v4_2_VISION_2036.md`](./WORKSHOP_v4_2_VISION_2036.md) — visión 10 años por agente, patrones sistémicos
 - [`WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md`](./WORKSHOP_v4_3_CONSOLIDADO_2026-05-28.md) — informe ejecutivo workshop live 28/05 con todos los agentes
 - [`WORKSHOP_v5_CONSOLIDADO_2026-08-21.md`](./WORKSHOP_v5_CONSOLIDADO_2026-08-21.md) — workshop live 21/08 (v5.14.0): post-mortem de la saga de guardado/offline + auditoría de los Bloques 3/4/5. Backlog P0/P1/P2 vigente.
+- [`WORKSHOP_v5_FOLLOWUP_2026-08-24.md`](./WORKSHOP_v5_FOLLOWUP_2026-08-24.md) — follow-up del Coordinador (24/08, v5.21.0): estado ítem-por-ítem del backlog (~85-90% cerrado), riesgos revisados y los 5 cabos que quedan abiertos (observabilidad F-P1-1 el nº1).
 - [`ANALISIS_TECNICO_2026-05-14.md`](./ANALISIS_TECNICO_2026-05-14.md) — auditoría técnica
 - `docs/agents/*.md` — perfil por agente
