@@ -1154,6 +1154,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     };
   }, [coupleId]);
 
+  // "Ocupado": el SW no debe recargar para aplicar una actualización mientras el
+  // usuario edita algo o tiene cambios sin guardar (ver main.jsx). Se libera solo.
+  useEffect(() => {
+    window.__mpBlockReload = !!(showAddForm || pendingSave);
+  }, [showAddForm, pendingSave]);
+
   // Online/offline detection
   useEffect(() => {
     const up = () => setIsOnline(true);

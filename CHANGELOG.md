@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.23.1] — 2026-08-25 · Fix: la actualización del SW ya no interrumpe al usuario
+
+Reportado por vídeo: la app se recargó a mitad de edición (era la auto-actualización 5.22→5.23 del Service Worker; `controllerchange`→`reload` incondicional en `main.jsx`). No era un crash (ErrorBoundary muestra otra pantalla; telemetría sin `app_error`). 183 tests.
+
+- `main.jsx`: la recarga por actualización del SW **espera** a que el usuario no esté ocupado (sheet de añadir/editar abierto o guardado pendiente), con tope de seguridad de 60s. Evita cortar una edición y el riesgo de perder un cambio.
+- `App.jsx`: marca `window.__mpBlockReload` según `showAddForm || pendingSave`.
+
+---
+
 ## [5.23.0] — 2026-08-24 · Pase proactivo de UX (delight) — quick wins del UI/UX
 
 Respuesta a "la app no cambió nada visualmente ni en uso". Auditoría proactiva del agente UI/UX → 4 quick wins que **se sienten**. 183 tests. Sin re-inflar densidad, respetando `prefers-reduced-motion`, sin librerías.
