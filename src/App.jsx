@@ -44,6 +44,7 @@ import MatchDayTheme from "./components/MatchDayTheme.jsx";
 import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
 const BirthdaysView = lazy(() => import("./components/BirthdaysView.jsx"));
 const NotesWallView = lazy(() => import("./components/NotesWallView.jsx"));
+const DiagnosticsView = lazy(() => import("./components/DiagnosticsView.jsx"));
 const MoodSurvey = lazy(() => import("./components/MoodSurvey.jsx"));
 const MoodView = lazy(() => import("./components/MoodView.jsx"));
 const WishlistView = lazy(() => import("./components/WishlistView.jsx"));
@@ -708,7 +709,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule","notes"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule","notes","diagnostics"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -2480,6 +2481,8 @@ ${sorted.map(m=>{
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
         {activeTab==="links" && <LinksView links={data.links||[]} onSave={links=>update(d=>({...d,links}))} />}
+
+        {activeTab==="diagnostics" && <DiagnosticsView coupleId={coupleId} />}
 
         {activeTab==="notes" && <NotesWallView
           notes={data.loveNotes||[]}

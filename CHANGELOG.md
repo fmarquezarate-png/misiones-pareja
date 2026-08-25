@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.22.0] — 2026-08-24 · Observabilidad in-app (F-P1-1) + limpieza de Netlify
+
+Cierra el ítem nº1 pendiente del follow-up del Coordinador (observabilidad) + hygiene del repo. 180 tests (+5).
+
+### 🔍 Panel de diagnóstico (F-P1-1)
+- Vista interna que lee la telemetría `events` de la pareja (RLS `events_select_own` ya lo permite) y la resume **sin abrir Supabase** — era lo que costó 3 versiones diagnosticar la saga de guardado.
+- Muestra: **tamaño del blob** (último/máximo, con alerta si >500 kB), **fallos accionables** (`save_error`/`cas_rpc_error`/uploads) con mensaje·code·blob_size·fecha, y recuento por tipo de evento. Rango 24h/48h/7d.
+- Acceso oculto (no molesta a la usuaria): **long-press en el número de versión** del menú → tab `diagnostics` (también `?tab=diagnostics`).
+- `lib/diagnostics.js`: `summarizeEvents` puro (**5 tests**) + `loadEventStats`. Componente `DiagnosticsView.jsx` (lazy).
+
+### 🧹 Netlify fuera (deploy es 100% Vercel)
+- Borrados `netlify.toml` y `netlify/functions/restore-data.mjs` (script de recuperación de un solo uso, dead code). `vercel.json` ya cubría rewrites + headers de cache.
+- README, `CLAUDE.md §1`, `docs/agents/devops.md`/`forense.md`: Netlify → Vercel. Referencias históricas (changelog, workshops, §5) conservadas como registro.
+
+---
+
 ## [5.21.0] — 2026-08-24 · Recurrencia "Diario" en eventos
 
 Nueva opción de recurrencia. 175 tests (+7).

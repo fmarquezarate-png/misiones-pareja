@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { APP_VERSION, LAST_UPDATE } from "../constants.js";
 
 // Menú lateral agrupado (handoff v5): "Inicio" suelto arriba, y tres grupos
@@ -45,6 +45,12 @@ function SectionHeader({ children }) {
 
 export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenActivity, couplePhoto, coupleEmoji, p1, p2, syncMsg, onShowProfile, chatUnread = 0 }) {
   const [showChangelog, setShowChangelog] = useState(false);
+  // Long-press en la versión → panel de Diagnóstico (entrada oculta de dev, sin
+  // ensuciar la UI). Un tap normal abre el changelog.
+  const lpTimer = useRef(null);
+  const lpFired = useRef(false);
+  const lpStart = () => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; onNavigate("diagnostics"); }, 700); };
+  const lpEnd = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
   // Acordeón "Nosotros" — arranca abierto si la pestaña activa vive dentro.
   const nosotrosHasActive = NOSOTROS_ITEMS.some(i => i.id === activeTab);
   const [nosotrosOpen, setNosotrosOpen] = useState(nosotrosHasActive);
@@ -157,7 +163,8 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenA
         {/* Footer — version + changelog trigger */}
         <div style={{ padding:"12px 16px", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.07))", flexShrink:0 }}>
           {syncMsg && <div style={{ fontSize:10, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")?"#34d399":"#60a5fa", marginBottom:6, lineHeight:1.4 }}>{syncMsg}</div>}
-          <button onClick={() => setShowChangelog(true)}
+          <button onClick={() => { if (lpFired.current) { lpFired.current = false; return; } setShowChangelog(true); }}
+            onPointerDown={lpStart} onPointerUp={lpEnd} onPointerLeave={lpEnd} onPointerCancel={lpEnd}
             style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
             <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
             <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)" }}>{LAST_UPDATE}</span>

@@ -2,6 +2,7 @@
 // se cargue en el bundle inicial. ~100KB de texto que solo hace falta cuando
 // el usuario abre 'Ver cambios' en el menú lateral (import() dinámico en SideMenu.jsx).
 export const CHANGELOG = [
+  { v:"5.22.0", date:"2026-08-24", notes:["Panel de diagnóstico interno 🔍 (para nosotros): un panel oculto que muestra la 'salud' de la app —tamaño de datos, si hubo algún fallo al guardar, etc.— sin tener que abrir la base de datos. Se abre dejando pulsado el número de versión en el menú. No cambia nada de la experiencia normal."] },
   { v:"5.21.0", date:"2026-08-24", notes:["Recurrencia diaria 🔁 Ahora al crear un evento puedes elegir que se repita 'Diario' (además de semanal, bisemanal o mensual). Aparece cada día — desde el día que lo creas y en las semanas siguientes — y puedes ponerle una fecha de fin con 'Repetir hasta'. Ideal para rutinas: medicación, ejercicio, etc."] },
   { v:"5.20.0", date:"2026-08-23", notes:["Notitas y gracias más robustos 🪪 Si cambias tu nombre en el perfil, tus notitas y agradecimientos anteriores siguen reconociéndote como su autor/a (antes se identificaban solo por el nombre y podían 'despegarse' al renombrarte). Las notitas antiguas siguen funcionando igual."] },
   { v:"5.19.0", date:"2026-08-23", notes:["Guardado más blindado 🛡️ Hemos aislado y cubierto con pruebas automáticas la parte del guardado que decide qué hacer cuando tú y tu pareja guardáis a la vez (la que históricamente más se ha roto). No cambia nada visible: guarda igual, pero ahora esa lógica delicada tiene red de seguridad."] },
