@@ -233,7 +233,10 @@ serve(async (req) => {
   }
 
   try {
-    const { coupleId, message, personName, history } = await req.json();
+    const { mode, coupleId, message, personName, history } = await req.json();
+    if (mode === 'probe') {
+      return new Response(JSON.stringify({ ok: true, ts: new Date().toISOString() }), { headers: corsHeaders });
+    }
     if (!coupleId || !message) {
       return new Response(JSON.stringify({ error: 'coupleId y message requeridos' }), { status: 400, headers: corsHeaders });
     }

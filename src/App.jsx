@@ -78,6 +78,7 @@ const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.js
 const ActivityLog = lazy(() => import("./components/ActivityLog.jsx"));
 const TimeCapsuleView = lazy(() => import("./components/TimeCapsuleView.jsx"));
 const TimeCapsuleReveal = lazy(() => import("./components/TimeCapsuleReveal.jsx"));
+const MisiSystemView = lazy(() => import("./components/MisiSystemView.jsx"));
 import MisiLiveLayer from "./components/MisiLiveLayer.jsx";
 const MisiChatPanel = lazy(() => import("./components/MisiChatPanel.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, mergeMissionsInto, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange, dailyEventInstances } from "./lib/appUtils.js";
@@ -709,7 +710,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","links","birthdays","timecapsule","notes","diagnostics"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","diagnostics"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -2484,6 +2485,8 @@ ${sorted.map(m=>{
         {activeTab==="stats" && <StatsView weeks={data.weeks} p1={p1} p2={p2} colors={colors} onGoToWeek={(wn,yr)=>{update(s=>({...s,currentWeekNumber:wn,currentYear:yr}));setActiveTab("current");}} />}
 
         {activeTab==="chat" && <ChatView coupleId={coupleId} personName={personName} sessionUserId={sessionUserId} chatNotifEnabled={notifGranted && (data.settings?.notifications?.chat!==false)} reactions={data.reactions} myPersonId={sessionPersonId} onToggleReaction={toggleReaction} />}
+
+        {activeTab==="system" && <MisiSystemView coupleId={coupleId} data={data} />}
 
         {activeTab==="gastos" && <GastosView gastos={data.gastos||[]} proyectos={data.gastosProyectos||[]} p1={p1} p2={p2} colors={colors} onUpdate={gastos=>update(d=>({...d,gastos}))} onUpdateProyectos={proyectos=>update(d=>({...d,gastosProyectos:proyectos}))} onUpdateAll={patch=>update(d=>({...d,...patch}))} />}
 
