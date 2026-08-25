@@ -10,6 +10,7 @@ export const ALL_TABS = [
   { id: "mood",      label: "Ánimo",      icon: "😊" },
   { id: "gastos",    label: "Gastos",     icon: "💰" },
   { id: "chat",      label: "Chat",       icon: "💬" },
+  { id: "system",    label: "Sistema",    icon: "🛡️" },
   { id: "links",     label: "Links",      icon: "🔗" },
   { id: "birthdays", label: "Cumpleaños", icon: "🎂" },
   { id: "timecapsule", label: "Cápsula", icon: "✉️" },
