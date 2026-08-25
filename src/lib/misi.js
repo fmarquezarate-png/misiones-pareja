@@ -32,3 +32,15 @@ export async function askMisi({ coupleId, message, personName, history }) {
   if (!data?.reply) throw new Error("Respuesta vacía de Misi");
   return data.reply;
 }
+
+export async function probeMisi() {
+  const { data, error } = await supabase.functions.invoke("misi-chat", {
+    body: { mode: "probe" },
+  });
+  if (error) {
+    let detail = null;
+    try { detail = (await error.context?.json())?.error; } catch { /* body no era JSON */ }
+    throw new Error(detail || error.message || "Misi no respondió");
+  }
+  return data || { ok: true };
+}
