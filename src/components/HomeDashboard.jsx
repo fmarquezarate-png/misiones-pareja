@@ -667,7 +667,7 @@ export default function HomeDashboard({
       <div style={{...W, borderRadius:12}}>
         <div style={{...eyebrow, fontSize:8.5, marginBottom:8}}>📋 Hoy</div>
         {todayMs.length === 0 ? (
-          <div style={{fontSize:12, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Día libre 🌿</div>
+          <div style={{fontSize:12, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Hoy es vuestro 💜 Sin planes, y está bien.</div>
         ) : (
           <div style={{display:"flex", flexDirection:"column", gap:6}}>
             {todayMs.map(m => {

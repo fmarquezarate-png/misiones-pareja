@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.23.0] — 2026-08-24 · Pase proactivo de UX (delight) — quick wins del UI/UX
+
+Respuesta a "la app no cambió nada visualmente ni en uso". Auditoría proactiva del agente UI/UX → 4 quick wins que **se sienten**. 183 tests. Sin re-inflar densidad, respetando `prefers-reduced-motion`, sin librerías.
+
+Hallazgo raíz del UI/UX: había andamiaje de "vida" ya construido y **nunca enchufado** (`fadeInUp`, `.home-breathe-bg`) y `navigator.vibrate` sin usar. Se termina lo cálido a medio construir.
+
+- **Haptics** (`utils.js` `haptic()`, guardas de soporte + reduced-motion): pulso corto al ciclar estado (`[12,40,18]` al completar), y al enviar notita/gratitud/toque. Confirma el gesto "en la mano".
+- **StatusOrb con cierre satisfactorio** al marcar HECHO: destello verde one-shot (`orb-done-glow`) + check que se dibuja (`orb-check-in`). El elemento más tocado, ahora con microrrecompensa.
+- **Entrada escalonada** de la lista de semana (`fadeInUp` con stagger de 40ms, cap 6) — enchufa el keyframe que estaba muerto.
+- **Estado vacío cálido**: "Hoy es vuestro 💜 Sin planes, y está bien" (antes "Día libre 🌿").
+- `@media (prefers-reduced-motion)` anula breathe/fadeInUp; celebraciones one-shot, nunca bloqueantes.
+
+**Pendiente (propuestas M del UI/UX, para valorar):** celebración de hito al 100%, hero que respira, pasada editorial de Fraunces, más estados vacíos.
+
+---
+
 ## [5.22.0] — 2026-08-24 · Observabilidad in-app (F-P1-1) + limpieza de Netlify
 
 Cierra el ítem nº1 pendiente del follow-up del Coordinador (observabilidad) + hygiene del repo. 180 tests (+5).

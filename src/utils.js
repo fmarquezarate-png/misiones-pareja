@@ -62,6 +62,19 @@ export const getWeekAndYear = (date = new Date()) => {
 export const localDateStr = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
+// Feedback háptico en toques clave (confirma el gesto "en la mano" sin mirar).
+// Guardas: sin soporte → no-op; respeta prefers-reduced-motion; nunca lanza.
+export const prefersReducedMotion = () => {
+  try { return !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch { return false; }
+};
+export const haptic = (pattern = 10) => {
+  try {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    if (prefersReducedMotion()) return;
+    navigator.vibrate(pattern);
+  } catch { /* no-op */ }
+};
+
 export const isTodayMonday    = () => new Date().getDay() === 1;
 export const isoWeeksInYear   = yr => getWeekAndYear(new Date(yr, 11, 28)).week;
 export const prevWeekFn       = (wn, yr) => wn === 1 ? { wn: isoWeeksInYear(yr - 1), yr: yr - 1 } : { wn: wn - 1, yr };

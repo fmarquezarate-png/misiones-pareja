@@ -1,5 +1,23 @@
-import { describe, it, expect } from "vitest";
-import { isoWeekKey, getWeekAndYear, isoWeeksInYear } from "../utils.js";
+import { describe, it, expect, vi } from "vitest";
+import { isoWeekKey, getWeekAndYear, isoWeeksInYear, haptic, prefersReducedMotion } from "../utils.js";
+
+describe("haptic", () => {
+  it("nunca lanza, aunque no haya navigator.vibrate (jsdom)", () => {
+    expect(() => haptic()).not.toThrow();
+    expect(() => haptic([10, 40, 20])).not.toThrow();
+  });
+  it("llama navigator.vibrate cuando existe y no hay reduced-motion", () => {
+    const spy = vi.fn();
+    const orig = navigator.vibrate;
+    navigator.vibrate = spy;
+    haptic(12);
+    expect(spy).toHaveBeenCalledWith(12);
+    navigator.vibrate = orig;
+  });
+  it("prefersReducedMotion no lanza", () => {
+    expect(() => prefersReducedMotion()).not.toThrow();
+  });
+});
 
 describe("isoWeekKey", () => {
   it("formatea semana con padding de cero", () => {

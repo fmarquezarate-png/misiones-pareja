@@ -24,7 +24,7 @@ import FilterDrawer, { FilterButton } from "./components/FilterDrawer.jsx";
 const LinksView = lazy(() => import("./components/LinksView.jsx"));
 import { useConfirm } from "./components/ConfirmModal.jsx";
 import { SkeletonDashboard, SkeletonCard } from "./components/Skeleton.jsx";
-import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr, withTimeout, withTimeoutRetry } from "./utils.js";
+import { uid, isoWeekKey, getWeekAndYear, isTodayMonday, isoWeeksInYear, localDateStr, withTimeout, withTimeoutRetry, haptic } from "./utils.js";
 import { APP_VERSION, SEED_VERSION, THEMES, MAINTENANCE_WARNING, STATUS_ORDER, STATUS, CATEGORIES, getMCats, DEFAULT_COLORS } from "./constants.js";
 import { S } from "./styles.js";
 import WorkHoursCard from "./components/WorkHoursCard.jsx";
@@ -1661,6 +1661,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wCur = data.weeks[wkey];
     const mCur = wCur?.missions?.find(x => x.id === id);
     const nx = mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null;
+    if (nx) haptic(nx === "DONE" ? [12, 40, 18] : 8); // confirma el toque en la mano; celebra el HECHO
     // Reducer puro (se re-aplica en rebase): los efectos van fuera.
     update(d => {
       const w = d.weeks[wkey]; if (!w) return d;
@@ -1779,6 +1780,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const mCur = wCur?.missions?.find(x => x.id === id)
       ?? Object.values(data.weeks).flatMap(w => w.missions||[]).find(m => m.id === id);
     const nx = target ?? (mCur ? STATUS_ORDER[(STATUS_ORDER.indexOf(mCur.status)+1)%STATUS_ORDER.length] : null);
+    if (nx) haptic(nx === "DONE" ? [12, 40, 18] : 8);
     update(d => {
       const key = resolveWeekKey(d, hint, id); if (!key) return d;
       const w = d.weeks[key];
@@ -1875,6 +1877,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // runAfterSave (no hay guardado que esperar). El deep-link lleva a la misión.
   const nudgeMission = (m, intent) => {
     if (!m) return;
+    haptic(15);
     const body = nudgeMessage(intent, personName, m);
     sendContextualPush(coupleId, { body, tag: `mp-nudge-${m.id}`, url: missionPushUrl(data.currentWeekNumber, data.currentYear, m.id) }, sessionUserId)
       .catch(e => console.warn("[nudge] push:", e.message));
@@ -1889,6 +1892,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const addLoveNote = (text) => {
     const note = makeLoveNote(text, personName, Date.now());
     if (!note) return;
+    haptic(15);
     const entry = { id: uid(), fromId: sessionPersonId, ...note };
     update(d => ({ ...d, loveNotes: [entry, ...(d.loveNotes || [])].slice(0, 50), loveNote: undefined }));
     runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
@@ -1905,6 +1909,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const addGratitude = (text) => {
     const t = (text || "").trim();
     if (!t) return;
+    haptic(15);
     const entry = { id: uid(), text: t.slice(0, GRATITUDE_MAX), fromName: personName, fromId: sessionPersonId, at: Date.now() };
     update(d => ({ ...d, gratitudes: [entry, ...(d.gratitudes || [])].slice(0, 200) }));
     runAfterSave(() => sendContextualPush(coupleId, { body: `🙏 ${personName} te agradeció: ${entry.text.slice(0, 80)}`, tag: "mp-gratitude", url: "/?tab=home" }, sessionUserId));
@@ -2450,8 +2455,10 @@ ${sorted.map(m=>{
                   </div>
                 );
               }
-              return sorted.map(m=>(
-                <MissionCard key={m.id} mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} onNudge={intent=>nudgeMission(m, intent)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
+              return sorted.map((m,i)=>(
+                <div key={m.id} style={{ animation:"fadeInUp 0.35s both", animationDelay:`${Math.min(i,6)*40}ms` }}>
+                  <MissionCard mission={m} p1={p1} p2={p2} colors={colors} goals={data.goals||[]} weeksData={data.weeks} onCycleStatus={()=>cycleStatus(m.id)} onDelete={()=>delMission(m.id)} onPatch={p=>patchMissionGlobal(data.currentWeekNumber, data.currentYear, m.id, p)} reactions={data.reactions?.[m.id]} onToggleReaction={toggleReaction} onNudge={intent=>nudgeMission(m, intent)} sessionPersonId={sessionPersonId} highlighted={m.id === highlightMissionId} />
+                </div>
               ));
             })()}
           </div>}

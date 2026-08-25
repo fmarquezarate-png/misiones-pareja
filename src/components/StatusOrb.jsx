@@ -25,6 +25,8 @@ export default function StatusOrb({ status, color, onClick, animated }) {
         border: `1.5px solid ${isDone ? "rgba(52,211,153,0.5)" : color + "44"}`,
         overflow: "hidden",
         transition: "border-color 0.2s",
+        // Pulso verde one-shot al completar (solo en el toque que marca HECHO).
+        animation: isDone && animated ? "orb-done-glow 0.55s ease-out" : "none",
       }}>
         {pct > 0 && (
           <div style={{
@@ -44,7 +46,7 @@ export default function StatusOrb({ status, color, onClick, animated }) {
           color: pct >= 60 ? (isDone ? "#fff" : "#fff") : (isDone ? "#34d399" : color + "cc"),
           zIndex: 1,
         }}>
-          {isDone                  && <span style={{ marginTop: -1 }}>✓</span>}
+          {isDone                  && <span style={{ marginTop: -1, display: "inline-block", animation: animated ? "orb-check-in 0.38s ease-out" : "none" }}>✓</span>}
           {status === "ASAP"       && <span style={{ color: "#fb923c", fontSize: 11 }}>!</span>}
           {status === "IN_PROGRESS"&& <span style={{ fontSize: 10 }}>⚡</span>}
         </div>
