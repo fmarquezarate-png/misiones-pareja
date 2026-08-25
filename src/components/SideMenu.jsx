@@ -32,6 +32,7 @@ const HISTORIAL_ITEMS = [
   { id:"activity", label:"Actividad", icon:"🕐", modal:true }, // abre modal, no navega
   { id:"gastos",   label:"Gastos",    icon:"💸" },
   { id:"chat",     label:"Chat",      icon:"💬" },
+  { id:"system",   label:"Sistema Misi", icon:"🛡️" },
 ];
 
 function SectionHeader({ children }) {
