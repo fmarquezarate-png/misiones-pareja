@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.25.0] — 2026-09-04 · Fix: Misi tapaba el lápiz de editar en Calendario
+
+Reportado por Fran: en Calendario hay que tocar el lápiz para editar un evento y Misi (fixed, abajo a la derecha, 68px) lo tapa. Tres cambios, del más importante al menos:
+
+1. **Toda la fila del día abre el editor** (`CalendarView`). El lápiz pasa a ser una pista visual, no el único blanco. Es la cura de raíz: cualquier cosa superpuesta en el borde derecho —Misi hoy, lo que sea mañana— deja de poder bloquear la edición. Los dos botones de la fila (estado y lápiz) hacen `stopPropagation` para no disparar el editor al pulsarlos. Lápiz agrandado a 32px de alto (guía táctil) y con `aria-label`.
+2. **Misi se puede cambiar de esquina arrastrándolo.** Zona muerta de 15px (un toque normal nunca la supera → sigue abriendo el chat), solo eje horizontal y `touch-action: pan-y` → el scroll vertical sobre Misi sigue siendo del navegador. La esquina se guarda en `localStorage` por dispositivo (`mp-misi-side`), no viaja en el blob.
+3. **Colchón inferior de 96px** en la vista de Calendario para que la última fila del día se pueda desplazar por encima de la franja de Misi.
+
+Dos detalles encontrados al verificarlo con Playwright (no eran hipótesis, se midieron):
+
+- `setPointerCapture` **en el `pointerdown`**, no al superar la zona muerta: para entonces el dedo puede haber salido del botón, que deja de recibir `pointermove`/`pointerup` — el arrastre se perdía a medio camino.
+- Los `<img>` del póster de Misi llevan `draggable={false}`. Sin eso, mover el dedo sobre Misi iniciaba el **arrastre nativo de imagen** del navegador → `pointercancel` y **ningún `click`**. Bug preexistente: un toque con la mínima deriva sobre Misi no abría el chat.
+
+Verificado en navegador: toque con deriva de 5px abre el chat; arrastre cruzando la mitad de pantalla cambia de esquina y persiste tras recargar; rueda/scroll sobre Misi sigue desplazando la página.
+
+---
+
 ## [5.24.0] — 2026-09-04 · Pizarra de corcho + La Copa de los agradecimientos
 
 Dos peticiones de Fran, ambas visuales y sin tocar el modelo de datos ni el guardado.

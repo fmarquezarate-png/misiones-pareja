@@ -50,6 +50,7 @@ const RENDER = 160;       // resolución interna del canvas (nítido en pantalla
 // animaciones/emociones ahí mismo (pedido de Fran). El único "movimiento" es el
 // bob suave en el sitio (misi-float) y las animaciones de cada emoción.
 const DOCK = { rightGap: 16, bottomGap: 100 };
+const SIDE_KEY = "mp-misi-side";
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -161,6 +162,48 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
   const [ready, setReady] = useState(false);
   const [bump, setBump] = useState(false);
 
+  // Esquina de Misi, elegible arrastrándolo (se tapaba el lápiz de editar en
+  // Calendario). Preferencia por dispositivo — no viaja en el blob.
+  const [side, setSide] = useState(() => {
+    try { return localStorage.getItem(SIDE_KEY) === "left" ? "left" : "right"; } catch { return "right"; }
+  });
+  const [sliding, setSliding] = useState(false);
+  const dragRef = useRef(null);
+  const suppressClick = useRef(false);
+
+  // Solo se atiende el arrastre HORIZONTAL, con zona muerta de 15px: un toque
+  // normal nunca la supera (abre el chat) y el scroll vertical sigue siendo del
+  // navegador (touchAction: pan-y). Misma regla que el resto de gestos.
+  const onPointerDown = (e) => {
+    dragRef.current = { x: e.clientX, moved: 0 };
+    // Capturar YA: si se espera a superar la zona muerta, el dedo puede haber
+    // salido del botón y este deja de recibir move/up (el arrastre se perdía).
+    // Con touch-action: pan-y, un scroll vertical llega como pointercancel.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    d.moved = Math.max(d.moved, Math.abs(e.clientX - d.x));
+  };
+  const onPointerUp = (e) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d || d.moved <= 15) return;          // fue un toque: que el click abra el chat
+    suppressClick.current = true;
+    const next = e.clientX < window.innerWidth / 2 ? "left" : "right";
+    if (next !== side) {
+      setSliding(true);
+      setSide(next);
+      try { localStorage.setItem(SIDE_KEY, next); } catch { /* modo privado */ }
+      setTimeout(() => setSliding(false), 320);
+    }
+  };
+  const handleClick = () => {
+    if (suppressClick.current) { suppressClick.current = false; return; }
+    onClick?.();
+  };
+
   useEffect(() => {
     if (unread > 0) { setBump(true); const t = setTimeout(() => setBump(false), 600); return () => clearTimeout(t); }
   }, [unread]);
@@ -180,19 +223,24 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
   const label = EMOTIONS[emotion]?.label ?? "";
   const wrapperStyle = {
     position: "fixed",
-    right: DOCK.rightGap,
+    [side === "left" ? "left" : "right"]: DOCK.rightGap,
     bottom: liftForTabBar ? DOCK.bottomGap + 68 : DOCK.bottomGap,
     zIndex: 350,
     width: SIZE, height: SIZE,
-    border: "none", background: "transparent", cursor: "pointer", padding: 0,
+    border: "none", background: "transparent", cursor: "grab", padding: 0,
+    touchAction: "pan-y",
     // Único movimiento: bob suave en el sitio (o "brinco" al recibir mensaje).
     // Misi NO se desplaza por la pantalla.
-    animation: bump ? "misi-bump 0.5s ease" : "misi-float 3.4s ease-in-out infinite",
+    animation: (bump || sliding) ? "misi-bump 0.5s ease" : "misi-float 3.4s ease-in-out infinite",
     filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.45))",
   };
 
   return (
-    <button onClick={onClick} aria-label={`Abrir chat con Misi — ${label}`} title="Misi" style={wrapperStyle}>
+    <button onClick={handleClick}
+      onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp} onPointerCancel={() => { dragRef.current = null; }}
+      aria-label={`Abrir chat con Misi — ${label}. Arrástrame para cambiarme de esquina`}
+      title="Misi — arrástrame para cambiarme de lado" style={wrapperStyle}>
       <style>{`
         @keyframes misi-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         @keyframes misi-float-slow { 0%,100% { transform: translateY(0); opacity:0.85; } 50% { transform: translateY(-2px); opacity:1; } }
@@ -201,12 +249,12 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
         @keyframes misi-bounce { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-8deg); } }
       `}</style>
       {reduce ? (
-        <img src={POSTER_BY_EMOTION[emotion] || POSTER_BY_EMOTION.alegre} alt="Misi"
+        <img src={POSTER_BY_EMOTION[emotion] || POSTER_BY_EMOTION.alegre} alt="Misi" draggable={false}
           style={{ width: SIZE, height: SIZE, borderRadius: "50%", objectFit: "cover" }} />
       ) : (
         <>
           {!ready && (
-            <img src={POSTER_BY_EMOTION[emotion] || POSTER_BY_EMOTION.alegre} alt="Misi"
+            <img src={POSTER_BY_EMOTION[emotion] || POSTER_BY_EMOTION.alegre} alt="Misi" draggable={false}
               style={{ position: "absolute", inset: 0, width: SIZE, height: SIZE, borderRadius: "50%", objectFit: "cover" }} />
           )}
           <video ref={videoRef} muted playsInline style={{ display: "none" }} aria-hidden="true" />

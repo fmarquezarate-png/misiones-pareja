@@ -131,7 +131,9 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
   };
 
   return (
-    <div>
+    // Colchón inferior: deja que la última fila del día se pueda desplazar por
+    // encima de la franja que ocupa Misi (fixed, abajo a la derecha).
+    <div style={{ paddingBottom: 96 }}>
       <div ref={calRef}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 8 }}>
           <button onClick={prevM} style={S.btnNav}>‹</button>
@@ -249,7 +251,10 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                   const whoColor = m.who === "person1" ? clrC.person1 : m.who === "person2" ? clrC.person2 : clrC.together;
                   const isMultiDay = spanOf(m).length > 1;
                   return (
-                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(167,139,250,0.08)" }}>
+                    // Toda la fila abre el editor: el lápiz es una pista visual,
+                    // no el único blanco. Antes era el único, y cualquier cosa
+                    // superpuesta en el borde derecho (Misi) lo dejaba inalcanzable.
+                    <div key={m.id} onClick={() => openEdit(m)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(167,139,250,0.08)", cursor: "pointer" }}>
                       <span style={{ fontSize: 20, flexShrink: 0 }}>{m.emoji}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: m.status === "DONE" ? "#4d4566" : "var(--t-text,#e2d9ff)", textDecoration: m.status === "DONE" ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -263,8 +268,8 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                        <button onClick={() => onCycleStatus && onCycleStatus(m.weekNumber, m._yr, m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
-                        <button onClick={() => openEdit(m)} style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 7, color: "var(--t-accent,#a78bfa)", fontSize: 11, padding: "4px 8px", cursor: "pointer", fontFamily: "inherit" }}>✏️</button>
+                        <button onClick={e => { e.stopPropagation(); onCycleStatus && onCycleStatus(m.weekNumber, m._yr, m.id); }} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
+                        <button onClick={e => { e.stopPropagation(); openEdit(m); }} aria-label={`Editar ${m.title}`} style={{ background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 7, color: "var(--t-accent,#a78bfa)", fontSize: 12, padding: "6px 10px", minHeight: 32, cursor: "pointer", fontFamily: "inherit" }}>✏️</button>
                       </div>
                     </div>
                   );
