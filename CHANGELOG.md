@@ -7,6 +7,27 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.24.0] — 2026-09-04 · Pizarra de corcho + La Copa de los agradecimientos
+
+Dos peticiones de Fran, ambas visuales y sin tocar el modelo de datos ni el guardado.
+
+**1. Notitas → pizarra de corcho con post-its.** `NotesWallView` deja de ser una lista y pasa a ser un corcho real: marco de madera, textura de corcho (moteado a cuatro escalas con periodos primos entre sí, para que no se lea como cuadrícula), post-its en masonry de 2 columnas con papel pastel e inclinación **deterministas por id** (`noteVisual` — una nota siempre se ve igual, no "baila" al re-renderizar), letra manuscrita con fuentes nativas de iOS (`Bradley Hand`/`Noteworthy`, cero coste de red) y chincheta con cabeza de gradiente radial + sombra de aguja. **El color de la chincheta lo elige quien escribe** (6 colores) y se persiste en la nota.
+
+- `src/lib/corkboard.js` (nuevo, puro): `PIN_COLORS`, `PAPER_COLORS`, `hashId`, `noteVisual`, `pinHex`, `normalizePin`. 10 tests.
+- `addLoveNote(text, pinColor)` en `App.jsx` guarda `pinColor` normalizado (`normalizePin` — nunca se persiste un valor arbitrario de la UI). Las notitas anteriores, sin `pinColor`, caen al rojo por defecto.
+
+**2. Nueva pestaña "La Copa"** (Nosotros → 🏆): los agradecimientos —que ya se guardaban en `data.gratitudes` pero solo se veían el día que se enviaban— ahora quedan **grabados como placas** en una copa 3D que se puede girar. Al tocar una placa, la copa gira por el camino corto hasta ponerla de frente y se abre el zoom con el mensaje y **"de X a Y"**.
+
+- `src/lib/trophy.js` (nuevo, puro): `trophyLayout` (8 placas × 3 anillos, al tresbolillo), `overflowCount`, `gratitudeParties` (autoría por person-id con fallback a nombre — una gratitud siempre va dirigida a la pareja), `rotationToFace` (giro mínimo con signo: nunca da la vuelta larga). 15 tests.
+- `src/components/TrophyView.jsx` (nuevo): 3D con CSS puro, sin librerías. El pedestal es un cilindro real de 12 caras con sombreado calculado por ángulo; las placas van a `translateZ(R+7)` para evitar z-fighting con las caras. El cuenco, cuello, nudo y pie son cuerpos de revolución: su silueta es idéntica desde cualquier ángulo, así que se contra-giran (billboard) en vez de modelarse — exacto y sin las "aletas" que dejan los planos cruzados. Las asas sí giran con el conjunto, que es lo que hacen de verdad.
+- **Gesto**: `touchAction: pan-y` + zona muerta de 15px y descarte si el movimiento dominante es vertical → girar la copa nunca compite con el scroll de la página (regla de gestos táctiles, sección 5 de CLAUDE.md).
+- `prefers-reduced-motion` respetado: sin transición de giro ni animación de zoom.
+- Entrada extra desde el inicio: la tarjeta de gratitud muestra "🏆 Ver la copa" cuando ya hay alguna.
+
+208 tests. Sin cambios de schema, de flags ni del path de guardado.
+
+---
+
 ## [5.23.2] — 2026-08-25 · Fix: barra inferior se "despegaba" al hacer scroll (iOS)
 
 Reportado por vídeo: en la vista de Semana (iPhone), al hacer scroll rápido la `BottomTabBar` (`position:fixed; bottom:0`) aparecía a mitad de pantalla con contenido arriba y abajo. Diagnóstico: en reposo la barra está bien (CSS lo garantiza); el "mid-screen" solo ocurre DURANTE el scroll con inercia — el compositor de iOS desincroniza los `position:fixed` en layouts de body-scroll con `backdrop-filter`. No es un crash ni viene de las animaciones de v5.23.0.

@@ -4,7 +4,7 @@ import { GRATITUDE_MAX } from "../lib/gratitude.js";
 // Tarjeta de gratitud del día. Si aún no agradeciste, muestra el prompt; una vez
 // enviado, se colapsa a una confirmación. Muestra también el "gracias" recibido
 // de la pareja hoy. Se auto-oculta cuando no hay nada relevante que mostrar.
-export default function GratitudeCard({ mine, received, partnerName, onSend }) {
+export default function GratitudeCard({ mine, received, partnerName, onSend, onOpenTrophy }) {
   const [text, setText] = useState("");
   // "Ahora no" persistido por día (si no, reaparece al cambiar de pestaña/realtime).
   const dismissKey = (() => { const d = new Date(); return `mp-grat-dismiss-${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; })();
@@ -63,6 +63,14 @@ export default function GratitudeCard({ mine, received, partnerName, onSend }) {
           </div>
         </div>
       ) : null}
+
+      {/* Los agradecimientos quedan grabados como placas en la copa (5.24.0) */}
+      {onOpenTrophy && (
+        <button onClick={onOpenTrophy} style={{
+          marginTop: 10, padding: 0, background: "none", border: "none", cursor: "pointer",
+          fontFamily: "inherit", fontSize: 11.5, fontWeight: 600, color: "#f3d074",
+        }}>🏆 Ver la copa</button>
+      )}
     </div>
   );
 }

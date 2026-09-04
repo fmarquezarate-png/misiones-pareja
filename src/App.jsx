@@ -7,6 +7,7 @@ import { shouldShowPlanningRitual } from "./lib/ritual.js";
 import PlanningRitual from "./components/PlanningRitual.jsx";
 import { upcomingDates } from "./lib/importantDates.js";
 import { makeLoveNote } from "./lib/loveNote.js";
+import { normalizePin } from "./lib/corkboard.js";
 import LoveNote from "./components/LoveNote.jsx";
 import HomeHighlight from "./components/HomeHighlight.jsx";
 import { shouldOfferWrapped } from "./lib/wrapped.js";
@@ -44,6 +45,7 @@ import MatchDayTheme from "./components/MatchDayTheme.jsx";
 import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
 const BirthdaysView = lazy(() => import("./components/BirthdaysView.jsx"));
 const NotesWallView = lazy(() => import("./components/NotesWallView.jsx"));
+const TrophyView = lazy(() => import("./components/TrophyView.jsx"));
 const DiagnosticsView = lazy(() => import("./components/DiagnosticsView.jsx"));
 const MoodSurvey = lazy(() => import("./components/MoodSurvey.jsx"));
 const MoodView = lazy(() => import("./components/MoodView.jsx"));
@@ -710,7 +712,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","diagnostics"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","trophy","diagnostics"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -1896,11 +1898,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // (historial, más reciente primero). La más reciente es la que se fija en el
   // inicio. Al añadir, se avisa a la pareja tras confirmar el blob (runAfterSave,
   // no antes — la pareja debe poder leerla).
-  const addLoveNote = (text) => {
+  const addLoveNote = (text, pinColor) => {
     const note = makeLoveNote(text, personName, Date.now());
     if (!note) return;
     haptic(15);
-    const entry = { id: uid(), fromId: sessionPersonId, ...note };
+    const entry = { id: uid(), fromId: sessionPersonId, pinColor: normalizePin(pinColor), ...note };
     update(d => ({ ...d, loveNotes: [entry, ...(d.loveNotes || [])].slice(0, 50), loveNote: undefined }));
     runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
     track("lovenote_set");
@@ -2276,7 +2278,8 @@ ${sorted.map(m=>{
             <>
               <LoveNote note={currentNote} myName={personName} myPersonId={sessionPersonId} partnerName={partnerName}
                 onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
-              <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude} />
+              <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude}
+                onOpenTrophy={(data.gratitudes||[]).length ? () => setActiveTab("trophy") : null} />
               {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
                   inspiracional; HomeHighlight (fechas/idea) se oculta ese día. */}
               {!showRitual && <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />}
@@ -2507,6 +2510,14 @@ ${sorted.map(m=>{
           partnerName={p1===personName ? p2 : p1}
           onAdd={addLoveNote}
           onDelete={deleteLoveNote}
+        />}
+
+        {activeTab==="trophy" && <TrophyView
+          gratitudes={data.gratitudes||[]}
+          myName={personName}
+          myPersonId={sessionPersonId}
+          partnerName={p1===personName ? p2 : p1}
+          onAdd={addGratitude}
         />}
 
         {activeTab==="birthdays" && <BirthdaysView
