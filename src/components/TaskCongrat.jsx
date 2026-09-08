@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 const TIERS = [
   { min: 80, msgs: [
@@ -40,20 +43,31 @@ function pickMsg(pct) {
   return tier.msgs[Math.floor(Math.random() * tier.msgs.length)];
 }
 
-export default function TaskCongrat({ info, onDone }) {
+export default function TaskCongrat({ info, onDone, liftForTabBar = false }) {
   const [phase, setPhase] = useState(0);           // 0=entering, 1=visible, 2=fading
   const [barPct, setBarPct] = useState(info.beforePct);
-  const [msg] = useState(() => pickMsg(info.afterPct));
+  const [msg, setMsg] = useState(() => pickMsg(info.afterPct));
+  const timers = useRef([]);
 
+  // Un solo sitio donde se programan timeouts, y se cancelan TODOS a la vez.
+  // Antes el cierre por toque creaba un setTimeout suelto que sobrevivía al
+  // desmontaje: si completabas otra tarea, ese timeout tardío cerraba el aviso
+  // NUEVO a los 400ms.
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  const later = (fn, ms) => timers.current.push(setTimeout(fn, ms));
+
+  // `info` cambia cuando dos avisos se FUSIONAN (completar dos tareas seguidas).
+  // El componente no se re-monta: la barra sigue viva y solo se reprograma el
+  // cierre, así la animación nunca se corta a media.
   useEffect(() => {
-    const ts = [
-      setTimeout(() => setPhase(1), 30),
-      setTimeout(() => setBarPct(info.afterPct), 80),  // animate bar after slide-in
-      setTimeout(() => setPhase(2), 3800),
-      setTimeout(() => onDone?.(), 4350),
-    ];
-    return () => ts.forEach(clearTimeout);
-  }, [onDone, info.afterPct]);
+    clearTimers();
+    setPhase(1);
+    setMsg(pickMsg(info.afterPct));
+    later(() => setBarPct(info.afterPct), 80);
+    later(() => setPhase(2), 3800);
+    later(() => onDone?.(), 4350);
+    return clearTimers;
+  }, [onDone, info.afterPct, info.beforePct]);
 
   const { mission, afterPct, delta, color } = info;
   const title = (mission.emoji ? `${mission.emoji} ` : "") + (mission.title || "Tarea completada");
@@ -68,10 +82,12 @@ export default function TaskCongrat({ info, onDone }) {
         }
       `}</style>
       <div
-        onClick={() => { setPhase(2); setTimeout(() => onDone?.(), 400); }}
+        onClick={() => { clearTimers(); setPhase(2); later(() => onDone?.(), 400); }}
         style={{
           position: "fixed",
-          bottom: 80,
+          // Por encima de la barra de pestañas cuando la hay: si no, el aviso
+          // se comía la fila de tabs y quedaba pegado a Misi.
+          bottom: liftForTabBar ? 148 : 80,
           left: "50%",
           transform: "translateX(-50%)",
           width: "calc(100% - 28px)",
@@ -84,7 +100,7 @@ export default function TaskCongrat({ info, onDone }) {
           padding: "12px 14px 12px 16px",
           boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${color}18`,
           cursor: "pointer",
-          animation: "tc-slide 0.32s cubic-bezier(0.22,1,0.36,1) both",
+          animation: prefersReducedMotion() ? "none" : "tc-slide 0.32s cubic-bezier(0.22,1,0.36,1) both",
           opacity: phase < 2 ? 1 : 0,
           transition: "opacity 0.55s ease",
           userSelect: "none",

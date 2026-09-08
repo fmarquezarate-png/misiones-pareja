@@ -35,6 +35,7 @@ import { track, setTrackContext, clearTrackContext } from "./lib/track.js";
 import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 import JuntosMoment from "./components/JuntosMoment.jsx";
+import { useCelebrations, celebrationKey } from "./lib/celebrations.js";
 import TaskCongrat from "./components/TaskCongrat.jsx";
 const WrappedModal = lazy(() => import("./components/WrappedModal.jsx"));
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
@@ -314,10 +315,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const { toast: appToast, push: pushToast, dismiss: dismissToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
   const [backupOffer, setBackupOffer] = useState(null); // fila de app_data_backups usable cuando la carga falla — habilita "Restaurar backup" en la pantalla de error
-  const [juntosMoment, setJuntosMoment] = useState(null);  // { mission, p1Name, p2Name, p1Color, p2Color }
-  const [taskCongrat,  setTaskCongrat]  = useState(null);  // { mission, beforePct, afterPct, delta, color }
+  // Director de celebraciones: una sola en pantalla, con cola y fusión de
+  // avisos consecutivos (antes se pisaban y la animación se cortaba a media).
+  const { celebration, celebrate, celebrationDone } = useCelebrations();
+  const juntosMoment = celebration?.kind === "juntos" ? celebration.payload : null;
+  const taskCongrat  = celebration?.kind === "congrat" ? celebration.payload : null;
+  const specialDay   = celebration?.kind === "special" ? celebration.payload : null;
+  // ¿Hay una celebración a pantalla completa? Entonces el confeti del día y el
+  // procesado de vídeo de Misi no tienen que gastar CPU detrás de ella.
+  const fullscreenCelebration = celebration?.kind === "juntos" || celebration?.kind === "special";
   const [wrappedConfig, setWrappedConfig] = useState(null); // { showWeekly, showMonthlyOption, prevKey, monthKey }
-  const [specialDay,      setSpecialDay]      = useState(null);   // overlay open state — null when dismissed
   const [specialDayEvent, setSpecialDayEvent] = useState(null);   // persists all day once detected
   const [matchDayMatches, setMatchDayMatches] = useState(null);   // WC matches today (filtered) — null = none
   const [matchDayOverlay, setMatchDayOverlay] = useState(false);  // overlay open
@@ -813,8 +820,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       }
     }
     if (!event) return;
-    localStorage.setItem(key, "1");
-    const t = setTimeout(() => setSpecialDay(event), 900);
+    // La marca de "ya visto" se pone cuando la celebración SE MUESTRA, no antes:
+    // este efecto se re-ejecuta si cambian sus deps (settings por realtime,
+    // `loading`…), su cleanup cancelaba el timer — y con la marca ya escrita, el
+    // día de tu aniversario la animación no llegaba a verse nunca.
+    const t = setTimeout(() => {
+      try { localStorage.setItem(key, "1"); } catch { /* modo privado */ }
+      celebrate("special", event);
+    }, 900);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, coupleId, data?.settings?.person1Birthday, data?.settings?.person2Birthday, data?.settings?.anniversaryDate]);
@@ -1692,13 +1705,13 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
       if (mCur.who === "together") {
-        setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+        celebrate("juntos", { mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
         // Fórmula idéntica al anillo personal de HomeDashboard:
         // últimos 15 días, excluyendo eventos / futuras / completedLate,
         // incluyendo misiones del dueño + "together"
         const congrat = computeStreakDelta(data.weeks, mCur, clr, new Date());
-        if (congrat) setTaskCongrat(congrat);
+        if (congrat) celebrate("congrat", congrat);
       }
     }
   };
@@ -1809,11 +1822,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (nx === "DONE" && mCur) {
       const clr = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
       if (mCur.who === "together") {
-        setJuntosMoment({ mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
+        celebrate("juntos", { mission: mCur, p1Name: p1, p2Name: p2, p1Color: clr.person1, p2Color: clr.person2 });
       } else {
         // Fórmula idéntica al anillo personal de HomeDashboard
         const congrat = computeStreakDelta(data.weeks, mCur, clr, new Date());
-        if (congrat) setTaskCongrat(congrat);
+        if (congrat) celebrate("congrat", congrat);
       }
     }
   };
@@ -2661,11 +2674,11 @@ ${sorted.map(m=>{
       )}
 
       {/* Tema dorado todo el día en fechas especiales */}
-      {specialDayEvent && <SpecialDayTheme />}
+      {specialDayEvent && <SpecialDayTheme paused={fullscreenCelebration} />}
 
       {/* Botón flotante que permite re-ver la celebración durante el día */}
       {specialDayEvent && !specialDay && (
-        <SpecialDayButton onReplay={() => setSpecialDay(specialDayEvent)} />
+        <SpecialDayButton onReplay={() => celebrate("special", specialDayEvent)} />
       )}
 
       {/* Evento especial — cumpleaños y aniversario (se puede re-abrir) */}
@@ -2673,13 +2686,13 @@ ${sorted.map(m=>{
         <SpecialDayOverlay
           event={specialDay}
           p1={p1} p2={p2}
-          onDone={() => setSpecialDay(null)}
+          onDone={celebrationDone}
         />
       )}
 
       {/* Micro-festejo individual — sutil, con % de semana y mensaje por banda */}
       {taskCongrat && (
-        <TaskCongrat key={taskCongrat.mission.id + taskCongrat.afterPct} info={taskCongrat} onDone={() => setTaskCongrat(null)} />
+        <TaskCongrat key={celebrationKey(celebration)} info={taskCongrat} onDone={celebrationDone} liftForTabBar={bottomBar.enabled && bottomBar.tabs.length > 0} />
       )}
 
       {/* Aviso suave de cápsula del tiempo lista — nunca se auto-abre */}
@@ -2718,6 +2731,7 @@ ${sorted.map(m=>{
         }
         onClick={() => setMisiChatOpen(true)}
         liftForTabBar={bottomBar.enabled && bottomBar.tabs.length > 0}
+        paused={fullscreenCelebration}
       />
       {misiChatOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
@@ -2737,7 +2751,7 @@ ${sorted.map(m=>{
           p2Name={juntosMoment.p2Name}
           p1Color={juntosMoment.p1Color}
           p2Color={juntosMoment.p2Color}
-          onDone={() => setJuntosMoment(null)}
+          onDone={celebrationDone}
         />
       )}
 

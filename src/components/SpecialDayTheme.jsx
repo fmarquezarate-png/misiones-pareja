@@ -7,6 +7,9 @@ const FIESTA = ["#f472b6","#a78bfa","#34d399","#fb923c","#38bdf8"];
 const ALL_COLORS = [...GOLD, ...GOLD, ...SILVER, ...FIESTA];
 
 const STYLE_ID = "mp-special-day-theme";
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const N_PARTICLES = 42;
 const BALLOONS = [
   { emoji:"🎈", x: 6  },
@@ -36,9 +39,20 @@ function mkParticle(cw, ch, initial = false) {
   };
 }
 
+// Tras la tormenta inicial el confeti se AFINA: el día especial dura 24h y no
+// puede ser un rAF a plena carga durante todo ese tiempo (batería y, sobre todo,
+// CPU compitiendo con cualquier otra animación de la app).
+const BURST_MS = 7000;     // confeti a tope
+const CALM_PARTICLES = 9;  // goteo suave el resto del día
+
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function SpecialDayTheme() {
+// `paused`: hay una celebración a pantalla completa encima — pintar confeti
+// detrás de un fondo opaco es trabajo 100% invisible.
+export default function SpecialDayTheme({ paused = false }) {
   const canvasRef = useRef(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const [reduce] = useState(prefersReducedMotion);
 
   // Balloon positions + timing (stable across renders)
   const [balloons] = useState(() =>
@@ -72,7 +86,7 @@ export default function SpecialDayTheme() {
     let removeResize = null;
     let removeVisibility = null;
 
-    if (canvas) {
+    if (canvas && !reduce) {
       const ctx = canvas.getContext("2d");
       const dpr = window.devicePixelRatio || 1;
 
@@ -93,17 +107,34 @@ export default function SpecialDayTheme() {
 
       let last = 0;
       const FRAME = 1000 / 32; // ~32fps — smooth but battery-friendly
+      const started = performance.now();
+      let cleared = false;
 
       const tick = t => {
         raf = requestAnimationFrame(tick);
+        // Detrás de una celebración a pantalla completa no se ve nada: no gastar
+        // CPU. Se limpia una vez para no dejar el último frame congelado.
+        if (pausedRef.current) {
+          if (!cleared) { ctx.clearRect(0, 0, cw, ch); cleared = true; }
+          return;
+        }
+        cleared = false;
         if (t - last < FRAME) return;
         last = t;
+        // Pasada la ráfaga inicial, el confeti se reduce a un goteo: las
+        // partículas sobrantes se retiran al salir de pantalla, no se reponen.
+        const budget = t - started < BURST_MS ? N_PARTICLES : CALM_PARTICLES;
         ctx.clearRect(0, 0, cw, ch);
-        for (const p of particles) {
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          if (p.dead) continue;
           p.y += p.dy;
           p.x += p.dx;
           p.rot += p.rotSpeed;
-          if (p.y > ch + 20) Object.assign(p, mkParticle(cw, ch, false));
+          if (p.y > ch + 20) {
+            if (i >= budget) { p.dead = true; continue; }
+            Object.assign(p, mkParticle(cw, ch, false));
+          }
           ctx.save();
           ctx.globalAlpha = p.alpha;
           ctx.fillStyle = p.color;
@@ -140,7 +171,7 @@ export default function SpecialDayTheme() {
       removeResize?.();
       removeVisibility?.();
     };
-  }, []);
+  }, [reduce]);
 
   return (
     <>
@@ -156,17 +187,17 @@ export default function SpecialDayTheme() {
       `}</style>
 
       {/* Confetti canvas — behind all UI but visible */}
-      <canvas
+      {!reduce && <canvas
         ref={canvasRef}
         style={{
           position: "fixed", inset: 0,
           width: "100vw", height: "100vh",
           zIndex: 450, pointerEvents: "none",
         }}
-      />
+      />}
 
       {/* Rising balloons */}
-      <div style={{
+      {!reduce && <div style={{
         position: "fixed", inset: 0,
         zIndex: 451, pointerEvents: "none", overflow: "hidden",
       }}>
@@ -187,12 +218,16 @@ export default function SpecialDayTheme() {
               animationTimingFunction: "ease-in-out",
               animationIterationCount: "infinite",
               animationFillMode: "both",
+              // Capa propia (no repinta el texto en cada frame) y detenidos
+              // cuando hay una celebración a pantalla completa delante.
+              willChange: "transform",
+              animationPlayState: paused ? "paused" : "running",
             }}
           >
             {b.emoji}
           </span>
         ))}
-      </div>
+      </div>}
     </>
   );
 }

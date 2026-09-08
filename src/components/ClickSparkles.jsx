@@ -14,8 +14,15 @@ function injectKeyframe() {
   document.head.appendChild(s);
 }
 
+// Tope de destellos vivos a la vez: tocar rápido llegaba a acumular decenas de
+// divs animados en <body>, cada uno con su box-shadow. Con el tope, un toque
+// nuevo simplemente no añade más hasta que los anteriores se retiran.
+const MAX_LIVE = 21;
+let live = 0;
+
 function spawnSparkle(x, y, palette) {
   const COUNT = 7;
+  if (live + COUNT > MAX_LIVE) return;
   for (let i = 0; i < COUNT; i++) {
     const el = document.createElement("div");
     const color = palette[Math.floor(Math.random() * palette.length)];
@@ -37,7 +44,8 @@ function spawnSparkle(x, y, palette) {
       "animation:mp-spk 0.65s ease-out forwards",
     ].join(";");
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 720);
+    live++;
+    setTimeout(() => { el.remove(); live--; }, 720);
   }
 }
 
@@ -56,6 +64,8 @@ export default function ClickSparkles({ colors }) {
 
   // Register once — reads palette via ref so no re-registration needed
   useEffect(() => {
+    // Con "reducir movimiento" activado no se generan destellos en absoluto.
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     injectKeyframe();
     const handleClick = e => spawnSparkle(e.clientX, e.clientY, paletteRef.current);
     document.addEventListener("click", handleClick, { capture: true });

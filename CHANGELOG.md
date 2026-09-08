@@ -7,6 +7,60 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.26.0] — 2026-09-08 · Revisión de las animaciones de celebración
+
+Fran: «las animaciones de aniversarios y tareas completadas a veces se traban y no se ven del todo bien». Revisión de diseño y ejecución de las cuatro (aviso de progreso, momento «juntos», día especial y el tema dorado del día). **No pude reproducir el tirón en este entorno** (Chromium headless con CPU estrangulada da 60fps estables con todo encendido a la vez), así que la revisión fue del código, no de una medición — pero los defectos encontrados son verificables leyendo, no hipótesis.
+
+**1. La causa principal: se pisaban entre ellas. No había cola.**
+
+Cada celebración vivía en su propio `useState`, así que un solo toque podía disparar tres cosas a la vez, y dos toques seguidos cortaban la animación a media:
+
+- Completar dos tareas seguidas: el segundo `setTaskCongrat` reemplazaba el estado y la `key` (que incluía el `%`) forzaba a React a **re-montar** → la animación se cortaba y saltaba. Es exactamente el «se traba».
+- Completar una tarea «juntos»: el overlay a pantalla completa y el aviso de progreso corrían **simultáneamente**, uno tapando al otro, más el toast de estado. Tres cosas por un toque.
+- Nada impedía encadenar diez celebraciones marcando diez tareas.
+
+**Cura:** `src/lib/celebrations.js` (puro, 15 tests) + `useCelebrations`. Una sola celebración en pantalla, con reglas explícitas: el día especial interrumpe y vacía la cola; un «juntos» desplaza a un aviso de progreso; con un «juntos» en pantalla el aviso sobra; **dos avisos de progreso se FUSIONAN** en uno que va desde donde estaba la barra hasta el nuevo total (misma `key` → no se re-monta, la barra sigue viva); dos «juntos» se encolan con tope de 1.
+
+**2. Bug real: un timeout huérfano cerraba la celebración siguiente.**
+
+Cerrar con el dedo hacía `setPhase(4); setTimeout(onDone, 400)` — un timeout **fuera** del array que limpia el `useEffect`. Si el componente se desmontaba antes (porque llegó otra celebración), ese `onDone` tardío cerraba la celebración **nueva** a los 400ms. Estaba en los tres componentes. Ahora todos los timeouts pasan por un `later()` con un único `clearTimers()`.
+
+**3. Bug real: el día de tu aniversario la animación podía no verse nunca.**
+
+El efecto escribía la marca `mp-special-<fecha>` en `localStorage` **antes** de mostrar el overlay (900ms después) y su cleanup cancelaba ese timer. Si el efecto se re-ejecutaba en esa ventana (settings por realtime, `loading`), el timer moría con la marca ya puesta → la segunda pasada hacía `return` y la celebración del año no aparecía. Ahora la marca se escribe **cuando se muestra**.
+
+**4. Trabajo invisible: el confeti pintaba detrás de un fondo opaco.**
+
+El tema dorado del día (`SpecialDayTheme`: 42 partículas en canvas a 32fps + 7 globos) corría **las 24 horas**, incluido el rato en que el overlay a pantalla completa (fondo `#050300`, opaco) estaba delante. Ahora:
+- `paused` cuando hay una celebración a pantalla completa → ni canvas ni globos.
+- El confeti se **afina**: ráfaga completa 7s y luego un goteo de 9 partículas el resto del día. Sigue vestido de fiesta sin un rAF a plena carga durante 24h.
+
+**5. Animaciones que repintaban en cada frame, para siempre.**
+
+- El halo del emoji animaba **`box-shadow`** en bucle infinito → ahora `transform: scale` + `opacity` (compositable) con el brillo en un `radial-gradient` fijo.
+- El barrido de luz del fondo animaba `background-position` de un div a pantalla completa → ahora una banda que se **desplaza** con `transform`.
+- El brillo del título (`background-clip: text`, repinta texto en cada frame) pasa de `infinite` a **3 pasadas**: se ve al entrar y para.
+- `JuntosMoment` tenía `backdrop-filter: blur(16px)` a pantalla completa recalculándose mientras los círculos se mueven — de los costes de compositor más caros en iOS, y detrás había un velo casi opaco. Ahora fondo opaco. Los círculos llevan `will-change: transform`.
+
+**6. Misi: el trabajo de CPU más caro y constante de la app.**
+
+El chroma-key recorre 160×160 píxeles en JS 20 veces por segundo, siempre, y compite con cualquier animación. Dos recortes sin pérdida visible: se **salta el procesado si el vídeo no ha avanzado** (el clip va a menos fps que el bucle, así que se procesaban frames idénticos) y se **para** cuando hay una celebración a pantalla completa encima.
+
+**7. `prefers-reduced-motion`: la promesa de v5.23.0 era falsa aquí.**
+
+Ninguna de las cuatro celebraciones lo respetaba (solo Misi y el CSS de `index.html`). Ahora las cuatro: sin partículas, sin confeti, sin coreografía — se ve el mensaje y se va. `ClickSparkles` no genera nada.
+
+**8. Detalles de contacto físico.**
+
+- El aviso de progreso estaba en `bottom: 80`, encima de la barra de pestañas y pegado a Misi. Ahora sube a 148 cuando hay barra.
+- `ClickSparkles` tiene tope de 21 destellos vivos: tocar rápido acumulaba decenas de divs animados en `<body>`.
+
+**Cambio de duración** (dime si lo prefieres como estaba): el momento «juntos» pasa de 3,45s a 3,0s de pantalla completa. Tres tareas «juntos» seguidas eran 10 segundos de pantalla bloqueada.
+
+Verificado en navegador: dos avisos seguidos fusionan la barra 20%→40% sin re-montar; un «juntos» desplaza al aviso; un aviso durante un «juntos» se descarta; el día especial interrumpe; y cerrar una celebración ya no cierra la siguiente. 223 tests.
+
+---
+
 ## [5.25.0] — 2026-09-04 · Fix: Misi tapaba el lápiz de editar en Calendario
 
 Reportado por Fran: en Calendario hay que tocar el lápiz para editar un evento y Misi (fixed, abajo a la derecha, 68px) lo tapa. Tres cambios, del más importante al menos:

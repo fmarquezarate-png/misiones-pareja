@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 const ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
 
@@ -24,25 +27,33 @@ function Spark({ angle, color, delay }) {
 
 export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color, onDone }) {
   const [phase, setPhase] = useState(0);
+  const [reduce] = useState(prefersReducedMotion);
+  const timers = useRef([]);
+
+  // Todos los timeouts en un sitio: el cierre por toque ya no crea uno suelto
+  // que sobreviva al desmontaje y cierre la celebración siguiente.
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  const later = (fn, ms) => timers.current.push(setTimeout(fn, ms));
 
   useEffect(() => {
-    const ts = [
-      setTimeout(() => setPhase(1), 40),    // circles slide in
-      setTimeout(() => setPhase(2), 870),   // sparkle flash
-      setTimeout(() => setPhase(3), 1150),  // text appears
-      setTimeout(() => setPhase(4), 2900),  // fade out
-      setTimeout(() => onDone?.(), 3450),
-    ];
-    return () => ts.forEach(clearTimeout);
-  }, [onDone]);
+    if (reduce) {                       // sin coreografía: se ve y se va
+      setPhase(3);
+      later(() => setPhase(4), 2200);
+      later(() => onDone?.(), 2700);
+      return clearTimers;
+    }
+    later(() => setPhase(1), 40);       // circles slide in
+    later(() => setPhase(2), 780);      // sparkle flash
+    later(() => setPhase(3), 1040);     // text appears
+    later(() => setPhase(4), 2500);     // fade out
+    later(() => onDone?.(), 3000);
+    return clearTimers;
+  }, [onDone, reduce]);
 
   const label = mission.type === "event" ? "Evento" : "Tarea";
   const circleOff = phase >= 1 ? 18 : 95;
 
-  const dismiss = () => {
-    setPhase(4);
-    setTimeout(() => onDone?.(), 500);
-  };
+  const dismiss = () => { clearTimers(); setPhase(4); later(() => onDone?.(), 500); };
 
   return (
     <div
@@ -50,8 +61,11 @@ export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color
       style={{
         position: "fixed", inset: 0, zIndex: 2000,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        background: "rgba(4, 2, 14, 0.91)",
-        backdropFilter: "blur(16px)",
+        // Fondo OPACO en vez de `backdrop-filter: blur(16px)`: el blur a
+        // pantalla completa se recalcula en cada frame mientras los círculos se
+        // mueven — es uno de los costes de compositor más caros en iOS y aquí
+        // no aporta nada (detrás hay un velo casi opaco).
+        background: "#0a0518",
         opacity: phase < 4 ? 1 : 0,
         transition: "opacity 0.5s ease",
         cursor: "pointer",
@@ -93,7 +107,8 @@ export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color
           background: p1Color,
           opacity: 0.88,
           transform: `translateX(calc(-50% - ${circleOff}px))`,
-          transition: "transform 0.88s cubic-bezier(0.34,1.28,0.64,1)",
+          transition: reduce ? "none" : "transform 0.88s cubic-bezier(0.34,1.28,0.64,1)",
+          willChange: "transform",
           boxShadow: `0 0 32px ${p1Color}66`,
         }} />
         {/* Person 2 — mix-blend-mode:screen blends with p1 at the intersection zone */}
@@ -103,12 +118,13 @@ export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color
           background: p2Color,
           opacity: 0.88,
           transform: `translateX(calc(-50% + ${circleOff}px))`,
-          transition: "transform 0.88s cubic-bezier(0.34,1.28,0.64,1)",
+          transition: reduce ? "none" : "transform 0.88s cubic-bezier(0.34,1.28,0.64,1)",
+          willChange: "transform",
           mixBlendMode: "screen",
           boxShadow: `0 0 32px ${p2Color}66`,
         }} />
         {/* Flash burst at center on merge */}
-        {phase >= 2 && (
+        {phase >= 2 && !reduce && (
           <div style={{
             position: "absolute", top: "50%", left: "50%",
             width: 52, height: 52, borderRadius: 99,
@@ -117,7 +133,7 @@ export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color
           }} />
         )}
         {/* Sparkle particles */}
-        {phase >= 2 && ANGLES.map((angle, i) => (
+        {phase >= 2 && !reduce && ANGLES.map((angle, i) => (
           <Spark key={angle} angle={angle}
             color={i % 2 === 0 ? p1Color : p2Color}
             delay={i * 28}
@@ -127,8 +143,8 @@ export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color
 
       {/* Mission info */}
       {phase >= 3 && (
-        <div style={{ textAlign: "center", padding: "0 36px", animation: "jm-text 0.45s ease-out forwards" }}>
-          <div style={{ fontSize: 46, animation: "jm-emoji 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards" }}>
+        <div style={{ textAlign: "center", padding: "0 36px", animation: reduce ? "none" : "jm-text 0.45s ease-out forwards" }}>
+          <div style={{ fontSize: 46, animation: reduce ? "none" : "jm-emoji 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards" }}>
             {mission.emoji || "🎯"}
           </div>
           <div style={{

@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 const PARTICLES = Array.from({ length: 14 }, (_, i) => ({
   angle: (i * 360) / 14,
@@ -33,17 +36,28 @@ function Particle({ angle, dist, size, delay }) {
 
 export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
   const [phase, setPhase] = useState(0);
+  const [reduce] = useState(prefersReducedMotion);
+  const timers = useRef([]);
+
+  // Todos los timeouts en un sitio: el cierre por toque ya no deja uno suelto
+  // que sobreviva al desmontaje y cierre la celebración siguiente.
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+  const later = (fn, ms) => timers.current.push(setTimeout(fn, ms));
 
   useEffect(() => {
-    const ts = [
-      setTimeout(() => setPhase(1), 40),
-      setTimeout(() => setPhase(2), 900),
-      setTimeout(() => setPhase(3), 1200),
-      setTimeout(() => setPhase(4), 5000),
-      setTimeout(() => onDone?.(), 5500),
-    ];
-    return () => ts.forEach(clearTimeout);
-  }, [onDone]);
+    if (reduce) {                    // sin partículas ni coreografía
+      setPhase(3);
+      later(() => setPhase(4), 4200);
+      later(() => onDone?.(), 4700);
+      return clearTimers;
+    }
+    later(() => setPhase(1), 40);
+    later(() => setPhase(2), 900);
+    later(() => setPhase(3), 1200);
+    later(() => setPhase(4), 5000);
+    later(() => onDone?.(), 5500);
+    return clearTimers;
+  }, [onDone, reduce]);
 
   const isAnniversary = event.type === "anniversary";
 
@@ -55,7 +69,7 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
     ? `${p1} & ${p2} · Un día para celebrar`
     : "Que sea un día lleno de alegría y amor";
 
-  const dismiss = () => { setPhase(4); setTimeout(() => onDone?.(), 500); };
+  const dismiss = () => { clearTimers(); setPhase(4); later(() => onDone?.(), 500); };
 
   return (
     <div onClick={dismiss} style={{
@@ -72,9 +86,17 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
           80%  { opacity: 0.7; }
           100% { opacity: 0; transform: translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(0.4); }
         }
+        /* El halo late con transform+opacity (compositable). Antes animaba
+           box-shadow, que fuerza un repintado en CADA frame, para siempre. */
         @keyframes sdp-glow {
-          0%,100% { box-shadow: 0 0 40px #d4a01766, 0 0 80px #d4a01733; }
-          50%      { box-shadow: 0 0 60px #d4a017aa, 0 0 120px #d4a01755; }
+          0%,100% { transform: translate(-50%,-50%) scale(1);    opacity: 0.45; }
+          50%      { transform: translate(-50%,-50%) scale(1.14); opacity: 0.85; }
+        }
+        /* Barrido de luz del fondo: una banda que se DESPLAZA, en vez de animar
+           background-position de un div a pantalla completa. */
+        @keyframes sdp-sweep {
+          0%   { transform: translateX(-120%) skewX(-12deg); }
+          100% { transform: translateX(220%)  skewX(-12deg); }
         }
         @keyframes sdp-shimmer {
           0%   { background-position: -200% center; }
@@ -94,14 +116,17 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
         }
       `}</style>
 
-      {/* Background shimmer bars */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(135deg, transparent 30%, rgba(212,160,23,0.04) 50%, transparent 70%)",
-        backgroundSize: "200% 200%",
-        animation: "sdp-shimmer 3s linear infinite",
-        pointerEvents: "none",
-      }} />
+      {/* Barrido de luz del fondo (una sola capa, transform) */}
+      {!reduce && (
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
+          <div style={{
+            position: "absolute", top: 0, bottom: 0, left: 0, width: "45%",
+            background: "linear-gradient(90deg, transparent, rgba(212,160,23,0.07), transparent)",
+            animation: "sdp-sweep 3.4s linear infinite",
+            willChange: "transform",
+          }} />
+        </div>
+      )}
 
       {/* Decorative corner stars */}
       {["top:20px;left:20px", "top:20px;right:20px", "bottom:60px;left:20px", "bottom:60px;right:20px"].map((pos, i) => (
@@ -110,7 +135,7 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
           ...Object.fromEntries(pos.split(";").map(p => p.split(":"))),
           fontSize: 14, color: "#d4a017",
           opacity: 0.5,
-          animation: `sdp-stars 2s ease-in-out ${i * 300}ms infinite`,
+          animation: reduce ? "none" : `sdp-stars 2s ease-in-out ${i * 300}ms infinite`,
         }}>✦</div>
       ))}
 
@@ -120,29 +145,30 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
         <div style={{
           position: "absolute", top: "50%", left: "50%",
           width: 120, height: 120, borderRadius: 99,
-          background: "transparent",
+          background: "radial-gradient(circle, rgba(212,160,23,0.18), transparent 70%)",
           border: "2px solid rgba(212,160,23,0.4)",
           transform: "translate(-50%,-50%)",
-          animation: "sdp-glow 2s ease-in-out infinite",
+          animation: reduce ? "none" : "sdp-glow 2s ease-in-out infinite",
+          willChange: "transform, opacity",
         }} />
         {/* Emoji */}
         <div style={{
           fontSize: 64,
-          animation: "sdp-float 3s ease-in-out infinite",
+          animation: reduce ? "none" : "sdp-float 3s ease-in-out infinite",
           display: "block", lineHeight: 1,
           filter: "drop-shadow(0 0 16px rgba(212,160,23,0.6))",
         }}>
           {emoji}
         </div>
         {/* Particles */}
-        {phase >= 2 && PARTICLES.map((p, i) => <Particle key={i} {...p} />)}
+        {phase >= 2 && !reduce && PARTICLES.map((p, i) => <Particle key={i} {...p} />)}
       </div>
 
       {/* Text */}
       {phase >= 3 && (
         <div style={{
           textAlign: "center", padding: "0 32px",
-          animation: "sdp-in 0.5s cubic-bezier(0.22,1,0.36,1) both",
+          animation: reduce ? "none" : "sdp-in 0.5s cubic-bezier(0.22,1,0.36,1) both",
         }}>
           {/* Gold shimmer title */}
           <div style={{
@@ -154,7 +180,9 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
-            animation: "sdp-shimmer 2.5s linear infinite",
+            // 3 pasadas, no infinito: animar background-position sobre texto
+            // con background-clip:text repinta el texto en cada frame.
+            animation: reduce ? "none" : "sdp-shimmer 2.5s linear 3",
             marginBottom: 10,
           }}>
             {title}

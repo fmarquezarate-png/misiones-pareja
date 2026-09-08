@@ -73,11 +73,13 @@ function keyOutWhite(imageData) {
   return imageData;
 }
 
-function MisiCanvas({ emotion, size, style, videoRef, onFirstFrame }) {
+function MisiCanvas({ emotion, size, style, videoRef, onFirstFrame, paused = false }) {
   const canvasRef = useRef(null);
   const drawCanvasRef = useRef(null); // offscreen, resolución baja para el pixel loop
   const rafRef = useRef(null);
   const readyRef = useRef(false);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   // (Re)cargar el video fuente cuando cambia la emoción.
   useEffect(() => {
@@ -116,12 +118,21 @@ function MisiCanvas({ emotion, size, style, videoRef, onFirstFrame }) {
     // menos CPU/batería en iPhone sin pérdida visible.
     const FRAME_MS = 1000 / 20;
     let lastProcess = 0;
+    let lastTime = -1;     // currentTime del último frame YA procesado
     const tick = (ts) => {
       rafRef.current = requestAnimationFrame(tick);
       const v = videoRef.current;
       if (!v || !readyRef.current || v.paused || v.readyState < 2) return;
+      // Detrás de una celebración a pantalla completa Misi no se ve: el
+      // chroma-key es el trabajo más caro y constante de la app (recorre
+      // 160×160 píxeles en JS), así que ahí no corre.
+      if (pausedRef.current) return;
       if (ts - lastProcess < FRAME_MS) return; // salta frames redundantes
+      // Si el vídeo no ha avanzado, el frame sería idéntico al ya pintado:
+      // procesarlo otra vez es tirar CPU (el clip va a menos fps que el bucle).
+      if (v.currentTime === lastTime) return;
       lastProcess = ts;
+      lastTime = v.currentTime;
       offCtx.drawImage(v, 0, 0, RENDER, RENDER);
       let frame;
       try {
@@ -156,7 +167,7 @@ function EmotionBadge({ emotion }) {
   );
 }
 
-export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick, liftForTabBar = false }) {
+export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick, liftForTabBar = false, paused = false }) {
   const reduce = prefersReducedMotion();
   const videoRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -263,6 +274,7 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
             size={SIZE}
             videoRef={videoRef}
             onFirstFrame={() => setReady(true)}
+            paused={paused}
             style={{ position: "absolute", inset: 0, opacity: ready ? 1 : 0, transition: "opacity 0.2s ease" }}
           />
         </>
