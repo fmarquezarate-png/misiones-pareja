@@ -145,18 +145,18 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
             <button onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setSelectedDay(null); }} style={{ background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 99, color: "var(--t-accent,#a78bfa)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit" }}>⟲ Volver a hoy</button>
           )}
           {!isWCOver() && (
-            <button onClick={toggleWC} style={{ background: wcMode ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcMode ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcMode ? "#34d399" : "var(--t-text-dim,#6b5f88)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+            <button onClick={toggleWC} style={{ background: wcMode ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcMode ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcMode ? "#34d399" : "var(--t-text-dim,#8f84ad)", fontSize: 11, fontWeight: 600, padding: "4px 14px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
               🏆 Mundial 2026{wcMode ? (wcLoading ? " ·⌛" : wcError ? " · sin datos" : " · ON") : ""}
             </button>
           )}
           {wcMode && !isWCOver() && (
-            <button onClick={() => setShowPicker(true)} style={{ background: wcFilter.length > 0 ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcFilter.length > 0 ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcFilter.length > 0 ? "#34d399" : "var(--t-text-dim,#6b5f88)", fontSize: 11, fontWeight: 600, padding: "4px 12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={() => setShowPicker(true)} style={{ background: wcFilter.length > 0 ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${wcFilter.length > 0 ? "rgba(52,211,153,0.45)" : "rgba(255,255,255,0.1)"}`, borderRadius: 99, color: wcFilter.length > 0 ? "#34d399" : "var(--t-text-dim,#8f84ad)", fontSize: 11, fontWeight: 600, padding: "4px 12px", cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
               🌍{wcFilter.length > 0 ? ` ${wcFilter.length} país${wcFilter.length !== 1 ? "es" : ""}` : " Filtrar"}
             </button>
           )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 3 }}>
-          {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: numSz, color: "var(--t-text-dim,#4a4166)", fontWeight: 600, padding: "3px 0" }}>{d}</div>)}
+          {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: numSz, color: "var(--t-text-dim,#8f84ad)", fontWeight: 600, padding: "3px 0" }}>{d}</div>)}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
           {cells.map((day, i) => {
@@ -192,7 +192,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center" }}>
                     {shownSingle.map(m => { const bg = m.who === "person1" ? clrC.person1 : m.who === "person2" ? clrC.person2 : clrC.together; return <span key={`${m.id}-${ds}`} draggable onDragStart={e => { e.stopPropagation(); onDragStart(e, m); }} onDragEnd={() => setDragOver(null)} title={m.title} style={{ fontSize: emojiSz, lineHeight: 1, background: `${bg}30`, border: `1px solid ${bg}55`, borderRadius: 3, padding: "1px 2px", opacity: m.status === "DONE" ? 0.4 : 1, cursor: "grab" }}>{m.emoji}</span>; })}
                     {shownWC.map(wm => <span key={wm.id} title={`⚽ ${wm.home} vs ${wm.away}`} style={{ fontSize: emojiSz, lineHeight: 1, background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 3, padding: "1px 2px" }}>⚽</span>)}
-                    {overflow > 0 && <span style={{ fontSize: 8, color: "var(--t-text-dim,#4a4166)" }}>+{overflow}</span>}
+                    {overflow > 0 && <span style={{ fontSize: 8, color: "var(--t-text-dim,#8f84ad)" }}>+{overflow}</span>}
                   </div>
                 </div>
                 {hasAny && (() => {
@@ -243,7 +243,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
           )}
 
           {selMs.length === 0 && wcForSelDay.length === 0
-            ? <div style={{ color: "var(--t-text-dim,#3d3360)", fontStyle: "italic", fontSize: 13 }}>Sin misiones para este día</div>
+            ? <div style={{ color: "var(--t-text-dim,#8f84ad)", fontStyle: "italic", fontSize: 13 }}>Sin misiones para este día</div>
             : selMs.length === 0 ? null
             : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -257,7 +257,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                     <div key={m.id} onClick={() => openEdit(m)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(167,139,250,0.08)", cursor: "pointer" }}>
                       <span style={{ fontSize: 20, flexShrink: 0 }}>{m.emoji}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: m.status === "DONE" ? "#4d4566" : "var(--t-text,#e2d9ff)", textDecoration: m.status === "DONE" ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 13, color: m.status === "DONE" ? "#4d4566" : "var(--t-text,#e2d9ff)", textDecoration: m.status === "DONE" ? "line-through" : "none", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>
                           {m.title}{isMultiDay && <span style={{ fontSize: 10, marginLeft: 4, color: "var(--t-accent,#a78bfa)" }}>↔</span>}
                         </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
@@ -285,7 +285,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
           <div style={{ background: "var(--t-card,#1d1733)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.35))", borderRadius: 16, padding: 20, width: "100%", maxWidth: 420, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--t-text,#c4b8ff)" }}>✏️ Editar actividad</span>
-              <button onClick={closeEdit} style={{ background: "none", border: "none", color: "var(--t-text-dim,#6b5f88)", fontSize: 20, cursor: "pointer" }}>×</button>
+              <button onClick={closeEdit} style={{ background: "none", border: "none", color: "var(--t-text-dim,#8f84ad)", fontSize: 20, cursor: "pointer" }}>×</button>
             </div>
             <div style={{ marginBottom: 10 }}><label style={S.label}>Título</label><input value={editingMission.mission.title} onChange={e => patchEditing({ title: e.target.value })} style={S.input} /></div>
             <div style={{ marginBottom: 10 }}>
@@ -293,7 +293,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {[{ id: "person1", label: p1 }, { id: "person2", label: p2 }, { id: "together", label: "👫 Juntos" }].map(w => (
                   <button key={w.id} onClick={() => patchEditing({ who: w.id })}
-                    style={{ background: editingMission.mission.who === w.id ? "var(--t-accent-soft,rgba(167,139,250,0.2))" : "rgba(128,128,128,0.06)", border: `1px solid ${editingMission.mission.who === w.id ? "var(--t-accent,rgba(167,139,250,0.5))" : "var(--t-card-border,rgba(255,255,255,0.08))"}`, borderRadius: 8, color: editingMission.mission.who === w.id ? "var(--t-accent,#c4b8ff)" : "var(--t-text-dim,#6b5f88)", padding: "5px 10px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>{w.label}</button>
+                    style={{ background: editingMission.mission.who === w.id ? "var(--t-accent-soft,rgba(167,139,250,0.2))" : "rgba(128,128,128,0.06)", border: `1px solid ${editingMission.mission.who === w.id ? "var(--t-accent,rgba(167,139,250,0.5))" : "var(--t-card-border,rgba(255,255,255,0.08))"}`, borderRadius: 8, color: editingMission.mission.who === w.id ? "var(--t-accent,#c4b8ff)" : "var(--t-text-dim,#8f84ad)", padding: "5px 10px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>{w.label}</button>
                 ))}
               </div>
             </div>
@@ -348,7 +348,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
             {editingMission.mission.seriesId && onPatchAllFutureSeries && (
               <div style={{ background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
                 <div style={{ fontSize: 11, color: "#34d399", fontWeight: 600, marginBottom: 6 }}>🔁 Tarea recurrente · {editingMission.mission.seriesPattern === "daily" ? "Diario" : editingMission.mission.seriesPattern === "weekly" ? "Semanal" : editingMission.mission.seriesPattern === "biweekly" ? "Bisemanal" : "Mensual"}</div>
-                <div style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)", marginBottom: 8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
+                <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)", marginBottom: 8 }}>Los cambios anteriores aplican solo a esta instancia.</div>
                 <button onClick={() => {
                   const fromWkey = isoWeekKey(editingMission.wn, editingMission.yr);
                   const { seriesId, title, emoji, who, categories, category, duration, type, reminder, seriesEndDate } = editingMission.mission;

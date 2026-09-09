@@ -3,6 +3,7 @@ import { DEFAULT_COLORS, CATEGORIES, getMCats } from "../constants.js";
 import { getWeekAndYear, isoWeekKey } from "../utils.js";
 import { weekStartDate, fmtWeekRange } from "../lib/appUtils.js";
 import { PHRASES } from "../phrases.js";
+import { Z } from "../lib/zLayers.js";
 
 const MONTH_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
@@ -352,7 +353,7 @@ export default function WrappedModal({ showWeekly, showMonthlyOption, weeks, p1,
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 1800,
+      position: "fixed", inset: 0, zIndex: Z.SHEET,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       background: `radial-gradient(ellipse at 30% 30%, ${clr.person1}22 0%, transparent 55%),
                    radial-gradient(ellipse at 70% 70%, ${clr.person2}22 0%, transparent 55%),

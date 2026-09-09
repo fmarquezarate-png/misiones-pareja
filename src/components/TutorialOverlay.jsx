@@ -1,3 +1,4 @@
+import { Z } from "../lib/zLayers.js";
 const TUTORIAL_STEPS = [
   { id:"welcome",      icon:"💞", title:"¡Bienvenido/a a Shared Calendar!", desc:"Tu espacio para planear la vida juntos. Te mostramos cada sección en 2 minutos — después podrás volver al tutorial desde ⚙️.", tab:null },
   { id:"home-rings",   icon:"📊", title:"Scorecards de pareja", desc:"Tu foto y el porcentaje de tareas completadas en las últimas 2 semanas. Toca el anillo para ver el desglose.", tab:"home" },
@@ -21,7 +22,7 @@ export default function TutorialOverlay({ step, onNext, onBack, onSkip, onFinish
   const pct = (step / (total - 1)) * 100;
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+    <div style={{ position:"fixed", inset:0, zIndex: Z.SHEET, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
       <style>{`@keyframes tut-pop { from { opacity:0; transform:scale(0.94) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }`}</style>
 
       {/* Backdrop — tap to skip */}

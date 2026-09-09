@@ -4,6 +4,7 @@ import { useConfirm } from "./ConfirmModal.jsx";
 import PillFilter from "./PillFilter.jsx";
 import { S, badgeStyle } from "../styles.js";
 import { STATUS, getMCats, CAT_MAP, DEFAULT_COLORS } from "../constants.js";
+import { humanDate } from "../lib/dateLabel.js";
 
 export default function PendingView({ weeks, currentWeekNumber, currentYear, globalPersonFilter, globalCatFilter, colors, p1, p2, cycleStatusGlobal, onDelete, setActiveTab, update, onSync, syncing }) {
   const [pendingTab, setPendingTab] = useState("pending");
@@ -61,7 +62,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
     flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer", fontFamily:"inherit",
     fontSize:12, fontWeight:600,
     background: active ? "var(--t-accent-soft,rgba(167,139,250,0.14))" : "rgba(128,128,128,0.06)",
-    color: active ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
+    color: active ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#b9b0d0)",
     transition:"all .15s",
   });
 
@@ -82,7 +83,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
       {/* Pendientes list */}
       {pendingTab==="pending" && (
         pendingFiltered.length===0
-          ? <div style={{ ...S.card, textAlign:"center", color:"var(--t-text-dim,#3d3360)", fontStyle:"italic", padding:40 }}>
+          ? <div style={{ ...S.card, textAlign:"center", color:"var(--t-text-dim,#8f84ad)", fontStyle:"italic", padding:40 }}>
               <div style={{ fontSize:36, marginBottom:12 }}>🎉</div>
               <div>¡Sin pendientes! Todo al día.</div>
             </div>
@@ -104,10 +105,10 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                       <span style={{ fontSize:22, flexShrink:0 }}>{m.emoji}</span>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                        <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>{m.title}</div>
                         <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:3 }}>
-                          <span style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)" }}>S{m.weekNumber} {m._yr}</span>
-                          {m.date && <span style={{ fontSize:10, color:"var(--t-accent,#a78bfa)" }}>📆 {m.date}</span>}
+                          <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)" }}>S{m.weekNumber} {m._yr}</span>
+                          {m.date && <span style={{ fontSize:10, color:"var(--t-accent,#a78bfa)" }}>📆 {humanDate(m.date)}</span>}
                           {getMCats(m).map(ci => { const c=CAT_MAP[ci]; return c?<span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon} {c.label}</span>:null; })}
                           <span style={{ fontSize:10, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                         </div>
@@ -115,7 +116,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                       <div style={{ display:"flex", gap:4, flexShrink:0, alignItems:"center" }}>
                         <button onClick={() => cycleStatusGlobal(m.weekNumber,m._yr,m.id)} style={badgeStyle(m.status)}>{STATUS[m.status].icon}</button>
                         <button onClick={() => { update(s => ({...s,currentWeekNumber:m.weekNumber,currentYear:m._yr})); setActiveTab("current"); }} style={{ ...S.btnSecondary, fontSize:10, padding:"4px 8px" }}>→ S{m.weekNumber}</button>
-                        <button onClick={() => confirm("Vas a eliminar esta tarea\n\nEsta acción no se puede deshacer. Desaparecerá para los dos.", () => onDelete(m.weekNumber,m._yr,m.id), {confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }} title="Eliminar">×</button>
+                        <button onClick={() => confirm("Vas a eliminar esta tarea\n\nEsta acción no se puede deshacer. Desaparecerá para los dos.", () => onDelete(m.weekNumber,m._yr,m.id), {confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#8f84ad)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }} title="Eliminar">×</button>
                       </div>
                     </div>
                   </div>
@@ -172,7 +173,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
             />
             {/* Timeline */}
             {logrosLocalFiltered.length===0
-              ? <div style={{ ...S.card, textAlign:"center", color:"var(--t-text-dim,#3d3360)", fontStyle:"italic", padding:40 }}>
+              ? <div style={{ ...S.card, textAlign:"center", color:"var(--t-text-dim,#8f84ad)", fontStyle:"italic", padding:40 }}>
                   <div style={{ fontSize:36, marginBottom:12 }}>🏆</div>
                   <div>Todavía no hay logros registrados.</div>
                 </div>
@@ -201,7 +202,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                                 <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                                   <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji}</span>
                                   <div style={{ flex:1, minWidth:0 }}>
-                                    <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
+                                    <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>{m.title}</div>
                                     <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:2 }}>
                                       <span style={{ fontSize:10, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                                       {getMCats(m).map(ci => { const c=CAT_MAP[ci]; return c?<span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon}</span>:null; })}
@@ -209,7 +210,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                                   </div>
                                   <div style={{ display:"flex", alignItems:"center", gap:4, flexShrink:0 }}>
                                     <span style={{ fontSize:18 }}>✅</span>
-                                    <button onClick={() => confirm("Vas a eliminar este logro\n\nEsta acción no se puede deshacer. Desaparecerá del historial de los dos.", () => onDelete(m.weekNumber,m._yr,m.id), {confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:16, padding:"0 2px", lineHeight:1 }} title="Eliminar">×</button>
+                                    <button onClick={() => confirm("Vas a eliminar este logro\n\nEsta acción no se puede deshacer. Desaparecerá del historial de los dos.", () => onDelete(m.weekNumber,m._yr,m.id), {confirmLabel:"Sí, eliminar",cancelLabel:"Mejor no"})} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#8f84ad)", fontSize:16, padding:"0 2px", lineHeight:1 }} title="Eliminar">×</button>
                                   </div>
                                 </div>
                               </div>

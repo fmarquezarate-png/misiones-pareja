@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { S } from "../styles.js";
 import { DEFAULT_COLORS } from "../constants.js";
+import { Z } from "../lib/zLayers.js";
+import { humanDate } from "../lib/dateLabel.js";
 
 // ─── GoalPeriodDetail ─────────────────────────────────────────────────────────
 // Bottom sheet en móvil / modal centrado en desktop
@@ -55,7 +57,7 @@ export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
     position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.5)",
-    zIndex: 1000,
+    zIndex: Z.SHEET,
     display: "flex",
     alignItems: isMobile ? "flex-end" : "center",
     justifyContent: "center",
@@ -63,7 +65,7 @@ export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
 
   const panelBaseStyle = {
     background: "var(--t-card,#1d1733)",
-    zIndex: 1001,
+    zIndex: Z.SHEET + 1,
     boxShadow: "0 -4px 32px rgba(0,0,0,0.4)",
     transition: "opacity 0.22s ease, transform 0.28s cubic-bezier(0.34,1.3,0.64,1)",
     fontFamily: "inherit",
@@ -113,12 +115,12 @@ export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
             <span style={{ fontSize: 28, flexShrink: 0 }}>{goal.emoji}</span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t-text,#f0e8ff)", lineHeight: 1.3 }}>{goal.title}</div>
-              <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginTop: 2 }}>{h.label}</div>
+              <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>{h.label}</div>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--t-text-dim,#4a4166)", fontSize: 20, lineHeight: 1, padding: "2px 4px", flexShrink: 0, marginLeft: 8 }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--t-text-dim,#8f84ad)", fontSize: 20, lineHeight: 1, padding: "2px 4px", flexShrink: 0, marginLeft: 8 }}
             onMouseEnter={e => e.currentTarget.style.color = "#a78bfa"}
             onMouseLeave={e => e.currentTarget.style.color = "#4a4166"}
           >×</button>
@@ -127,7 +129,7 @@ export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
         {/* Progress bar */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
-            <span style={{ color: "var(--t-text-muted,#8b7fa8)" }}>Actividades</span>
+            <span style={{ color: "var(--t-text-muted,#b9b0d0)" }}>Actividades</span>
             <span style={{ color: countColor, fontWeight: 600 }}>
               {h.count} / {goal.target} {isMax ? "(máx.)" : ""}
             </span>
@@ -146,11 +148,11 @@ export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
 
         {/* Mission list */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--t-text-dim,#4a4166)", fontWeight: 600, marginBottom: 8 }}>
+          <div style={{ fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--t-text-dim,#8f84ad)", fontWeight: 600, marginBottom: 8 }}>
             Actividades del período
           </div>
           {missions.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", fontStyle: "italic", padding: "8px 0" }}>
+            <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", fontStyle: "italic", padding: "8px 0" }}>
               Sin actividades registradas este período
             </div>
           ) : (
@@ -173,7 +175,7 @@ export default function GoalPeriodDetail({ h, goal, colors, prevH, onClose }) {
                     <span style={{ fontSize: 16, flexShrink: 0 }}>{m.emoji || "🎯"}</span>
                     <span style={{ flex: 1, fontSize: 12, color: "var(--t-text,#f0e8ff)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</span>
                     {m.date && (
-                      <span style={{ fontSize: 10, color: "var(--t-text-dim,#6b5f88)", flexShrink: 0 }}>{m.date}</span>
+                      <span style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)", flexShrink: 0 }}>{humanDate(m.date)}</span>
                     )}
                     <span style={{ width: 8, height: 8, borderRadius: 99, background: mc, flexShrink: 0 }} />
                   </div>

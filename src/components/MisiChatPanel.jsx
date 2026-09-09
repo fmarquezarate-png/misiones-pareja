@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { S } from "../styles.js";
 import { uid } from "../utils.js";
 import { loadMisiHistory, saveMisiHistory, askMisi } from "../lib/misi.js";
+import { Z } from "../lib/zLayers.js";
 
 // Chat con Misi — historial local (localStorage por pareja/dispositivo, sin
 // tabla nueva en Supabase). onThinking(bool) le avisa al padre para que la
@@ -35,20 +36,20 @@ export default function MisiChatPanel({ coupleId, personName, onClose, onThinkin
   };
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 2000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: Z.SHEET, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "var(--t-menu-bg,#0f0a1e)", borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, height: "78vh", display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0 }}>
           <span style={{ fontSize: 22 }}>🤖</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Fraunces',serif", fontSize: 17, color: "var(--t-text,#f8f4ff)" }}>Misi</div>
-            <div style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)" }}>{sending ? "escribiendo…" : "tu asistente"}</div>
+            <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>{sending ? "escribiendo…" : "tu asistente"}</div>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, color: "var(--t-text-muted,#8b7fa8)", fontSize: 18, cursor: "pointer", padding: "4px 9px", lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Cerrar" style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, color: "var(--t-text-muted,#b9b0d0)", fontSize: 18, cursor: "pointer", padding: "4px 9px", lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {messages.length === 0 && (
-            <div style={{ textAlign: "center", color: "var(--t-text-dim,#4a4166)", fontSize: 13, padding: "40px 20px", lineHeight: 1.7 }}>
+            <div style={{ textAlign: "center", color: "var(--t-text-dim,#8f84ad)", fontSize: 13, padding: "40px 20px", lineHeight: 1.7 }}>
               🤖 ¡Hola! Preguntame por tus tareas, tu semana, o lo que necesites.
             </div>
           )}
@@ -64,7 +65,7 @@ export default function MisiChatPanel({ coupleId, personName, onClose, onThinkin
           ))}
           {sending && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", background: "rgba(128,128,128,0.1)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "16px 16px 16px 4px", width: "fit-content" }}>
-              {[0, 1, 2].map(i => <span key={i} style={{ width: 5, height: 5, borderRadius: 99, background: "var(--t-text-muted,#8b7fa8)", animation: `misi-typing-dot 1.2s ease-in-out ${i * 0.15}s infinite` }} />)}
+              {[0, 1, 2].map(i => <span key={i} style={{ width: 5, height: 5, borderRadius: 99, background: "var(--t-text-muted,#b9b0d0)", animation: `misi-typing-dot 1.2s ease-in-out ${i * 0.15}s infinite` }} />)}
               <style>{`@keyframes misi-typing-dot { 0%,60%,100% { opacity:0.3; transform:scale(0.8); } 30% { opacity:1; transform:scale(1.1); } }`}</style>
             </div>
           )}

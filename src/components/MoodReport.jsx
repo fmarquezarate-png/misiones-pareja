@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { filterMoods, aggregateMoods, summarizePoints } from "../lib/moodAnalysis.js";
 import MoodTimelineChart from "./MoodTimelineChart.jsx";
+import { Z } from "../lib/zLayers.js";
 
 const PERIODS = [["7d","Semana"],["30d","Mes"],["365d","Año"],["all","Todo"]];
 
@@ -34,7 +35,7 @@ export default function MoodReport({ moods, p1, p2, colors, initialPeriod = "30d
   const generatedStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
 
   return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", zIndex:2100, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", zIndex: Z.SHEET, display:"flex", alignItems:"center", justifyContent:"center", padding:16, overflowY:"auto" }}>
       <style>{PRINT_CSS}</style>
       <div onClick={e => e.stopPropagation()} className="mp-report-root"
         style={{ background:"#15101f", border:"1px solid rgba(167,139,250,0.22)", borderRadius:22, padding:"22px", width:"100%", maxWidth:560, maxHeight:"92vh", overflowY:"auto", boxShadow:"0 24px 64px rgba(0,0,0,0.6)" }}>

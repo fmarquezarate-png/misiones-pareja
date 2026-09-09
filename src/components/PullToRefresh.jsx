@@ -53,7 +53,7 @@ export default function PullToRefresh({ onRefresh, refreshing, children }) {
           width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
           background: "var(--t-card,#1d1733)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.3))",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 16, color: pull >= THRESHOLD || refreshing ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
+          fontSize: 16, color: pull >= THRESHOLD || refreshing ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#b9b0d0)",
           transform: refreshing ? "none" : `rotate(${shown * 3.2}deg)`,
           opacity: Math.min(shown / (THRESHOLD * 0.6), 1),
           animation: refreshing ? "mp-ptr-spin 0.9s linear infinite" : "none",

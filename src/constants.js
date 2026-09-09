@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "5.26.0";
+export const APP_VERSION = "5.27.0";
 export const LAST_UPDATE = "2026-07-27";
 
 // Banner de mantenimiento — null = desactivado
@@ -149,7 +149,13 @@ export const GASTO_CATS = [
 ];
 
 // ─── Themes ───────────────────────────────────────────────────────────────────
-export const _DT = { text:"#f8f4ff", textMuted:"#8b7fa8", textDim:"#4a4166" };
+// Escala de texto de los temas OSCUROS. Medida en WCAG contra la tarjeta más
+// clara de los nueve temas: 17.3 / 8.5 / 5.1. Antes `textDim` estaba en #4a4166
+// = **2.0:1** — por debajo incluso del mínimo para texto grande (3.0), y se usa
+// en ~236 sitios (fechas, contadores, "sin misiones", textos de ayuda): en la
+// calle o con brillo bajo, invisible. Los temas claros definen los suyos y ya
+// pasaban. Tres niveles siguen bien diferenciados; el bajo ya no es decorativo.
+export const _DT = { text:"#f8f4ff", textMuted:"#b9b0d0", textDim:"#8f84ad" };
 export const THEMES = [
   // ── Oscuros originales ────────────────────────────────────────────────────
   {

@@ -4,7 +4,7 @@ import { useConfirm } from "./ConfirmModal.jsx";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const EYEBROW = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:8, display:"block" };
+const EYEBROW = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:700, marginBottom:8, display:"block" };
 const CARD = { background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderRadius:12, overflow:"hidden" };
 
 function LinkForm({ initial = {}, allFolders = [], onSave, onCancel }) {
@@ -28,7 +28,7 @@ function LinkForm({ initial = {}, allFolders = [], onSave, onCancel }) {
           <button key={v} onClick={() => setTab(v)} style={{
             flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer",
             background: tab===v ? "var(--t-accent-soft,rgba(167,139,250,0.18))" : "transparent",
-            color: tab===v ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
+            color: tab===v ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#b9b0d0)",
             fontSize:12, fontWeight:tab===v?600:400, fontFamily:"inherit",
           }}>{l}</button>
         ))}
@@ -125,12 +125,12 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
             {link.name}
           </div>
           {link.url && (
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginTop:1 }}>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginTop:1 }}>
               {link.url}
             </div>
           )}
           {!link.url && link.type==="account" && (
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", marginTop:1 }}>Cuenta guardada</div>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", marginTop:1 }}>Cuenta guardada</div>
           )}
           {link.folder && (
             <div style={{ fontSize:9, color:"var(--t-accent,#a78bfa)", marginTop:2, display:"inline-flex", alignItems:"center", gap:3 }}>
@@ -145,12 +145,12 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
           )}
           {(link.user || link.pass) && (
             <button onClick={onToggleCreds}
-              style={{ background:"rgba(128,128,128,0.1)", border:"1px solid rgba(128,128,128,0.2)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", fontSize:11, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit" }}>
+              style={{ background:"rgba(128,128,128,0.1)", border:"1px solid rgba(128,128,128,0.2)", borderRadius:8, color:"var(--t-text-muted,#b9b0d0)", fontSize:11, padding:"5px 10px", cursor:"pointer", fontFamily:"inherit" }}>
               {showCreds ? "🙈" : "👁"}
             </button>
           )}
           <button onClick={onEdit}
-            style={{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.15)", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", fontSize:11, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+            style={{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.15)", borderRadius:8, color:"var(--t-text-dim,#8f84ad)", fontSize:11, padding:"5px 8px", cursor:"pointer", fontFamily:"inherit" }}>
             ✏️
           </button>
           <button onClick={onDelete}
@@ -164,7 +164,7 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
         <div style={{ borderTop:"1px solid var(--t-card-border,rgba(128,128,128,0.12))", padding:"10px 12px", background:"rgba(128,128,128,0.04)", display:"flex", flexDirection:"column", gap:6 }}>
           {link.user && (
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", width:72, flexShrink:0 }}>Usuario</span>
+              <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", width:72, flexShrink:0 }}>Usuario</span>
               <span style={{ flex:1, fontSize:12, color:"var(--t-text,#f0e8ff)", overflow:"hidden", textOverflow:"ellipsis" }}>{link.user}</span>
               <button onClick={() => copy(link.user,"user")} style={{ background:"none", border:"none", fontSize:12, color:"var(--t-accent,#a78bfa)", cursor:"pointer", padding:"2px 6px" }}>
                 {copied==="user" ? "✓" : "📋"}
@@ -173,7 +173,7 @@ function LinkCard({ link, onEdit, onDelete, showCreds, onToggleCreds }) {
           )}
           {link.pass && (
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", width:72, flexShrink:0 }}>Contraseña</span>
+              <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", width:72, flexShrink:0 }}>Contraseña</span>
               <span style={{ flex:1, fontSize:12, color:"var(--t-text,#f0e8ff)", fontFamily:"monospace", letterSpacing:2 }}>{"•".repeat(Math.min(link.pass.length,10))}</span>
               <button onClick={() => copy(link.pass,"pass")} style={{ background:"none", border:"none", fontSize:12, color:"var(--t-accent,#a78bfa)", cursor:"pointer", padding:"2px 6px" }}>
                 {copied==="pass" ? "✓" : "📋"}
@@ -231,7 +231,7 @@ export default function LinksView({ links = [], onSave }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
           <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:22, fontWeight:600, color:"var(--t-text,#f8f4ff)" }}>🔗 Base de control</div>
-          <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:2 }}>Links y cuentas de uso frecuente</div>
+          <div style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)", marginTop:2 }}>Links y cuentas de uso frecuente</div>
         </div>
         <button onClick={() => setForm({})} style={{ ...S.btnPrimary, padding:"8px 14px", fontSize:12 }}>+ Añadir</button>
       </div>
@@ -248,8 +248,8 @@ export default function LinksView({ links = [], onSave }) {
       {links.length === 0 && form === null && (
         <div style={{ textAlign:"center", padding:"48px 20px" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🔗</div>
-          <div style={{ fontSize:14, fontWeight:600, marginBottom:4, color:"var(--t-text-muted,#8b7fa8)" }}>Sin enlaces todavía</div>
-          <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>Añade links de uso diario o cuentas importantes</div>
+          <div style={{ fontSize:14, fontWeight:600, marginBottom:4, color:"var(--t-text-muted,#b9b0d0)" }}>Sin enlaces todavía</div>
+          <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)" }}>Añade links de uso diario o cuentas importantes</div>
         </div>
       )}
 

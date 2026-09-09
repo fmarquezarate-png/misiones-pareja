@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 export default function WCCountryPicker({ teams, selected, onChange, onClose }) {
   const [search, setSearch] = useState("");
@@ -15,7 +16,7 @@ export default function WCCountryPicker({ teams, selected, onChange, onClose }) 
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:1600, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+    <div style={{ position:"fixed", inset:0, zIndex: Z.SHEET, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
       {/* Backdrop */}
       <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
 
@@ -35,7 +36,7 @@ export default function WCCountryPicker({ teams, selected, onChange, onClose }) 
                   Limpiar
                 </button>
               )}
-              <button onClick={onClose} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:99, color:"var(--t-text-dim,#6b5f88)", fontSize:11, padding:"3px 10px", cursor:"pointer", fontFamily:"inherit" }}>
+              <button onClick={onClose} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:99, color:"var(--t-text-dim,#8f84ad)", fontSize:11, padding:"3px 10px", cursor:"pointer", fontFamily:"inherit" }}>
                 Listo ✓
               </button>
             </div>
@@ -50,7 +51,7 @@ export default function WCCountryPicker({ teams, selected, onChange, onClose }) 
         {/* Team grid */}
         <div style={{ overflowY:"auto", padding:"12px 12px 24px", display:"flex", flexWrap:"wrap", gap:7, alignContent:"flex-start" }}>
           {filtered.length === 0 && (
-            <div style={{ color:"var(--t-text-dim,#6b5f88)", fontSize:13, fontStyle:"italic", padding:"8px 4px" }}>Sin resultados</div>
+            <div style={{ color:"var(--t-text-dim,#8f84ad)", fontSize:13, fontStyle:"italic", padding:"8px 4px" }}>Sin resultados</div>
           )}
           {filtered.map(({ name, flag }) => {
             const sel = selected.includes(name);
@@ -58,7 +59,7 @@ export default function WCCountryPicker({ teams, selected, onChange, onClose }) 
               <button key={name} onClick={() => toggle(name)} style={{
                 background: sel ? "rgba(52,211,153,0.18)" : "rgba(255,255,255,0.04)",
                 border: `1px solid ${sel ? "rgba(52,211,153,0.55)" : "rgba(255,255,255,0.1)"}`,
-                borderRadius: 99, color: sel ? "#34d399" : "var(--t-text-dim,#9991b8)",
+                borderRadius: 99, color: sel ? "#34d399" : "var(--t-text-dim,#8f84ad)",
                 fontSize: 12, padding: "5px 11px", cursor: "pointer", fontFamily: "inherit",
                 display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
                 fontWeight: sel ? 600 : 400,

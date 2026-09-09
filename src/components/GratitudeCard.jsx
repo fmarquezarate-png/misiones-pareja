@@ -32,7 +32,7 @@ export default function GratitudeCard({ mine, received, partnerName, onSend, onO
       )}
 
       {mine ? (
-        <div style={{ fontSize: 13, color: "var(--t-text-muted,#8b7fa8)" }}>
+        <div style={{ fontSize: 13, color: "var(--t-text-muted,#b9b0d0)" }}>
           <span style={{ marginRight: 6 }}>🙏</span>Hoy agradeciste: <i>«{mine.text}»</i>
         </div>
       ) : showPrompt ? (
@@ -41,7 +41,7 @@ export default function GratitudeCard({ mine, received, partnerName, onSend, onO
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t-text,#f0e8ff)" }}>🙏 ¿Qué le agradeces hoy a {partnerName || "tu pareja"}?</div>
             <button onClick={dismiss} aria-label="Ahora no" title="Ahora no" style={{
               width: 40, height: 40, marginRight: -10, marginTop: -8, flexShrink: 0, borderRadius: 99, cursor: "pointer",
-              fontFamily: "inherit", fontSize: 13, color: "var(--t-text-muted,#8b7fa8)", background: "transparent",
+              fontFamily: "inherit", fontSize: 13, color: "var(--t-text-muted,#b9b0d0)", background: "transparent",
               border: "none", display: "flex", alignItems: "center", justifyContent: "center",
             }}>✕</button>
           </div>

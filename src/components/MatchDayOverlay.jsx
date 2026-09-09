@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Z } from "../lib/zLayers.js";
 
 export default function MatchDayOverlay({ matches, onDone }) {
   const [phase, setPhase] = useState(0); // 0=entering, 1=visible
@@ -21,7 +22,7 @@ export default function MatchDayOverlay({ matches, onDone }) {
     <div
       onClick={onDone}
       style={{
-        position: "fixed", inset: 0, zIndex: 2100,
+        position: "fixed", inset: 0, zIndex: Z.CELEBRATION,
         background: "rgba(0,0,0,0.97)",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         padding: 28, textAlign: "center", cursor: "pointer",

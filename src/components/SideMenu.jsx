@@ -39,7 +39,7 @@ const HISTORIAL_ITEMS = [
 function SectionHeader({ children }) {
   return (
     <div style={{ fontSize:10, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase",
-      color:"var(--t-text-dim,#4a4166)", padding:"14px 12px 5px" }}>
+      color:"var(--t-text-dim,#8f84ad)", padding:"14px 12px 5px" }}>
       {children}
     </div>
   );
@@ -84,7 +84,7 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenA
           borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14,
           fontWeight:isActive?600:400,
           background:isActive?"var(--t-accent-soft,rgba(167,139,250,0.14))":"transparent",
-          color:isActive?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#6b5f88)",
+          color:isActive?"var(--t-accent,#c4b8ff)":"var(--t-text-muted,#b9b0d0)",
           textAlign:"left", width:"100%", transition:"all 0.15s" }}>
         <span aria-hidden="true" style={{ fontSize:17, lineHeight:1 }}>{n.icon}</span>
         <span style={{ flex:1 }}>{n.label}</span>
@@ -121,7 +121,7 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenA
               <span aria-hidden="true">✏️</span> Editar perfil
             </div>
           </div>
-          <span aria-hidden="true" style={{ fontSize:14, color:"var(--t-text-dim,#4a4166)", flexShrink:0 }}>›</span>
+          <span aria-hidden="true" style={{ fontSize:14, color:"var(--t-text-dim,#8f84ad)", flexShrink:0 }}>›</span>
         </button>
 
         {/* Nav agrupada */}
@@ -143,13 +143,13 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenA
             style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:10, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14,
               fontWeight: (!nosotrosOpen && nosotrosHasActive) ? 600 : 400,
               background: (!nosotrosOpen && nosotrosHasActive) ? "var(--t-accent-soft,rgba(167,139,250,0.14))" : "transparent",
-              color: (!nosotrosOpen && nosotrosHasActive) ? "var(--t-accent,#c4b8ff)" : "var(--t-text-muted,#6b5f88)",
+              color: (!nosotrosOpen && nosotrosHasActive) ? "var(--t-accent,#c4b8ff)" : "var(--t-text-muted,#b9b0d0)",
               textAlign:"left", width:"100%", transition:"all 0.15s" }}>
             <span aria-hidden="true" style={{ fontSize:17, lineHeight:1 }}>❤️</span>
             <span style={{ flex:1 }}>Ver todo</span>
             {/* punto de "hay una activa aquí dentro" cuando está plegado */}
             {!nosotrosOpen && nosotrosHasActive && <span aria-hidden="true" style={{ width:5, height:5, borderRadius:99, background:"var(--t-accent,#a78bfa)", flexShrink:0 }} />}
-            <span aria-hidden="true" style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", transition:"transform 0.2s", transform: nosotrosOpen ? "rotate(180deg)" : "none" }}>▾</span>
+            <span aria-hidden="true" style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", transition:"transform 0.2s", transform: nosotrosOpen ? "rotate(180deg)" : "none" }}>▾</span>
           </button>
           {nosotrosOpen && (
             <div style={{ borderLeft:"1px solid var(--t-card-border,rgba(167,139,250,0.12))", marginLeft:16, display:"flex", flexDirection:"column", gap:2 }}>
@@ -169,8 +169,8 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenA
             onPointerDown={lpStart} onPointerUp={lpEnd} onPointerLeave={lpEnd} onPointerCancel={lpEnd}
             style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 0", display:"flex", gap:8, alignItems:"center", width:"100%" }}>
             <span style={{ fontSize:11, fontWeight:700, color:"#fbbf24", letterSpacing:0.5, textShadow:"0 0 8px rgba(251,191,36,0.35)" }}>v{APP_VERSION}</span>
-            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)" }}>{LAST_UPDATE}</span>
-            <span style={{ fontSize:10, color:"var(--t-text-dim,#3d3360)", marginLeft:"auto" }}>Ver cambios →</span>
+            <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)" }}>{LAST_UPDATE}</span>
+            <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", marginLeft:"auto" }}>Ver cambios →</span>
           </button>
         </div>
       </div>
@@ -181,18 +181,18 @@ export default function SideMenu({ open, onClose, activeTab, onNavigate, onOpenA
           <div style={{ background:"var(--t-card,#1d1733)", border:"1px solid rgba(251,191,36,0.3)", borderRadius:18, padding:24, width:"100%", maxWidth:420, maxHeight:"80vh", overflowY:"auto" }} onClick={e => e.stopPropagation()}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
               <span style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"var(--t-accent,#fbbf24)" }}>📋 Changelog</span>
-              <button onClick={() => setShowChangelog(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#6b5f88)", fontSize:20, cursor:"pointer" }}>×</button>
+              <button onClick={() => setShowChangelog(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#b9b0d0)", fontSize:20, cursor:"pointer" }}>×</button>
             </div>
             {!changelog ? (
-              <div style={{ textAlign:"center", padding:"20px 0", color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+              <div style={{ textAlign:"center", padding:"20px 0", color:"var(--t-text-muted,#b9b0d0)", fontSize:13 }}>Cargando…</div>
             ) : changelog.map(c => (
               <div key={c.v} style={{ marginBottom:16 }}>
                 <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
                   <span style={{ fontSize:12, fontWeight:700, color:"var(--t-accent,#fbbf24)" }}>v{c.v}</span>
-                  <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{c.date}</span>
+                  <span style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)" }}>{c.date}</span>
                 </div>
                 <ul style={{ margin:0, padding:"0 0 0 16px" }}>
-                  {c.notes.map((n,i) => <li key={i} style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginBottom:3 }}>{n}</li>)}
+                  {c.notes.map((n,i) => <li key={i} style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)", marginBottom:3 }}>{n}</li>)}
                 </ul>
               </div>
             ))}

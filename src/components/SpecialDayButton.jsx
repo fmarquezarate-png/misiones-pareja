@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Z } from "../lib/zLayers.js";
 
 const MESSAGES = [
   "¿Curiosidad? ✨",
@@ -33,10 +34,6 @@ export default function SpecialDayButton({ onReplay }) {
   return (
     <>
       <style>{`
-        @keyframes sdb-pulse {
-          0%,100% { box-shadow: 0 0 10px rgba(212,160,23,0.45), 0 4px 14px rgba(0,0,0,0.4); }
-          50%      { box-shadow: 0 0 22px rgba(212,160,23,0.75), 0 6px 20px rgba(0,0,0,0.5); }
-        }
         @keyframes sdb-in {
           from { opacity:0; transform:scale(0.65); }
           to   { opacity:1; transform:scale(1); }
@@ -47,7 +44,7 @@ export default function SpecialDayButton({ onReplay }) {
         onClick={onReplay}
         style={{
           position: "fixed",
-          zIndex: 1200,
+          zIndex: Z.FAB,
           ...pos,
           background: "linear-gradient(135deg, #6b4f08, #c8910e 45%, #f5d769 80%, #c8910e)",
           border: "1.5px solid rgba(245,215,105,0.55)",
@@ -63,7 +60,10 @@ export default function SpecialDayButton({ onReplay }) {
           textAlign: "center",
           userSelect: "none",
           letterSpacing: 0.2,
-          animation: "sdb-in 0.35s cubic-bezier(0.22,1,0.36,1) both, sdb-pulse 2.8s ease-in-out 0.6s infinite",
+          // Solo la entrada. El latido era `box-shadow` en bucle INFINITO y este
+          // botón está en pantalla las 24h del cumple/aniversario: repintaba
+          // cada frame todo el día, y además competía con el contenido.
+          animation: "sdb-in 0.35s cubic-bezier(0.22,1,0.36,1) both",
           WebkitTapHighlightColor: "transparent",
         }}
       >

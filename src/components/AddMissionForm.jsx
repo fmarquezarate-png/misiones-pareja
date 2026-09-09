@@ -88,9 +88,9 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
       {templates.length > 0 && (
         <div style={{ marginBottom:12, paddingBottom:10, borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:7 }}>
-            <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>⚡ Plantillas</span>
+            <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600 }}>⚡ Plantillas</span>
             <button onClick={()=>setTplEdit(v=>!v)}
-              style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:tplEdit?"#f472b6":"var(--t-text-dim,#4a4166)", fontFamily:"inherit", padding:"2px 4px" }}>
+              style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:tplEdit?"#f472b6":"var(--t-text-dim,#8f84ad)", fontFamily:"inherit", padding:"2px 4px" }}>
               {tplEdit ? "✓ Listo" : "✏️ Editar"}
             </button>
           </div>
@@ -125,7 +125,7 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
               style={{ display:"flex", alignItems:"center", gap:8, width:"100%", background:"rgba(128,128,128,0.05)", border:"none", borderBottom: i < suggestions.length-1 ? "1px solid rgba(128,128,128,0.08)" : "none", padding:"8px 12px", cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
               <span style={{ fontSize:16, flexShrink:0 }}>{s.emoji || "🎯"}</span>
               <span style={{ flex:1, fontSize:13, color:"var(--t-text,#f0e8ff)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.title}</span>
-              <span style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>
+              <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", flexShrink:0 }}>
                 {s.isTpl ? "⚡ plantilla" : `${s.count}× antes`}
               </span>
             </button>
@@ -157,7 +157,7 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
       </div>
       {isEvent&&<>
         <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:8 }}>
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>📅 Inicio</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>📅 Inicio</div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             <input type="date" value={newM.date} onChange={e=>{const d=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(d,newM.time,newM.duration);setNewM(p=>({...p,date:d,endDate,endTime}));}else{const dur=computeDur(d,newM.time,newM.endDate,newM.endTime);setNewM(p=>({...p,date:d,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
             <input type="time" value={newM.time} onChange={e=>{const t=e.target.value;if(endMode==="duration"){const {endDate,endTime}=computeEnd(newM.date,t,newM.duration);setNewM(p=>({...p,time:t,endDate,endTime}));}else{const dur=computeDur(newM.date,t,newM.endDate,newM.endTime);setNewM(p=>({...p,time:t,...(dur!==null?{duration:dur}:{})}));}}} style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />
@@ -175,12 +175,12 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
           ?<div style={{ marginBottom:10 }}>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
               <input type="number" min="0" step="15" value={newM.duration||""} onChange={e=>{const dur=parseInt(e.target.value)||0;const {endDate,endTime}=computeEnd(newM.date,newM.time,dur);setNewM(p=>({...p,duration:dur,endDate,endTime}));}} placeholder="90" style={{ ...S.inputSm, flex:1 }} />
-              <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
+              <span style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", flexShrink:0 }}>min {newM.duration>0&&<span style={{color:"#60a5fa"}}>({durLabel(newM.duration)})</span>}</span>
             </div>
             {calcEndDate&&<div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>🏁 Termina: {calcEndDate!==newM.date?calcEndDate+" ":""}{calcEndTime}</div>}
           </div>
           :<div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:10, padding:"10px 12px", marginBottom:10 }}>
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>🏁 Fin</div>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", letterSpacing:1.5, textTransform:"uppercase", marginBottom:8 }}>🏁 Fin</div>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
               <input type="date" value={newM.endDate||""} onChange={e=>{const ed=e.target.value;const safeEt=newM.endTime||(ed?"23:59":"");const safeT=newM.time||(ed?"00:00":"");const dur=computeDur(newM.date,safeT,ed,safeEt);setNewM(p=>({...p,endDate:ed,endTime:safeEt,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", flex:1, padding:"9px 10px", fontSize:14, minHeight:40 }} />
               <input type="time" value={newM.endTime||""} onChange={e=>{const et=e.target.value;const safeEd=newM.endDate||(et?newM.date:"");const safeT=newM.time||(et?"00:00":"");const dur=computeDur(newM.date,safeT,safeEd,et);setNewM(p=>({...p,endTime:et,endDate:safeEd,time:safeT,...(dur!==null?{duration:dur}:{})}))} } style={{ ...S.inputSm, colorScheme:"dark", width:108, flexShrink:0, padding:"9px 8px", fontSize:14, minHeight:40, textAlign:"center" }} />

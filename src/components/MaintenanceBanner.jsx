@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 export default function MaintenanceBanner({ warning }) {
   const [dismissed, setDismissed] = useState(
@@ -8,7 +9,7 @@ export default function MaintenanceBanner({ warning }) {
   const dismiss = () => { sessionStorage.setItem("mp_maint_dismissed", "1"); setDismissed(true); };
   return (
     <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, zIndex: 600,
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: Z.BANNER,
       background: "linear-gradient(90deg,#78350f,#92400e)",
       borderBottom: "1px solid rgba(251,191,36,0.35)",
       paddingTop: "calc(10px + env(safe-area-inset-top))", paddingBottom: 10,

@@ -6,6 +6,7 @@ import EmojiSelect from "./EmojiSelect.jsx";
 import StatusOrb from "./StatusOrb.jsx";
 import Reactions from "./Reactions.jsx";
 import NudgeMenu from "./NudgeMenu.jsx";
+import { humanDate } from "../lib/dateLabel.js";
 
 // highlighted: true cuando se llega a esta misión desde una notificación push
 // o un resultado de búsqueda — hace scroll y marca la tarjeta unos segundos.
@@ -35,7 +36,17 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
   const firstCat = mCats[0];
   const cardBorder = isDone?"rgba(52,211,153,0.15)":isCarried?"rgba(251,146,60,0.2)":isEvent?"rgba(96,165,250,0.3)":firstCat?`${firstCat.color}30`:`${whoColor}22`;
   const railStyle = { borderLeft:`3px solid ${whoColor}`, paddingLeft:13 };
-  const handleCycle = () => { setPopping(true); setTimeout(()=>setPopping(false),240); onCycleStatus(); };
+  // El timeout del "pop" se cancela si la tarjeta se desmonta antes (cambio de
+  // semana, filtro, realtime): si no, queda un setState sobre un componente ya
+  // desmontado en cada toque.
+  const popTimer = useRef(null);
+  useEffect(() => () => clearTimeout(popTimer.current), []);
+  const handleCycle = () => {
+    setPopping(true);
+    clearTimeout(popTimer.current);
+    popTimer.current = setTimeout(() => setPopping(false), 240);
+    onCycleStatus();
+  };
   const carriedWeeks = (() => {
     if (!isCarried || isDone || !weeksData) return 0;
     let count = 0, originId = mission.carriedFrom, originWeek = mission.carriedFromWeek;
@@ -68,7 +79,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
         </div>
         <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
         <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>
-          <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }} title={mission.title}>{mission.title}</div>
+          <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }} title={mission.title}>{mission.title}</div>
           <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>
             {mCats.map(cat=><span key={cat.id} style={catBadgeStyle(cat.id)}>{cat.icon} {cat.label}</span>)}
             {mission.who==="together"&&<span style={{ background:`${clr.together}18`, color:clr.together, border:`1px solid ${clr.together}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>👫 Juntos</span>}
@@ -76,7 +87,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
             {mission.who==="person2"&&<span style={{ background:`${clr.person2}18`, color:clr.person2, border:`1px solid ${clr.person2}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🙋 {p2}</span>}
             {mission.duration&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>⏱ {(()=>{const m=mission.duration;return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m+"min";})()}</span>}
             {mission.endDate&&<span style={{ background:"rgba(96,165,250,0.08)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.2)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>🏁 {mission.endDate}{mission.endTime?` ${mission.endTime}`:""}</span>}
-            {mission.date&&<span style={{ background:"rgba(128,128,128,0.08)", color:"var(--t-text-dim,#6b5f88)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {mission.date}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
+            {mission.date&&<span style={{ background:"rgba(128,128,128,0.08)", color:"var(--t-text-dim,#8f84ad)", border:"1px solid rgba(255,255,255,0.08)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>📆 {humanDate(mission.date)}{mission.time?` · 🕐 ${mission.time}`:""}</span>}
             {isEvent&&<span style={{ background:"rgba(96,165,250,0.12)", color:"#60a5fa", border:"1px solid rgba(96,165,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>📅 Evento</span>}
             {mission.seriesPattern&&<span style={{ background:"rgba(52,211,153,0.1)", color:"#34d399", border:"1px solid rgba(52,211,153,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600 }}>🔁 {mission.seriesPattern==="daily"?"Diario":mission.seriesPattern==="weekly"?"Semanal":mission.seriesPattern==="biweekly"?"Bisemanal":"Mensual"}</span>}
             {mission.goalId&&(()=>{const g=(goals||[]).find(x=>x.id===mission.goalId);return g?<span style={{ background:"rgba(167,139,250,0.12)", color:"var(--t-accent,#a78bfa)", border:"1px solid rgba(167,139,250,0.25)", padding:"2px 7px", borderRadius:99, fontSize:11 }}>{g.emoji} {g.title}</span>:null;})()}
@@ -87,7 +98,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
           <StatusOrb status={mission.status} color={whoColor} onClick={handleCycle} animated={popping} />
           <span style={{ fontSize:9, fontWeight:600, color:STATUS[mission.status].color, whiteSpace:"nowrap", lineHeight:1 }}>{STATUS[mission.status].label}</span>
         </div>
-        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#3d3360)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
+        <button onClick={onDelete} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#8f84ad)", fontSize:18, padding:"0 2px", lineHeight:1, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.color="#f472b6"} onMouseLeave={e=>e.currentTarget.style.color="#3d3360"}>×</button>
       </div>
       {expanded && (
@@ -147,7 +158,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
           <div style={{ marginTop:12, borderTop:"1px solid rgba(167,139,250,0.1)", paddingTop:10 }}>
             <label style={S.label}>💬 Notas ({comments.length})</label>
             {comments.map(c => {
-              const cColor = c.w === "person1" ? clr.person1 : c.w === "person2" ? clr.person2 : "var(--t-text-muted,#8b7fa8)";
+              const cColor = c.w === "person1" ? clr.person1 : c.w === "person2" ? clr.person2 : "var(--t-text-muted,#b9b0d0)";
               const cName  = c.w === "person1" ? p1 : c.w === "person2" ? p2 : "—";
               const mine   = sessionPersonId && c.w === sessionPersonId;
               return (
@@ -155,11 +166,11 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:"flex", gap:8, alignItems:"baseline" }}>
                       <span style={{ fontSize:11, fontWeight:700, color:cColor }}>{cName}</span>
-                      <span style={{ fontSize:9.5, color:"var(--t-text-dim,#4a4166)" }}>{relTime(c.ts)}</span>
+                      <span style={{ fontSize:9.5, color:"var(--t-text-dim,#8f84ad)" }}>{relTime(c.ts)}</span>
                     </div>
                     <div style={{ fontSize:12.5, color:"var(--t-text,#f0e8ff)", lineHeight:1.5, marginTop:2, wordBreak:"break-word" }}>{c.text}</div>
                   </div>
-                  {mine && <button onClick={()=>deleteComment(c.id)} aria-label="Borrar nota" style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#4a4166)", fontSize:13, padding:"0 2px", lineHeight:1, flexShrink:0 }}>×</button>}
+                  {mine && <button onClick={()=>deleteComment(c.id)} aria-label="Borrar nota" style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-dim,#8f84ad)", fontSize:13, padding:"0 2px", lineHeight:1, flexShrink:0 }}>×</button>}
                 </div>
               );
             })}
@@ -167,7 +178,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
               <input value={commentText} onChange={e=>setCommentText(e.target.value.slice(0,300))} onKeyDown={e=>e.key==="Enter"&&addComment()}
                 placeholder="Añadir nota…" style={{ ...S.inputSm, flex:1 }} />
               <button onClick={addComment} disabled={!commentText.trim()}
-                style={{ background:commentText.trim()?"rgba(96,165,250,0.15)":"rgba(128,128,128,0.06)", border:`1px solid ${commentText.trim()?"rgba(96,165,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:commentText.trim()?"#60a5fa":"var(--t-text-dim,#4a4166)", padding:"6px 12px", cursor:commentText.trim()?"pointer":"default", fontSize:13, fontFamily:"inherit", flexShrink:0 }}>➤</button>
+                style={{ background:commentText.trim()?"rgba(96,165,250,0.15)":"rgba(128,128,128,0.06)", border:`1px solid ${commentText.trim()?"rgba(96,165,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:8, color:commentText.trim()?"#60a5fa":"var(--t-text-dim,#8f84ad)", padding:"6px 12px", cursor:commentText.trim()?"pointer":"default", fontSize:13, fontFamily:"inherit", flexShrink:0 }}>➤</button>
             </div>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function Reactions({ reactions, myPersonId, onToggle, align = "le
           style={{
             width: 22, height: 22, borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 12,
             background: "rgba(128,128,128,0.08)", border: "1px solid rgba(128,128,128,0.16)",
-            color: "var(--t-text-muted,#8b7fa8)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+            color: "var(--t-text-muted,#b9b0d0)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
           }}>{entries.length ? "+" : "☺"}</button>
         {picker && (
           <>

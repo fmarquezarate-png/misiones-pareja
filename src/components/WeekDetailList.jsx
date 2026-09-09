@@ -18,8 +18,8 @@ export default function WeekDetailList({ allW, onGoToWeek }) {
     <div style={S.card}>
       <button onClick={()=>setOpen(o=>!o)}
         style={{ width:"100%", background:"none", border:"none", cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", padding:0, fontFamily:"inherit" }}>
-        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>📋 Detalle por semana</span>
-        <span style={{ fontSize:12, color:"var(--t-text-dim,#4a4166)", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600 }}>📋 Detalle por semana</span>
+        <span style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", transition:"transform 0.2s", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)" }}>▾</span>
       </button>
 
       {open&&<div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:0 }}>
@@ -29,10 +29,10 @@ export default function WeekDetailList({ allW, onGoToWeek }) {
             <div style={{ minWidth:34, height:34, borderRadius:9, background:`${color}18`, border:`1px solid ${color}40`,
               display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
               <span style={{ fontSize:9, color, fontWeight:700, lineHeight:1 }}>S{w.weekNumber}</span>
-              <span style={{ fontSize:8, color:"var(--t-text-dim,#4a4166)", lineHeight:1.2 }}>{w._yr}</span>
+              <span style={{ fontSize:8, color:"var(--t-text-dim,#8f84ad)", lineHeight:1.2 }}>{w._yr}</span>
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              {w.epicObjective&&<div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>
+              {w.epicObjective&&<div style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", marginBottom:3 }}>
                 {w.epicObjective}
               </div>}
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>

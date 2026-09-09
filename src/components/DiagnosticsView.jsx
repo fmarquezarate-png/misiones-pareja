@@ -37,7 +37,7 @@ export default function DiagnosticsView({ coupleId }) {
         <div style={{ fontSize: 20, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontFamily: "'Fraunces',serif" }}>🔍 Diagnóstico</div>
         <button onClick={load} style={btnGhost}>↻ Actualizar</button>
       </div>
-      <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginBottom: 14 }}>Telemetría de la pareja (tabla <code>events</code>). Sin salir de la app.</div>
+      <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginBottom: 14 }}>Telemetría de la pareja (tabla <code>events</code>). Sin salir de la app.</div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
         {RANGES.map(r => (
@@ -49,7 +49,7 @@ export default function DiagnosticsView({ coupleId }) {
       {state === "error" && (
         <div style={{ ...card, borderColor: "rgba(251,146,60,0.4)" }}>
           <div style={{ color: "#fb923c", fontSize: 13 }}>No se pudo leer la telemetría.</div>
-          <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "var(--t-text-dim,#6b5f88)", marginTop: 6, wordBreak: "break-word" }}>{errMsg}</div>
+          <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "var(--t-text-dim,#8f84ad)", marginTop: 6, wordBreak: "break-word" }}>{errMsg}</div>
         </div>
       )}
 
@@ -62,7 +62,7 @@ export default function DiagnosticsView({ coupleId }) {
               <div><div style={big}>{fmtBytes(stats.latestBlob)}</div><div style={sub}>último</div></div>
               <div><div style={{ ...big, color: blobWarn ? "#fb923c" : undefined }}>{fmtBytes(stats.maxBlob)}</div><div style={sub}>máximo</div></div>
             </div>
-            <div style={{ fontSize: 11, color: blobWarn ? "#fb923c" : "var(--t-text-dim,#6b5f88)", marginTop: 8 }}>
+            <div style={{ fontSize: 11, color: blobWarn ? "#fb923c" : "var(--t-text-dim,#8f84ad)", marginTop: 8 }}>
               {stats.latestBlob == null ? "Aún sin muestras de guardado en el rango." : blobWarn ? "⚠️ >500 kB — vigilar (¿fotos/base64 o chat creciendo?)" : "✅ En rango sano (la cura de las fotos aguanta)."}
             </div>
           </div>
@@ -76,8 +76,8 @@ export default function DiagnosticsView({ coupleId }) {
                   {stats.errorsRecent.map((e, i) => (
                     <div key={i} style={{ borderTop: i ? "1px solid rgba(255,255,255,0.06)" : "none", paddingTop: i ? 8 : 0 }}>
                       <div style={{ fontSize: 12, color: "#fdba74", fontWeight: 600 }}>{e.name}{e.code ? ` · [${e.code}]` : ""}{e.blob_size != null ? ` · blob ${fmtBytes(e.blob_size)}` : ""}</div>
-                      {e.message && <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "var(--t-text-muted,#8b7fa8)", wordBreak: "break-word", marginTop: 2 }}>{String(e.message).slice(0, 160)}</div>}
-                      <div style={{ fontSize: 10, color: "var(--t-text-dim,#4a4166)", marginTop: 2 }}>{fmtTs(e.ts)}</div>
+                      {e.message && <div style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: "var(--t-text-muted,#b9b0d0)", wordBreak: "break-word", marginTop: 2 }}>{String(e.message).slice(0, 160)}</div>}
+                      <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>{fmtTs(e.ts)}</div>
                     </div>
                   ))}
                 </div>}
@@ -88,7 +88,7 @@ export default function DiagnosticsView({ coupleId }) {
             <div style={rowLabel}>Eventos por tipo · {stats.total} en {hours}h</div>
             <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
               {stats.names.map(n => (
-                <div key={n} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--t-text-muted,#8b7fa8)" }}>
+                <div key={n} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--t-text-muted,#b9b0d0)" }}>
                   <span style={{ fontFamily: "ui-monospace,monospace" }}>{n}</span><b style={{ color: "var(--t-text,#f0e8ff)" }}>{stats.byName[n]}</b>
                 </div>
               ))}
@@ -102,10 +102,10 @@ export default function DiagnosticsView({ coupleId }) {
 }
 
 const card = { background: "var(--t-card,#1d1733)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 14, padding: "12px 14px", marginBottom: 12 };
-const rowLabel = { fontSize: 12, color: "var(--t-text-muted,#8b7fa8)", fontWeight: 600 };
+const rowLabel = { fontSize: 12, color: "var(--t-text-muted,#b9b0d0)", fontWeight: 600 };
 const big = { fontSize: 22, fontWeight: 700, color: "var(--t-text,#f0e8ff)", fontFamily: "'Fraunces',serif" };
-const sub = { fontSize: 10, color: "var(--t-text-dim,#6b5f88)" };
-const muted = { fontSize: 12, color: "var(--t-text-dim,#6b5f88)" };
-const btnGhost = { background: "rgba(128,128,128,0.1)", border: "none", borderRadius: 8, color: "var(--t-text-muted,#8b7fa8)", fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit" };
+const sub = { fontSize: 10, color: "var(--t-text-dim,#8f84ad)" };
+const muted = { fontSize: 12, color: "var(--t-text-dim,#8f84ad)" };
+const btnGhost = { background: "rgba(128,128,128,0.1)", border: "none", borderRadius: 8, color: "var(--t-text-muted,#b9b0d0)", fontSize: 12, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit" };
 const chip = { flex: 1, background: "rgba(128,128,128,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#6b5f88", padding: "6px", cursor: "pointer", fontSize: 12, fontFamily: "inherit" };
 const chipOn = { background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.5)", color: "#c4b8ff", fontWeight: 600 };

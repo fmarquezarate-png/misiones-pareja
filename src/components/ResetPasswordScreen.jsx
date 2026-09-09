@@ -29,7 +29,7 @@ export default function ResetPasswordScreen({ onDone }) {
       <div style={{ textAlign:"center", maxWidth:340, width:"100%" }}>
         <div style={{ fontSize:52, marginBottom:14 }}>🔑</div>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:700, marginBottom:8 }}>Elige tu nueva contraseña</div>
-        <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", marginBottom:26, lineHeight:1.6 }}>Ya verificamos tu identidad — solo falta esto.</div>
+        <div style={{ fontSize:13, color:"var(--t-text-muted,#b9b0d0)", marginBottom:26, lineHeight:1.6 }}>Ya verificamos tu identidad — solo falta esto.</div>
 
         <div style={{ textAlign:"left", marginBottom:10 }}>
           <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Nueva contraseña" autoComplete="new-password"

@@ -54,7 +54,7 @@ export default function LoginScreen() {
       <div style={{ textAlign:"center", maxWidth:340, width:"100%" }}>
         <div style={{ fontSize:64, marginBottom:16 }}>📅</div>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:32, fontWeight:700, marginBottom:8, letterSpacing:-1 }}>Shared Calendar</div>
-        <div style={{ fontSize:14, color:"var(--t-text-muted,#8b7fa8)", marginBottom:32, lineHeight:1.6 }}>Tu espacio compartido para planificar<br/>la semana en equipo</div>
+        <div style={{ fontSize:14, color:"var(--t-text-muted,#b9b0d0)", marginBottom:32, lineHeight:1.6 }}>Tu espacio compartido para planificar<br/>la semana en equipo</div>
 
         <button onClick={signInWithGoogle}
           style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, width:"100%", padding:"14px 20px", background:"#fff", border:"none", borderRadius:12, cursor:"pointer", fontSize:15, fontWeight:600, color:"#1a1a2e", fontFamily:"inherit", boxShadow:"0 4px 20px rgba(0,0,0,0.3)", transition:"transform 0.15s" }}
@@ -71,7 +71,7 @@ export default function LoginScreen() {
 
         <div style={{ display:"flex", alignItems:"center", gap:10, margin:"22px 0" }}>
           <div style={{ flex:1, height:1, background:"rgba(255,255,255,0.1)" }} />
-          <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>o</span>
+          <span style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)" }}>o</span>
           <div style={{ flex:1, height:1, background:"rgba(255,255,255,0.1)" }} />
         </div>
 
@@ -100,7 +100,7 @@ export default function LoginScreen() {
           {mode === "login" && (
             <>
               <button onClick={()=>switchMode("signup")} style={{ background:"none", border:"none", color:"var(--t-accent,#a78bfa)", cursor:"pointer", fontFamily:"inherit", padding:0 }}>Crear cuenta</button>
-              <button onClick={()=>switchMode("forgot")} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontFamily:"inherit", padding:0 }}>¿Olvidaste tu contraseña?</button>
+              <button onClick={()=>switchMode("forgot")} style={{ background:"none", border:"none", color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontFamily:"inherit", padding:0 }}>¿Olvidaste tu contraseña?</button>
             </>
           )}
           {(mode === "signup" || mode === "forgot") && (
@@ -108,7 +108,7 @@ export default function LoginScreen() {
           )}
         </div>
 
-        <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginTop:24, lineHeight:1.6 }}>
+        <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:24, lineHeight:1.6 }}>
           Tus datos son privados y solo accesibles<br/>con tu código de pareja
         </div>
       </div>

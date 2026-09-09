@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 // ── Palettes ──────────────────────────────────────────────────────────────────
 const GOLD   = ["#f5d769","#d4a017","#c8910e","#fff4b2","#f0c040","#fde68a"];
@@ -192,14 +193,14 @@ export default function SpecialDayTheme({ paused = false }) {
         style={{
           position: "fixed", inset: 0,
           width: "100vw", height: "100vh",
-          zIndex: 450, pointerEvents: "none",
+          zIndex: Z.AMBIENT, pointerEvents: "none",
         }}
       />}
 
       {/* Rising balloons */}
       {!reduce && <div style={{
         position: "fixed", inset: 0,
-        zIndex: 451, pointerEvents: "none", overflow: "hidden",
+        zIndex: Z.AMBIENT + 1, pointerEvents: "none", overflow: "hidden",
       }}>
         {balloons.map((b, i) => (
           <span

@@ -104,7 +104,7 @@ export default function MisiSystemView({ coupleId, data }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontFamily: "'Fraunces',serif" }}>Sistema Misi</div>
-          <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginTop: 2 }}>Salud de datos, backups y puente de Misi.</div>
+          <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>Salud de datos, backups y puente de Misi.</div>
         </div>
         <button onClick={load} disabled={state === "loading"} style={btn}>
           {state === "loading" ? "Revisando..." : "Actualizar"}
@@ -127,7 +127,7 @@ export default function MisiSystemView({ coupleId, data }) {
 
       <div style={card}>
         <div style={label}>Backups</div>
-        <div style={{ fontSize: 13, color: "var(--t-text-muted,#8b7fa8)", lineHeight: 1.55, marginTop: 6 }}>
+        <div style={{ fontSize: 13, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.55, marginTop: 6 }}>
           Política operativa recomendada: máximo {MAX_BACKUPS} backups, limpieza automática antes de superar 10 y restauración sólo con confirmación humana.
         </div>
         <div style={{ ...sub, marginTop: 8 }}>Esta pantalla todavía no borra backups desde Vercel; la limpieza real sigue protegida en Vento.</div>
@@ -177,8 +177,8 @@ export default function MisiSystemView({ coupleId, data }) {
 }
 
 const card = { background: "var(--t-card,#1d1733)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 12, padding: "12px 14px" };
-const label = { fontSize: 11, color: "var(--t-text-dim,#6b5f88)", fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase" };
+const label = { fontSize: 11, color: "var(--t-text-dim,#8f84ad)", fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase" };
 const big = { fontSize: 20, fontWeight: 800, color: "var(--t-text,#f0e8ff)", marginTop: 5, lineHeight: 1.1 };
-const sub = { fontSize: 12, color: "var(--t-text-muted,#8b7fa8)", lineHeight: 1.45, marginTop: 5 };
-const mono = { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 11, color: "var(--t-text-muted,#8b7fa8)", wordBreak: "break-word", lineHeight: 1.45 };
+const sub = { fontSize: 12, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.45, marginTop: 5 };
+const mono = { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 11, color: "var(--t-text-muted,#b9b0d0)", wordBreak: "break-word", lineHeight: 1.45 };
 const btn = { background: "rgba(167,139,250,0.14)", border: "1px solid rgba(167,139,250,0.35)", borderRadius: 10, color: "#c4b8ff", fontSize: 12, fontWeight: 700, padding: "8px 12px", cursor: "pointer", fontFamily: "inherit", flexShrink: 0 };

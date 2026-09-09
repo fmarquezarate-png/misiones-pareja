@@ -26,7 +26,7 @@ export default function LoveNote({ note, myName, myPersonId, partnerName, onSave
             border: "1px solid rgba(244,114,182,0.3)",
           }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-          <span style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)" }}>{text.length}/{LOVE_NOTE_MAX}</span>
+          <span style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>{text.length}/{LOVE_NOTE_MAX}</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => { setEditing(false); setText(""); }} style={btnGhost}>Cancelar</button>
             <button onClick={send} disabled={!text.trim()} style={{ ...btnPrimary, opacity: text.trim() ? 1 : 0.5 }}>Enviar 💌</button>
@@ -40,7 +40,7 @@ export default function LoveNote({ note, myName, myPersonId, partnerName, onSave
     return (
       <button onClick={start} style={{
         ...cardStyle, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10,
-        color: "var(--t-text-muted,#8b7fa8)", fontFamily: "inherit", fontSize: 13, width: "100%",
+        color: "var(--t-text-muted,#b9b0d0)", fontFamily: "inherit", fontSize: 13, width: "100%",
       }}>
         <span style={{ fontSize: 18 }}>💌</span> Dejar una notita para {partnerName || "tu pareja"}…
       </button>
@@ -54,7 +54,7 @@ export default function LoveNote({ note, myName, myPersonId, partnerName, onSave
         <span style={{ fontSize: 22, flexShrink: 0 }}>💌</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, color: "var(--t-text,#f0e8ff)", lineHeight: 1.45, fontFamily: "'Fraunces',serif", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{note.text}</div>
-          <div style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)", marginTop: 6 }}>
+          <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)", marginTop: 6 }}>
             {mine ? "Tu notita" : `— ${note.fromName || "tu pareja"}`}
           </div>
         </div>
@@ -74,7 +74,7 @@ const cardStyle = {
 };
 const btnGhost = {
   padding: "6px 12px", borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 12,
-  color: "var(--t-text-muted,#8b7fa8)", background: "rgba(128,128,128,0.1)", border: "none",
+  color: "var(--t-text-muted,#b9b0d0)", background: "rgba(128,128,128,0.1)", border: "none",
 };
 const btnPrimary = {
   padding: "6px 14px", borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600,

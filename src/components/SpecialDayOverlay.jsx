@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -73,7 +74,7 @@ export default function SpecialDayOverlay({ event, p1, p2, onDone }) {
 
   return (
     <div onClick={dismiss} style={{
-      position: "fixed", inset: 0, zIndex: 2100,
+      position: "fixed", inset: 0, zIndex: Z.CELEBRATION,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       background: "#050300",
       opacity: phase < 4 ? 1 : 0,

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { fetchSharedView } from "../supabase.js";
 import { isoWeekKey } from "../utils.js";
 import { STATUS, DEFAULT_COLORS } from "../constants.js";
+import { humanDate } from "../lib/dateLabel.js";
 
 // dismissSplash vive también en App.jsx — duplicado a propósito (no importado)
 // porque GuestView es una rama de render totalmente aparte del flujo con
@@ -102,7 +103,7 @@ export default function GuestView({ coupleId, token }) {
                     <div style={{ fontSize:14, fontWeight:500, textDecoration:m.status==="DONE"?"line-through":"none" }}>{m.title}</div>
                     <div style={{ display:"flex", gap:8, marginTop:3, fontSize:11, flexWrap:"wrap" }}>
                       <span style={{ color:whoColor(m.who), fontWeight:600 }}>{whoLabel(m.who)}</span>
-                      {m.date && <span style={{ color:"#4a4166" }}>📆 {m.date}{m.time?` · ${m.time}`:""}</span>}
+                      {m.date && <span style={{ color:"#4a4166" }}>📆 {humanDate(m.date)}{m.time?` · ${m.time}`:""}</span>}
                     </div>
                   </div>
                   <span style={{ fontSize:10, fontWeight:700, color:st.color, flexShrink:0 }}>{st.label}</span>

@@ -98,7 +98,7 @@ export default function TrophyView({ gratitudes = [], myName, myPersonId, partne
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "0 2px" }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontFamily: "'Fraunces',serif" }}>🏆 La Copa</div>
-          <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>
             {plaques.length ? "Cada agradecimiento, una placa. Gírala y toca una." : "Vuestros agradecimientos, grabados"}
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function TrophyView({ gratitudes = [], myName, myPersonId, partne
               color: "var(--t-text,#f0e8ff)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(167,139,250,0.2)",
             }} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
-            <span style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)" }}>{text.length}/{GRATITUDE_MAX}</span>
+            <span style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>{text.length}/{GRATITUDE_MAX}</span>
             <button onClick={send} disabled={!text.trim()} style={{
               padding: "8px 16px", borderRadius: 99, cursor: text.trim() ? "pointer" : "default", fontFamily: "inherit",
               fontSize: 13, fontWeight: 600, color: "#3a2c05", border: "none", background: GOLD, opacity: text.trim() ? 1 : 0.5,
@@ -265,7 +265,7 @@ export default function TrophyView({ gratitudes = [], myName, myPersonId, partne
         {plaques.length === 0 && (
           <div style={{
             position: "absolute", left: 0, right: 0, bottom: 18, textAlign: "center",
-            color: "var(--t-text-dim,#8b7bb0)", fontSize: 12.5, padding: "0 24px",
+            color: "var(--t-text-dim,#8f84ad)", fontSize: 12.5, padding: "0 24px",
           }}>
             Todavía no hay ninguna placa. El primer «gracias» la estrena.
           </div>
@@ -285,7 +285,7 @@ export default function TrophyView({ gratitudes = [], myName, myPersonId, partne
       </div>
 
       {extra > 0 && (
-        <div style={{ fontSize: 11.5, color: "var(--t-text-dim,#6b5f88)", textAlign: "center", marginTop: 8 }}>
+        <div style={{ fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", textAlign: "center", marginTop: 8 }}>
           La copa muestra las {plaques.length} más recientes · {extra} más en la lista
         </div>
       )}
@@ -293,7 +293,7 @@ export default function TrophyView({ gratitudes = [], myName, myPersonId, partne
       {/* ── Todas las placas ─────────────────────────────────────────────── */}
       {gratitudes.length > 0 && (
         <div style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--t-text-dim,#8b7bb0)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--t-text-dim,#8f84ad)", textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
             Todas las placas
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -307,7 +307,7 @@ export default function TrophyView({ gratitudes = [], myName, myPersonId, partne
                   borderRadius: 10, padding: "9px 12px",
                 }}>
                   <div style={{ fontSize: 13.5, color: "var(--t-text,#f0e8ff)", lineHeight: 1.35 }}>{g.text}</div>
-                  <div style={{ fontSize: 10.5, color: "var(--t-text-dim,#6b5f88)", marginTop: 3 }}>
+                  <div style={{ fontSize: 10.5, color: "var(--t-text-dim,#8f84ad)", marginTop: 3 }}>
                     de {from} a {to}{noteDateLabel(g.at) ? ` · ${noteDateLabel(g.at)}` : ""}
                   </div>
                 </button>

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { STATUS, DEFAULT_COLORS } from "../constants.js";
 import { weekStartDate } from "../lib/appUtils.js";
 import { normText as norm } from "../utils.js";
+import { humanDate } from "../lib/dateLabel.js";
 
 
 
@@ -53,24 +54,24 @@ export default function SearchOverlay({ weeks, p1, p2, colors, onClose, onGoToWe
             />
           </div>
           <button onClick={onClose} aria-label="Cerrar búsqueda"
-            style={{ background:"rgba(255,255,255,0.07)", border:"none", borderRadius:12, color:"var(--t-text-muted,#8b7fa8)", fontSize:19, width:44, height:44, cursor:"pointer", flexShrink:0, lineHeight:1 }}>×</button>
+            style={{ background:"rgba(255,255,255,0.07)", border:"none", borderRadius:12, color:"var(--t-text-muted,#b9b0d0)", fontSize:19, width:44, height:44, cursor:"pointer", flexShrink:0, lineHeight:1 }}>×</button>
         </div>
 
         {/* Results */}
         <div style={{ flex:1, overflowY:"auto", minHeight:0, display:"flex", flexDirection:"column", gap:8, paddingBottom:"env(safe-area-inset-bottom)" }}>
           {results === null && (
-            <div style={{ textAlign:"center", color:"var(--t-text-dim,#4a4166)", fontSize:13, padding:"36px 20px", lineHeight:1.7 }}>
+            <div style={{ textAlign:"center", color:"var(--t-text-dim,#8f84ad)", fontSize:13, padding:"36px 20px", lineHeight:1.7 }}>
               Escribe al menos 2 letras.<br />Busca en todas las semanas, pasadas y futuras.
             </div>
           )}
           {results !== null && results.length === 0 && (
-            <div style={{ textAlign:"center", color:"var(--t-text-muted,#8b7fa8)", fontSize:13, padding:"36px 20px" }}>
+            <div style={{ textAlign:"center", color:"var(--t-text-muted,#b9b0d0)", fontSize:13, padding:"36px 20px" }}>
               Sin resultados para «{q.trim()}»
             </div>
           )}
           {results !== null && results.length > 0 && (
             <>
-              <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", padding:"0 2px" }}>{results.length}{results.length === 50 ? "+" : ""} resultado{results.length !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", padding:"0 2px" }}>{results.length}{results.length === 50 ? "+" : ""} resultado{results.length !== 1 ? "s" : ""}</div>
               {results.map(({ m, key, wn, yr }) => {
                 const st = STATUS[m.status] || STATUS.TBC;
                 return (
@@ -78,11 +79,11 @@ export default function SearchOverlay({ weeks, p1, p2, colors, onClose, onGoToWe
                     style={{ display:"flex", alignItems:"center", gap:10, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"11px 13px", cursor:"pointer", fontFamily:"inherit", textAlign:"left", width:"100%" }}>
                     <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji || (m.type === "event" ? "📅" : "🎯")}</span>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:14, color:"var(--t-text,#f8f4ff)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textDecoration:m.status==="DONE"?"line-through":"none", opacity:m.status==="DONE"?0.65:1 }}>{m.title}</div>
+                      <div style={{ fontSize:14, color:"var(--t-text,#f8f4ff)", fontWeight:500, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word", textDecoration:m.status==="DONE"?"line-through":"none", opacity:m.status==="DONE"?0.65:1 }}>{m.title}</div>
                       <div style={{ display:"flex", gap:8, marginTop:3, fontSize:11, flexWrap:"wrap" }}>
                         <span style={{ color:whoColor(m.who), fontWeight:600 }}>{whoLabel(m.who)}</span>
-                        <span style={{ color:"var(--t-text-dim,#4a4166)" }}>Semana {wn} · {yr}</span>
-                        {m.date && <span style={{ color:"var(--t-text-dim,#4a4166)" }}>📆 {m.date}{m.time ? ` ${m.time}` : ""}</span>}
+                        <span style={{ color:"var(--t-text-dim,#8f84ad)" }}>Semana {wn} · {yr}</span>
+                        {m.date && <span style={{ color:"var(--t-text-dim,#8f84ad)" }}>📆 {humanDate(m.date)}{m.time ? ` ${m.time}` : ""}</span>}
                       </div>
                     </div>
                     <span style={{ fontSize:10, fontWeight:700, color:st.color, flexShrink:0, whiteSpace:"nowrap" }}>{st.label}</span>

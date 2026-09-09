@@ -59,7 +59,7 @@ export default function BirthdaysView({ birthdays = [], onAdd, onDelete }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontFamily: "'Fraunces',serif" }}>🎂 Cumpleaños</div>
-          <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginTop: 2 }}>Recordatorios el día anterior</div>
+          <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>Recordatorios el día anterior</div>
         </div>
         <button onClick={() => setShowForm(v => !v)} style={{
           background: showForm ? "rgba(244,114,182,0.12)" : "var(--t-accent-soft,rgba(167,139,250,0.12))",
@@ -78,7 +78,7 @@ export default function BirthdaysView({ birthdays = [], onAdd, onDelete }) {
           borderRadius: 14, padding: 16, marginBottom: 20,
           animation: "bd-in 0.25s ease-out both",
         }}>
-          <div style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>Nuevo cumpleaños</div>
+          <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 12 }}>Nuevo cumpleaños</div>
 
           {/* Emoji picker */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 12 }}>
@@ -126,9 +126,9 @@ export default function BirthdaysView({ birthdays = [], onAdd, onDelete }) {
 
       {/* List */}
       {sorted.length === 0 && !showForm ? (
-        <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--t-text-dim,#6b5f88)" }}>
+        <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--t-text-dim,#8f84ad)" }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🎂</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t-text-muted,#8b7fa8)", marginBottom: 6 }}>Sin cumpleaños registrados</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t-text-muted,#b9b0d0)", marginBottom: 6 }}>Sin cumpleaños registrados</div>
           <div style={{ fontSize: 12, lineHeight: 1.6 }}>Añade los cumpleaños importantes para recibir<br />un recordatorio el día anterior</div>
         </div>
       ) : (
@@ -157,7 +157,7 @@ export default function BirthdaysView({ birthdays = [], onAdd, onDelete }) {
                   <div style={{ fontSize: 14, fontWeight: 600, color: isToday ? gold : "var(--t-text,#f8f4ff)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {b.name}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>
                     {fmtDate(b.date)}
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function BirthdaysView({ birthdays = [], onAdd, onDelete }) {
                   )}
                   <button onClick={() => onDelete(b.id)} style={{
                     background: "none", border: "none", cursor: "pointer",
-                    color: "var(--t-text-dim,#4a4166)", fontSize: 16, padding: "4px 0 0",
+                    color: "var(--t-text-dim,#8f84ad)", fontSize: 16, padding: "4px 0 0",
                     lineHeight: 1, display: "block", marginTop: 2,
                   }} title="Eliminar">×</button>
                 </div>

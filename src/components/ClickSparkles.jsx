@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Z } from "../lib/zLayers.js";
 
 const STYLE_ID = "mp-sparkle-kf";
 
@@ -37,7 +38,7 @@ function spawnSparkle(x, y, palette) {
       "border-radius:50%",
       `background:${color}`,
       `box-shadow:0 0 ${Math.round(size * 2)}px ${color}99`,
-      "pointer-events:none", "z-index:9999",
+      "pointer-events:none", `z-index:${Z.SPARKLES}`,
       "transform:translate(-50%,-50%)",
       `--tx:${Math.cos(rad) * dist}px`,
       `--ty:${Math.sin(rad) * dist}px`,

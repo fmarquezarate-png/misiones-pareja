@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 const GREENS  = ["#22c55e","#16a34a","#4ade80","#86efac","#bbf7d0"];
 const WHITES  = ["#ffffff","#f0fdf4","#dcfce7"];
@@ -125,8 +126,8 @@ export default function MatchDayTheme() {
           100% { transform: translateY(-115vh) rotate( 0deg) scale(0.85); opacity: 0;  }
         }
       `}</style>
-      <canvas ref={canvasRef} style={{ position:"fixed", inset:0, width:"100vw", height:"100vh", zIndex:450, pointerEvents:"none" }} />
-      <div style={{ position:"fixed", inset:0, zIndex:451, pointerEvents:"none", overflow:"hidden" }}>
+      <canvas ref={canvasRef} style={{ position:"fixed", inset:0, width:"100vw", height:"100vh", zIndex: Z.AMBIENT, pointerEvents:"none" }} />
+      <div style={{ position:"fixed", inset:0, zIndex: Z.AMBIENT + 1, pointerEvents:"none", overflow:"hidden" }}>
         {balls.map((b, i) => (
           <span key={i} style={{
             position:"absolute", bottom:-70, left:`${b.x}%`,

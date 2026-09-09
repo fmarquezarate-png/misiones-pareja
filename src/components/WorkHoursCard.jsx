@@ -11,12 +11,12 @@ export default function WorkHoursCard({ week, patchWeek, p1, p2 }) {
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
           {(wh.person1||wh.person2)>0
             ? <div style={{ display:"flex", gap:8 }}>
-                {wh.person1>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p1}: <strong style={{ color:"#f8f4ff" }}>{wh.person1}h</strong></span>}
-                {wh.person2>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>{p2}: <strong style={{ color:"#f8f4ff" }}>{wh.person2}h</strong></span>}
+                {wh.person1>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)" }}>{p1}: <strong style={{ color:"#f8f4ff" }}>{wh.person1}h</strong></span>}
+                {wh.person2>0&&<span style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)" }}>{p2}: <strong style={{ color:"#f8f4ff" }}>{wh.person2}h</strong></span>}
               </div>
-            : <span style={{ fontSize:12, color:"var(--t-text-dim,#3d3360)", fontStyle:"italic" }}>sin registrar</span>
+            : <span style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", fontStyle:"italic" }}>sin registrar</span>
           }
-          <span style={{ color:"var(--t-text-dim,#4a4166)", fontSize:14 }}>{open?"▲":"▼"}</span>
+          <span style={{ color:"var(--t-text-dim,#8f84ad)", fontSize:14 }}>{open?"▲":"▼"}</span>
         </div>
       </div>
       {open && (
@@ -26,7 +26,7 @@ export default function WorkHoursCard({ week, patchWeek, p1, p2 }) {
               <label style={S.label}>{label}</label>
               <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                 <input type="number" min="0" max="80" step="0.5" value={wh[key]||""} onChange={e=>patchWeek(w=>({...w, workHours:{...w.workHours,[key]:parseFloat(e.target.value)||0}}))} placeholder="0" style={{ ...S.inputSm, width:"70px" }} />
-                <span style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>horas</span>
+                <span style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)" }}>horas</span>
               </div>
             </div>
           ))}

@@ -238,9 +238,9 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ background:"var(--t-menu-bg,#0f0a1e)", borderTop:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:"20px 20px 0 0", width:"100%", maxWidth:640, maxHeight:"92vh", overflowY:"auto", padding:"20px 18px calc(20px + env(safe-area-inset-bottom))" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
           <div style={{ fontFamily:"'Fraunces',serif", fontSize:20, color:"var(--t-text,#f8f4ff)" }}>🎾 Exportar disponibilidad</div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", fontSize:18, cursor:"pointer", padding:"4px 9px", lineHeight:1 }}>×</button>
+          <button onClick={onClose} aria-label="Cerrar" style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, color:"var(--t-text-muted,#b9b0d0)", fontSize:18, cursor:"pointer", padding:"4px 9px", lineHeight:1 }}>×</button>
         </div>
-        <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginBottom:16, lineHeight:1.5 }}>
+        <div style={{ fontSize:11.5, color:"var(--t-text-muted,#b9b0d0)", marginBottom:16, lineHeight:1.5 }}>
           Verde = podéis jugar. Toca cualquier día para corregirlo a mano antes de exportar.
         </div>
 
@@ -252,13 +252,13 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
               const sel = who === id;
               return (
                 <button key={id} onClick={() => setWho(id)}
-                  style={{ flex:1, background:sel?`${c}22`:"rgba(128,128,128,0.06)", border:`1px solid ${sel?c:"rgba(255,255,255,0.08)"}`, borderRadius:10, color:sel?c:"var(--t-text-muted,#6b5f88)", padding:"8px 6px", cursor:"pointer", fontSize:12.5, fontFamily:"inherit", fontWeight:sel?700:400 }}>
+                  style={{ flex:1, background:sel?`${c}22`:"rgba(128,128,128,0.06)", border:`1px solid ${sel?c:"rgba(255,255,255,0.08)"}`, borderRadius:10, color:sel?c:"var(--t-text-muted,#b9b0d0)", padding:"8px 6px", cursor:"pointer", fontSize:12.5, fontFamily:"inherit", fontWeight:sel?700:400 }}>
                   {label}
                 </button>
               );
             })}
           </div>
-          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#6b5f88)", marginTop:6, lineHeight:1.5 }}>
+          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#8f84ad)", marginTop:6, lineHeight:1.5 }}>
             {who === "together"
               ? "Liga mixta: los eventos de cualquiera de los dos ocupan el día."
               : `Liga individual: solo ocupan los eventos de ${who === "person1" ? p1 : p2} y los de «juntos» — la agenda del otro no cuenta.`}
@@ -273,21 +273,21 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
 
         {/* Franja de juego — la regla es de SOLAPE, no de hora de inicio */}
         <div style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"12px 14px", marginBottom:14 }}>
-          <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:4 }}>🕐 ¿A qué hora se jugaría?</div>
-          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#6b5f88)", marginBottom:10, lineHeight:1.5 }}>Deja ambas vacías si el partido puede ser a cualquier hora del día.</div>
+          <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600, marginBottom:4 }}>🕐 ¿A qué hora se jugaría?</div>
+          <div style={{ fontSize:10.5, color:"var(--t-text-dim,#8f84ad)", marginBottom:10, lineHeight:1.5 }}>Deja ambas vacías si el partido puede ser a cualquier hora del día.</div>
           <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:12 }}>
             <div style={{ flex:1 }}>
               <label style={{ ...S.label, marginBottom:4 }}>Desde</label>
               <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                 <input type="time" value={winFrom} onChange={e => setWinFrom(e.target.value)} style={{ ...S.inputSm, colorScheme:"dark", textAlign:"center" }} />
-                {winFrom && <button onClick={() => setWinFrom("")} aria-label="Quitar" style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
+                {winFrom && <button onClick={() => setWinFrom("")} aria-label="Quitar" style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
               </div>
             </div>
             <div style={{ flex:1 }}>
               <label style={{ ...S.label, marginBottom:4 }}>Hasta</label>
               <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                 <input type="time" value={winTo} onChange={e => setWinTo(e.target.value)} style={{ ...S.inputSm, colorScheme:"dark", textAlign:"center" }} />
-                {winTo && <button onClick={() => setWinTo("")} aria-label="Quitar" style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
+                {winTo && <button onClick={() => setWinTo("")} aria-label="Quitar" style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", cursor:"pointer", fontSize:14, padding:2 }}>×</button>}
               </div>
             </div>
           </div>
@@ -311,16 +311,16 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
               </button>
             </div>
           ))}
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:4, fontStyle:"italic" }}>Los eventos con hora de inicio pero sin fin se asumen de 1 hora.</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", marginTop:4, fontStyle:"italic" }}>Los eventos con hora de inicio pero sin fin se asumen de 1 hora.</div>
         </div>
 
         {/* Preview del calendario */}
         {days.length === 0 ? (
-          <div style={{ textAlign:"center", color:"var(--t-text-muted,#8b7fa8)", fontSize:13, padding:"20px 0" }}>Elige un rango de fechas válido (máx. 3 meses)</div>
+          <div style={{ textAlign:"center", color:"var(--t-text-muted,#b9b0d0)", fontSize:13, padding:"20px 0" }}>Elige un rango de fechas válido (máx. 3 meses)</div>
         ) : (
           <>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
-              {["L","M","X","J","V","S","D"].map((d,i) => <div key={i} style={{ textAlign:"center", fontSize:10, color:"var(--t-text-dim,#4a4166)", fontWeight:600 }}>{d}</div>)}
+              {["L","M","X","J","V","S","D"].map((d,i) => <div key={i} style={{ textAlign:"center", fontSize:10, color:"var(--t-text-dim,#8f84ad)", fontWeight:600 }}>{d}</div>)}
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:10 }}>
               {Array.from({ length: lead }).map((_, i) => <div key={`b${i}`} />)}
@@ -345,15 +345,15 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
                 );
               })}
             </div>
-            <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginBottom:12 }}>
+            <div style={{ fontSize:11.5, color:"var(--t-text-muted,#b9b0d0)", marginBottom:12 }}>
               <strong style={{ color:"#34d399" }}>{freeCount}</strong> de {days.length} días disponibles
             </div>
 
             {busyDays.length > 0 && (
               <div style={{ background:"rgba(128,128,128,0.05)", borderRadius:10, padding:"10px 12px", marginBottom:14, maxHeight:130, overflowY:"auto" }}>
-                <div style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", marginBottom:6 }}>Por qué están ocupados</div>
+                <div style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", marginBottom:6 }}>Por qué están ocupados</div>
                 {busyDays.map(key => (
-                  <div key={key} style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginBottom:3 }}>
+                  <div key={key} style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)", marginBottom:3 }}>
                     <span style={{ color:"rgba(244,63,94,0.8)", fontWeight:600 }}>{dayLabel(key)}:</span>{" "}
                     {(blockersByDay[key] || []).map(b => `${b.emoji || ""} ${b.title}${b.range ? ` (${b.range})` : ""}`).join(" · ") || "marcado a mano"}
                   </div>

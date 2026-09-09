@@ -42,7 +42,7 @@ export default function NotesWallView({ notes = [], myName, myPersonId, partnerN
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, padding: "0 2px" }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontFamily: "'Fraunces',serif" }}>📌 Notitas</div>
-          <div style={{ fontSize: 12, color: "var(--t-text-dim,#6b5f88)", marginTop: 2 }}>La más reciente se fija en el inicio</div>
+          <div style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)", marginTop: 2 }}>La más reciente se fija en el inicio</div>
         </div>
         <button onClick={() => setComposing(c => !c)} style={{
           background: composing ? "rgba(244,114,182,0.15)" : "var(--t-accent-soft,rgba(167,139,250,0.14))",
@@ -67,7 +67,7 @@ export default function NotesWallView({ notes = [], myName, myPersonId, partnerN
               color: "#3a3020", background: "#fff7a0", border: "1px solid rgba(0,0,0,0.12)",
             }} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)" }}>Chincheta</span>
+            <span style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>Chincheta</span>
             <div style={{ display: "flex", gap: 8, flex: 1 }}>
               {PIN_COLORS.map(p => (
                 <button key={p.id} onClick={() => setPin(p.id)} aria-label={`Chincheta ${p.label}`} title={p.label}
@@ -79,7 +79,7 @@ export default function NotesWallView({ notes = [], myName, myPersonId, partnerN
                   }} />
               ))}
             </div>
-            <span style={{ fontSize: 11, color: "var(--t-text-dim,#6b5f88)" }}>{text.length}/{LOVE_NOTE_MAX}</span>
+            <span style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>{text.length}/{LOVE_NOTE_MAX}</span>
             <button onClick={send} disabled={!text.trim()} style={{
               padding: "8px 16px", borderRadius: 99, cursor: text.trim() ? "pointer" : "default", fontFamily: "inherit",
               fontSize: 13, fontWeight: 600, color: "#fff", border: "none",

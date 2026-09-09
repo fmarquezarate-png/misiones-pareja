@@ -4,6 +4,7 @@ import { dlBlob } from "../utils.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 import { filterMoods, aggregateMoods, summarizePoints } from "../lib/moodAnalysis.js";
 import MoodTimelineChart from "./MoodTimelineChart.jsx";
+import { humanDate } from "../lib/dateLabel.js";
 
 const MoodReport = lazy(() => import("./MoodReport.jsx"));
 
@@ -74,7 +75,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
   const notifToggle = (
     <button onClick={toggleNotif}
       title={notifEnabled ? "Recordatorio diario activado — toca para desactivar" : "Recordatorio diario desactivado — toca para activar"}
-      style={{ background: notifEnabled ? "rgba(167,139,250,0.14)" : "rgba(128,128,128,0.08)", border:`1px solid ${notifEnabled?"rgba(167,139,250,0.35)":"rgba(255,255,255,0.1)"}`, borderRadius:12, color: notifEnabled ? "#c4b8ff" : "var(--t-text-muted,#6b5f88)", padding:"7px 10px", cursor:"pointer", fontSize:15, lineHeight:1 }}>
+      style={{ background: notifEnabled ? "rgba(167,139,250,0.14)" : "rgba(128,128,128,0.08)", border:`1px solid ${notifEnabled?"rgba(167,139,250,0.35)":"rgba(255,255,255,0.1)"}`, borderRadius:12, color: notifEnabled ? "#c4b8ff" : "var(--t-text-muted,#b9b0d0)", padding:"7px 10px", cursor:"pointer", fontSize:15, lineHeight:1 }}>
       {notifEnabled ? "🔔" : "🔕"}
     </button>
   );
@@ -85,7 +86,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:-12 }}>{notifToggle}</div>
         <div style={{ fontSize:52, marginBottom:14 }}>🧠</div>
         <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, fontWeight:700, marginBottom:10, color:"var(--t-text,#f8f4ff)" }}>Seguimiento de ánimo</div>
-        <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", lineHeight:1.7, marginBottom:28, maxWidth:300, margin:"0 auto 28px" }}>
+        <div style={{ fontSize:13, color:"var(--t-text-muted,#b9b0d0)", lineHeight:1.7, marginBottom:28, maxWidth:300, margin:"0 auto 28px" }}>
           Cada día a las <strong>18:00</strong> aparece un popup automático (si lo tienes activado con {notifEnabled ? "🔔" : "🔕"} arriba).<br />
           También puedes registrar en cualquier momento. Por defecto tus registros son privados — solo los compartes si lo marcas al guardar.
         </div>
@@ -115,7 +116,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
       <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginBottom:10 }}>
         {PERIODS.map(([k,l]) => (
           <button key={k} onClick={() => setPeriod(k)}
-            style={{ background: period===k?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.07)", border:`1px solid ${period===k?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color: period===k?"#c4b8ff":"var(--t-text-muted,#6b5f88)", padding:"4px 12px", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight: period===k?600:400 }}>
+            style={{ background: period===k?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.07)", border:`1px solid ${period===k?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color: period===k?"#c4b8ff":"var(--t-text-muted,#b9b0d0)", padding:"4px 12px", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight: period===k?600:400 }}>
             {l}
           </button>
         ))}
@@ -127,7 +128,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
           const active = who === k;
           return (
             <button key={k} onClick={() => setWho(k)}
-              style={{ background:active?`${c}22`:"rgba(128,128,128,0.07)", border:`1px solid ${active?c:"rgba(255,255,255,0.07)"}`, borderRadius:99, color:active?c:"var(--t-text-muted,#6b5f88)", padding:"4px 12px", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:active?600:400 }}>
+              style={{ background:active?`${c}22`:"rgba(128,128,128,0.07)", border:`1px solid ${active?c:"rgba(255,255,255,0.07)"}`, borderRadius:99, color:active?c:"var(--t-text-muted,#b9b0d0)", padding:"4px 12px", cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:active?600:400 }}>
               {l}
             </button>
           );
@@ -144,7 +145,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
           ].map(s => (
             <div key={s.label} style={{ background:s.bg, borderRadius:14, padding:"10px 8px", textAlign:"center" }}>
               <div style={{ fontSize:22, fontFamily:"'Fraunces',serif", fontWeight:700, color:s.color, lineHeight:1 }}>{s.value !== null ? (Number(s.value) > 0 && s.label==="Promedio" ? `+${s.value}` : s.value) : "—"}</div>
-              <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:4, textTransform:"uppercase", letterSpacing:0.5 }}>{s.label}</div>
+              <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", marginTop:4, textTransform:"uppercase", letterSpacing:0.5 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -152,7 +153,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
 
       {/* Variabilidad */}
       {filtered.length > 0 && varianceStats.label !== "—" && (
-        <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginBottom:10, lineHeight:1.6 }}>
+        <div style={{ fontSize:11.5, color:"var(--t-text-muted,#b9b0d0)", marginBottom:10, lineHeight:1.6 }}>
           <div><strong style={{ color:"var(--t-text,#f8f4ff)" }}>Variabilidad:</strong> {varianceStats.label} (desviación {varianceStats.std.toFixed(1)} pts)</div>
           <div><strong style={{ color:"var(--t-text,#f8f4ff)" }}>Mayor cambio entre períodos:</strong> {varianceStats.biggestChange > 0 ? "+" : ""}{varianceStats.biggestChange.toFixed(1)} pts</div>
         </div>
@@ -166,7 +167,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
       {/* Comparativa */}
       {moods.some(m => m.who === "person1") && moods.some(m => m.who === "person2") && (
         <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Comparativa</div>
+          <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Comparativa</div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {[["person1", p1, colors.person1, personStats.p1], ["person2", p2, colors.person2, personStats.p2]].map(([pid, pname, pcolor, st]) => {
               const avgNum = Number(st.avg);
@@ -180,7 +181,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
                     {st.count > 0 && <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginLeft:"auto" }}>{st.count} reg.</span>}
                   </div>
                   {st.avg === null ? (
-                    <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", textAlign:"center", padding:"8px 0" }}>Sin datos</div>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", textAlign:"center", padding:"8px 0" }}>Sin datos</div>
                   ) : (
                     <>
                       <div style={{ fontSize:28, fontFamily:"'Fraunces',serif", fontWeight:700, color: avgNum >= 0 ? "#34d399" : "#f43f5e", lineHeight:1, marginBottom:6 }}>
@@ -208,7 +209,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
       {/* Actions */}
       <div style={{ display:"flex", gap:10, marginBottom:12, alignItems:"center" }}>
         <button onClick={() => setShowTable(!showTable)}
-          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, color:"var(--t-text-muted,#8b7fa8)", padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:12 }}>
+          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, color:"var(--t-text-muted,#b9b0d0)", padding:"6px 14px", cursor:"pointer", fontFamily:"inherit", fontSize:12 }}>
           {showTable ? "▲ Ocultar tabla" : "▼ Ver registros"}
         </button>
         <button onClick={() => setShowReport(true)}
@@ -225,7 +226,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
       {showTable && (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {filtered.length === 0
-            ? <div style={{ textAlign:"center", padding:"24px 0", color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Sin registros en este período</div>
+            ? <div style={{ textAlign:"center", padding:"24px 0", color:"var(--t-text-muted,#b9b0d0)", fontSize:13 }}>Sin registros en este período</div>
             : filtered.map(m => {
                 const em     = EMOTION_BY_ID[m.emotion];
                 const score  = m.valence * m.intensity;
@@ -245,24 +246,24 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
                         </div>
                         <div style={{ display:"flex", gap:10, marginTop:3 }}>
                           <span style={{ fontSize:11, color:pColor, fontWeight:600 }}>{pLabel}{m.shared === false && " 🔒"}</span>
-                          <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{m.date}</span>
+                          <span style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)" }}>{humanDate(m.date)}</span>
                         </div>
                       </div>
                       <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                         {onEditMood && (
                           <button onClick={() => onEditMood(m)}
-                            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:13, padding:"3px 8px", fontFamily:"inherit" }}>✏️</button>
+                            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontSize:13, padding:"3px 8px", fontFamily:"inherit" }}>✏️</button>
                         )}
                         {onDeleteMood && (
                           isConfirming
                             ? <button onClick={() => { onDeleteMood(m.id || m.ts); setConfirmDeleteId(null); }}
                                 style={{ background:"rgba(244,63,94,0.15)", border:"1px solid rgba(244,63,94,0.4)", borderRadius:8, color:"#f43f5e", cursor:"pointer", fontSize:12, padding:"3px 8px", fontFamily:"inherit", fontWeight:600 }}>¿Borrar?</button>
                             : <button onClick={() => setConfirmDeleteId(key)}
-                                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:13, padding:"3px 8px", fontFamily:"inherit" }}>🗑️</button>
+                                style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontSize:13, padding:"3px 8px", fontFamily:"inherit" }}>🗑️</button>
                         )}
                       </div>
                     </div>
-                    {m.note ? <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.05)", lineHeight:1.55 }}>{m.note}</div> : null}
+                    {m.note ? <div style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)", marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.05)", lineHeight:1.55 }}>{m.note}</div> : null}
                   </div>
                 );
               })
@@ -273,7 +274,7 @@ export default function MoodView({ moods = [], p1, p2, colors, onAddMood, onEdit
       {showReport && (
         <Suspense fallback={
           <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:150, display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+            <div style={{ color:"var(--t-text-muted,#b9b0d0)", fontSize:13 }}>Cargando…</div>
           </div>
         }>
           <MoodReport moods={moods} p1={p1} p2={p2} colors={colors} initialPeriod={period} initialWho={who} onClose={() => setShowReport(false)} />

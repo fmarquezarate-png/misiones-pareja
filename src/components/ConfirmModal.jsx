@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Z } from "../lib/zLayers.js";
 
 export function useConfirm() {
   const [state, setState] = useState(null); // { msg, onYes, onNo, danger }
@@ -20,9 +21,9 @@ export function useConfirm() {
   const ConfirmDialog = () => state ? (
     <>
       <div onClick={() => resolve(false)}
-        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:900, backdropFilter:"blur(4px)" }} />
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex: Z.DIALOG, backdropFilter:"blur(4px)" }} />
       <div role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg"
-        style={{ position:"fixed", left:"50%", top:"50%", transform:"translate(-50%,-50%)", zIndex:901,
+        style={{ position:"fixed", left:"50%", top:"50%", transform:"translate(-50%,-50%)", zIndex: Z.DIALOG + 1,
           background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.25))",
           borderRadius:18, padding:"24px 22px", width:"min(320px, calc(100vw - 32px))",
           boxShadow:"0 24px 64px rgba(0,0,0,0.6)", animation:"confirm-in .18s cubic-bezier(.34,1.56,.64,1)" }}>
@@ -32,7 +33,7 @@ export function useConfirm() {
         </p>
         <div style={{ display:"flex", gap:10 }}>
           <button autoFocus onClick={() => resolve(false)}
-            style={{ flex:1, padding:"10px", borderRadius:10, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.06)", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>
+            style={{ flex:1, padding:"10px", borderRadius:10, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.06)", color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontFamily:"inherit", fontSize:13 }}>
             {state.cancelLabel}
           </button>
           <button onClick={() => resolve(true)}

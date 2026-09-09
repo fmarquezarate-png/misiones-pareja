@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -92,7 +93,7 @@ export default function TaskCongrat({ info, onDone, liftForTabBar = false }) {
           transform: "translateX(-50%)",
           width: "calc(100% - 28px)",
           maxWidth: 380,
-          zIndex: 600,
+          zIndex: Z.CELEBRATION,
           background: "rgba(18,12,36,0.97)",
           border: `1px solid ${color}44`,
           borderLeft: `3px solid ${color}`,

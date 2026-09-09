@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 // Misi vivo — ya no es un botón fijo en una esquina: deambula libremente por
 // la pantalla (dentro de límites seguros, lejos del header y de la barra de
@@ -236,7 +237,7 @@ export default function MisiLiveLayer({ emotion = "alegre", unread = 0, onClick,
     position: "fixed",
     [side === "left" ? "left" : "right"]: DOCK.rightGap,
     bottom: liftForTabBar ? DOCK.bottomGap + 68 : DOCK.bottomGap,
-    zIndex: 350,
+    zIndex: Z.MASCOT,
     width: SIZE, height: SIZE,
     border: "none", background: "transparent", cursor: "grab", padding: 0,
     touchAction: "pan-y",

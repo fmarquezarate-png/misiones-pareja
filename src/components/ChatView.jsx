@@ -61,7 +61,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
     <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 220px)" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, padding: "4px 0 12px" }}>
         {messages.length === 0 && (
-          <div style={{ textAlign: "center", color: "var(--t-text-dim,#3d3360)", padding: 40 }}>
+          <div style={{ textAlign: "center", color: "var(--t-text-dim,#8f84ad)", padding: 40 }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>💬</div>
             <div style={{ fontSize: 14, fontStyle: "italic", lineHeight: 1.6 }}>Todavía no hay mensajes.<br />¡Empieza la conversación!</div>
           </div>
@@ -70,7 +70,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
           const isMe = m.sender_name === personName;
           return (
             <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start" }}>
-              {!isMe && <div style={{ fontSize: 10, color: "var(--t-text-dim,#4a4166)", marginBottom: 2, marginLeft: 4 }}>{m.sender_name}</div>}
+              {!isMe && <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)", marginBottom: 2, marginLeft: 4 }}>{m.sender_name}</div>}
               {m.emoji === "sticker" ? (
                 <div style={{ fontSize: 52, lineHeight: 1, padding: "2px 4px" }}>{m.content}</div>
               ) : (
@@ -91,7 +91,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
                   onToggle={e => onToggleReaction(m.id, e, { kind: "message", title: m.emoji === "sticker" ? "un sticker" : (m.content || "").slice(0, 24) })}
                 />
               )}
-              <div style={{ fontSize: 10, color: "var(--t-text-dim,#3d3360)", marginTop: 2, marginLeft: 4, marginRight: 4 }}>
+              <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)", marginTop: 2, marginLeft: 4, marginRight: 4 }}>
                 {new Date(m.created_at).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
               </div>
             </div>
@@ -125,7 +125,7 @@ export default function ChatView({ coupleId, personName, sessionUserId, chatNoti
               autoComplete="off"
             />
             {input.length > MAX_MSG * 0.8 && (
-              <div style={{ position: "absolute", right: 6, bottom: -16, fontSize: 10, color: input.length >= MAX_MSG ? "#f87171" : "var(--t-text-dim,#3d3360)" }}>
+              <div style={{ position: "absolute", right: 6, bottom: -16, fontSize: 10, color: input.length >= MAX_MSG ? "#f87171" : "var(--t-text-dim,#8f84ad)" }}>
                 {input.length}/{MAX_MSG}
               </div>
             )}

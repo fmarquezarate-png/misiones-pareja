@@ -55,7 +55,7 @@ export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCat
             <div style={S.label}>Semanas</div>
             <div style={{ display:"flex", gap:3 }}>
               {[["all","Todas"],["1","Esta sem."],["4","4 últ."],["8","8 últ."]].map(([v,l]) => (
-                <button key={v} onClick={() => setHistWeekRange(v)} style={{ background:histWeekRange===v?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.06)", border:`1px solid ${histWeekRange===v?"var(--t-accent,rgba(167,139,250,0.4))":"var(--t-card-border,rgba(255,255,255,0.08))"}`, borderRadius:7, color:histWeekRange===v?"var(--t-accent,#a78bfa)":"var(--t-text-dim,#6b5f88)", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
+                <button key={v} onClick={() => setHistWeekRange(v)} style={{ background:histWeekRange===v?"var(--t-accent-soft,rgba(167,139,250,0.2))":"rgba(128,128,128,0.06)", border:`1px solid ${histWeekRange===v?"var(--t-accent,rgba(167,139,250,0.4))":"var(--t-card-border,rgba(255,255,255,0.08))"}`, borderRadius:7, color:histWeekRange===v?"var(--t-accent,#a78bfa)":"var(--t-text-dim,#8f84ad)", padding:"4px 10px", cursor:"pointer", fontSize:12, fontFamily:"inherit" }}>{l}</button>
               ))}
             </div>
           </div>
@@ -74,28 +74,28 @@ export default function HistoryView({ weeks, wkey, globalPersonFilter, globalCat
                   Semana {w.weekNumber}
                   {cur && <span style={{ fontSize:10, color:"var(--t-accent,#a78bfa)", background:"var(--t-accent-soft,rgba(167,139,250,0.15))", padding:"2px 7px", borderRadius:99, fontFamily:"inherit", fontWeight:600 }}>ACTUAL</span>}
                 </div>
-                <div style={{ fontSize:13, color:p===100?"#34d399":"var(--t-text-muted,#8b7fa8)", fontWeight:600 }}>{p===100?"🏆":""} {d}/{t}</div>
+                <div style={{ fontSize:13, color:p===100?"#34d399":"var(--t-text-muted,#b9b0d0)", fontWeight:600 }}>{p===100?"🏆":""} {d}/{t}</div>
               </div>
-              {w.epicObjective && <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
+              {w.epicObjective && <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", marginTop:3, fontStyle:"italic", fontFamily:"'Fraunces',serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>"{w.epicObjective}"</div>}
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:8 }} onClick={e => e.stopPropagation()}>
               <div style={{ flex:1 }}>
                 <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:`${p}%`, borderRadius:99, background:p===100?"linear-gradient(90deg,#34d399,#60a5fa)":"linear-gradient(90deg,#f472b6,#a78bfa)", transition:"width 0.5s" }} />
                 </div>
-                <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
+                <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", marginTop:3 }}>{p}%{globalPersonFilter.length?` (${globalPersonFilter.map(f=>f==="person1"?p1:f==="person2"?p2:"Juntos").join("+")})`:""}</div>
               </div>
               {uploadingKey === key
                 ? <div style={{ flexShrink:0, width:44, height:44, borderRadius:8, background:"rgba(128,128,128,0.08)", border:"1px solid rgba(167,139,250,0.2)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:2 }} aria-label="Subiendo foto">
                     <span style={{ fontSize:14, animation:"hv-spin 0.9s linear infinite" }}>⏳</span>
-                    <span style={{ fontSize:7, color:"var(--t-text-dim,#6b5f88)" }}>subiendo</span>
+                    <span style={{ fontSize:7, color:"var(--t-text-dim,#8f84ad)" }}>subiendo</span>
                     <style>{`@keyframes hv-spin{to{transform:rotate(360deg)}}`}</style>
                   </div>
                 : (w.photoUrl || w.photo)
                 ? <div style={{ position:"relative", flexShrink:0 }}>
                     <img src={w.photoUrl || w.photo} onClick={() => setLightboxSrc(w.photoUrl || w.photo)} style={{ width:44, height:44, borderRadius:8, objectFit:"cover", display:"block", border:"1px solid rgba(167,139,250,0.25)", cursor:"zoom-in" }} alt="foto" title="Ver foto completa" />
                     <button onClick={() => removeWeekPhoto(key)} aria-label="Quitar foto de la semana" title="Quitar foto"
-                      style={{ position:"absolute", top:-8, right:-8, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#8b7fa8)", fontSize:13, width:26, height:26, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>✕</button>
+                      style={{ position:"absolute", top:-8, right:-8, background:"var(--t-card,#1d1733)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.3))", borderRadius:99, color:"var(--t-text-muted,#b9b0d0)", fontSize:13, width:26, height:26, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>✕</button>
                   </div>
                 : <div style={{ flexShrink:0, display:"flex", gap:6 }}>
                     <label aria-label="Tomar foto de la semana" style={{ width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(128,128,128,0.05)", border:"1px dashed rgba(167,139,250,0.18)", borderRadius:8, cursor:"pointer", fontSize:16 }} title="Tomar foto">

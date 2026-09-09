@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Z } from "../lib/zLayers.js";
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -59,7 +60,7 @@ export default function JuntosMoment({ mission, p1Name, p2Name, p1Color, p2Color
     <div
       onClick={dismiss}
       style={{
-        position: "fixed", inset: 0, zIndex: 2000,
+        position: "fixed", inset: 0, zIndex: Z.CELEBRATION,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         // Fondo OPACO en vez de `backdrop-filter: blur(16px)`: el blur a
         // pantalla completa se recalcula en cada frame mientras los círculos se

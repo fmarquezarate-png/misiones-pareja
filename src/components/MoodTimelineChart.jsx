@@ -18,7 +18,7 @@ export default function MoodTimelineChart({ moods, light = false }) {
 
   if (points.length === 0) {
     return (
-      <div style={{ textAlign:"center", padding:"36px 0", color: light ? "#9a93b0" : "var(--t-text-muted,#8b7fa8)", fontSize:13 }}>
+      <div style={{ textAlign:"center", padding:"36px 0", color: light ? "#9a93b0" : "var(--t-text-muted,#b9b0d0)", fontSize:13 }}>
         Sin datos en este período
       </div>
     );

@@ -84,7 +84,7 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
 
       {showForm && (
         <div style={{ ...S.card, marginBottom:18, borderColor:"rgba(167,139,250,0.3)" }}>
-          <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", lineHeight:1.6, marginBottom:12, fontStyle:"italic" }}>
+          <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", lineHeight:1.6, marginBottom:12, fontStyle:"italic" }}>
             Escribe algo para leer en el futuro. Una vez sellada, nadie puede abrirla antes de la fecha — ni tú.
           </div>
           <div style={{ marginBottom:10 }}>
@@ -95,7 +95,7 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
             <label style={S.label}>Mensaje</label>
             <textarea value={message} onChange={e => setMessage(e.target.value.slice(0, 2000))} placeholder="Lo que quieras decirle a quien lea esto en el futuro…"
               rows={5} style={{ ...S.input, resize:"vertical", fontFamily:"inherit" }} />
-            <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", textAlign:"right", marginTop:2 }}>{message.length}/2000</div>
+            <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", textAlign:"right", marginTop:2 }}>{message.length}/2000</div>
           </div>
           <div style={{ marginBottom:10 }}>
             <label style={S.label}>Foto (opcional)</label>
@@ -105,7 +105,7 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
                 <button onClick={() => setPhoto(null)} style={{ position:"absolute", top:-6, right:-6, background:"#1d1733", border:"1px solid rgba(255,255,255,0.15)", borderRadius:99, width:22, height:22, color:"#f472b6", cursor:"pointer", fontSize:13, lineHeight:1 }}>×</button>
               </div>
             ) : (
-              <label style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(128,128,128,0.08)", border:"1px dashed rgba(167,139,250,0.3)", borderRadius:10, padding:"9px 14px", cursor:"pointer", fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>
+              <label style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(128,128,128,0.08)", border:"1px dashed rgba(167,139,250,0.3)", borderRadius:10, padding:"9px 14px", cursor:"pointer", fontSize:12, color:"var(--t-text-muted,#b9b0d0)" }}>
                 {compressing ? "Procesando…" : "📷 Añadir foto"}
                 <input type="file" accept="image/*" onChange={handlePhoto} disabled={compressing} style={{ display:"none" }} />
               </label>
@@ -135,7 +135,7 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
           <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"#fbbf24", fontWeight:700, marginBottom:8 }}>🎁 Listas para abrir</div>
           {openable.map(c => (
             <button key={c.id} onClick={() => onView(c.id)}
-              style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.4)", borderRadius:14, padding:"14px 16px", marginBottom:8, cursor:"pointer", fontFamily:"inherit", textAlign:"left", animation:"tc-pulse 2s ease-in-out infinite" }}>
+              style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.4)", borderRadius:14, padding:"14px 16px", marginBottom:8, cursor:"pointer", fontFamily:"inherit", textAlign:"left", animation:"tc-pulse 2s ease-in-out 5" }}>
               <span style={{ fontSize:26 }}>🎁</span>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:14, fontWeight:700, color:"#fbbf24" }}>{c.title || "Una cápsula del tiempo"}</div>
@@ -149,9 +149,9 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
       )}
 
       <div style={{ marginBottom:20 }}>
-        <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:8 }}>🔒 Selladas ({sealed.length})</div>
+        <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600, marginBottom:8 }}>🔒 Selladas ({sealed.length})</div>
         {sealed.length === 0 ? (
-          <div style={{ fontSize:12, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>No hay cápsulas esperando su fecha.</div>
+          <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", fontStyle:"italic" }}>No hay cápsulas esperando su fecha.</div>
         ) : sealed.map(c => {
           const d = daysUntil(c.unlockDate);
           return (
@@ -163,7 +163,7 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
               </div>
               {c.from === sessionPersonId && (
                 <button onClick={() => onDelete(c.id)} title="Eliminar (solo tú puedes borrar la tuya antes de que se abra)"
-                  style={{ background:"none", border:"none", color:"var(--t-text-dim,#3d3360)", cursor:"pointer", fontSize:16, flexShrink:0 }}>×</button>
+                  style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", cursor:"pointer", fontSize:16, flexShrink:0 }}>×</button>
               )}
             </div>
           );
@@ -171,9 +171,9 @@ export default function TimeCapsuleView({ capsules = [], p1, p2, colors, session
       </div>
 
       <div>
-        <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:8 }}>📖 Abiertas ({opened.length})</div>
+        <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600, marginBottom:8 }}>📖 Abiertas ({opened.length})</div>
         {opened.length === 0 ? (
-          <div style={{ fontSize:12, color:"var(--t-text-dim,#4a4166)", fontStyle:"italic" }}>Todavía no se abrió ninguna.</div>
+          <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", fontStyle:"italic" }}>Todavía no se abrió ninguna.</div>
         ) : opened.map(c => (
           <button key={c.id} onClick={() => onView(c.id)}
             style={{ display:"flex", alignItems:"center", gap:10, width:"100%", background:"rgba(128,128,128,0.05)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"10px 14px", marginBottom:6, cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>

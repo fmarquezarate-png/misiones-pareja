@@ -14,7 +14,7 @@ export default function DateIdea({ onAdd, seed = 0 }) {
       background: "linear-gradient(135deg, rgba(52,211,153,0.12), rgba(96,165,250,0.10))",
       border: "1px solid rgba(52,211,153,0.26)",
     }}>
-      <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", fontWeight: 600, color: "var(--t-text-dim,#6b5f88)", marginBottom: 10 }}>
+      <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", fontWeight: 600, color: "var(--t-text-dim,#8f84ad)", marginBottom: 10 }}>
         💞 Nuestro momento
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -26,7 +26,7 @@ export default function DateIdea({ onAdd, seed = 0 }) {
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12 }}>
         <button onClick={() => setIndex(i => i + 1)} style={{
           padding: "7px 14px", borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 12,
-          color: "var(--t-text-muted,#8b7fa8)", background: "rgba(128,128,128,0.1)", border: "none",
+          color: "var(--t-text-muted,#b9b0d0)", background: "rgba(128,128,128,0.1)", border: "none",
         }}>🔄 Otra idea</button>
         <button onClick={() => onAdd?.(idea)} style={{
           padding: "7px 16px", borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600,

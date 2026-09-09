@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RITUAL_STEPS } from "../lib/ritual.js";
+import { Z } from "../lib/zLayers.js";
 
 // Banner + modal del ritual de planificación conjunta. El componente decide
 // cuándo mostrarse lo resuelve el caller (shouldShowPlanningRitual); aquí solo
@@ -27,7 +28,7 @@ export default function PlanningRitual({ onComplete, onNotifyPartner }) {
         <span style={{ fontSize: 26, flexShrink: 0 }}>🗓️</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--t-text,#f0e8ff)" }}>Ritual de planificación</div>
-          <div style={{ fontSize: 12, color: "var(--t-text-muted,#8b7fa8)", marginTop: 2 }}>Un momento para planificar la semana juntos</div>
+          <div style={{ fontSize: 12, color: "var(--t-text-muted,#b9b0d0)", marginTop: 2 }}>Un momento para planificar la semana juntos</div>
         </div>
         <button onClick={() => setOpen(true)} style={{
           flexShrink: 0, padding: "8px 14px", borderRadius: 99, cursor: "pointer", fontFamily: "inherit",
@@ -36,13 +37,13 @@ export default function PlanningRitual({ onComplete, onNotifyPartner }) {
         }}>Empezar</button>
         <button onClick={() => setDismissed(true)} aria-label="Ahora no" title="Ahora no" style={{
           flexShrink: 0, width: 26, height: 26, borderRadius: 99, cursor: "pointer", fontFamily: "inherit",
-          fontSize: 13, color: "var(--t-text-muted,#8b7fa8)", background: "transparent", border: "none",
+          fontSize: 13, color: "var(--t-text-muted,#b9b0d0)", background: "transparent", border: "none",
         }}>✕</button>
       </div>
 
       {open && (
         <div onClick={() => setOpen(false)} style={{
-          position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.6)",
+          position: "fixed", inset: 0, zIndex: Z.SHEET, background: "rgba(0,0,0,0.6)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
         }}>
           <div onClick={e => e.stopPropagation()} style={{
@@ -52,7 +53,7 @@ export default function PlanningRitual({ onComplete, onNotifyPartner }) {
           }}>
             <div style={{ textAlign: "center", marginBottom: 4, fontSize: 30 }}>🗓️</div>
             <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, textAlign: "center", color: "var(--t-text,#f0e8ff)" }}>Planifiquen la semana</h2>
-            <p style={{ margin: "0 0 18px", fontSize: 13, textAlign: "center", color: "var(--t-text-muted,#8b7fa8)", lineHeight: 1.5 }}>
+            <p style={{ margin: "0 0 18px", fontSize: 13, textAlign: "center", color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.5 }}>
               Un momento juntos para arrancar la semana alineados. Vayan marcando lo que hagan.
             </p>
 
@@ -96,7 +97,7 @@ export default function PlanningRitual({ onComplete, onNotifyPartner }) {
 
             <button onClick={() => setOpen(false)} style={{
               width: "100%", padding: "10px", marginTop: 6, borderRadius: 12, fontFamily: "inherit",
-              fontSize: 13, cursor: "pointer", color: "var(--t-text-muted,#8b7fa8)",
+              fontSize: 13, cursor: "pointer", color: "var(--t-text-muted,#b9b0d0)",
               background: "transparent", border: "none",
             }}>Cerrar</button>
           </div>

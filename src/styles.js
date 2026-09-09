@@ -58,8 +58,8 @@ export const S = {
   inputSm:   { background:"var(--t-input-bg,rgba(255,255,255,0.06))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:7, padding:"5px 8px", color:"var(--t-text,#f0e8ff)", fontSize:13, fontFamily:"inherit", outline:"none", width:"100%", boxSizing:"border-box" },
   btnNav:    { background:"rgba(128,128,128,0.08)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.2))", borderRadius:8, color:"var(--t-accent,#a78bfa)", fontSize:22, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"inherit", lineHeight:1, flexShrink:0 },
   btnPrimary:   { background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"7px 14px", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
-  btnSecondary: { background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)", borderRadius:8, color:"var(--t-text-muted,#8b7fa8)", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
-  label:     { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600, marginBottom:6, display:"block" },
+  btnSecondary: { background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)", borderRadius:8, color:"var(--t-text-muted,#b9b0d0)", padding:"7px 14px", cursor:"pointer", fontSize:13, fontFamily:"inherit" },
+  label:     { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600, marginBottom:6, display:"block" },
 };
 
 export const badgeStyle = s => ({

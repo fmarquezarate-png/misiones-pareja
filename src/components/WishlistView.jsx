@@ -31,7 +31,7 @@ function CategoryForm({ initial = {}, onSave, onCancel }) {
       </div>
 
       <div>
-        <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:8 }}>
+        <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:700, marginBottom:8 }}>
           ¿Qué tipo de lista es?
         </div>
         <div style={{ display:"flex", gap:8 }}>
@@ -39,7 +39,7 @@ function CategoryForm({ initial = {}, onSave, onCancel }) {
             flex:1, padding:"12px 10px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
             background: type==="recurring" ? "var(--t-accent-soft,rgba(167,139,250,0.18))" : "rgba(128,128,128,0.06)",
             border: type==="recurring" ? "1px solid var(--t-accent,#a78bfa)" : "1px solid rgba(128,128,128,0.15)",
-            color: type==="recurring" ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
+            color: type==="recurring" ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#b9b0d0)",
             display:"flex", flexDirection:"column", alignItems:"flex-start", gap:4, textAlign:"left",
           }}>
             <div style={{ fontSize:13, fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
@@ -51,7 +51,7 @@ function CategoryForm({ initial = {}, onSave, onCancel }) {
             flex:1, padding:"12px 10px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
             background: type==="oneoff" ? "var(--t-accent-soft,rgba(167,139,250,0.18))" : "rgba(128,128,128,0.06)",
             border: type==="oneoff" ? "1px solid var(--t-accent,#a78bfa)" : "1px solid rgba(128,128,128,0.15)",
-            color: type==="oneoff" ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#8b7fa8)",
+            color: type==="oneoff" ? "var(--t-accent,#a78bfa)" : "var(--t-text-muted,#b9b0d0)",
             display:"flex", flexDirection:"column", alignItems:"flex-start", gap:4, textAlign:"left",
           }}>
             <div style={{ fontSize:13, fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
@@ -102,7 +102,7 @@ function CategoryCard({ cat, onOpen, onEdit, onDelete }) {
           <div style={{ fontSize:15, fontWeight:600, color:"var(--t-text,#f0e8ff)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
             {cat.name}
           </div>
-          <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:3, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+          <div style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)", marginTop:3, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
             <span style={{
               background: cat.type==="recurring" ? "rgba(96,165,250,0.12)" : "rgba(232,121,249,0.12)",
               color: cat.type==="recurring" ? "#60a5fa" : "#e879f9",
@@ -110,17 +110,17 @@ function CategoryCard({ cat, onOpen, onEdit, onDelete }) {
               borderRadius:99, padding:"1px 7px", fontSize:9.5, fontWeight:600, letterSpacing:0.3,
             }}>{typeLabel}</span>
             {total === 0 ? (
-              <span style={{ color:"var(--t-text-dim,#6b5f88)" }}>Sin artículos</span>
+              <span style={{ color:"var(--t-text-dim,#8f84ad)" }}>Sin artículos</span>
             ) : (
               <span>{pending > 0 ? `${pending} pendiente${pending===1?"":"s"}` : `✓ Todo hecho`} · {total} total</span>
             )}
           </div>
         </div>
-        <span aria-hidden="true" style={{ fontSize:18, color:"var(--t-text-dim,#6b5f88)", flexShrink:0 }}>›</span>
+        <span aria-hidden="true" style={{ fontSize:18, color:"var(--t-text-dim,#8f84ad)", flexShrink:0 }}>›</span>
       </button>
       <div style={{ display:"flex", flexDirection:"column", gap:5, flexShrink:0 }}>
         <button onClick={onEdit}
-          style={{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.15)", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", fontSize:11, padding:"4px 8px", cursor:"pointer", fontFamily:"inherit" }}>
+          style={{ background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.15)", borderRadius:8, color:"var(--t-text-dim,#8f84ad)", fontSize:11, padding:"4px 8px", cursor:"pointer", fontFamily:"inherit" }}>
           ✏️
         </button>
         <button onClick={onDelete}
@@ -204,7 +204,7 @@ function CategoryDetail({ cat, onBack, onUpdate, onDelete, pushToast }) {
           <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:20, fontWeight:600, color:"var(--t-text,#f8f4ff)", display:"flex", alignItems:"center", gap:8, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
             <span>{cat.emoji || "🛒"}</span> {cat.name}
           </div>
-          <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:2 }}>
+          <div style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)", marginTop:2 }}>
             {cat.type === "recurring" ? "🔁 Lista recurrente" : "💫 Lista única"}
             {pendingCount + doneCount > 0 && ` · ${pendingCount} pendiente${pendingCount===1?"":"s"} · ${doneCount} hecho${doneCount===1?"":"s"}`}
           </div>
@@ -230,8 +230,8 @@ function CategoryDetail({ cat, onBack, onUpdate, onDelete, pushToast }) {
       {items.length === 0 ? (
         <div style={{ textAlign:"center", padding:"36px 20px" }}>
           <div style={{ fontSize:36, marginBottom:10 }}>{cat.emoji || "🛒"}</div>
-          <div style={{ fontSize:13, fontWeight:600, marginBottom:4, color:"var(--t-text-muted,#8b7fa8)" }}>Sin artículos todavía</div>
-          <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)" }}>Añade el primero usando el campo de arriba.</div>
+          <div style={{ fontSize:13, fontWeight:600, marginBottom:4, color:"var(--t-text-muted,#b9b0d0)" }}>Sin artículos todavía</div>
+          <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)" }}>Añade el primero usando el campo de arriba.</div>
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
@@ -247,7 +247,7 @@ function CategoryDetail({ cat, onBack, onUpdate, onDelete, pushToast }) {
                 style={{
                   width:24, height:24, borderRadius:6, flexShrink:0, cursor:"pointer", padding:0,
                   background: it.done ? "#34d399" : "transparent",
-                  border: it.done ? "1px solid #34d399" : "1.5px solid var(--t-text-dim,#6b5f88)",
+                  border: it.done ? "1px solid #34d399" : "1.5px solid var(--t-text-dim,#8f84ad)",
                   color:"#fff", fontSize:14, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center",
                   fontFamily:"inherit",
                 }}>
@@ -272,7 +272,7 @@ function CategoryDetail({ cat, onBack, onUpdate, onDelete, pushToast }) {
                     flex:1, minWidth:0, background:"none", border:"none", cursor:"text", padding:0,
                     fontFamily:"inherit", textAlign:"left",
                     fontSize:14,
-                    color: it.done ? "var(--t-text-dim,#6b5f88)" : "var(--t-text,#f0e8ff)",
+                    color: it.done ? "var(--t-text-dim,#8f84ad)" : "var(--t-text,#f0e8ff)",
                     textDecoration: it.done ? "line-through" : "none",
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                   }}>
@@ -281,7 +281,7 @@ function CategoryDetail({ cat, onBack, onUpdate, onDelete, pushToast }) {
               )}
 
               <button onClick={() => removeItem(it.id)} aria-label="Eliminar"
-                style={{ background:"none", border:"none", color:"var(--t-text-dim,#6b5f88)", fontSize:16, padding:"2px 6px", cursor:"pointer", flexShrink:0 }}>
+                style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", fontSize:16, padding:"2px 6px", cursor:"pointer", flexShrink:0 }}>
                 ×
               </button>
             </div>
@@ -311,7 +311,7 @@ function CategoryDetail({ cat, onBack, onUpdate, onDelete, pushToast }) {
       </div>
 
       {cat.type === "recurring" && cat.lastCleanedAt && (
-        <div style={{ fontSize:10.5, color:"var(--t-text-dim,#6b5f88)", textAlign:"center", marginTop:2 }}>
+        <div style={{ fontSize:10.5, color:"var(--t-text-dim,#8f84ad)", textAlign:"center", marginTop:2 }}>
           Última limpieza: {new Date(cat.lastCleanedAt).toLocaleDateString("es-ES", { day:"numeric", month:"short", year:"numeric" })}
         </div>
       )}
@@ -371,7 +371,7 @@ export default function WishlistView({ wishlist = [], onSave, pushToast }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <div>
           <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:22, fontWeight:600, color:"var(--t-text,#f8f4ff)" }}>🛍️ Lista de compras</div>
-          <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:2 }}>Categorías recurrentes y wishlists únicas</div>
+          <div style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)", marginTop:2 }}>Categorías recurrentes y wishlists únicas</div>
         </div>
         <button onClick={() => setForm({})} style={{ ...S.btnPrimary, padding:"8px 14px", fontSize:12, display:"flex", alignItems:"center", gap:4 }}>
           <span style={{ fontSize:16, lineHeight:1 }}>+</span> Categoría
@@ -390,8 +390,8 @@ export default function WishlistView({ wishlist = [], onSave, pushToast }) {
       {wishlist.length === 0 && form === null && (
         <div style={{ textAlign:"center", padding:"48px 20px" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🛍️</div>
-          <div style={{ fontSize:14, fontWeight:600, marginBottom:4, color:"var(--t-text-muted,#8b7fa8)" }}>Sin listas todavía</div>
-          <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", maxWidth:280, margin:"0 auto", lineHeight:1.4 }}>
+          <div style={{ fontSize:14, fontWeight:600, marginBottom:4, color:"var(--t-text-muted,#b9b0d0)" }}>Sin listas todavía</div>
+          <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", maxWidth:280, margin:"0 auto", lineHeight:1.4 }}>
             Crea categorías como <i>Supermercado</i>, <i>Amazon</i>, <i>Shein</i>… o una wishlist de cosas para ahorrar.
           </div>
         </div>
@@ -399,7 +399,7 @@ export default function WishlistView({ wishlist = [], onSave, pushToast }) {
 
       {recurring.length > 0 && (
         <div>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:8 }}>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:700, marginBottom:8 }}>
             🔁 Recurrentes
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -415,7 +415,7 @@ export default function WishlistView({ wishlist = [], onSave, pushToast }) {
 
       {oneoff.length > 0 && (
         <div>
-          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:8 }}>
+          <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:700, marginBottom:8 }}>
             💫 Únicas
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>

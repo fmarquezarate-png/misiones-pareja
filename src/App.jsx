@@ -85,6 +85,7 @@ const MisiSystemView = lazy(() => import("./components/MisiSystemView.jsx"));
 import MisiLiveLayer from "./components/MisiLiveLayer.jsx";
 const MisiChatPanel = lazy(() => import("./components/MisiChatPanel.jsx"));
 import { useSwipe, repairMisplacedMissions, applyCarryOver, mergeMissionsInto, syncCarryDone, showNotif, clearRTimers, scheduleReminders, dlBlob, weekStartDate, fmtShortDate, fmtWeekRange, dailyEventInstances } from "./lib/appUtils.js";
+import { Z } from "./lib/zLayers.js";
 
 
 
@@ -95,7 +96,7 @@ import { useSwipe, repairMisplacedMissions, applyCarryOver, mergeMissionsInto, s
 function ModalLoadingFallback() {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:150, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13 }}>Cargando…</div>
+      <div style={{ color:"var(--t-text-muted,#b9b0d0)", fontSize:13 }}>Cargando…</div>
     </div>
   );
 }
@@ -222,7 +223,7 @@ function AppWithAuth() {
     <div style={{ background:"#0a0714", minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"#f8f4ff", fontFamily:"system-ui" }}>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:48, marginBottom:12 }}>💞</div>
-        <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:14 }}>Comprobando sesión...</div>
+        <div style={{ color:"var(--t-text-muted,#b9b0d0)", fontSize:14 }}>Comprobando sesión...</div>
       </div>
     </div>
   );
@@ -367,7 +368,16 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     return () => clearTimeout(t);
   }, [taskCongrat]);
 
-  const showSyncMsg = msg => { setSyncMsg(msg); setTimeout(() => setSyncMsg(null), 3000); };
+  // Un solo temporizador para el mensaje de sync: antes cada llamada creaba el
+  // suyo, así que dos mensajes seguidos hacían que el timer del PRIMERO borrase
+  // el segundo antes de tiempo.
+  const syncMsgTimer = useRef(null);
+  const showSyncMsg = msg => {
+    setSyncMsg(msg);
+    clearTimeout(syncMsgTimer.current);
+    syncMsgTimer.current = setTimeout(() => setSyncMsg(null), 3000);
+  };
+  useEffect(() => () => clearTimeout(syncMsgTimer.current), []);
 
   const checkUpdate = async () => {
     pushToast({ kind: "loading", text: "Verificando versión…" });
@@ -1572,7 +1582,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       <div style={{ textAlign:"center", maxWidth:340 }}>
         <div style={{ fontSize:48, marginBottom:12 }}>📡</div>
         <div style={{ fontSize:17, fontWeight:600, marginBottom:8 }}>Sin conexión</div>
-        <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:13.5, lineHeight:1.6, marginBottom:18 }}>
+        <div style={{ color:"var(--t-text-muted,#b9b0d0)", fontSize:13.5, lineHeight:1.6, marginBottom:18 }}>
           No hemos podido conectar la primera vez en este dispositivo. En cuanto tengas señal, tus datos aparecerán. Nada se pierde.
         </div>
         <button onClick={() => window.location.reload()} style={{ background:"linear-gradient(135deg,#f472b6,#a78bfa)", border:"none", borderRadius:10, color:"#fff", padding:"10px 24px", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:600 }}>Reintentar</button>
@@ -2157,23 +2167,23 @@ ${sorted.map(m=>{
         <span>🔄</span><span>Sincronizando cambios pendientes…</span>
       </div>}
 
-      {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
+      {importMsg && <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:importMsg.startsWith("✅")?"rgba(52,211,153,0.15)":"rgba(251,146,60,0.15)", border:`1px solid ${importMsg.startsWith("✅")?"rgba(52,211,153,0.4)":"rgba(251,146,60,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:Z.TOAST, fontSize:13, color:importMsg.startsWith("✅")?"#34d399":"#fb923c", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{importMsg}</div>}
       {pushNudgeVisible && pushSupported && !pushSubscribed && (
-        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(167,139,250,0.35)", borderRadius:14, padding:"12px 16px", zIndex:401, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(167,139,250,0.35)", borderRadius:14, padding:"12px 16px", zIndex:Z.TOAST + 1, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:20, flexShrink:0 }}>🔔</span>
           <div style={{ flex:1, lineHeight:1.4 }}>
             <div style={{ color:"var(--t-text,#f8f4ff)", fontWeight:600, marginBottom:2 }}>Tu pareja acaba de actualizar algo</div>
-            <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:12 }}>Activa notificaciones para enterarte aunque no estés en la app</div>
+            <div style={{ color:"var(--t-text-muted,#b9b0d0)", fontSize:12 }}>Activa notificaciones para enterarte aunque no estés en la app</div>
           </div>
           <div style={{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 }}>
             <button onClick={async () => { setPushNudgeVisible(false); await handlePushToggle(); }} style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:8, color:"#fff", padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, fontFamily:"inherit", whiteSpace:"nowrap" }}>Activar</button>
-            <button onClick={() => { setPushNudgeVisible(false); pushNudgeDismissRef.current = true; localStorage.setItem("mp-push-nudge-dismissed", "true"); }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0" }}>Ahora no</button>
+            <button onClick={() => { setPushNudgeVisible(false); pushNudgeDismissRef.current = true; localStorage.setItem("mp-push-nudge-dismissed", "true"); }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0" }}>Ahora no</button>
           </div>
         </div>
       )}
-      {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:400, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
+      {syncMsg  && <div style={{ position:"fixed", bottom:syncMsg&&importMsg?130:90, left:"50%", transform:"translateX(-50%)", background:syncMsg.startsWith("⚠")?"rgba(251,146,60,0.15)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.15)":"rgba(96,165,250,0.15)", border:`1px solid ${syncMsg.startsWith("⚠")?"rgba(251,146,60,0.4)":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"rgba(52,211,153,0.4)":"rgba(96,165,250,0.4)"}`, borderRadius:12, padding:"10px 20px", zIndex:Z.TOAST, fontSize:13, color:syncMsg.startsWith("⚠")?"#fb923c":syncMsg.startsWith("✓")||syncMsg.startsWith("⬆")||syncMsg.startsWith("⬇")?"#34d399":"#60a5fa", whiteSpace:"nowrap", backdropFilter:"blur(8px)" }}>{syncMsg}</div>}
       {syncError && !syncMsg && (
-        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(20,8,6,0.97)", border:"1px solid rgba(251,146,60,0.5)", borderRadius:12, padding:"10px 16px 10px 14px", zIndex:400, fontSize:12, color:"#fb923c", maxWidth:340, textAlign:"left", backdropFilter:"blur(8px)", display:"flex", flexDirection:"column", gap:8, boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(20,8,6,0.97)", border:"1px solid rgba(251,146,60,0.5)", borderRadius:12, padding:"10px 16px 10px 14px", zIndex:Z.TOAST, fontSize:12, color:"#fb923c", maxWidth:340, textAlign:"left", backdropFilter:"blur(8px)", display:"flex", flexDirection:"column", gap:8, boxShadow:"0 4px 24px rgba(0,0,0,0.5)" }}>
           <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
             <span style={{ flexShrink:0, fontSize:14 }}>⚠</span>
             <span style={{ flex:1, lineHeight:1.5, wordBreak:"break-word" }}>{syncError}</span>
@@ -2371,8 +2381,8 @@ ${sorted.map(m=>{
               <button onClick={()=>changeWeek(-1)} style={S.btnNav}>‹</button>
               <div style={{ textAlign:"center" }}>
                 <div style={{ fontFamily:"'Fraunces',serif", fontSize:36, fontWeight:700, lineHeight:1, letterSpacing:-1 }}>Semana {data.currentWeekNumber}</div>
-                <div style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", marginTop:4 }}>{fmtWeekRange(data.currentWeekNumber, data.currentYear)}</div>
-                <div style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)", marginTop:2 }}>Hoy: {fmtShortDate(new Date())}</div>
+                <div style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)", marginTop:4 }}>{fmtWeekRange(data.currentWeekNumber, data.currentYear)}</div>
+                <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:2 }}>Hoy: {fmtShortDate(new Date())}</div>
               </div>
               <button onClick={()=>changeWeek(1)} style={S.btnNav}>›</button>
             </div>
@@ -2391,7 +2401,7 @@ ${sorted.map(m=>{
               <div style={{ background:"rgba(128,128,128,0.10)", borderRadius:99, height:5, overflow:"hidden", margin:"8px 24px 0" }}>
                 <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f472b6,#a78bfa)", borderRadius:99, transition:"width 0.6s" }} />
               </div>
-              <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:5 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
+              <div style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)", marginTop:5 }}>{done} de {total} completadas {pct===100?"🎉":`(${Math.round(pct)}%)`}</div>
             </>}
           </div>
           {carriedCount>0 && <div style={{ background:"rgba(251,146,60,0.1)", border:"1px solid rgba(251,146,60,0.25)", borderRadius:12, padding:"10px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:10, fontSize:13 }}>
@@ -2400,9 +2410,9 @@ ${sorted.map(m=>{
           </div>}
           <WorkHoursCard week={week} patchWeek={patchWeek} p1={p1} p2={p2} />
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginBottom:4 }}>
-            <button onClick={runCarryOver} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
+            <button onClick={runCarryOver} style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
               onMouseEnter={e=>e.currentTarget.style.color="#a78bfa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>🔁 Recuperar tareas pendientes</button>
-            <button onClick={runRepair} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
+            <button onClick={runRepair} style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", fontSize:11, cursor:"pointer", fontFamily:"inherit", padding:"2px 4px" }}
               onMouseEnter={e=>e.currentTarget.style.color="#60a5fa"} onMouseLeave={e=>e.currentTarget.style.color="#4a4166"}>📅 Distribuir eventos</button>
           </div>
           <div style={{ display:"flex", justifyContent:"flex-end", gap:6, marginBottom:6 }}>
@@ -2437,7 +2447,7 @@ ${sorted.map(m=>{
               ))}
             </div>
             {weekViewMode==="list" && <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
-              <span style={{ fontSize:9, color:"var(--t-text-dim,#3d3360)", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
+              <span style={{ fontSize:9, color:"var(--t-text-dim,#8f84ad)", letterSpacing:1.5, textTransform:"uppercase", fontWeight:600 }}>↕️</span>
               {[["default","Por defecto"],["chrono","Cronológico"],["type","Tipo"],["who","Persona"],["status","Estado"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setWeekSort(v)} style={{ background:weekSort===v?"rgba(167,139,250,0.18)":"rgba(128,128,128,0.05)", border:`1px solid ${weekSort===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.07)"}`, borderRadius:99, color:weekSort===v?"#c4b8ff":"#4a4166", padding:"2px 9px", cursor:"pointer", fontSize:10, fontFamily:"inherit", fontWeight:weekSort===v?600:400 }}>{l}</button>
               ))}
@@ -2461,7 +2471,7 @@ ${sorted.map(m=>{
               if (!sorted.length) {
                 const filtersActive = globalPersonFilter.length || globalCatFilter.length;
                 return (
-                  <div style={{ textAlign:"center", padding:"36px 20px", color:"var(--t-text-muted,#8b7fa8)" }}>
+                  <div style={{ textAlign:"center", padding:"36px 20px", color:"var(--t-text-muted,#b9b0d0)" }}>
                     <div style={{ fontSize:40, marginBottom:10 }}>{filtersActive ? "🔍" : "🌱"}</div>
                     {filtersActive ? (
                       <div style={{ fontSize:13 }}>Nada coincide con los filtros activos.</div>
@@ -2622,7 +2632,7 @@ ${sorted.map(m=>{
 
       {/* Lightbox */}
       {lightboxSrc && (
-        <div onClick={()=>setLightboxSrc(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16, cursor:"zoom-out" }}>
+        <div onClick={()=>setLightboxSrc(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:Z.SHEET, display:"flex", alignItems:"center", justifyContent:"center", padding:16, cursor:"zoom-out" }}>
           <img src={lightboxSrc} style={{ maxWidth:"100%", maxHeight:"100%", borderRadius:12, objectFit:"contain", boxShadow:"0 20px 60px rgba(0,0,0,0.8)" }} alt="foto completa" />
           <div style={{ position:"absolute", top:16, right:16, display:"flex", gap:8 }}>
             <a href={lightboxSrc} download="foto.jpg" onClick={e=>e.stopPropagation()} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:99, color:"#f8f4ff", fontSize:18, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", textDecoration:"none" }}>⬇</a>
@@ -2663,7 +2673,7 @@ ${sorted.map(m=>{
       {matchDayMatches && !matchDayOverlay && !specialDay && (
         <button
           onClick={() => setMatchDayOverlay(true)}
-          style={{ position:"fixed", bottom:80, left:16, zIndex:1200, background:"linear-gradient(135deg,#14532d,#16a34a)", border:"none", borderRadius:99, color:"#fff", fontSize:22, width:52, height:52, cursor:"pointer", boxShadow:"0 4px 20px rgba(34,197,94,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          style={{ position:"fixed", bottom:80, left:16, zIndex:Z.FAB, background:"linear-gradient(135deg,#14532d,#16a34a)", border:"none", borderRadius:99, color:"#fff", fontSize:22, width:52, height:52, cursor:"pointer", boxShadow:"0 4px 20px rgba(34,197,94,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}
           title="Ver partidos de hoy"
         >⚽</button>
       )}
@@ -2697,13 +2707,13 @@ ${sorted.map(m=>{
 
       {/* Aviso suave de cápsula del tiempo lista — nunca se auto-abre */}
       {capsuleNudge && (
-        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(251,191,36,0.4)", borderRadius:14, padding:"12px 16px", zIndex:401, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ position:"fixed", bottom:90, left:"50%", transform:"translateX(-50%)", background:"rgba(10,4,24,0.97)", border:"1px solid rgba(251,191,36,0.4)", borderRadius:14, padding:"12px 16px", zIndex:Z.TOAST + 1, fontSize:13, maxWidth:320, width:"calc(100% - 40px)", backdropFilter:"blur(12px)", boxShadow:"0 4px 24px rgba(0,0,0,0.5)", display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:22, flexShrink:0 }}>🎁</span>
           <div style={{ flex:1 }}>
             <div style={{ color:"#fbbf24", fontWeight:600, marginBottom:6 }}>Tienes una cápsula del tiempo lista para abrir</div>
             <div style={{ display:"flex", gap:10 }}>
               <button onClick={() => { setActiveTab("timecapsule"); setCapsuleNudge(false); }} style={{ background:"none", border:"none", color:"#fbbf24", cursor:"pointer", fontWeight:700, fontFamily:"inherit", padding:0, fontSize:12 }}>Ver →</button>
-              <button onClick={() => setCapsuleNudge(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontFamily:"inherit", padding:0, fontSize:12 }}>Ahora no</button>
+              <button onClick={() => setCapsuleNudge(false)} style={{ background:"none", border:"none", color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontFamily:"inherit", padding:0, fontSize:12 }}>Ahora no</button>
             </div>
           </div>
         </div>

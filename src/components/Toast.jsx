@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { Z } from "../lib/zLayers.js";
 
 export function useToast() {
   const [toast, setToast] = useState(null);
@@ -52,7 +53,7 @@ export default function Toast({ toast, onDismiss }) {
       backdropFilter: "blur(12px)",
       WebkitBackdropFilter: "blur(12px)",
       boxShadow: "0 14px 40px rgba(0,0,0,0.5)",
-      zIndex: 1000,
+      zIndex: Z.TOAST,
       maxWidth: "calc(100vw - 32px)",
       animation: "mp-toast-in 0.25s ease-out",
     }}>

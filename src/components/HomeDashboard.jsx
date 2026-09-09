@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { prefersReducedMotion } from "../utils.js";
 import { T, homeHero } from "../styles.js";
-const eyebrow = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700 };
+const eyebrow = { fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:700 };
 import { badgeStyle } from "../styles.js";
 import { DEFAULT_COLORS, STATUS, STATUS_ORDER } from "../constants.js";
 import WeekStrip from "./WeekStrip.jsx";
+import { humanDate } from "../lib/dateLabel.js";
 
 const W = {
   background: "var(--t-card,#1d1733)",
@@ -37,7 +39,7 @@ function DayDetailSheet({ dateStr, missions, onClose, colors, onCycleStatus }) {
           <div style={{ fontSize:13, fontWeight:600, color:"var(--t-text,#f8f4ff)", textTransform:"capitalize" }}>{d}</div>
         </div>
         {items.length === 0 ? (
-          <div style={{ fontSize:13, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic", textAlign:"center", padding:"20px 0" }}>Día libre 🌿</div>
+          <div style={{ fontSize:13, color:"var(--t-text-muted,#b9b0d0)", fontStyle:"italic", textAlign:"center", padding:"20px 0" }}>Día libre 🌿</div>
         ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {items.map(mi => {
@@ -48,7 +50,7 @@ function DayDetailSheet({ dateStr, missions, onClose, colors, onCycleStatus }) {
                     background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.14)", borderLeft:`3px solid ${whoColor}` }}>
                   <span style={{ fontSize:18 }}>{mi.emoji||"🎯"}</span>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:500, color:mi.status==="DONE"?"var(--t-text-dim,#6b5f88)":"var(--t-text,#f0e8ff)",
+                    <div style={{ fontSize:13, fontWeight:500, color:mi.status==="DONE"?"var(--t-text-dim,#8f84ad)":"var(--t-text,#f0e8ff)",
                       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                       textDecoration:mi.status==="DONE"?"line-through":"none" }}>{mi.title}</div>
                     {mi.time && <div style={{ fontSize:10, color:"var(--t-accent,#a78bfa)", marginTop:1 }}>{mi.time}</div>}
@@ -98,7 +100,7 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
             position:"absolute", right:16, top:14,
             background:"rgba(128,128,128,0.12)", border:"none", borderRadius:99,
             width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center",
-            cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:14, fontWeight:600,
+            cursor:"pointer", color:"var(--t-text-muted,#b9b0d0)", fontSize:14, fontWeight:600,
             fontFamily:"inherit",
           }}>✕</button>
         </div>
@@ -129,11 +131,11 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:20, fontWeight:700, color:"var(--t-text,#f8f4ff)", marginBottom:2 }}>{name}</div>
             <div style={{ fontSize:36, fontWeight:800, color:ringColor, lineHeight:1 }}>{pct}<span style={{ fontSize:16, fontWeight:600 }}>%</span></div>
-            <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)", marginTop:2 }}>
+            <div style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)", marginTop:2 }}>
               {stats.done} de {stats.total} tareas · últimos 15 días
             </div>
             {stats.total === 0 && (
-              <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:4, fontStyle:"italic" }}>
+              <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:4, fontStyle:"italic" }}>
                 Sin tareas asignadas aún
               </div>
             )}
@@ -175,7 +177,7 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
                 display:"flex", alignItems:"center", gap:8,
               }}>
                 <span style={{ fontSize:15 }}>📈</span>
-                <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>
+                <span style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)" }}>
                   {shownPending.length === pendingMissions.length ? "Completa todas" : `Completa estas ${shownPending.length}`} → {" "}
                 </span>
                 <span style={{ fontSize:14, fontWeight:700, color:"#34d399" }}>{potentialPct}%</span>
@@ -202,14 +204,14 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
                     <div style={{ flexShrink:0, display:"flex", alignItems:"center", gap:5 }}>
                       <span style={{ fontSize:9.5, fontWeight:700, color:statusColor,
                         background:`${statusColor}22`, borderRadius:5, padding:"2px 5px" }}>{mi.status}</span>
-                      <span style={{ fontSize:14, color:"var(--t-text-dim,#6b5f88)" }}>›</span>
+                      <span style={{ fontSize:14, color:"var(--t-text-dim,#8f84ad)" }}>›</span>
                     </div>
                   </div>
                 );
               })}
             </div>
             {pendingMissions.length > 5 && (
-              <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", textAlign:"center", padding:"6px 0 0" }}>
+              <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", textAlign:"center", padding:"6px 0 0" }}>
                 y {pendingMissions.length - 5} más pendientes
               </div>
             )}
@@ -220,12 +222,12 @@ function PersonStatsSheet({ name, photo, pct, clrAccent, stats, onClose, pending
           <div style={{ ...W, marginBottom:14, textAlign:"center", padding:"14px 16px" }}>
             <div style={{ fontSize:22, marginBottom:6 }}>🏆</div>
             <div style={{ fontSize:13, fontWeight:600, color:"#34d399", marginBottom:2 }}>¡Todo al día!</div>
-            <div style={{ fontSize:11, color:"var(--t-text-muted,#8b7fa8)" }}>No hay tareas pendientes en los últimos 15 días</div>
+            <div style={{ fontSize:11, color:"var(--t-text-muted,#b9b0d0)" }}>No hay tareas pendientes en los últimos 15 días</div>
           </div>
         )}
 
         {/* Note */}
-        <div style={{ fontSize:10, color:"var(--t-text-dim,#6b5f88)", textAlign:"center", lineHeight:1.5 }}>
+        <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", textAlign:"center", lineHeight:1.5 }}>
           El porcentaje incluye tareas de hoy hacia atrás (15 días).<br/>
           Las tareas con fecha futura no penalizan el score.
         </div>
@@ -307,7 +309,7 @@ function MissionActionSheet({ mission, colors, p1, p2, onSetStatus, onMissionPat
     background:"rgba(128,128,128,0.08)", border:"1px solid rgba(128,128,128,0.18)",
     color:"var(--t-text,#f8f4ff)", fontSize:13, fontFamily:"inherit", outline:"none",
   };
-  const fieldLabel = { fontSize:10, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:700, marginBottom:5, display:"block" };
+  const fieldLabel = { fontSize:10, letterSpacing:1, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:700, marginBottom:5, display:"block" };
 
   return (
     <>
@@ -336,7 +338,7 @@ function MissionActionSheet({ mission, colors, p1, p2, onSetStatus, onMissionPat
                   fontSize:10.5, fontWeight:700, lineHeight:1.3,
                   background: active ? meta.bg : "rgba(128,128,128,0.06)",
                   border:`1px solid ${active ? meta.border : "rgba(128,128,128,0.14)"}`,
-                  color: active ? meta.color : "var(--t-text-muted,#8b7fa8)",
+                  color: active ? meta.color : "var(--t-text-muted,#b9b0d0)",
                   display:"flex", flexDirection:"column", alignItems:"center", gap:2,
                 }}>
                 <span style={{ fontSize:15 }}>{meta.icon}</span>
@@ -373,7 +375,7 @@ function MissionActionSheet({ mission, colors, p1, p2, onSetStatus, onMissionPat
                     fontSize:11.5, fontWeight:600,
                     background: active ? `${o.color}22` : "rgba(128,128,128,0.06)",
                     border:`1px solid ${active ? o.color+"88" : "rgba(128,128,128,0.14)"}`,
-                    color: active ? "var(--t-text,#f8f4ff)" : "var(--t-text-muted,#8b7fa8)",
+                    color: active ? "var(--t-text,#f8f4ff)" : "var(--t-text-muted,#b9b0d0)",
                     display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                   }}>
@@ -398,7 +400,7 @@ function MissionActionSheet({ mission, colors, p1, p2, onSetStatus, onMissionPat
               <button onClick={() => setConfirmDel(false)}
                 style={{ flex:1, padding:"11px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
                   fontSize:13, fontWeight:600, background:"rgba(128,128,128,0.1)",
-                  border:"1px solid rgba(128,128,128,0.2)", color:"var(--t-text-muted,#8b7fa8)" }}>
+                  border:"1px solid rgba(128,128,128,0.2)", color:"var(--t-text-muted,#b9b0d0)" }}>
                 Cancelar
               </button>
             </>
@@ -431,6 +433,7 @@ export default function HomeDashboard({
   weeksData,
   pushSupported, pushSubscribed, onActivatePush,
 }) {
+  const reduceMotion = prefersReducedMotion();
   const clr = colors || DEFAULT_COLORS;
   const [daySheet, setDaySheet]     = useState(null);
   const [personSheet, setPersonSheet] = useState(null); // "p1" | "p2" | null
@@ -556,7 +559,7 @@ export default function HomeDashboard({
           <span style={{fontSize:22}}>✨</span>
           <span style={{flex:1, minWidth:0}}>
             <span style={{display:"block", fontSize:13, fontWeight:600}}>Tu cierre de semana está listo</span>
-            <span style={{display:"block", fontSize:11, color:"var(--t-text-muted,#8b7fa8)"}}>Toca para ver el resumen</span>
+            <span style={{display:"block", fontSize:11, color:"var(--t-text-muted,#b9b0d0)"}}>Toca para ver el resumen</span>
           </span>
           <span style={{color:T.pink, fontSize:18}}>›</span>
         </button>
@@ -579,7 +582,7 @@ export default function HomeDashboard({
               background:"linear-gradient(90deg, var(--t-p1,#f472b6), var(--t-p2,#a78bfa))",
               borderRadius:99, transition:"width .6s ease" }}/>
           </div>
-          <div style={{display:"flex", justifyContent:"space-between", fontSize:10.5, color:"var(--t-text-muted,#8b7fa8)", fontWeight:600}}>
+          <div style={{display:"flex", justifyContent:"space-between", fontSize:10.5, color:"var(--t-text-muted,#b9b0d0)", fontWeight:600}}>
             <span>{done} / {total} hechas</span>
             <span style={{color:T.green}}>{pct}%</span>
           </div>
@@ -596,14 +599,14 @@ export default function HomeDashboard({
 
       {/* WeekStrip */}
       <WeekStrip missions={allMissions} onSelectDay={ds => setDaySheet(ds)} colors={colors} />
-      <div style={{ fontSize:9.5, color:"var(--t-text-dim,#4a4166)", textAlign:"center", marginTop:-6 }}>Toca un día para ver sus actividades</div>
+      <div style={{ fontSize:9.5, color:"var(--t-text-dim,#8f84ad)", textAlign:"center", marginTop:-6 }}>Toca un día para ver sus actividades</div>
 
       {/* Row 1: Próximos | Atrasadas */}
       <div style={{display:"flex", gap:8}}>
         <div style={{...W, flex:1, minWidth:0}}>
           <div style={{...eyebrow, fontSize:8.5, marginBottom:6}}>⏰ Próximos</div>
           {upcoming3.length === 0 ? (
-            <div style={{fontSize:11, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Nada agendado 🌿</div>
+            <div style={{fontSize:11, color:"var(--t-text-muted,#b9b0d0)", fontStyle:"italic"}}>Nada agendado 🌿</div>
           ) : upcoming3.map(m => (
             <div key={m.id} onClick={() => setActionMission(m.id)}
               style={{ marginBottom:6, paddingBottom:6, borderBottom:"1px solid rgba(255,255,255,0.04)", cursor:"pointer" }}>
@@ -611,7 +614,7 @@ export default function HomeDashboard({
                 {m.emoji||"📅"} {m.title}
               </div>
               <div style={{fontSize:9.5, color:"var(--t-accent,#60a5fa)", marginTop:1}}>
-                {m.date}{m.time ? ` · ${m.time}` : ""}
+                {humanDate(m.date)}{m.time ? ` · ${m.time}` : ""}
               </div>
             </div>
           ))}
@@ -626,7 +629,7 @@ export default function HomeDashboard({
               <div style={{fontSize:11.5, fontWeight:600, color:"var(--t-error,#f87171)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
                 {m.emoji||"🎯"} {m.title}
               </div>
-              <div style={{fontSize:9.5, color:"var(--t-text-dim,#6b5f88)", marginTop:1}}>{m.date}</div>
+              <div style={{fontSize:9.5, color:"var(--t-text-dim,#8f84ad)", marginTop:1}}>{humanDate(m.date)}</div>
             </div>
           ))}
         </div>
@@ -650,14 +653,14 @@ export default function HomeDashboard({
               <div style={{fontFamily:T.fontDisplay, fontSize:20, fontWeight:600, lineHeight:1, color:"var(--t-text,#f8f4ff)"}}>
                 {pct}<small style={{fontSize:10}}>%</small>
               </div>
-              <div style={{fontSize:9, color:"var(--t-text-muted,#8b7fa8)"}}>esta semana</div>
+              <div style={{fontSize:9, color:"var(--t-text-muted,#b9b0d0)"}}>esta semana</div>
             </div>
           </div>
         </div>
         <div style={{...W, flex:1, minWidth:0}}>
           <div style={{...eyebrow, fontSize:8.5, marginBottom:5}}>🔥 ASAP</div>
           <div style={{fontFamily:T.fontDisplay, fontSize:26, fontWeight:600, lineHeight:1, color:T.orange, marginBottom:3}}>{asapMs.length}</div>
-          <div style={{fontSize:10, color:"var(--t-text-muted,#8b7fa8)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+          <div style={{fontSize:10, color:"var(--t-text-muted,#b9b0d0)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
             {asapMs[0]?.title || "Sin urgentes"}
           </div>
         </div>
@@ -667,7 +670,7 @@ export default function HomeDashboard({
       <div style={{...W, borderRadius:12}}>
         <div style={{...eyebrow, fontSize:8.5, marginBottom:8}}>📋 Hoy</div>
         {todayMs.length === 0 ? (
-          <div style={{fontSize:12, color:"var(--t-text-muted,#8b7fa8)", fontStyle:"italic"}}>Hoy es vuestro 💜 Sin planes, y está bien.</div>
+          <div style={{fontSize:12, color:"var(--t-text-muted,#b9b0d0)", fontStyle:"italic"}}>Hoy es vuestro 💜 Sin planes, y está bien.</div>
         ) : (
           <div style={{display:"flex", flexDirection:"column", gap:6}}>
             {todayMs.map(m => {
@@ -678,7 +681,7 @@ export default function HomeDashboard({
                     background:"rgba(128,128,128,0.07)", border:"1px solid rgba(128,128,128,0.14)", borderLeft:`3px solid ${whoColor}` }}>
                   <span style={{fontSize:16, flexShrink:0}}>{m.emoji||"🎯"}</span>
                   <span style={{flex:1, minWidth:0, fontSize:12.5, fontWeight:500,
-                    color:m.status==="DONE"?"var(--t-text-dim,#6b5f88)":"var(--t-text,#f0e8ff)",
+                    color:m.status==="DONE"?"var(--t-text-dim,#8f84ad)":"var(--t-text,#f0e8ff)",
                     overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
                     textDecoration:m.status==="DONE"?"line-through":"none"}}>
                     {m.title}
@@ -711,11 +714,13 @@ export default function HomeDashboard({
           border:`1px solid ${clr.together}33`, textAlign:"center",
         }}>
           <div style={{ position:"relative", height:46, display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person1, animation:"hd-merge1 3s ease-in-out infinite" }} />
-            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person2, animation:"hd-merge2 3s ease-in-out infinite", mixBlendMode:"screen" }} />
-            <span style={{ position:"absolute", fontSize:18, animation:"hd-spark 3s ease-in-out infinite" }}>✨</span>
+            {/* Única animación infinita que vive SIEMPRE en el inicio: respeta
+                "reducir movimiento" (los círculos quedan quietos, ya juntos). */}
+            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person1, animation:reduceMotion?"none":"hd-merge1 3s ease-in-out infinite", transform:reduceMotion?"translateX(-7px)":undefined }} />
+            <div style={{ position:"absolute", width:34, height:34, borderRadius:99, background:clr.person2, animation:reduceMotion?"none":"hd-merge2 3s ease-in-out infinite", transform:reduceMotion?"translateX(7px)":undefined, mixBlendMode:"screen" }} />
+            <span style={{ position:"absolute", fontSize:18, animation:reduceMotion?"none":"hd-spark 3s ease-in-out infinite", opacity:reduceMotion?1:undefined }}>✨</span>
           </div>
-          <div style={{ fontSize:11.5, color:"var(--t-text-muted,#8b7fa8)", marginTop:4 }}>
+          <div style={{ fontSize:11.5, color:"var(--t-text-muted,#b9b0d0)", marginTop:4 }}>
             Completasteis <span style={{ color:clr.together, fontWeight:600 }}>{lastTogetherWin.emoji} {lastTogetherWin.title}</span> — momento Juntos
           </div>
         </div>
@@ -727,7 +732,7 @@ export default function HomeDashboard({
           <span style={{
             fontFamily:"'Fraunces', Georgia, serif",
             fontStyle:"italic", fontSize:15,
-            color:"var(--t-text-muted,#8b7fa8)",
+            color:"var(--t-text-muted,#b9b0d0)",
             lineHeight:1.5, letterSpacing:0.2,
           }}>"{dailyPhrase}"</span>
         </div>
@@ -743,11 +748,11 @@ export default function HomeDashboard({
             <span style={{ fontSize:22, flexShrink:0 }}>🔔</span>
             <div style={{ flex:1 }}>
               <div style={{ color:"var(--t-text,#f8f4ff)", fontSize:13, fontWeight:600, marginBottom:2 }}>Notificaciones en segundo plano</div>
-              <div style={{ color:"var(--t-text-muted,#8b7fa8)", fontSize:12, lineHeight:1.4 }}>Entérate cuando tu pareja actualice algo</div>
+              <div style={{ color:"var(--t-text-muted,#b9b0d0)", fontSize:12, lineHeight:1.4 }}>Entérate cuando tu pareja actualice algo</div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:4, flexShrink:0 }}>
               <button onClick={onActivatePush} style={{ background:"var(--t-btn-grad,linear-gradient(135deg,#f472b6,#a78bfa))", border:"none", borderRadius:7, color:"#fff", padding:"5px 12px", cursor:"pointer", fontSize:12, fontWeight:600, fontFamily:"inherit", whiteSpace:"nowrap" }}>Activar →</button>
-              <button onClick={() => { localStorage.setItem(NUDGE_KEY, String(count + 1)); const el = document.activeElement; el?.blur(); }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0", textAlign:"center" }}>Ahora no</button>
+              <button onClick={() => { localStorage.setItem(NUDGE_KEY, String(count + 1)); const el = document.activeElement; el?.blur(); }} style={{ background:"none", border:"none", color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontSize:11, fontFamily:"inherit", padding:"2px 0", textAlign:"center" }}>Ahora no</button>
             </div>
           </div>
         );

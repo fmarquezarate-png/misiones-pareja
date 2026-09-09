@@ -10,7 +10,7 @@ export default function CatStatsCard({ catStats }) {
   return (
     <div style={S.card}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#6b5f88)", fontWeight:600 }}>🏷️ Por categoría</span>
+        <span style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600 }}>🏷️ Por categoría</span>
         <div style={{ display:"flex", gap:3 }}>
           {[["act","Actividades"],["h","Horas"]].map(([v,l])=>(
             <button key={v} onClick={()=>setTab(v)} style={{ background:tab===v?"rgba(167,139,250,0.2)":"rgba(128,128,128,0.06)", border:`1px solid ${tab===v?"rgba(167,139,250,0.4)":"rgba(255,255,255,0.08)"}`, borderRadius:7, color:tab===v?"#c4b8ff":"#6b5f88", padding:"3px 10px", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>{l}</button>
@@ -29,7 +29,7 @@ export default function CatStatsCard({ catStats }) {
         </div>
       );}):(<>
         {lifeStats.filter(c=>c.dur>0).length>0&&<>
-          <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
+          <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", letterSpacing:1.5, marginBottom:8 }}>VIDA</div>
           {lifeStats.filter(c=>c.dur>0).map(c=>(
             <div key={c.id} style={{ marginBottom:10 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -44,7 +44,7 @@ export default function CatStatsCard({ catStats }) {
         </>}
         {workStat&&workStat.dur>0&&<>
           <div style={{ borderTop:"1px dashed rgba(251,191,36,0.2)", marginTop:10, paddingTop:10, marginBottom:8 }}>
-            <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"var(--t-text-dim,#4a4166)", fontWeight:400 }}>(escala propia)</span></div>
+            <div style={{ fontSize:10, color:"#fbbf2488", letterSpacing:1.5 }}>TRABAJO <span style={{ color:"var(--t-text-dim,#8f84ad)", fontWeight:400 }}>(escala propia)</span></div>
           </div>
           <div style={{ marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -56,7 +56,7 @@ export default function CatStatsCard({ catStats }) {
             </div>
           </div>
         </>}
-        {!catStats.some(c=>c.dur>0)&&<div style={{ textAlign:"center", color:"var(--t-text-dim,#4a4166)", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
+        {!catStats.some(c=>c.dur>0)&&<div style={{ textAlign:"center", color:"var(--t-text-dim,#8f84ad)", fontSize:12, padding:"20px 0" }}>Sin horas registradas aún.</div>}
       </>)}
     </div>
   );

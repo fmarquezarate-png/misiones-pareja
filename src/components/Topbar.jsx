@@ -20,7 +20,7 @@ export default function Topbar({
 
       {/* Hamburger */}
       <button onClick={() => setMenuOpen(v => !v)} aria-label={chatUnread > 0 ? `Menú — ${chatUnread} mensajes sin leer` : "Menú"}
-        style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8, position:"relative" }}>
+        style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#b9b0d0)", padding:"8px 6px", display:"flex", flexDirection:"column", gap:4, alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:8, position:"relative" }}>
         <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
         <span style={{ display:"block", width:13, height:1.5, background:"currentColor", borderRadius:99 }} />
         <span style={{ display:"block", width:18, height:1.5, background:"currentColor", borderRadius:99 }} />
@@ -35,7 +35,7 @@ export default function Topbar({
       <div style={{ flex:1, textAlign:"center" }}>
         {activeTab==="home"
           ? <Brand size={22} wordmark colors={colors} />
-          : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#8b7fa8)" }}>
+          : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#b9b0d0)" }}>
               {activeTab==="current"  ? `🎯 Semana ${currentWeekNumber}`
               :activeTab==="pending"  ? "📋 Pendientes"
               :activeTab==="calendar" ? "Calendario"
@@ -56,7 +56,7 @@ export default function Topbar({
       {/* Global search */}
       {onOpenSearch && (
         <button onClick={onOpenSearch} aria-label="Buscar tareas y eventos" title="Buscar"
-          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
+          style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#b9b0d0)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
           <span aria-hidden="true">🔍</span>
         </button>
       )}
@@ -83,7 +83,7 @@ export default function Topbar({
       {/* Dark/light toggle */}
       <button onClick={onToggleDark} aria-label={isDark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
         title={isDark ? "Modo claro" : "Modo oscuro"}
-        style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#8b7fa8)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
+        style={{ background:"none", border:"none", cursor:"pointer", color:"var(--t-text-muted,#b9b0d0)", fontSize:16, padding:"6px 5px", lineHeight:1, borderRadius:8, flexShrink:0 }}>
         <span aria-hidden="true">{isDark ? "☀️" : "🌙"}</span>
       </button>
 
@@ -104,7 +104,7 @@ export default function Topbar({
       {/* Settings dropdown ⚙️ */}
       <div style={{ position:"relative", flexShrink:0 }}>
         <button onClick={() => setSettingsOpen(v => !v)} aria-label="Ajustes"
-          style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#6b5f88)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
+          style={{ background:"rgba(128,128,128,0.06)", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:8, color:"var(--t-text-dim,#8f84ad)", width:34, height:34, cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
         {settingsOpen && <>
           <div onClick={() => setSettingsOpen(false)} style={{ position:"fixed", inset:0, zIndex:110 }} />
           <div style={{ position:"absolute", top:40, right:0, background:"var(--t-menu-bg,rgba(12,8,26,0.98))", border:"1px solid var(--t-card-border,rgba(167,139,250,0.15))", borderRadius:12, padding:"6px 0", zIndex:120, minWidth:180, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>

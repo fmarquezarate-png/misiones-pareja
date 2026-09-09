@@ -13,7 +13,7 @@ const PM_DAYS   = [31,29,31,30,31,30,31,31,30,31,30,31]; // days per month (feb=
 
 // Encabezado de sección reutilizable (mismo estilo en las 3 pestañas)
 const SectionTitle = ({ children, color }) => (
-  <div style={{ fontSize:10, color: color || "var(--t-text-dim,#6b5f88)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>{children}</div>
+  <div style={{ fontSize:10, color: color || "var(--t-text-dim,#8f84ad)", letterSpacing:2, textTransform:"uppercase", fontWeight:600, marginBottom:12, marginTop:4 }}>{children}</div>
 );
 
 export default function ProfileModal({ data, update, coupleId, onClose, onStartTutorial, sessionUserId, onCheckUpdate, onThemeChange, pushSupported, pushSubscribed, pushLoading, pushError, onPushToggle, onShowWrapped, bottomBar, onBottomBarChange }) {
@@ -182,7 +182,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
 
         {/* Hero — foto de pareja + nombres (fijo, común a todas las pestañas) */}
         <div style={{ position:"relative", padding:"26px 20px 18px", background:"radial-gradient(120% 100% at 50% 0%, var(--t-accent-soft,rgba(167,139,250,0.18)), transparent 70%)", borderRadius:"inherit", textAlign:"center", flexShrink:0 }}>
-          <button onClick={onClose} aria-label="Cerrar" style={{ position:"absolute", top:16, right:16, background:"rgba(128,128,128,0.12)", border:"none", color:"var(--t-text-muted,#8b7fa8)", fontSize:20, width:32, height:32, borderRadius:99, cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
+          <button onClick={onClose} aria-label="Cerrar" style={{ position:"absolute", top:16, right:16, background:"rgba(128,128,128,0.12)", border:"none", color:"var(--t-text-muted,#b9b0d0)", fontSize:20, width:32, height:32, borderRadius:99, cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
           {/* Drag handle — solo visualmente relevante en móvil */}
           <div style={{ width:36, height:4, borderRadius:99, background:"rgba(255,255,255,0.15)", margin:"0 auto 18px" }} />
           <label style={{ cursor:"pointer", display:"inline-block", position:"relative" }}>
@@ -197,7 +197,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
           <div style={{ fontFamily:"'Fraunces',serif", fontSize:21, fontWeight:600, color:"#f8f4ff", marginTop:12 }}>{p1} <span style={{ color:"var(--t-accent,#a78bfa)" }}>&</span> {p2}</div>
           {photos.couple
             ? <button onClick={()=>setPhotos(p=>({...p,couple:null}))} style={{ ...S.btnSecondary, fontSize:11, padding:"3px 12px", marginTop:8 }}>✕ Quitar foto</button>
-            : <div style={{ fontSize:11.5, color:"var(--t-text-dim,#8b7fa8)", marginTop:3 }}>Toca la foto para cambiarla</div>}
+            : <div style={{ fontSize:11.5, color:"var(--t-text-dim,#8f84ad)", marginTop:3 }}>Toca la foto para cambiarla</div>}
         </div>
 
         {/* Selector de pestañas */}
@@ -206,7 +206,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
             const active = tab === t.id;
             return (
               <button key={t.id} role="tab" aria-selected={active} onClick={() => setTab(t.id)}
-                style={{ flex:1, background:"none", border:"none", borderBottom:`2px solid ${active ? "var(--t-accent,#a78bfa)" : "transparent"}`, color: active ? "var(--t-accent,#c4b8ff)" : "var(--t-text-muted,#6b5f88)", cursor:"pointer", fontFamily:"inherit", fontSize:12.5, fontWeight: active?600:500, padding:"12px 4px", transition:"all 0.15s", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                style={{ flex:1, background:"none", border:"none", borderBottom:`2px solid ${active ? "var(--t-accent,#a78bfa)" : "transparent"}`, color: active ? "var(--t-accent,#c4b8ff)" : "var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontFamily:"inherit", fontSize:12.5, fontWeight: active?600:500, padding:"12px 4px", transition:"all 0.15s", display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
                 <span style={{ fontSize:16, lineHeight:1 }}>{t.icon}</span>
                 <span>{t.label}</span>
               </button>
@@ -229,7 +229,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                 </div>
                 <div style={{ flex:1 }}>
                   <label style={S.label}>Juntos</label>
-                  <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)", fontStyle:"italic" }}>Color para actividades en pareja</div>
+                  <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)", fontStyle:"italic" }}>Color para actividades en pareja</div>
                 </div>
                 <input type="color" value={colors.together} onChange={e=>setColor("together",e.target.value)}
                   style={{ width:40, height:40, border:"none", borderRadius:8, cursor:"pointer", background:"none", padding:2, flexShrink:0 }} />
@@ -312,7 +312,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                   <span style={{ flex:1, textAlign:"left", fontSize:13, color:"var(--t-text,#f8f4ff)", fontWeight:500 }}>
                     {(THEMES.find(t=>t.id===themeId)||THEMES[0]).name}
                   </span>
-                  <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{themeOpen?"▲":"▼"}</span>
+                  <span style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)" }}>{themeOpen?"▲":"▼"}</span>
                 </button>
                 {themeOpen && (
                   <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
@@ -322,7 +322,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                         <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                           {t.preview.map((c,i)=><div key={i} style={{ width:10, height:10, borderRadius:99, background:c }} />)}
                         </div>
-                        <span style={{ flex:1, fontSize:13, color:themeId===t.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:themeId===t.id?600:400 }}>{t.name}</span>
+                        <span style={{ flex:1, fontSize:13, color:themeId===t.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#b9b0d0)", textAlign:"left", fontWeight:themeId===t.id?600:400 }}>{t.name}</span>
                         {themeId===t.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
                       </button>
                     ))}
@@ -338,14 +338,14 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                   <span style={{ flex:1, textAlign:"left", fontSize:13, color:"var(--t-text,#f8f4ff)", fontWeight:500 }}>
                     {(FONTS.find(f=>f.id===fontId)||FONTS[0]).name}
                   </span>
-                  <span style={{ fontSize:11, color:"var(--t-text-dim,#4a4166)" }}>{fontOpen?"▲":"▼"}</span>
+                  <span style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)" }}>{fontOpen?"▲":"▼"}</span>
                 </button>
                 {fontOpen && (
                   <div style={{ border:"1px solid var(--t-card-border,rgba(167,139,250,0.18))", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
                     {FONTS.map(f=>(
                       <button key={f.id} onClick={()=>{ setFontId(f.id); setFontOpen(false); onThemeChange&&onThemeChange(themeId, f.id); }}
                         style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:fontId===f.id?"var(--t-accent-soft,rgba(167,139,250,0.12))":"rgba(128,128,128,0.04)", border:"none", borderBottom:"1px solid rgba(128,128,128,0.08)", cursor:"pointer", width:"100%", fontFamily:f.family||"inherit" }}>
-                        <span style={{ flex:1, fontSize:13, color:fontId===f.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#8b7fa8)", textAlign:"left", fontWeight:fontId===f.id?600:400 }}>{f.name}</span>
+                        <span style={{ flex:1, fontSize:13, color:fontId===f.id?"var(--t-accent,#a78bfa)":"var(--t-text-muted,#b9b0d0)", textAlign:"left", fontWeight:fontId===f.id?600:400 }}>{f.name}</span>
                         {fontId===f.id && <span style={{ fontSize:12, color:"var(--t-accent,#a78bfa)" }}>✓</span>}
                       </button>
                     ))}
@@ -358,7 +358,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: bbEnabled ? 16 : 0 }}>
                   <div>
                     <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>Barra de navegación inferior</div>
-                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:2 }}>Accede a tus pestañas favoritas con un toque</div>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:2 }}>Accede a tus pestañas favoritas con un toque</div>
                   </div>
                   <button onClick={() => updateBb(!bbEnabled, bbTabs)}
                     style={{ width:40, height:22, borderRadius:99, background:bbEnabled?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
@@ -367,7 +367,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                 </div>
                 {bbEnabled && (
                   <div>
-                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8 }}>Pestañas seleccionadas (máx. 4)</div>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginBottom:8 }}>Pestañas seleccionadas (máx. 4)</div>
                     {bbTabs.map((tabId, i) => {
                       const def = ALL_TABS.find(t => t.id === tabId);
                       if (!def) return null;
@@ -376,21 +376,21 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                           <span style={{ fontSize:18, width:24, textAlign:"center" }}>{def.icon}</span>
                           <span style={{ flex:1, fontSize:13, color:"#c4b8ff" }}>{def.label}</span>
                           <button onClick={() => { const t=[...bbTabs]; if(i>0){[t[i-1],t[i]]=[t[i],t[i-1]];updateBb(true,t);} }} disabled={i===0}
-                            style={{ background:"none", border:"none", color:i===0?"rgba(255,255,255,0.15)":"var(--t-text-muted,#8b7fa8)", cursor:i===0?"default":"pointer", fontSize:14, padding:"2px 6px", borderRadius:6 }}>↑</button>
+                            style={{ background:"none", border:"none", color:i===0?"rgba(255,255,255,0.15)":"var(--t-text-muted,#b9b0d0)", cursor:i===0?"default":"pointer", fontSize:14, padding:"2px 6px", borderRadius:6 }}>↑</button>
                           <button onClick={() => { const t=[...bbTabs]; if(i<t.length-1){[t[i],t[i+1]]=[t[i+1],t[i]];updateBb(true,t);} }} disabled={i===bbTabs.length-1}
-                            style={{ background:"none", border:"none", color:i===bbTabs.length-1?"rgba(255,255,255,0.15)":"var(--t-text-muted,#8b7fa8)", cursor:i===bbTabs.length-1?"default":"pointer", fontSize:14, padding:"2px 6px", borderRadius:6 }}>↓</button>
+                            style={{ background:"none", border:"none", color:i===bbTabs.length-1?"rgba(255,255,255,0.15)":"var(--t-text-muted,#b9b0d0)", cursor:i===bbTabs.length-1?"default":"pointer", fontSize:14, padding:"2px 6px", borderRadius:6 }}>↓</button>
                           <button onClick={() => updateBb(true, bbTabs.filter((_,j)=>j!==i))}
-                            style={{ background:"none", border:"none", color:"var(--t-text-muted,#8b7fa8)", cursor:"pointer", fontSize:17, padding:"2px 6px", borderRadius:6 }}>×</button>
+                            style={{ background:"none", border:"none", color:"var(--t-text-muted,#b9b0d0)", cursor:"pointer", fontSize:17, padding:"2px 6px", borderRadius:6 }}>×</button>
                         </div>
                       );
                     })}
                     {bbTabs.length < 4 && (
                       <div style={{ marginTop:12 }}>
-                        <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:8 }}>Añadir pestaña</div>
+                        <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginBottom:8 }}>Añadir pestaña</div>
                         <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                           {ALL_TABS.filter(t => !bbTabs.includes(t.id)).map(t => (
                             <button key={t.id} onClick={() => updateBb(true, [...bbTabs, t.id])}
-                              style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", background:"rgba(128,128,128,0.08)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:99, cursor:"pointer", fontFamily:"inherit", fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>
+                              style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 10px", background:"rgba(128,128,128,0.08)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:99, cursor:"pointer", fontFamily:"inherit", fontSize:12, color:"var(--t-text-muted,#b9b0d0)" }}>
                               <span>{t.icon}</span><span>{t.label}</span>
                             </button>
                           ))}
@@ -410,14 +410,14 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
               <SectionTitle>Push en segundo plano</SectionTitle>
               <div style={{ background:"rgba(167,139,250,0.06)", border:"1px solid rgba(167,139,250,0.15)", borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
                 {!pushSupported ? (
-                  <div style={{ fontSize:12, color:"var(--t-text-dim,#6b5f88)" }}>⚠️ Tu navegador no soporta notificaciones push</div>
+                  <div style={{ fontSize:12, color:"var(--t-text-dim,#8f84ad)" }}>⚠️ Tu navegador no soporta notificaciones push</div>
                 ) : (
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
                     <div>
                       <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>
                         {pushSubscribed ? "🔔 Activadas en este dispositivo" : "🔕 No activas en este dispositivo"}
                       </div>
-                      <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:3 }}>
+                      <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:3 }}>
                         {pushSubscribed
                           ? "Recibirás avisos cuando tu pareja actualice"
                           : "Tu pareja puede estar recibiendo notificaciones — vos no"}
@@ -453,7 +453,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                   <div style={{ textAlign:"center", padding:"8px 0 12px" }}>
                     <div style={{ fontSize:28, marginBottom:8 }}>🔔</div>
                     <div style={{ fontSize:13, color:"#c4b8ff", marginBottom:6, fontWeight:500 }}>Activa las notificaciones</div>
-                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginBottom:14, lineHeight:1.6 }}>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginBottom:14, lineHeight:1.6 }}>
                       {notifPermission === "denied"
                         ? "Tu navegador ha bloqueado las notificaciones. Cámbialas desde la configuración del navegador."
                         : "Recibe alertas de mensajes, cambios de tu pareja y recordatorios de eventos."}
@@ -487,7 +487,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                     </div>
                     {notifBriefing && (
                       <div style={{ display:"flex", alignItems:"center", gap:10, marginTop:8, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-                        <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)" }}>Hora del resumen</span>
+                        <span style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)" }}>Hora del resumen</span>
                         <input type="time" value={notifBriefTime} onChange={e=>setNotifBriefTime(e.target.value)}
                           style={{ ...S.inputSm, colorScheme:"dark", flex:1, maxWidth:110 }} />
                       </div>
@@ -501,7 +501,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: ritualOn ? 14 : 0 }}>
                   <div style={{ flex:1, minWidth:0, paddingRight:12 }}>
                     <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>🗓️ Planificar la semana juntos</div>
-                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:2, lineHeight:1.5 }}>Un recordatorio en el inicio, el día que elijan, para sentarse a organizar la semana en pareja</div>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:2, lineHeight:1.5 }}>Un recordatorio en el inicio, el día que elijan, para sentarse a organizar la semana en pareja</div>
                   </div>
                   <button onClick={()=>setRitualOn(v=>!v)}
                     style={{ width:40, height:22, borderRadius:99, background:ritualOn?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
@@ -510,7 +510,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                 </div>
                 {ritualOn && (
                   <div style={{ display:"flex", alignItems:"center", gap:10, paddingTop:12, borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-                    <span style={{ fontSize:12, color:"var(--t-text-muted,#8b7fa8)", flexShrink:0 }}>¿Qué día?</span>
+                    <span style={{ fontSize:12, color:"var(--t-text-muted,#b9b0d0)", flexShrink:0 }}>¿Qué día?</span>
                     <select value={ritualDay} onChange={e=>setRitualDay(parseInt(e.target.value))}
                       style={{ ...S.inputSm, colorScheme:"dark", flex:1 }}>
                       {RITUAL_DAYS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
@@ -524,7 +524,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom: shareEnabled ? 14 : 0 }}>
                   <div>
                     <div style={{ fontSize:13, color:"#c4b8ff", fontWeight:500 }}>Enlace de solo lectura</div>
-                    <div style={{ fontSize:11, color:"var(--t-text-dim,#6b5f88)", marginTop:2 }}>Para un familiar o cuidadora — ve el plan, no puede editarlo ni necesita cuenta</div>
+                    <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginTop:2 }}>Para un familiar o cuidadora — ve el plan, no puede editarlo ni necesita cuenta</div>
                   </div>
                   <button onClick={() => toggleShare(!shareEnabled)}
                     style={{ width:40, height:22, borderRadius:99, background:shareEnabled?"var(--t-accent,#a78bfa)":"rgba(255,255,255,0.1)", border:"none", cursor:"pointer", position:"relative", transition:"background 0.2s", flexShrink:0 }}>
@@ -535,13 +535,13 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                   <div>
                     <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                       <input readOnly value={shareUrl} onClick={e => e.target.select()}
-                        style={{ ...S.inputSm, flex:1, fontSize:11, color:"var(--t-text-muted,#8b7fa8)" }} />
+                        style={{ ...S.inputSm, flex:1, fontSize:11, color:"var(--t-text-muted,#b9b0d0)" }} />
                       <button onClick={copyLink} style={{ ...S.btnSecondary, fontSize:11, padding:"5px 12px", flexShrink:0 }}>{linkCopied ? "✓ Copiado" : "Copiar"}</button>
                     </div>
-                    <button onClick={regenerateLink} style={{ background:"none", border:"none", color:"var(--t-text-dim,#4a4166)", cursor:"pointer", fontSize:10.5, fontFamily:"inherit", padding:0 }}>
+                    <button onClick={regenerateLink} style={{ background:"none", border:"none", color:"var(--t-text-dim,#8f84ad)", cursor:"pointer", fontSize:10.5, fontFamily:"inherit", padding:0 }}>
                       ↺ Generar nuevo enlace (invalida el anterior)
                     </button>
-                    <div style={{ fontSize:10, color:"var(--t-text-dim,#4a4166)", marginTop:10, lineHeight:1.6, fontStyle:"italic" }}>
+                    <div style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)", marginTop:10, lineHeight:1.6, fontStyle:"italic" }}>
                       Ve las tareas y eventos de todas las semanas — no ve el chat, gastos, ánimo ni las notas privadas de cada actividad.
                     </div>
                   </div>

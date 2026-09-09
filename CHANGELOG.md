@@ -7,6 +7,45 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.27.0] — 2026-09-09 · Revisión UI/UX + QA: legibilidad, apilado de overlays y fechas
+
+Pasada sistemática aplicando al RESTO del código las reglas que salieron de v5.25.0 y v5.26.0. Cuatro hallazgos con evidencia, no impresiones.
+
+**1. El texto secundario estaba por debajo del mínimo legal de contraste. Medido.**
+
+`textDim` (#4a4166) da **2.0:1** sobre la tarjeta en los nueve temas oscuros. WCAG AA pide 4.5 para texto normal y **3.0 hasta para texto grande**: no llegaba ni a eso. Y se usa en **236 sitios**: fechas, contadores, «Sin misiones para este día», textos de ayuda, autorías. En la calle o con el brillo bajo, invisible — el filtro de «Marta en la línea 5» aplicado literalmente.
+
+Escala nueva, medida contra la tarjeta más clara de los nueve temas: **17.3 / 8.5 / 5.1** (antes 17.3 / 5.1 / 2.0). Los tres niveles siguen bien diferenciados; el bajo deja de ser decorativo. Los temas claros definen los suyos y ya pasaban — no se tocan.
+
+**2. El diálogo de confirmación estaba casi al fondo del apilado.**
+
+Los z-index se habían asignado a ojo hasta tener **34 valores distintos entre 1 y 9999**. `ConfirmModal` estaba en 900, por debajo del toast (1000), del botón del día especial (1200), del chat de Misi, de las encuestas y de las celebraciones (2000/2100). Es decir: **el diálogo que bloquea para pedirte una decisión —incluido el write-guard que protege contra perder misiones— podía quedar tapado**, con la pantalla bloqueada y sin nada visible. Era el «orden de overlays» que quedó pendiente del workshop v5.
+
+`src/lib/zLayers.js`: una escala ordenada y comentada (`AMBIENT → MASCOT → FAB → SHEET → CELEBRATION → BANNER → TOAST → DIALOG → SPARKLES`), aplicada a los 21 overlays globales. Con dos pruebas de guardia: una comprueba que la escala está ordenada y que solo los destellos (que no capturan toques) quedan por encima del diálogo; **otra recorre `src/components` y falla si alguien vuelve a inventarse un z-index global**. Verificado además en navegador: con la celebración de aniversario, el aviso de progreso, el toast, Misi y el botón dorado encendidos a la vez, `elementFromPoint` en el centro devuelve el diálogo.
+
+**3. La fecha se mostraba en formato de base de datos.**
+
+Ocho sitios pintaban `mission.date` tal cual: **`2026-09-12`**. Es el dato más consultado de la app. Ahora `humanDate` (`src/lib/dateLabel.js`, puro, 12 tests): **hoy · mañana · ayer · «vie 11» (esta semana) · «mar 15 sep» · «3 ene 2027»**. Aplicado en tarjeta de misión, inicio (×2), pendientes, búsqueda, metas, ánimo y vista de invitado. La fecha del changelog en el menú se queda en ISO: ahí es correcto.
+
+Detalle que evita un bug latente: `new Date("2026-09-12")` se interpreta como **medianoche UTC**, así que en husos negativos devuelve el día anterior. `parseLocalDate` construye la fecha componente a componente, y hay un test que lo fija.
+
+**4. Los títulos se cortaban donde más falta hace leerlos.**
+
+`white-space: nowrap` + puntos suspensivos en la tarjeta de misión, pendientes, búsqueda y la fila de día del calendario. En un móvil de 390px, con avatar, emoji, orbe y botón de borrar, al título le quedaban ~180px: «Comprar el regalo de cumplea…». Ahora esos cuatro admiten **dos líneas**. Las listas densas (sugerencias, cápsulas, filas de metas) siguen a una línea a propósito.
+
+**QA — bugs de temporizador y animación, misma clase que los de v5.26.0:**
+
+- `showSyncMsg` creaba un `setTimeout` por llamada: dos mensajes seguidos y el temporizador del **primero** borraba el segundo antes de tiempo. Ahora hay uno solo, que se reinicia.
+- `TimeCapsuleReveal`: el cierre por toque dejaba un timeout suelto fuera del `useEffect` (idéntico al de las celebraciones).
+- `MissionCard`: el «pop» del orbe dejaba un `setState` programado sobre una tarjeta ya desmontada en cada toque (cambio de semana, filtro, realtime).
+- `SpecialDayButton` animaba **`box-shadow` en bucle infinito** y ese botón está en pantalla **las 24 horas** del cumple/aniversario. Fuera el latido: repintaba cada frame todo el día y competía con el contenido.
+- `TimeCapsuleView` y `TimeCapsuleReveal`: latidos infinitos → número finito de pasadas (llaman la atención y paran).
+- `HomeDashboard`: la única animación infinita que vive siempre en el inicio (los círculos «juntos» con `mix-blend-mode`) ahora respeta `prefers-reduced-motion`.
+
+241 tests, lint limpio. Sin cambios de schema, de flags ni del path de guardado.
+
+---
+
 ## [5.26.0] — 2026-09-08 · Revisión de las animaciones de celebración
 
 Fran: «las animaciones de aniversarios y tareas completadas a veces se traban y no se ven del todo bien». Revisión de diseño y ejecución de las cuatro (aviso de progreso, momento «juntos», día especial y el tema dorado del día). **No pude reproducir el tirón en este entorno** (Chromium headless con CPU estrangulada da 60fps estables con todo encendido a la vez), así que la revisión fue del código, no de una medición — pero los defectos encontrados son verificables leyendo, no hipótesis.
