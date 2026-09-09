@@ -7,6 +7,8 @@ import { isoWeekKey } from "../utils.js";
 import { fetchWCMatches, wcMatchesForDate, isWCMonth, isWCOver } from "../lib/worldCup.js";
 import WCCountryPicker from "./WCCountryPicker.jsx";
 
+const whoInk = who => who === "person1" ? "--t-p1-ink" : who === "person2" ? "--t-p2-ink" : "--t-together-ink";
+
 export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddForDay, onCycleStatus, onPatchMission, onDeleteMission, onPatchAllFutureSeries, personFilter = [], catFilter = [], goals = [] }) {
   const { confirm, ConfirmDialog } = useConfirm();
   const today = new Date();
@@ -264,7 +266,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                           {m.time && <span style={{ fontSize: 10, color: "var(--t-accent,#a78bfa)" }}>🕐 {m.time}</span>}
                           {m.duration > 0 && <span style={{ fontSize: 10, color: "#7c6fa0" }}>{m.duration >= 60 ? `${Math.floor(m.duration / 60)}h${m.duration % 60 ? m.duration % 60 + "m" : ""}` : m.duration + "m"}</span>}
                           {getMCats(m).map(ci => { const c = CAT_MAP[ci]; return c ? <span key={ci} style={{ fontSize: 10, color: c.color }}>{c.icon}</span> : null; })}
-                          <span style={{ fontSize: 10, background: `${whoColor}18`, color: whoColor, border: `1px solid ${whoColor}40`, padding: "0 5px", borderRadius: 99 }}>{m.who === "person1" ? p1 : m.who === "person2" ? p2 : "👫"}</span>
+                          <span style={{ fontSize: 10, background: `${whoColor}18`, color: `var(${whoInk(m.who)},${whoColor})`, border: `1px solid ${whoColor}40`, padding: "0 5px", borderRadius: 99 }}>{m.who === "person1" ? p1 : m.who === "person2" ? p2 : "👫"}</span>
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>

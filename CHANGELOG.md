@@ -7,6 +7,39 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.28.0] — 2026-09-09 · Contraste en los 20 temas + «reducir movimiento» global
+
+**1. Auditoría completa de contraste: los temas CLAROS estaban mucho peor que los oscuros.**
+
+v5.27.0 arregló el texto de los temas oscuros. Al medir **todas** las combinaciones (20 temas × 4 superficies × todos los colores de texto) aparecieron **90 fallos**, y todos en los temas claros: los colores de estado, categoría y persona son fijos —los mismos verdes y amarillos en todos los temas— y nacieron para fondo oscuro. Sobre una tarjeta casi blanca dan:
+
+| color | sobre tarjeta clara |
+|---|---|
+| 💼 Trabajo `#fbbf24` | **1,64:1** |
+| ✅ Hecho / Salud / Juntos `#34d399` | **1,89:1** |
+| ✈️ Viaje `#38bdf8` | **2,11:1** |
+| 🔥 ASAP `#fb923c` | **2,25:1** |
+
+El mínimo de WCAG para texto grande es 3,0. Es decir: en cualquier tema claro, el estado de una tarea y sus etiquetas eran prácticamente ilegibles — y el estado es el elemento más funcional de la app.
+
+**Cura**: `readableOn` (`src/lib/contrast.js`, puro) ajusta la **luminosidad** del color hasta que cumple, **manteniendo tono y saturación** — sigue siendo el verde de «Hecho», solo que legible. `ThemeInjector` publica esa tinta por tema (`--t-ink-status-*`, `--t-ink-cat-*`, `--t-p1-ink`…) y los dos helpers centrales (`badgeStyle`, `catBadgeStyle`) más los chips de persona la usan **como color de texto**. El color original se mantiene para rellenos y bordes, donde el tinte suave es correcto y no es texto.
+
+También: los acentos de dos temas claros no llegaban ni al umbral de texto grande sobre su propio fondo — `sky` 2,58 → **5,53** y `peach` 2,91 → **5,77**, mismo tono, más oscuro.
+
+Todo esto queda vigilado por `src/__tests__/contrast.test.js`: recorre las 20 paletas y falla con nombre y número si alguien añade un tema o cambia un color y deja texto por debajo del umbral.
+
+**2. «Reducir movimiento», de verdad y para siempre.**
+
+Quedaban **18 componentes** que ignoraban la preferencia del sistema. En vez de 18 parches a mano, el reset estándar de accesibilidad en `index.html`: las animaciones no se borran, **duran 0,01ms y corren una sola vez**. Así toda animación con `forwards`/`both` aterriza al instante en su fotograma final — nada desaparece: lo que aparecía con un fundido aparece, lo que escalaba queda a tamaño 1, lo que giraba se queda quieto. Y cubre cualquier animación que se añada en el futuro sin que nadie tenga que acordarse.
+
+Los componentes caros (confeti, vídeo de Misi, partículas) siguen comprobándolo en JS y directamente no se montan: el CSS no puede parar un bucle de canvas.
+
+Verificado en navegador con `prefers-reduced-motion: reduce` activo: cero elementos con texto invisible, tarjetas, orbes, esqueletos, aviso de progreso y toast todos correctos.
+
+258 tests, lint limpio.
+
+---
+
 ## [5.27.0] — 2026-09-09 · Revisión UI/UX + QA: legibilidad, apilado de overlays y fechas
 
 Pasada sistemática aplicando al RESTO del código las reglas que salieron de v5.25.0 y v5.26.0. Cuatro hallazgos con evidencia, no impresiones.

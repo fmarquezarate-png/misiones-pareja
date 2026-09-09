@@ -53,9 +53,24 @@
       }
       /* Entrada escalonada de listas/tarjetas — respeta reduced-motion abajo */
       @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      /* ─── Reducir movimiento: red de seguridad GLOBAL ──────────────────
+         Antes esto solo cubría dos casos concretos y cada componente tenía
+         que acordarse por su cuenta — 18 de ellos no lo hacían. Este reset
+         (el patrón estándar de accesibilidad) no BORRA las animaciones: las
+         hace durar 0.01ms y correr una sola vez, así que cualquier animación
+         con `forwards`/`both` aterriza al instante en su fotograma final. Por
+         eso nada desaparece: lo que aparecía con un fundido, aparece; lo que
+         escalaba, queda a tamaño 1; lo que giraba, se queda quieto.
+         Los componentes caros (confeti, vídeo de Misi, partículas) además
+         comprueban la preferencia en JS y directamente NO se montan — el CSS
+         no puede parar un bucle de canvas. */
       @media (prefers-reduced-motion: reduce) {
-        .home-breathe-bg { animation: none; }
-        [style*="fadeInUp"] { animation: none !important; }
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
       }
 
       /* ─── Splash screen — visible before React loads ─────────────────── */

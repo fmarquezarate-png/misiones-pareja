@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "5.27.0";
+export const APP_VERSION = "5.28.0";
 export const LAST_UPDATE = "2026-07-27";
 
 // Banner de mantenimiento — null = desactivado
@@ -286,7 +286,7 @@ export const THEMES = [
     menuBg:"rgba(240,248,255,0.98)", topBarBg:"rgba(240,248,255,0.94)",
     card:"rgba(255,255,255,0.9)", cardBorder:"rgba(14,165,233,0.15)",
     btnGrad:"linear-gradient(135deg,#0ea5e9,#38bdf8)",
-    accent:"#0ea5e9", accentSoft:"rgba(14,165,233,0.1)",
+    accent:"#0369a1", accentSoft:"rgba(3,105,161,0.1)",   // 2.58 → 5.53 sobre su fondo
     fontBody:"'DM Sans',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap",
     text:"#0c2a48", textMuted:"#0f3d6e", textDim:"#2c6898", error:"#b52d20",
@@ -309,7 +309,7 @@ export const THEMES = [
     menuBg:"rgba(255,248,240,0.98)", topBarBg:"rgba(255,248,240,0.94)",
     card:"rgba(255,255,255,0.9)", cardBorder:"rgba(234,112,38,0.15)",
     btnGrad:"linear-gradient(135deg,#ea7026,#f97316)",
-    accent:"#ea7026", accentSoft:"rgba(234,112,38,0.1)",
+    accent:"#b03a08", accentSoft:"rgba(176,58,8,0.1)",     // 2.91 → 5.77 sobre su fondo
     fontBody:"'Lato','Helvetica Neue',system-ui,sans-serif",
     googleFonts:"https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
     text:"#3d1500", textMuted:"#4d1f08", textDim:"#7a3e12", error:"#a02010",

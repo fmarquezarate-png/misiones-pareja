@@ -721,7 +721,7 @@ export default function HomeDashboard({
             <span style={{ position:"absolute", fontSize:18, animation:reduceMotion?"none":"hd-spark 3s ease-in-out infinite", opacity:reduceMotion?1:undefined }}>✨</span>
           </div>
           <div style={{ fontSize:11.5, color:"var(--t-text-muted,#b9b0d0)", marginTop:4 }}>
-            Completasteis <span style={{ color:clr.together, fontWeight:600 }}>{lastTogetherWin.emoji} {lastTogetherWin.title}</span> — momento Juntos
+            Completasteis <span style={{ color:`var(--t-together-ink,${clr.together})`, fontWeight:600 }}>{lastTogetherWin.emoji} {lastTogetherWin.title}</span> — momento Juntos
           </div>
         </div>
       )}

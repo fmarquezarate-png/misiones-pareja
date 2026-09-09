@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { THEMES, FONTS } from "../constants.js";
+import { THEMES, FONTS, STATUS, CATEGORIES } from "../constants.js";
+import { readableOn, AA_LARGE } from "../lib/contrast.js";
 
 const DEFAULT_CLR = { person1: "#f472b6", person2: "#a78bfa", together: "#34d399" };
 
@@ -49,6 +50,21 @@ export default function ThemeInjector({ themeId, fontId, colors }) {
     r.setProperty("--t-text-dim",    t.textDim   || "#4a4166");
     r.setProperty("--t-error",       t.error     || "#f87171");
     r.setProperty("--t-input-bg",    t.dark === false ? "rgba(0,0,0,0.05)" : "rgba(128,128,128,0.10)");
+
+    // ── Tintas legibles de los colores FIJOS ────────────────────────────────
+    // Los colores de estado y categoría son los mismos en todos los temas y
+    // nacieron para fondo oscuro: sobre las tarjetas casi blancas de los temas
+    // claros daban 1.6–2.8:1 (el amarillo de "Trabajo", 1.64 — invisible).
+    // Aquí se publica, por tema, la versión con la luminosidad ajustada hasta
+    // cumplir; el tono se conserva, así que sigue siendo el mismo color.
+    // El color original se mantiene para rellenos y bordes, que no son texto.
+    for (const [id, s] of Object.entries(STATUS)) {
+      r.setProperty(`--t-ink-status-${id}`, readableOn(s.color, t.card, AA_LARGE, t.bg));
+    }
+    for (const c of CATEGORIES) {
+      r.setProperty(`--t-ink-cat-${c.id}`, readableOn(c.color, t.card, AA_LARGE, t.bg));
+    }
+
     document.documentElement.style.background = t.bg;
     try {
       const vars = {
@@ -69,17 +85,23 @@ export default function ThemeInjector({ themeId, fontId, colors }) {
     const p1  = colors?.person1  || DEFAULT_CLR.person1;
     const p2  = colors?.person2  || DEFAULT_CLR.person2;
     const tog = colors?.together || DEFAULT_CLR.together;
+    const t = THEMES.find(x => x.id === themeId) || THEMES[0];
     const r = document.documentElement.style;
     r.setProperty("--t-p1",          p1);
     r.setProperty("--t-p2",          p2);
     r.setProperty("--t-together",    tog);
+    // Versión legible como TEXTO de los colores de cada persona (los de arriba
+    // se siguen usando tal cual para rellenos, orbes y raíles de color).
+    r.setProperty("--t-p1-ink",       readableOn(p1,  t.card, AA_LARGE, t.bg));
+    r.setProperty("--t-p2-ink",       readableOn(p2,  t.card, AA_LARGE, t.bg));
+    r.setProperty("--t-together-ink", readableOn(tog, t.card, AA_LARGE, t.bg));
     r.setProperty("--t-thread",      `linear-gradient(135deg,${p1},${p2})`);
     r.setProperty("--t-p1-10",       hexToRgba(p1,  0.10));
     r.setProperty("--t-p1-15",       hexToRgba(p1,  0.15));
     r.setProperty("--t-p2-10",       hexToRgba(p2,  0.10));
     r.setProperty("--t-p2-15",       hexToRgba(p2,  0.15));
     r.setProperty("--t-together-10", hexToRgba(tog, 0.10));
-  }, [colors?.person1, colors?.person2, colors?.together]);
+  }, [themeId, colors?.person1, colors?.person2, colors?.together]);
 
   return null;
 }

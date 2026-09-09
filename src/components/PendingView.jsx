@@ -6,6 +6,8 @@ import { S, badgeStyle } from "../styles.js";
 import { STATUS, getMCats, CAT_MAP, DEFAULT_COLORS } from "../constants.js";
 import { humanDate } from "../lib/dateLabel.js";
 
+const whoInk = who => who === "person1" ? "--t-p1-ink" : who === "person2" ? "--t-p2-ink" : "--t-together-ink";
+
 export default function PendingView({ weeks, currentWeekNumber, currentYear, globalPersonFilter, globalCatFilter, colors, p1, p2, cycleStatusGlobal, onDelete, setActiveTab, update, onSync, syncing }) {
   const [pendingTab, setPendingTab] = useState("pending");
   const [logrosPeopleFilter, setLogrosPeopleFilter] = useState([]);
@@ -110,7 +112,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                           <span style={{ fontSize:10, color:"var(--t-text-dim,#8f84ad)" }}>S{m.weekNumber} {m._yr}</span>
                           {m.date && <span style={{ fontSize:10, color:"var(--t-accent,#a78bfa)" }}>📆 {humanDate(m.date)}</span>}
                           {getMCats(m).map(ci => { const c=CAT_MAP[ci]; return c?<span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon} {c.label}</span>:null; })}
-                          <span style={{ fontSize:10, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                          <span style={{ fontSize:10, background:`${whoColor}18`, color:`var(${whoInk(m.who)},${whoColor})`, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                         </div>
                       </div>
                       <div style={{ display:"flex", gap:4, flexShrink:0, alignItems:"center" }}>
@@ -204,7 +206,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                                   <div style={{ flex:1, minWidth:0 }}>
                                     <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>{m.title}</div>
                                     <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:2 }}>
-                                      <span style={{ fontSize:10, background:`${whoColor}18`, color:whoColor, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
+                                      <span style={{ fontSize:10, background:`${whoColor}18`, color:`var(${whoInk(m.who)},${whoColor})`, border:`1px solid ${whoColor}40`, padding:"0 5px", borderRadius:99 }}>{m.who==="person1"?p1:m.who==="person2"?p2:"👫"}</span>
                                       {getMCats(m).map(ci => { const c=CAT_MAP[ci]; return c?<span key={ci} style={{ fontSize:10, color:c.color }}>{c.icon}</span>:null; })}
                                     </div>
                                   </div>

@@ -62,9 +62,13 @@ export const S = {
   label:     { fontSize:10, letterSpacing:2, textTransform:"uppercase", color:"var(--t-text-dim,#8f84ad)", fontWeight:600, marginBottom:6, display:"block" },
 };
 
+// El COLOR DE TEXTO sale de la tinta que publica ThemeInjector por tema: los
+// mismos verdes y naranjas sobre una tarjeta casi blanca (temas claros) daban
+// 1.6–2.8:1. El relleno y el borde siguen usando el color original — ahí el
+// tinte suave es correcto y no es texto.
 export const badgeStyle = s => ({
   background: s === "TBC" ? "rgba(148,163,184,0.12)" : s === "ASAP" ? "rgba(251,146,60,0.12)" : s === "IN_PROGRESS" ? "rgba(96,165,250,0.12)" : "rgba(52,211,153,0.12)",
-  color:      s === "TBC" ? "#94a3b8"                : s === "ASAP" ? "#fb923c"                : s === "IN_PROGRESS" ? "#60a5fa"                : "#34d399",
+  color:      s === "TBC" ? "var(--t-ink-status-TBC,#94a3b8)" : s === "ASAP" ? "var(--t-ink-status-ASAP,#fb923c)" : s === "IN_PROGRESS" ? "var(--t-ink-status-IN_PROGRESS,#60a5fa)" : "var(--t-ink-status-DONE,#34d399)",
   border:    `1px solid ${s === "TBC" ? "rgba(148,163,184,0.3)" : s === "ASAP" ? "rgba(251,146,60,0.3)" : s === "IN_PROGRESS" ? "rgba(96,165,250,0.3)" : "rgba(52,211,153,0.3)"}`,
   padding: "3px 8px", borderRadius: 99, fontSize: 11, fontWeight: 600, fontFamily: "inherit",
   letterSpacing: 0.3, cursor: "pointer", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 4,
@@ -73,7 +77,7 @@ export const badgeStyle = s => ({
 export const catBadgeStyle = catId => {
   const c = CAT_MAP[catId];
   if (!c) return {};
-  return { background:`${c.color}18`, color:c.color, border:`1px solid ${c.color}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" };
+  return { background:`${c.color}18`, color:`var(--t-ink-cat-${c.id},${c.color})`, border:`1px solid ${c.color}40`, padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:600, display:"flex", alignItems:"center", gap:3, whiteSpace:"nowrap" };
 };
 
 // ─── v3 additions ──────────────────────────────────────────────────────────
