@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { LEAGUES, teamsOfLeague, teamById } from "../lib/teams.js";
-import { getStandings, getTeamMatches, getScorers } from "../lib/footballApi.js";
+import { getStandings, getTeamMatches, getScorers, getCompetitionMatches, getPriorSeason } from "../lib/footballApi.js";
+import { projectSeason, matchPreview, mulberry32 } from "../lib/montecarlo.js";
 import { fixtureToMission, mergeFixtures, fixtureKey } from "../lib/football.js";
 import { humanDate } from "../lib/dateLabel.js";
 import TeamCrest from "./TeamCrest.jsx";
@@ -9,6 +10,7 @@ import { uid } from "../utils.js";
 const SECCIONES = [
   { id: "calendario",   label: "Partidos" },
   { id: "clasificacion",label: "Tablas" },
+  { id: "pronostico",   label: "Pronóstico" },
   { id: "jugadores",    label: "Goleadores" },
   { id: "ajustes",      label: "Ajustes" },
 ];
@@ -99,6 +101,7 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
   const [tabla, setTabla] = useState(null);
   const [comp, setComp] = useState(null);          // competición de la tabla
   const [scorers, setScorers] = useState(null);
+  const [proj, setProj] = useState(null);       // { probs, projPts, projPos, sims } | "loading" | "error"
   const [state, setState] = useState("idle");
   const [picking, setPicking] = useState(!team);
 
@@ -124,6 +127,30 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
     getStandings(c).then(t => { if (vivo) setTabla(t); });
     return () => { vivo = false; };
   }, [team, comp]);
+
+  // Proyección de temporada. Se calcula solo al abrir la pestaña: son 1200
+  // simulaciones y no hay por qué gastarlas si no las estás mirando.
+  useEffect(() => {
+    if (!team || sec !== "pronostico") return;
+    let vivo = true;
+    setProj("loading");
+    Promise.all([getCompetitionMatches(team.league), getPriorSeason(team.league), getStandings(team.league)])
+      .then(([liga, previa, tabla]) => {
+        if (!vivo) return;
+        const hoy = new Date().toISOString().slice(0, 10);
+        const jugados = liga.matches.filter(m => m.ft);
+        const pendientes = liga.matches.filter(m => !m.ft && m.date >= hoy && m.homeId && m.awayId);
+        const r = projectSeason({
+          table: tabla.table || [], fixtures: pendientes, prior: previa || [],
+          playedMatches: jugados, teamId: team.id,
+          cutoffs: { titulo: 1, champions: 4, europa: 6, descenso: 17 },
+          rng: mulberry32(20261),      // semilla fija: el mismo número al volver a entrar
+        });
+        setProj(r ? { ...r, source: liga.source, staleUntil: liga.staleUntil, restantes: pendientes.length } : "error");
+      })
+      .catch(() => { if (vivo) setProj("error"); });
+    return () => { vivo = false; };
+  }, [team, sec]);
 
   useEffect(() => {
     if (!team || sec !== "jugadores") return;
@@ -276,6 +303,8 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
         </div>
       )}
 
+      {sec === "pronostico" && <Pronostico proj={proj} team={team} proximo={proximos[0]} tabla={tabla} />}
+
       {sec === "jugadores" && (
         <div style={card()}>
           <div style={secTitle()}>Goleadores · {comp === "cl" ? "Champions" : liga?.name}</div>
@@ -350,6 +379,98 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
         </>
       )}
     </div>
+  );
+}
+
+function Barra({ label, pct, color }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+        <span style={{ color: "var(--t-text,#f0e8ff)" }}>{label}</span>
+        <span style={{ color, fontWeight: 700 }}>{pct}%</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 99, background: "rgba(255,255,255,0.07)", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${Math.max(1, pct)}%`, borderRadius: 99, background: color, transition: "width .5s ease" }} />
+      </div>
+    </div>
+  );
+}
+
+function Pronostico({ proj, team, proximo, tabla }) {
+  if (proj === "loading" || proj === null) return <div style={card()}><div style={vacio()}>Simulando la temporada…</div></div>;
+  if (proj === "error") return <div style={card()}><div style={vacio()}>No hay datos suficientes para proyectar todavía.</div></div>;
+
+  // 1X2 del próximo partido, del mismo motor.
+  const prev = proximo && proximo.homeId && proximo.awayId ? matchPreview({
+    table: tabla?.table || [], teamId: team.id,
+    rivalId: proximo.homeId === team.id ? proximo.awayId : proximo.homeId,
+    isHome: proximo.homeId === team.id,
+  }) : null;
+  const rival = proximo && (proximo.homeId === team.id ? proximo.awayId : proximo.homeId);
+
+  return (
+    <>
+      <div style={card()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <div style={{ ...secTitle(), marginBottom: 0, whiteSpace: "nowrap" }}>Cómo acaba la liga</div>
+          <Fuente source={proj.source} staleUntil={proj.staleUntil} updatedAt={proj.updatedAt} />
+        </div>
+        {proj.finished ? (
+          <div style={vacio()}>La temporada ha terminado: {proj.projPos}º con {proj.projPts} puntos.</div>
+        ) : (
+          <>
+            <Barra label="🏆 Ganar la liga"      pct={proj.probs.titulo}    color="#fbbf24" />
+            <Barra label="⭐ Champions (top 4)"  pct={proj.probs.champions} color="#60a5fa" />
+            <Barra label="🇪🇺 Europa (top 6)"     pct={proj.probs.europa}    color="#a78bfa" />
+            {proj.probs.descenso < 100 && proj.probs.descenso > 0 && (
+              <Barra label="🛟 Salvarse (no bajar)" pct={proj.probs.descenso} color="#34d399" />
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+              {[["Puntos", proj.projPts], ["Puesto", `${proj.projPos}º`]].map(([k, v]) => (
+                <div key={k} style={{ flex: 1, textAlign: "center", padding: "8px 4px", borderRadius: 10, background: "rgba(255,255,255,0.04)" }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "var(--t-text,#f0e8ff)", fontFamily: "'Fraunces',serif" }}>{v}</div>
+                  <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)", textTransform: "uppercase", letterSpacing: 0.5 }}>{k} previstos</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {prev && (
+        <div style={{ ...card(), marginTop: 10 }}>
+          <div style={secTitle()}>Próximo partido</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <TeamCrest teamId={team.id} size={22} />
+            <span style={{ fontSize: 13, color: "var(--t-text,#f0e8ff)" }}>
+              {proximo.homeId === team.id ? "vs" : "en"} {teamById(rival)?.short || "rival"}
+            </span>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontSize: 12, color: "var(--t-text-dim,#8f84ad)" }}>más probable <b style={{ color: "var(--t-text,#f0e8ff)" }}>{prev.score}</b></span>
+          </div>
+          <div style={{ display: "flex", height: 26, borderRadius: 8, overflow: "hidden" }}>
+            {[["Gana", prev.W, "#34d399"], ["Empate", prev.D, "#94a3b8"], ["Pierde", prev.L, "#f87171"]].map(([k, v, c]) => (
+              v > 0 ? <div key={k} title={`${k} ${v}%`} style={{ width: `${v}%`, background: `${c}33`, borderRight: "1px solid rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: c }}>{v}%</div> : null
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ ...card(), marginTop: 10 }}>
+        <div style={secTitle()}>Cómo se calcula</div>
+        <div style={{ fontSize: 11.5, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.6 }}>
+          Se simula <b>{proj.sims || 0} veces</b> lo que queda de temporada ({proj.restantes ?? "?"} partidos)
+          con el motor del widget: fuerzas de ataque y defensa encogidas hacia la temporada pasada,
+          goles con binomial negativa, corrección Dixon-Coles de los marcadores bajos, y la ventaja
+          de campo sacada de los partidos ya jugados.
+          <br /><br />
+          Las simulaciones van en <b>dos niveles</b>: primero se sortea un universo de fuerzas
+          (porque no sabemos de verdad cuánto vale cada equipo), y dentro de cada universo se juegan
+          temporadas. Sin ese primer nivel, un buen arranque dispararía el título al 88% en la
+          jornada 2 — que es justo lo que pasaba antes de añadirlo.
+        </div>
+      </div>
+    </>
   );
 }
 

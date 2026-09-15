@@ -7,6 +7,38 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.33.0] — 2026-09-15 · Pronóstico: el Monte Carlo del widget, portado
+
+Pestaña nueva en **Mi Equipo → Pronóstico**: probabilidad de ganar la liga, de entrar en Champions, de jugar en Europa y de salvarse; puntos y puesto previstos; y el 1X2 del próximo partido con el marcador más probable.
+
+**El motor es el de tu widget de Scriptable, con las cuatro capas intactas** (`src/lib/montecarlo.js`, puro, 41 tests):
+
+1. **Fuerzas** de ataque y defensa por equipo, **encogidas** hacia la temporada anterior con 8 partidos de peso. Un 6-0 en la jornada 1 no convierte a nadie en un ataque seis veces mejor — hay una prueba que lo fija.
+2. **Binomial negativa** en vez de Poisson: los goles reales están sobredispersos (más 0-0 *y* más goleadas de lo que Poisson predice). Comprobado en una prueba contra la Poisson equivalente.
+3. **Dixon-Coles** para corregir los marcadores bajos, donde ambas se equivocan sistemáticamente.
+4. **Matriz de marcadores**, de la que sale todo: 1X2, marcador más probable y la diferencia de goles esperada *condicional* a ganar o perder — que es lo que hay que sumar al simular, no un 1 fijo.
+
+Y encima, **Monte Carlo a dos niveles**: 60 universos de fuerzas distintos × 20 temporadas cada uno = **1200 simulaciones**. El primer nivel es el que importa: reconoce que no sabemos de verdad cuánto vale cada equipo. Sin él, un buen arranque dispara el título al 88% en la jornada 2 — está anotado en tu script y **hay una prueba que lo verifica**.
+
+**Dos cosas que añadí al portarlo:**
+
+- **Aleatoriedad semillable** (`mulberry32`) inyectada en vez de `Math.random` global. Así las pruebas comprueban números concretos en vez de rangos, y volver a entrar en la pestaña te da **el mismo pronóstico** en lugar de un número que baila.
+- **Ventaja de campo calculada de los partidos jugados de la propia liga**, en vez del 1.13/0.89 fijo. Con menos de 30 partidos cae al valor por defecto.
+
+**Un bug del motor encontrado por las pruebas**: un equipo con 0 partidos jugados quedaba fuera del cálculo de fuerzas, así que el simulador le aplicaba un `?? 1` en silencio. Es exactamente el caso de un recién ascendido en la jornada 1. Ahora entra con `pj: 0` y el encogido le asigna la media, que es lo correcto.
+
+**La temporada pasada sale de openfootball** — y ahí esa fuente es perfecta: los datos históricos **no caducan**, así que su retraso, fatal para la temporada en curso, da exactamente igual. Se usa siempre, esté o no la conexión en vivo.
+
+**Coste medido**, porque 329 partidos × 1200 simulaciones no es gratis: **81 ms** a velocidad normal y **255 ms** con la CPU estrangulada ×4. Es un tirón de un frame, en una acción explícita y con el «Simulando…» ya pintado. Solo se calcula al abrir la pestaña, no al entrar en la sección.
+
+Con el Barça real (1º, 12 pts, 4 jornadas): **73% de liga, 97% de Champions, 88 puntos previstos**, y 70% de ganar al Racing con un 2-1 como marcador más probable. Alto pero no absurdo — que es justo lo que el primer nivel del Monte Carlo debe conseguir.
+
+> El pronóstico es tan bueno como los datos que come. Con la fuente de respaldo (retraso de días) las probabilidades van con una jornada de atraso. **Desplegar la Edge Function mejora el pronóstico, no solo la tabla.**
+
+361 tests (41 nuevos). Sin cambios de schema.
+
+---
+
 ## [5.32.0] — 2026-09-15 · Datos en vivo: la fuente buena necesita servidor
 
 Fran: «funciona muy muy mal, la tabla muy desactualizada». **Tenía razón, y lo medí** contra el archivo vivo el 15/09:

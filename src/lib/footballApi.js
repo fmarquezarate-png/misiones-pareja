@@ -15,7 +15,7 @@
 // en pantalla en vez de mostrar datos viejos como si fueran frescos.
 
 import supabase from "../supabase.js";
-import { fetchLeague } from "./football.js";
+import { fetchLeague, seasonOf } from "./football.js";
 import { buildStandings } from "./standings.js";
 import { teamById, teamByName } from "./teams.js";
 
@@ -139,6 +139,64 @@ export async function getScorers(competitionId, limit = 20) {
   } catch {
     return env?.data || { source: "none", scorers: [] };
   }
+}
+
+
+// ── Todos los partidos de la liga (para la proyección) ──────────────────────
+// La proyección necesita los pendientes de TODOS los equipos, no solo los míos.
+// Devuelve { source, matches: [{ homeId, awayId, ft }] }.
+export async function getCompetitionMatches(competitionId) {
+  const ck = `cm-${competitionId}`;
+  const env = readCache(ck);
+  if (env && Date.now() - env.ts < TTL_MS) return env.data;
+  try {
+    const j = await call({ action: "competitionMatches", competition: competitionId });
+    const matches = (j.matches || []).map(normalizeLiveMatch).filter(Boolean);
+    const out = { source: "live", matches, updatedAt: j.fetchedAt || Date.now() };
+    writeCache(ck, out);
+    return out;
+  } catch {
+    const ms = await fetchLeague(competitionId);
+    if (!ms) return env?.data || { source: "none", matches: [] };
+    const out = { source: "openfootball", staleUntil: lastResultDate(ms), matches: ms.map(ofToMatch) };
+    writeCache(ck, out);
+    return out;
+  }
+}
+
+// ── Temporada ANTERIOR ──────────────────────────────────────────────────────
+// Aquí openfootball es perfecto: los datos históricos no caducan, así que su
+// retraso —fatal para la temporada en curso— da exactamente igual. Se usa
+// siempre, esté o no la conexión en vivo. Alimenta el encogido de las fuerzas,
+// que es lo que impide que un 6-0 en la jornada 1 dispare las probabilidades.
+export async function getPriorSeason(leagueId) {
+  const ck = `prev-${leagueId}`;
+  const env = readCache(ck);
+  if (env) return env.data;                       // una temporada cerrada no cambia
+  const prevSeason = previousSeason(seasonOf());
+  const ms = await fetchLeague(leagueId, { season: prevSeason });
+  const rows = ms ? buildStandings(ms) : [];
+  writeCache(ck, rows);
+  return rows;
+}
+
+export function previousSeason(season) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(season || ""));
+  if (!m) return season;
+  const start = Number(m[1]) - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+}
+
+// Partido de openfootball → la forma común.
+export function ofToMatch(m) {
+  return {
+    date: m.date, time: m.time || null, comp: "Liga", round: m.round || null,
+    home: m.team1, away: m.team2,
+    homeId: teamByName(m.team1)?.id || null,
+    awayId: teamByName(m.team2)?.id || null,
+    ft: Array.isArray(m.score?.ft) ? m.score.ft : null,
+    status: Array.isArray(m.score?.ft) ? "FINISHED" : "SCHEDULED",
+  };
 }
 
 // ── Utilidades puras (exportadas para poder probarlas) ──────────────────────

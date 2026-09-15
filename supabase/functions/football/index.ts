@@ -22,7 +22,8 @@
 //     action "teamMatches"  { competition?, teamName }  -> partidos del equipo (TODAS sus competiciones)
 //     action "standings"    { competition }             -> clasificación
 //     action "scorers"      { competition, limit? }     -> goleadores (goles y asistencias)
-//     action "competitions" { teamName }                -> en qué compite ahora mismo
+//     action "competitionMatches" { competition }       -> todos los partidos de la liga
+//                                                          (alimenta la proyección de temporada)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
@@ -120,6 +121,25 @@ async function handle(body: any, key: string) {
         matches: j.matches ?? [],
         fetchedAt: Date.now(),
       };
+      cache.set(ck, { ts: Date.now(), data: out });
+      return out;
+    } catch (e) {
+      const s = stale(ck);
+      return s ?? { error: String((e as Error).message) };
+    }
+  }
+
+  // Todos los partidos de una competición: lo que alimenta la proyección de
+  // temporada (hacen falta los pendientes de TODOS los equipos, no solo los míos).
+  if (action === 'competitionMatches') {
+    const comp = COMPETITIONS[body.competition];
+    if (!comp) return { error: 'competicion_desconocida' };
+    const ck = `cm:${comp.code}`;
+    const fresh = cached(ck, TTL.matches);
+    if (fresh) return fresh;
+    try {
+      const j = await fd(`/competitions/${comp.code}/matches`, key);
+      const out = { competition: comp.name, matches: j.matches ?? [], fetchedAt: Date.now() };
       cache.set(ck, { ts: Date.now(), data: out });
       return out;
     } catch (e) {
