@@ -115,7 +115,7 @@ export default function AddMissionForm({ newM, setNewM, onAdd, onCancel, p1, p2,
         ))}
       </div>
       <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-        <EmojiSelect value={newM.emoji} onChange={e=>setNewM(p=>({...p,emoji:e}))} />
+        <EmojiSelect value={newM.emoji} crest={newM.crest} onChange={(e,c)=>setNewM(p=>({...p,emoji:e,crest:c||null}))} />
         <input autoFocus value={newM.title} onChange={e=>setNewM(p=>({...p,title:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&onAdd()} placeholder={isEvent?"Nombre del evento...":"Nombre de la misión..."} style={S.input} />
       </div>
       {suggestions.length > 0 && (

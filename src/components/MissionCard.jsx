@@ -77,7 +77,7 @@ export default function MissionCard({ mission, onCycleStatus, onDelete, onPatch,
         <div style={{ width:26, height:26, borderRadius:"50%", background:`linear-gradient(135deg, ${whoColor}, ${whoColor}aa)`, border:"1.5px solid rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:mission.who==="together"?11:11, fontWeight:700, color:"#ffffff", userSelect:"none" }}>
           {mission.who==="together"?"👫":mission.who==="person1"?(p1||"?")[0].toUpperCase():(p2||"?")[0].toUpperCase()}
         </div>
-        <EmojiSelect value={mission.emoji} onChange={e=>onPatch({emoji:e})} />
+        <EmojiSelect value={mission.emoji} crest={mission.crest} onChange={(e,c)=>onPatch({emoji:e, crest:c||null})} />
         <div style={{ flex:1, minWidth:0, cursor:"pointer" }} onClick={()=>setExpanded(v=>!v)}>
           <div style={{ fontSize:14, fontWeight:500, lineHeight:1.4, color:isDone?"#6b5f88":"#f0e8ff", textDecoration:isDone?"line-through":"none", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }} title={mission.title}>{mission.title}</div>
           <div style={{ display:"flex", gap:4, marginTop:4, flexWrap:"wrap" }}>

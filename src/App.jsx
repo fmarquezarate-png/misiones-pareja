@@ -7,6 +7,7 @@ import { shouldShowPlanningRitual } from "./lib/ritual.js";
 import PlanningRitual from "./components/PlanningRitual.jsx";
 import { upcomingDates } from "./lib/importantDates.js";
 import { makeLoveNote } from "./lib/loveNote.js";
+import { parseLocalDate } from "./lib/dateLabel.js";
 import { normalizePin } from "./lib/corkboard.js";
 import LoveNote from "./components/LoveNote.jsx";
 import HomeHighlight from "./components/HomeHighlight.jsx";
@@ -36,6 +37,7 @@ import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import { useCelebrations, celebrationKey } from "./lib/celebrations.js";
+const TeamMatchesCard = lazy(() => import("./components/TeamMatchesCard.jsx"));
 import TaskCongrat from "./components/TaskCongrat.jsx";
 const WrappedModal = lazy(() => import("./components/WrappedModal.jsx"));
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
@@ -1778,6 +1780,42 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
         .catch(e => console.error("[dual_write] carry insert:", e));
     }
   };
+  // Partidos del equipo → calendario. Se agrupan por semana y se usa el mismo
+  // reducer granular del carry-over: puro, con dedup por identidad, así un
+  // conflicto CAS lo rebasa sin descartar lo que haya hecho la pareja.
+  const importTeamMatches = (nuevos, actualizados) => {
+    const grupos = {};
+    for (const m of nuevos || []) {
+      const d = parseLocalDate(m.date);
+      if (!d) continue;
+      const { week, year } = getWeekAndYear(d);
+      const key = isoWeekKey(week, year);
+      if (!grupos[key]) grupos[key] = { wn: week, yr: year, list: [] };
+      grupos[key].list.push(m);
+    }
+    const entradas = Object.entries(grupos);
+    if (entradas.length) {
+      update(d => {
+        let next = d;
+        for (const [key, g] of entradas) next = mergeMissionsInto(next, key, g.list, { wn: g.wn, yr: g.yr });
+        return next;
+      });
+      for (const [key, g] of entradas) {
+        for (const m of g.list) {
+          insertNormalizedMission(coupleId, key, g.wn, g.yr, m).catch(e => console.error("[dual_write] partido:", e));
+        }
+      }
+      track("team_matches_imported", { n: (nuevos || []).length });
+    }
+    // Horarios que la liga ya confirmó: se parchean por el camino global.
+    for (const u of actualizados || []) {
+      const prev = allDated.find(m => m.id === u.id);
+      if (prev) patchMissionGlobal(prev.weekNumber, prev._yr, u.id, u.patch);
+    }
+    const total = (nuevos || []).length + (actualizados || []).length;
+    if (total) pushToast({ kind: "success", text: `⚽ ${total} ${total === 1 ? "partido añadido" : "partidos al día"}` });
+  };
+
   const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
     update(d => {
       const newWeeks = { ...d.weeks };
@@ -2306,6 +2344,14 @@ ${sorted.map(m=>{
               {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
                   inspiracional; HomeHighlight (fechas/idea) se oculta ese día. */}
               {!showRitual && <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />}
+              <Suspense fallback={null}>
+                <TeamMatchesCard
+                  myTeam={data.settings?.myTeam || null}
+                  allMissions={allDated}
+                  onChooseTeam={id => update(d => ({ ...d, settings: { ...d.settings, myTeam: id } }))}
+                  onImport={importTeamMatches}
+                />
+              </Suspense>
               {showRitual && (
                 <PlanningRitual
                   onNotifyPartner={() => {

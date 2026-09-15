@@ -7,6 +7,33 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.30.0] — 2026-09-15 · Escudos de 40 equipos + los partidos de tu equipo
+
+**1. Los partidos de tu equipo, propuestos solos.**
+
+Eliges equipo una vez y la app te propone en el inicio sus partidos de las próximas 3 semanas, con un botón para meterlos al calendario. Sincronizar dos veces no duplica nada.
+
+**La fuente, y por qué esa**: `openfootball/football.json` en `raw.githubusercontent.com` — el **mismo host que la app ya usa en producción** para el Mundial. Sin clave, sin CORS, sin cuota. Se descartaron dos alternativas:
+
+- **football-data.org** (la del widget de Scriptable): necesita una clave en una cabecera. En una PWA esa clave queda a la vista en el bundle, y además su API no manda cabeceras CORS: el navegador ni llegaría a pedirla. Scriptable no sufre nada de esto porque hace HTTP nativo, no del navegador — que el widget funcione no implica que el navegador pueda.
+- **ESPN**: no pide clave, pero no está verificado que permita CORS y no se puede comprobar desde el entorno de desarrollo. Queda anotada como mejora futura.
+
+**Limitación honesta de la fuente**, verificada contra el archivo vivo: trae siempre la fecha, pero la hora solo cuando la liga ya la ha anunciado (70 de 380 partidos de LaLiga ahora mismo). Los partidos sin hora se añaden **solo con el día** —no se inventa una hora— y `mergeFixtures` rellena la hora en la siguiente sincronización en vez de duplicar el evento. Un partido que ya marcaste como visto no se toca.
+
+**Un fallo que apareció explorando los datos y quedó cubierto con una prueba**: `"RCD Espanyol de Barcelona"` **contiene** `"Barcelona"`. Un filtro por `includes` habría metido los partidos del Espanyol en el calendario del culé. La resolución de equipos es por nombre **exacto**.
+
+**2. Escudos de los 40 equipos de LaLiga y Premier.**
+
+El grupo blaugrana de v5.29.0 se sustituye por una pestaña ⚽ en el selector, **solo con escudos**, agrupados por liga. Cada equipo trae sus dos colores y su patrón de camiseta (rayas, mitades, liso, banda), y con eso la app **dibuja** un escudo reconocible: los 40 están disponibles desde el primer día sin depender de ningún archivo.
+
+- **Escudos oficiales, archivo a archivo**: si existe `/escudos/{id}.png` se usa ese en lugar del dibujado. No hay que tocar código ni desplegar: cada PNG que aparezca sustituye a su escudo genérico. Formato e ids, en `public/escudos/LEEME.md`.
+- **El escudo no se guarda como icono.** El icono sigue siendo un emoji de verdad (⚽) y el equipo va en un campo nuevo y opcional, `mission.crest`. Así la notificación push dice «⚽ Barça – Madrid» (correcto en cualquier sitio) y dentro de la app se pinta el escudo. Las misiones guardadas con el par blaugrana de v5.29.0 se siguen viendo con su escudo.
+- Los partidos importados llevan el escudo del **rival**, que es lo que distingue un partido de otro de un vistazo.
+
+284 tests (26 nuevos). Sin cambios de schema ni del path de guardado: `crest` y `fixtureKey` son campos opcionales del blob.
+
+---
+
 ## [5.29.0] — 2026-09-15 · Escudo blaugrana para tareas y eventos 🔵🔴
 
 Petición de Fran: el escudo del Barça como icono de tarea/evento.

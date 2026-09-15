@@ -1,5 +1,5 @@
 // ─── Version ──────────────────────────────────────────────────────────────────
-export const APP_VERSION = "5.29.0";
+export const APP_VERSION = "5.30.0";
 export const LAST_UPDATE = "2026-07-27";
 
 // Banner de mantenimiento — null = desactivado
@@ -68,12 +68,6 @@ export const CAT_MAP = Object.fromEntries(CATEGORIES.map(c => [c.id, c]));
 // ─── Emoji groups ─────────────────────────────────────────────────────────────
 export const EMOJI_GROUPS = [
   { label:"🏅 Deporte", emojis:["🎾","🏓","🏸","⚽","🏀","🏊","🚴","🧘","🏋️","🤸","🏆","🎳","🛼","🥊","🏄","⛷️","🧗","🤽","🏇","🥋","🏐","🎽","🥅","🥌","🎿","🛹","🪂","⛳","🎱","🏒","🤺","🏹","🤾","🏃","🚵","⚾","🏈","🏉","🥏","🪃","🏑","🛷","⛸️","🥎"] },
-  // Unicode no tiene escudos de clubes (ningún club, no solo el Barça), así que
-  // el marcador culé es el par blaugrana 🔵🔴: son dos emoji de verdad, así que
-  // viajan bien a todas partes — incluido el texto de las notificaciones push,
-  // donde una imagen no podría ir. La pestaña del selector muestra el primer
-  // "token" de la etiqueta, o sea que este grupo se ve como 🔵🔴 en la barra.
-  { label:"🔵🔴 Barça",  emojis:["🔵🔴","🔵🔴⚽","⚽","🏟️","🥅","🧣","👕","🏆","🥇","📣","📺","🍺","🎫","🚩","🎉","🐐","🔵","🔴"] },
   { label:"🏠 Casa",    emojis:["🛒","🖼️","🔧","💡","🛁","🪴","🧹","🛋️","🪟","🏠","🔑","📦","🧺","🪣","🫧","🔩","🪑","🛏️","🚿","🧼","🧽","🪠","🔋","💻","🖨️","🚪","🧯","🧴","🪜","🔌","🕯️","🪞","🧷","🪡","🧵","🛗","🚽","🪤","🧰","🔨","🪛","🪚"] },
   { label:"💆 Bienestar",emojis:["🧖","💆","🧴","💅","😴","🌿","🧠","❤️","💊","🩺","🫁","🦷","👁️","🩻","🫶","🌞","🍃","🌺","💐","🩹","💉","🩼","🦴","🧘","🛌","🫖","🍵","🧊","🪥","🧎","🤲","💪","🦵","👂","👃","🩷"] },
   { label:"✈️ Viajes",  emojis:["🚢","✈️","🏖️","🗺️","🧳","🌊","🏔️","🌍","🏛️","📸","🚂","🛵","🚗","⛺","🏕️","🗼","🗽","🎡","🏝️","🌄","🌅","🧭","🎫","🪪","🚀","🛳️","⛴️","🚁","🚠","🚡","🏨","🛎️","🗾","🏜️","🌃","🎢","🎠","🛶","🪝","🧗"] },
