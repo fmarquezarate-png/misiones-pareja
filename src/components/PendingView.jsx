@@ -5,6 +5,7 @@ import PillFilter from "./PillFilter.jsx";
 import { S, badgeStyle } from "../styles.js";
 import { STATUS, getMCats, CAT_MAP, DEFAULT_COLORS } from "../constants.js";
 import { humanDate } from "../lib/dateLabel.js";
+import MissionEmoji from "./MissionEmoji.jsx";
 
 const whoInk = who => who === "person1" ? "--t-p1-ink" : who === "person2" ? "--t-p2-ink" : "--t-together-ink";
 
@@ -105,7 +106,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                       {delayWeeks>=3?"⚠️":"🔁"} {delayWeeks>=3?`Arrastrada ${delayWeeks} semanas`:"Arrastrada"}
                     </div>}
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <span style={{ fontSize:22, flexShrink:0 }}>{m.emoji}</span>
+                      <MissionEmoji emoji={m.emoji} size={22} />
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>{m.title}</div>
                         <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:3 }}>
@@ -202,7 +203,7 @@ export default function PendingView({ weeks, currentWeekNumber, currentYear, glo
                             return (
                               <div key={m.id+m._wkey} style={{ ...S.card, padding:"9px 13px", borderLeft:`3px solid ${whoColor}`, opacity:0, animation:`fadeInUp 0.25s ease ${di*0.05+0.05}s forwards` }}>
                                 <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-                                  <span style={{ fontSize:20, flexShrink:0 }}>{m.emoji}</span>
+                                  <MissionEmoji emoji={m.emoji} size={20} />
                                   <div style={{ flex:1, minWidth:0 }}>
                                     <div style={{ fontSize:13, color:"var(--t-text,#e2d9ff)", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>{m.title}</div>
                                     <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:2 }}>

@@ -6,6 +6,7 @@ import { getMissionDates } from "../lib/appUtils.js";
 import { isoWeekKey } from "../utils.js";
 import { fetchWCMatches, wcMatchesForDate, isWCMonth, isWCOver } from "../lib/worldCup.js";
 import WCCountryPicker from "./WCCountryPicker.jsx";
+import MissionEmoji from "./MissionEmoji.jsx";
 
 const whoInk = who => who === "person1" ? "--t-p1-ink" : who === "person2" ? "--t-p2-ink" : "--t-together-ink";
 
@@ -192,7 +193,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                 <div style={{ padding: "2px 3px" }}>
                   <div style={{ fontSize: numSz, fontWeight: 600, marginBottom: 2, textAlign: "center", color: isTd ? "#f472b6" : isSel ? "#c4b8ff" : "#4a4166", width: 18, height: 18, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 2px", border: isTd ? "1.5px solid #f472b6" : "1.5px solid transparent", lineHeight: 1 }}>{day}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 2, justifyContent: "center" }}>
-                    {shownSingle.map(m => { const bg = m.who === "person1" ? clrC.person1 : m.who === "person2" ? clrC.person2 : clrC.together; return <span key={`${m.id}-${ds}`} draggable onDragStart={e => { e.stopPropagation(); onDragStart(e, m); }} onDragEnd={() => setDragOver(null)} title={m.title} style={{ fontSize: emojiSz, lineHeight: 1, background: `${bg}30`, border: `1px solid ${bg}55`, borderRadius: 3, padding: "1px 2px", opacity: m.status === "DONE" ? 0.4 : 1, cursor: "grab" }}>{m.emoji}</span>; })}
+                    {shownSingle.map(m => { const bg = m.who === "person1" ? clrC.person1 : m.who === "person2" ? clrC.person2 : clrC.together; return <span key={`${m.id}-${ds}`} draggable onDragStart={e => { e.stopPropagation(); onDragStart(e, m); }} onDragEnd={() => setDragOver(null)} title={m.title} style={{ fontSize: emojiSz, lineHeight: 1, background: `${bg}30`, border: `1px solid ${bg}55`, borderRadius: 3, padding: "1px 2px", opacity: m.status === "DONE" ? 0.4 : 1, cursor: "grab" }}><MissionEmoji emoji={m.emoji} size={emojiSz} /></span>; })}
                     {shownWC.map(wm => <span key={wm.id} title={`⚽ ${wm.home} vs ${wm.away}`} style={{ fontSize: emojiSz, lineHeight: 1, background: "rgba(52,211,153,0.14)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 3, padding: "1px 2px" }}>⚽</span>)}
                     {overflow > 0 && <span style={{ fontSize: 8, color: "var(--t-text-dim,#8f84ad)" }}>+{overflow}</span>}
                   </div>
@@ -257,7 +258,7 @@ export default function CalendarView({ allDatedMissions, p1, p2, colors, onAddFo
                     // no el único blanco. Antes era el único, y cualquier cosa
                     // superpuesta en el borde derecho (Misi) lo dejaba inalcanzable.
                     <div key={m.id} onClick={() => openEdit(m)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(167,139,250,0.08)", cursor: "pointer" }}>
-                      <span style={{ fontSize: 20, flexShrink: 0 }}>{m.emoji}</span>
+                      <MissionEmoji emoji={m.emoji} size={20} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: m.status === "DONE" ? "#4d4566" : "var(--t-text,#e2d9ff)", textDecoration: m.status === "DONE" ? "line-through" : "none", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", wordBreak:"break-word" }}>
                           {m.title}{isMultiDay && <span style={{ fontSize: 10, marginLeft: 4, color: "var(--t-accent,#a78bfa)" }}>↔</span>}

@@ -7,6 +7,23 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.29.0] — 2026-09-15 · Escudo blaugrana para tareas y eventos 🔵🔴
+
+Petición de Fran: el escudo del Barça como icono de tarea/evento.
+
+**La pega técnica:** Unicode no tiene escudos de clubes — ninguno, no solo el Barça — así que no existe como emoji. Y el icono de una misión se guarda como **texto** (`mission.emoji`) que viaja a sitios donde no cabe una imagen: el cuerpo de las notificaciones push, el enlace a Google Calendar y la exportación ICS. Meter ahí una imagen significaría una sentinela tipo `"img:barca"` colándose como texto en el aviso del móvil de tu pareja.
+
+**La solución:** se guarda un emoji de verdad —el par blaugrana `🔵🔴`— y lo único que cambia es cómo se **pinta** dentro de la app. Donde hay pantalla se ve el escudo; en texto plano degrada solo a dos círculos azulgrana. Sin sentinelas, sin tocar el modelo de datos, sin riesgo en push ni en exportaciones.
+
+- **Grupo nuevo en el selector de emoji**: pestaña `🔵🔴` con ⚽ 🏟️ 🥅 🧣 👕 🏆 🥇 📣 📺 🍺 🎫 🚩 🎉 🐐 y el par blaugrana.
+- **`MissionEmoji`** (nuevo): pinta el escudo cuando el icono es el par blaugrana, y el emoji normal en cualquier otro caso. Aplicado en el selector, la celda del calendario, la fila del día y las listas de pendientes.
+- **El escudo es un SVG** de escudo blaugrana con borde dorado: nítido a cualquier tamaño, verificado de 40px hasta los 11px de una celda de calendario, y sin depender de ningún archivo.
+- **Escudo oficial, opcional**: si existe `public/escudo-barca.png`, se usa ese en lugar del SVG. Si falta (por defecto), cae al SVG sin romper nada ni reintentar.
+
+258 tests, lint limpio. Sin cambios de schema ni del path de guardado.
+
+---
+
 ## [5.28.0] — 2026-09-09 · Contraste en los 20 temas + «reducir movimiento» global
 
 **1. Auditoría completa de contraste: los temas CLAROS estaban mucho peor que los oscuros.**

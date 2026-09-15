@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { EMOJI_GROUPS } from "../constants.js";
+import MissionEmoji from "./MissionEmoji.jsx";
 
 export default function EmojiSelect({ value, onChange }) {
   const [open, setOpen]   = useState(false);
@@ -12,7 +13,7 @@ export default function EmojiSelect({ value, onChange }) {
 
   return (
     <div style={{ position:"relative", flexShrink:0 }}>
-      <button onClick={()=>setOpen(o=>!o)} style={{ fontSize:22, background:"none", border:"none", cursor:"pointer", padding:"0 2px", lineHeight:1 }}>{value}</button>
+      <button onClick={()=>setOpen(o=>!o)} style={{ fontSize:22, background:"none", border:"none", cursor:"pointer", padding:"0 2px", lineHeight:1, display:"flex", alignItems:"center" }}><MissionEmoji emoji={value} size={22} /></button>
       {open && <>
         <div onClick={()=>setOpen(false)} style={{ position:"fixed", inset:0, zIndex:9 }} />
         <div style={{ position:"absolute", top:"calc(100% + 6px)", left:0, zIndex:10, background:"#1a1330", border:"1px solid rgba(167,139,250,0.25)", borderRadius:14, width:260, boxShadow:"0 12px 40px rgba(0,0,0,0.7)", overflow:"hidden" }}>
@@ -38,7 +39,7 @@ export default function EmojiSelect({ value, onChange }) {
                 style={{ fontSize:20, background:"none", border:"none", cursor:"pointer", padding:4, borderRadius:8 }}
                 onMouseEnter={ev=>ev.currentTarget.style.background="rgba(167,139,250,0.2)"}
                 onMouseLeave={ev=>ev.currentTarget.style.background="none"}>
-                {e}
+                <MissionEmoji emoji={e} size={20} />
               </button>
             ))}
           </div>
