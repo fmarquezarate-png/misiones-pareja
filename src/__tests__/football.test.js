@@ -95,13 +95,18 @@ describe("teamFixtures", () => {
 describe("fixtureToMission", () => {
   const uid = () => "fixed-id";
 
-  it("crea un evento con título legible y el escudo del RIVAL", () => {
+  it("crea un evento con título legible y el escudo de MI equipo", () => {
     const m = fixtureToMission(MATCHES[1], "barcelona", { uid });   // Elche – Barça
     expect(m.title).toBe("Elche – Barça");
-    expect(m.crest).toBe("elche");
+    expect(m.crest).toBe("barcelona");
     expect(m.type).toBe("event");
     expect(m.date).toBe("2026-08-23");
     expect(m.time).toBe("21:30");
+  });
+
+  it("el escudo es el mío juegue en casa o fuera — el rival ya está en el título", () => {
+    expect(fixtureToMission(MATCHES[1], "barcelona", { uid }).crest).toBe("barcelona");   // fuera
+    expect(fixtureToMission(MATCHES[2], "barcelona", { uid }).crest).toBe("barcelona");   // en casa
   });
 
   it("el icono es un emoji de verdad: viaja bien a push y exportaciones", () => {

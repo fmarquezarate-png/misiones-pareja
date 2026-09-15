@@ -56,19 +56,19 @@ export function fixtureKey(m) {
 }
 
 // Partido → misión de la app. El icono es el emoji ⚽ (viaja bien a push y
-// exportaciones) y el escudo del RIVAL va en `crest`: es el dato que distingue
-// un partido de otro de un vistazo.
+// exportaciones) y en `crest` va SIEMPRE el escudo de TU equipo, juegue en casa
+// o fuera. (v5.30.0 ponía el del rival, pensando en distinguir un partido de
+// otro; Fran lo corrigió: lo que quieres ver en tu calendario es tu escudo. El
+// rival ya está en el título.)
 export function fixtureToMission(m, myTeamId, { uid = () => String(Math.random()).slice(2) } = {}) {
   const home = teamByName(m.team1), away = teamByName(m.team2);
-  const iAmHome = home && home.id === myTeamId;
-  const rival = iAmHome ? away : home;
   const mine = teamById(myTeamId);
   const homeLabel = home ? home.short : m.team1;
   const awayLabel = away ? away.short : m.team2;
   return {
     id: uid(),
     emoji: "⚽",
-    crest: rival ? rival.id : (mine ? mine.id : null),
+    crest: mine ? mine.id : null,
     title: `${homeLabel} – ${awayLabel}`,
     type: "event",
     who: "together",

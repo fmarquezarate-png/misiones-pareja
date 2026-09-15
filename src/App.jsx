@@ -37,7 +37,7 @@ import { isEnabled } from "./lib/flags.js";
 import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNormalizedMissionStatus, updateNormalizedMission } from "./lib/repo.js";
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import { useCelebrations, celebrationKey } from "./lib/celebrations.js";
-const TeamMatchesCard = lazy(() => import("./components/TeamMatchesCard.jsx"));
+const TeamView = lazy(() => import("./components/TeamView.jsx"));
 import TaskCongrat from "./components/TaskCongrat.jsx";
 const WrappedModal = lazy(() => import("./components/WrappedModal.jsx"));
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
@@ -731,7 +731,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","trophy","diagnostics"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","trophy","team","diagnostics"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -2344,14 +2344,6 @@ ${sorted.map(m=>{
               {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
                   inspiracional; HomeHighlight (fechas/idea) se oculta ese día. */}
               {!showRitual && <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />}
-              <Suspense fallback={null}>
-                <TeamMatchesCard
-                  myTeam={data.settings?.myTeam || null}
-                  allMissions={allDated}
-                  onChooseTeam={id => update(d => ({ ...d, settings: { ...d.settings, myTeam: id } }))}
-                  onImport={importTeamMatches}
-                />
-              </Suspense>
               {showRitual && (
                 <PlanningRitual
                   onNotifyPartner={() => {
@@ -2579,6 +2571,13 @@ ${sorted.map(m=>{
           partnerName={p1===personName ? p2 : p1}
           onAdd={addLoveNote}
           onDelete={deleteLoveNote}
+        />}
+
+        {activeTab==="team" && <TeamView
+          settings={data.settings || {}}
+          allMissions={allDated}
+          onPatchSettings={team => update(d => ({ ...d, settings: { ...d.settings, team, myTeam: undefined } }))}
+          onImport={importTeamMatches}
         />}
 
         {activeTab==="trophy" && <TrophyView

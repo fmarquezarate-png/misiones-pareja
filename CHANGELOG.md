@@ -7,6 +7,33 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.31.0] — 2026-09-15 · «Mi Equipo» en el menú, y el escudo correcto
+
+**Fix reportado por Fran**: los partidos importados se creaban con el escudo del **rival**, no con el suyo. Fue una decisión mía de v5.30.0 (pensando que distinguir un partido de otro era lo útil) y estaba equivocada: lo que quieres ver en tu calendario es **tu** escudo, juegue en casa o fuera. El rival ya está en el título. Corregido y fijado con una prueba para los dos casos.
+
+**La tarjeta sale del inicio y pasa al menú** como sección propia: ☰ → Nosotros → **⚽ Mi Equipo**, con tres pestañas.
+
+- **Calendario** — los **próximos 5** y los **últimos 3** con su marcador y el escudo del rival en cada fila. Cada partido se puede añadir suelto, o los cinco de golpe. Los que ya están en el calendario salen marcados con un ✓ en vez del botón.
+- **Clasificación** — **calculada aquí desde los 380 resultados**, no leída de una tabla: se actualiza en cuanto entra un marcador, sin esperar a que nadie publique la clasificación. Desempate de LaLiga completo (puntos → enfrentamiento directo → diferencia → goles), y el directo **solo se aplica con el cruce cerrado** (ida y vuelta jugadas), que es cuando la regla oficial corresponde. Se muestran las 5 primeras posiciones y el entorno de tu equipo, no las 20 filas.
+- **Ajustes** — cambiar de equipo, activar o desactivar la propuesta de partidos, y decidir de quién es el evento (**Solo yo** / **Los dos**).
+
+La cabecera trae escudo, posición, puntos y la **racha** de los últimos 5 (G/E/P).
+
+**Lo que NO se puede hacer con esta fuente, y por qué** — dicho claro en vez de entregar algo a medias:
+
+| Pediste | Estado |
+|---|---|
+| Calendario pasado/futuro | ✅ hecho |
+| Clasificación | ✅ hecha (liga) |
+| Configuración | ✅ hecha |
+| **Jugadores y sus stats** | ❌ **imposible con esta fuente**: los partidos traen `fecha, hora, equipos, marcador` y **nada más** — cero datos de jugadores. Goles, asistencias y tarjetas exigirían una API con clave (y en una PWA la clave queda a la vista); la *valoración media* además es un dato propietario de SofaScore/WhoScored, que no publican API abierta. |
+| **Champions y Copa del Rey** | ❌ la fuente solo publica ligas (`es.1`, `en.1`, `en.2`…). Sin archivo de Champions ni de Copa, no hay de dónde sacarlo. |
+| **Probabilidades** (liga, fase de Champions) | ⏳ **sí es posible** y no está hecho aún: se calcula del calendario restante + la fuerza de cada equipo, que ya tenemos. Es el motor Monte Carlo del widget de Scriptable, portado. Merece su propia versión. |
+
+303 tests (19 nuevos). Sin cambios de schema: los ajustes viven en `settings.team`.
+
+---
+
 ## [5.30.0] — 2026-09-15 · Escudos de 40 equipos + los partidos de tu equipo
 
 **1. Los partidos de tu equipo, propuestos solos.**
