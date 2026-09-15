@@ -136,6 +136,16 @@ describe("teamTimeline", () => {
     expect(proximos.map(m => m.date)).toEqual(["2026-09-20"]);
   });
 
+  it("un partido YA JUGADO sin marcador publicado NO desaparece", () => {
+    // El bug real: se filtraba por tener resultado, así que los partidos que la
+    // fuente aún no había actualizado se caían de las dos listas.
+    const conLimbo = [...LIGA, M("2026-09-14", "FC Barcelona", "Sevilla FC", null, "21:00")];
+    const { pasados, proximos } = teamTimeline(conLimbo, "barcelona", { pasados: 3, proximos: 5, hoy: "2026-09-15" });
+    const todos = [...pasados, ...proximos].map(m => m.date);
+    expect(todos).toContain("2026-09-14");
+    expect(pasados.map(m => m.date)).toContain("2026-09-14");   // va en pasados, sin marcador
+  });
+
   it("no mezcla partidos de otros equipos", () => {
     for (const m of [...pasados, ...proximos]) {
       expect(m.team1 === "FC Barcelona" || m.team2 === "FC Barcelona").toBe(true);

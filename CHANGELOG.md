@@ -7,6 +7,45 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.32.0] — 2026-09-15 · Datos en vivo: la fuente buena necesita servidor
+
+Fran: «funciona muy muy mal, la tabla muy desactualizada». **Tenía razón, y lo medí** contra el archivo vivo el 15/09:
+
+- último resultado publicado por openfootball: **7 de septiembre** — 8 días de retraso
+- **14 partidos ya jugados sin marcador**, incluida la **jornada 5 entera** (12–14 sep)
+- ni Champions, ni Copa, ni un solo dato de jugadores
+
+Elegí esa fuente porque era la única sin clave y con CORS. La decisión era defendible; el resultado es malo. La fuente no da más.
+
+**Un bug mío encima**, y el que explicaba el salto raro de jornadas: los partidos con fecha pasada y sin marcador **desaparecían de las dos listas** — no entraban en «últimos» (sin resultado) ni en «próximos» (fecha vencida). Por eso se veía J4, J3, J1 y luego J6. Ahora el corte es la **fecha, no el marcador**, y esos partidos salen marcados como *«sin resultado aún»* en vez de esconderse. Con prueba.
+
+**La cura de raíz: una Edge Function.** Un navegador no puede guardar una clave (queda a la vista en el bundle) ni saltarse CORS. Un servidor sí — y la app **ya tiene tres Edge Functions**, así que el camino existía.
+
+```
+navegador  →  Edge Function `football`  →  football-data.org
+(sin clave)   (guarda la clave)            (datos en vivo)
+```
+
+`supabase/functions/football/index.ts` queda escrita y lista: caché en memoria con TTL, sirve caché caducada antes que fallar, resuelve el equipo por nombre (igualdad exacta, nunca `includes`) y expone clasificación, partidos de **todas** las competiciones del equipo, y goleadores.
+
+Con eso se desbloquea: **clasificación al minuto, Champions, Copa del Rey, y goleadores con goles y asistencias**. Los pasos para desplegarla están en `docs/mi-equipo-datos.md` — son cinco minutos y usa la misma clave de tu widget de Scriptable.
+
+**Sobre lo de «una clave de Gemini»**: un LLM no sirve para esto. No consulta marcadores en vivo, se los inventaría. La clave que hace falta es de una **API de datos deportivos**, y ya tienes una.
+
+**Mientras tanto, nada se rompe y nada miente.** Si la función no está desplegada, la app cae sola a openfootball y **lo dice en pantalla**: junto al escudo hay una etiqueta de procedencia — **● en vivo** o **⚠ respaldo · hasta 7 sep**. Nunca se pintan datos viejos como si fueran de hoy.
+
+**La vista crece a cuatro secciones**: Partidos (con la competición de cada uno), Tablas (Liga / Champions), Goleadores, Ajustes.
+
+**Lo que sigue sin poder hacerse, y por qué:**
+
+- **Tarjetas por jugador** — no están en el plan gratuito de football-data.
+- **Valoración media** — dato propietario de SofaScore/WhoScored, sin API abierta. Haría falta datos de pago.
+- **Probabilidades** — sí se pueden, y ahora mejor que antes (con datos frescos el modelo vale mucho más). Es el Monte Carlo de tu widget portado. Pendiente, siguiente versión.
+
+320 tests (17 nuevos). Sin cambios de schema.
+
+---
+
 ## [5.31.0] — 2026-09-15 · «Mi Equipo» en el menú, y el escudo correcto
 
 **Fix reportado por Fran**: los partidos importados se creaban con el escudo del **rival**, no con el suyo. Fue una decisión mía de v5.30.0 (pensando que distinguir un partido de otro era lo útil) y estaba equivocada: lo que quieres ver en tu calendario es **tu** escudo, juegue en casa o fuera. El rival ya está en el título. Corregido y fijado con una prueba para los dos casos.

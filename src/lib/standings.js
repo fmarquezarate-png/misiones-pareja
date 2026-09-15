@@ -119,11 +119,17 @@ export function teamTimeline(matches = [], teamId, { pasados = 3, proximos = 5, 
     return (h && h.id === teamId) || (a && a.id === teamId);
   }).sort((x, y) => (x.date || "").localeCompare(y.date || ""));
 
-  const jugados = mios.filter(m => fullTime(m));
-  const porJugar = mios.filter(m => !fullTime(m) && (m.date || "") >= today);
+  // El corte es la FECHA, no el marcador. Si se filtra "pasados" por tener
+  // resultado, un partido ya jugado cuya fuente aún no publicó el marcador
+  // desaparece de las dos listas — no está en pasados (sin ft) ni en próximos
+  // (fecha vencida). Medido el 15/09/2026: 14 partidos de LaLiga en ese limbo,
+  // la jornada 5 entera. Ahora salen en "pasados" y la UI los marca como
+  // "sin resultado aún" en vez de esconderlos.
+  const yaFue = mios.filter(m => (m.date || "") < today);
+  const porVenir = mios.filter(m => (m.date || "") >= today);
   return {
-    pasados: jugados.slice(-pasados).reverse(),
-    proximos: porJugar.slice(0, proximos),
+    pasados: yaFue.slice(-pasados).reverse(),
+    proximos: porVenir.slice(0, proximos),
   };
 }
 
