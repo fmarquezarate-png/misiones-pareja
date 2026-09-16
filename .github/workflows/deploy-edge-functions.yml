@@ -1,0 +1,126 @@
+name: Desplegar Edge Function
+
+# PARA QUÉ SIRVE
+# Sube una Edge Function (código de servidor que vive en Supabase) desde este
+# repo a Supabase, sin necesidad de instalar nada ni abrir una terminal.
+#
+# CÓMO SE USA (desde el navegador, en el móvil o en el ordenador):
+#   GitHub → pestaña "Actions" → "Desplegar Edge Function" → botón "Run workflow".
+#
+# QUÉ HACE FALTA UNA SOLA VEZ (Settings → Secrets and variables → Actions):
+#   · SUPABASE_ACCESS_TOKEN  (obligatorio) — token personal de Supabase.
+#       Se genera en https://supabase.com/dashboard/account/tokens
+#   · FOOTBALL_DATA_KEY      (opcional)    — clave de football-data.org.
+#       Si está, se copia a los secretos de Supabase en cada despliegue, así
+#       la clave vive en UN solo sitio y nunca toca el bundle del navegador.
+#   · SUPABASE_PROJECT_REF   (opcional)    — solo si algún día cambia el proyecto.
+#
+# ⚠️ Igual que keepalive.yml: este archivo queda dormido en ramas de trabajo y
+# el botón "Run workflow" aparece cuando está en la rama por defecto (main).
+
+on:
+  workflow_dispatch:
+    inputs:
+      funcion:
+        description: "Función a desplegar (carpeta dentro de supabase/functions/)"
+        required: true
+        default: "football"
+        type: choice
+        options:
+          - football
+          - misi-chat
+          - send-push
+          - get-shared-view
+  push:
+    branches: ["main"]
+    paths:
+      - "supabase/functions/football/**"
+      - ".github/workflows/deploy-edge-functions.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # El "ref" del proyecto no es un secreto: es el subdominio público de la
+      # URL de Supabase, que ya viaja en el bundle del frontend. Se deja aquí
+      # como fallback para que el despliegue funcione con un único secret.
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF || 'txnsotchljquilfmdpdy' }}
+      # Un push a main solo toca `football`; el desplegable manual elige.
+      FUNCION: ${{ inputs.funcion || 'football' }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Sin token no se puede desplegar. Si lo pidió una persona (Run workflow),
+      # falla en rojo con la explicación. Si fue un push automático, se salta en
+      # silencio: nadie pidió nada, así que no hay por qué mandar un email de
+      # error a quien todavía no ha configurado el secreto.
+      - name: Comprobar que existe el token
+        id: check
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "::error::Falta el secret SUPABASE_ACCESS_TOKEN (Settings → Secrets and variables → Actions → New repository secret). Se genera en https://supabase.com/dashboard/account/tokens"
+              exit 1
+            fi
+            echo "::notice::Sin SUPABASE_ACCESS_TOKEN todavía — despliegue omitido."
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ ! -d "supabase/functions/$FUNCION" ]; then
+            echo "::error::No existe la carpeta supabase/functions/$FUNCION en esta rama."
+            exit 1
+          fi
+          echo "listo=si" >> "$GITHUB_OUTPUT"
+          echo "Desplegando '$FUNCION' al proyecto $PROJECT_REF"
+
+      - name: Instalar Supabase CLI
+        if: steps.check.outputs.listo == 'si'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # La clave de football-data.org se guarda como secreto DEL SERVIDOR.
+      # Nunca se escribe en el repo ni llega al navegador (regla de CLAUDE.md §5).
+      - name: Guardar la clave de fútbol en Supabase
+        if: steps.check.outputs.listo == 'si' && env.FUNCION == 'football'
+        env:
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+        run: |
+          if [ -z "$FOOTBALL_DATA_KEY" ]; then
+            echo "::notice::No hay secret FOOTBALL_DATA_KEY en el repo. Si ya lo pusiste directamente en Supabase, perfecto: este paso no lo toca."
+            exit 0
+          fi
+          supabase secrets set "FOOTBALL_DATA_KEY=$FOOTBALL_DATA_KEY" \
+            --project-ref "$PROJECT_REF"
+          echo "✅ Secreto FOOTBALL_DATA_KEY actualizado en Supabase."
+
+      - name: Desplegar la función
+        if: steps.check.outputs.listo == 'si'
+        run: |
+          supabase functions deploy "$FUNCION" --project-ref "$PROJECT_REF"
+          echo "✅ '$FUNCION' desplegada."
+
+      # Verificación de vida: el endpoint ?probe=1 responde sin llamar a ninguna
+      # API externa y dice si el secreto está puesto. Solo corre si el repo tiene
+      # el anon key (el mismo que ya usa keepalive.yml).
+      - name: Comprobar que responde
+        if: steps.check.outputs.listo == 'si' && env.FUNCION == 'football'
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://txnsotchljquilfmdpdy.supabase.co' }}
+          ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$ANON_KEY" ]; then
+            echo "::notice::Sin VITE_SUPABASE_ANON_KEY no se puede probar desde aquí. Ábrela desde la app (Menú → Mi Equipo) y mira si pone '● en vivo'."
+            exit 0
+          fi
+          URL="${SUPABASE_URL%/}/functions/v1/${FUNCION}?probe=1"
+          body=$(curl -s --max-time 20 -H "Authorization: Bearer $ANON_KEY" -H "apikey: $ANON_KEY" "$URL" || echo "")
+          echo "Respuesta: $body"
+          case "$body" in
+            *'"hasKey":true'*)  echo "✅ Desplegada y con clave — datos en vivo."; ;;
+            *'"hasKey":false'*) echo "::warning::Desplegada pero SIN la clave. Añade el secret FOOTBALL_DATA_KEY y vuelve a pulsar Run workflow."; ;;
+            *)                  echo "::warning::La función respondió algo inesperado (o no respondió). Revisa los logs en Supabase → Edge Functions → $FUNCION."; ;;
+          esac
