@@ -22,6 +22,7 @@
 //     action "teamMatches"  { competition?, teamName }  -> partidos del equipo (TODAS sus competiciones)
 //     action "standings"    { competition }             -> clasificación
 //     action "scorers"      { competition, limit? }     -> goleadores (goles y asistencias)
+//     action "live"         { competition, teamName }    -> partidos EN JUEGO ahora mismo
 //     action "competitionMatches" { competition }       -> todos los partidos de la liga
 //                                                          (alimenta la proyección de temporada)
 
@@ -48,7 +49,10 @@ const COMPETITIONS: Record<string, { code: string; name: string }> = {
 
 // Caché en memoria del worker. TTL corto en día de partido, largo si no.
 const cache = new Map<string, { ts: number; data: unknown }>();
-const TTL = { matches: 5 * 60e3, standings: 5 * 60e3, scorers: 60 * 60e3, teams: 30 * 864e5 };
+// `live` va aparte y muy corto: es el único dato que cambia cada minuto. Aun
+// así se cachea, porque varias pestañas abiertas consumirían el límite de 10
+// peticiones/minuto del plan gratuito en segundos.
+const TTL = { matches: 5 * 60e3, standings: 5 * 60e3, scorers: 60 * 60e3, teams: 30 * 864e5, live: 25e3 };
 
 function cached<T>(key: string, ttl: number): T | null {
   const e = cache.get(key);
@@ -178,6 +182,37 @@ async function handle(body: any, key: string) {
     } catch (e) {
       const s = stale(ck);
       return s ?? { error: String((e as Error).message) };
+    }
+  }
+
+  // ── EN VIVO ───────────────────────────────────────────────────────────────
+  // Dos llamadas como mucho: los partidos en juego de MI equipo (sin filtrar
+  // por competición, así sale igual la Champions o la Copa) y los del resto de
+  // la liga. Con TTL de 25s y el cliente sondeando cada 45s, el peor caso son
+  // ~5 peticiones/minuto — la mitad del límite del plan gratuito.
+  if (action === 'live') {
+    const comp = COMPETITIONS[body.competition] ?? COMPETITIONS['es.1'];
+    const ck = `live:${comp.code}:${norm(body.teamName)}`;
+    const fresh = cached(ck, TTL.live);
+    if (fresh) return fresh;
+    try {
+      const team = body.teamName ? await resolveTeam(comp.code, body.teamName, key) : null;
+      const [mios, liga] = await Promise.all([
+        team ? fd(`/teams/${team.id}/matches?status=LIVE`, key).catch(() => ({ matches: [] })) : Promise.resolve({ matches: [] }),
+        fd(`/competitions/${comp.code}/matches?status=LIVE`, key).catch(() => ({ matches: [] })),
+      ]);
+      const out = {
+        teamId: team?.id ?? null,
+        mine: mios.matches ?? [],
+        others: liga.matches ?? [],
+        fetchedAt: Date.now(),
+      };
+      cache.set(ck, { ts: Date.now(), data: out });
+      return out;
+    } catch (e) {
+      // Aquí NO se sirve caché caducada: un marcador viejo presentado como
+      // "en vivo" es peor que no enseñar nada.
+      return { error: String((e as Error).message) };
     }
   }
 

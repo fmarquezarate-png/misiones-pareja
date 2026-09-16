@@ -7,6 +7,40 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.36.0] — 2026-09-16 · Pestaña «En vivo»
+
+Primera pestaña de **Mi Equipo**, y la que abre. Los partidos en juego **ahora mismo** con el marcador refrescándose solo: el de tu equipo arriba y resaltado (llegue por la liga, por la Champions o por la Copa, porque la consulta de equipo no filtra por competición), y debajo el resto de la jornada ordenados por goles.
+
+Cuando no hay nada en directo —que es casi siempre— la pantalla no se queda vacía: **cuenta atrás al próximo partido** (`en 2 h 15 min`) con los dos escudos, y el **último resultado**.
+
+### El ritmo de sondeo es una decisión, no un `setInterval`
+
+El plan gratuito de football-data da **10 peticiones por minuto para toda la app**. Sondear cada 5 segundos "porque es en vivo" dejaría sin datos a la clasificación, al pronóstico y a los goleadores, no solo a esta pestaña. `pollDelay` (puro, con tests) decide:
+
+| Situación | Ritmo |
+|---|---|
+| Hay algo en juego | 45 s |
+| Saque inicial cerca (−20 min a +2 h 30) | 90 s |
+| Nada a la vista | 5 min |
+| **Pestaña oculta / app en segundo plano** | **no se pide nada** |
+
+Un solo `setTimeout` reprogramado tras cada respuesta, nunca un `setInterval` que se solape si una petición tarda más que el intervalo. En el servidor, caché de 25 s: varias pestañas abiertas no multiplican las peticiones.
+
+### Lo que no se inventa
+
+- **El minuto de juego** solo llega en los planes de pago de football-data. Si no viene, pone `En juego` — nunca un minuto estimado desde la hora de inicio. El descanso sí se distingue (`PAUSED` → «Descanso»).
+- **No hay caché local del marcador.** Un resultado guardado y pintado como "en vivo" es peor que no enseñar nada. Y si la última respuesta buena tiene más de 2 minutos, la cabecera lo avisa (`⚠ sin actualizar desde hace 4 min`) en lugar de disimularlo.
+- **Sin respaldo de openfootball**: esa fuente publica con días de retraso, así que para «en vivo» sencillamente no existe. Si la conexión en vivo no está, se dice y se manda a *Ajustes → Verificar*.
+- El partido propio llega por las **dos** consultas (equipo y liga) y saldría duplicado: `dedupe` lo corta.
+
+### Por dentro
+
+`src/lib/live.js` — estado, marcador, ritmo, cuenta atrás, orden, deduplicación y frescura, **puro y con 38 tests**. Entre ellos: que la pestaña oculta devuelve ritmo cero, que un partido recién empezado no vuelve al ritmo lento mientras el estado se propaga, y que `kickoffTs` usa medianoche **local** y no la trampa UTC de `new Date("YYYY-MM-DD")`.
+
+El latido del indicador anima solo `opacity` (nada de `box-shadow` en bucle) y el reset global de `prefers-reduced-motion` lo aterriza en su fotograma final, así que el punto nunca desaparece.
+
+---
+
 ## [5.35.0] — 2026-09-16 · La pestaña de Goles, con filtros propios
 
 ### Tres ejes, independientes

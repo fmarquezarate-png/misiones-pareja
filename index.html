@@ -53,6 +53,10 @@
       }
       /* Entrada escalonada de listas/tarjetas — respeta reduced-motion abajo */
       @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+      /* Latido del indicador de partido EN JUEGO. Solo `opacity`: compone en
+         GPU y no repinta. El reset de prefers-reduced-motion de más abajo lo
+         aterriza en su fotograma final, así que el punto nunca desaparece. */
+      @keyframes mpLivePulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
       /* ─── Reducir movimiento: red de seguridad GLOBAL ──────────────────
          Antes esto solo cubría dos casos concretos y cada componente tenía
          que acordarse por su cuenta — 18 de ellos no lo hacían. Este reset

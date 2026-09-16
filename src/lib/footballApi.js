@@ -126,6 +126,28 @@ export async function getTeamMatches(teamId) {
   }
 }
 
+// ── En vivo ─────────────────────────────────────────────────────────────────
+// SIN CACHÉ de localStorage a propósito: un marcador guardado de hace un rato
+// y pintado como "en vivo" es peor que no enseñar nada. La única caché es la
+// del servidor (25 s), que protege el límite de peticiones sin mentir.
+// No hay respaldo de openfootball: esa fuente publica con días de retraso, así
+// que para "en vivo" no existe. Si no hay conexión en vivo, se dice.
+export async function getLive(teamId) {
+  const team = teamById(teamId);
+  if (!team) return { source: "none", mine: [], others: [], fetchedAt: null };
+  try {
+    const j = await call({ action: "live", competition: team.league, teamName: team.names[0] });
+    return {
+      source: "live",
+      mine: (j.mine || []).map(normalizeLiveMatch).filter(Boolean),
+      others: (j.others || []).map(normalizeLiveMatch).filter(Boolean),
+      fetchedAt: j.fetchedAt || Date.now(),
+    };
+  } catch (e) {
+    return { source: "none", mine: [], others: [], fetchedAt: null, error: String(e.message || e) };
+  }
+}
+
 // ── Goleadores ──────────────────────────────────────────────────────────────
 // `limit` alto a propósito: para poder filtrar "solo mi equipo" hace falta
 // bajar bastante en la tabla de la competición — un jugador con 3 goles no
@@ -234,6 +256,10 @@ export function normalizeLiveMatch(m) {
   if (isNaN(d.getTime())) return null;
   const pad = n => String(n).padStart(2, "0");
   return {
+    id: m.id ?? null,
+    // El minuto de juego solo viene en los planes de pago. Si no llega, se
+    // queda en null y la UI no lo pinta — nunca se estima.
+    minute: Number.isFinite(m.minute) ? m.minute : null,
     date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
     time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
     comp: compLabel(m.competition?.code),

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { LEAGUES, teamsOfLeague, teamById } from "../lib/teams.js";
-import { getStandings, getTeamMatches, getScorersMulti, getCompetitionMatches, getPriorSeason } from "../lib/footballApi.js";
+import { getStandings, getTeamMatches, getScorersMulti, getCompetitionMatches, getPriorSeason, getLive } from "../lib/footballApi.js";
+import { estadoEnVivo, marcadorEnVivo, pollDelay, kickoffTs, cuentaAtras, ordenarEnVivo, dedupe, frescura } from "../lib/live.js";
 import { mergeScorers, sortScorers, filterMyTeam, hasAssists, totales, participaciones, compsConGoleadores, MODOS } from "../lib/scorers.js";
 import { projectSeason, matchPreview, mulberry32 } from "../lib/montecarlo.js";
 import { fixtureToMission, mergeFixtures, fixtureKey } from "../lib/football.js";
@@ -11,6 +12,7 @@ import TeamCrest from "./TeamCrest.jsx";
 import { uid } from "../utils.js";
 
 const SECCIONES = [
+  { id: "envivo",       label: "En vivo" },
   { id: "calendario",   label: "Partidos" },
   { id: "clasificacion",label: "Tablas" },
   { id: "pronostico",   label: "Pronóstico" },
@@ -99,7 +101,7 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
   const cfg = settings.team || {};
   const teamId = cfg.id || settings.myTeam || null;
   const team = teamById(teamId);
-  const [sec, setSec] = useState("calendario");
+  const [sec, setSec] = useState("envivo");
   const [data, setData] = useState(null);          // { source, matches }
   const [tabla, setTabla] = useState(null);
   const [comp, setComp] = useState(null);          // competición de la tabla
@@ -303,6 +305,8 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
 
       {sec === "pronostico" && <Pronostico proj={proj} team={team} proximo={proximos[0]} tabla={tabla} />}
 
+      {sec === "envivo" && <EnVivo team={team} proximo={proximos[0]} ultimo={pasados[0]} />}
+
       {sec === "jugadores" && <Goleadores team={team} ligaLabel={liga?.short || "Liga"} />}
 
       {sec === "ajustes" && (
@@ -338,6 +342,168 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
           />
         </>
       )}
+    </div>
+  );
+}
+
+// ── EN VIVO ─────────────────────────────────────────────────────────────────
+//
+// Dos decisiones que mandan aquí:
+//
+//  · El ritmo de sondeo NO es un `setInterval` fijo. Con 10 peticiones/minuto
+//    de cuota, sondear cada 5 s dejaría sin datos a la app entera. `pollDelay`
+//    (puro y probado) decide: 45 s con algo en juego, 90 s si el saque inicial
+//    está cerca, 5 min en reposo — y CERO con la pestaña oculta.
+//  · Un marcador viejo pintado como "en vivo" es peor que no enseñar nada. No
+//    se guarda en caché local y se dice cuándo se consultó por última vez.
+function EnVivo({ team, proximo, ultimo }) {
+  const [res, setRes] = useState(null);
+  const [ahora, setAhora] = useState(() => Date.now());   // reloj de la cuenta atrás
+  const [visible, setVisible] = useState(typeof document === "undefined" || !document.hidden);
+
+  const proximoTs = useMemo(() => (proximo ? kickoffTs(proximo) : null), [proximo]);
+
+  const partidos = useMemo(() => {
+    if (!res || res.source !== "live") return [];
+    return ordenarEnVivo(dedupe([...(res.mine || []), ...(res.others || [])]), team.id);
+  }, [res, team.id]);
+  const hayEnVivo = partidos.length > 0;
+
+  // El navegador deja de contar cuando la pantalla se apaga: sin esto, volver
+  // a abrir la app mostraría el marcador de hace media hora como si fuera de
+  // ahora, y además se seguiría gastando cuota con la pestaña en segundo plano.
+  useEffect(() => {
+    const onVis = () => {
+      setVisible(!document.hidden);
+      // Al volver, el reloj se pone al día en el acto: si no, la cuenta atrás
+      // seguiría en el minuto en que se apagó la pantalla.
+      if (!document.hidden) setAhora(Date.now());
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  // Sondeo. Un único `setTimeout` que se reprograma tras cada respuesta, nunca
+  // un `setInterval` que se solapa si una petición tarda más que el intervalo.
+  useEffect(() => {
+    let vivo = true;
+    let timer = null;
+
+    const pedir = async () => {
+      const d = await getLive(team.id);
+      if (!vivo) return;
+      setRes(d);
+      const hay = d.source === "live" && ((d.mine?.length || 0) + (d.others?.length || 0)) > 0;
+      const espera = pollDelay({ hayEnVivo: hay, visible: !document.hidden, proximoTs });
+      if (espera > 0) timer = setTimeout(pedir, espera);
+    };
+
+    if (visible) pedir();
+    return () => { vivo = false; if (timer) clearTimeout(timer); };
+  }, [team.id, proximoTs, visible]);
+
+  // La cuenta atrás y el "hace X" se refrescan solos cada 30 s. Con la
+  // pestaña oculta el reloj se para: no hay nada que mirar y el navegador
+  // estrangula los temporizadores de todas formas.
+  useEffect(() => {
+    if (!visible) return;
+    const t = setInterval(() => setAhora(Date.now()), 30e3);
+    return () => clearInterval(t);
+  }, [visible]);
+
+  const fresco = frescura(res?.fetchedAt, ahora);
+  const sinConexion = res && res.source !== "live";
+
+  return (
+    <>
+      <div style={card()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={secTitle()}>{hayEnVivo ? "Ahora mismo" : "En vivo"}</div>
+          {res && !sinConexion && (
+            <span style={{ fontSize: 10, color: fresco.fresco ? "var(--t-text-dim,#8f84ad)" : "#fbbf24" }}>
+              {fresco.fresco ? `actualizado ${fresco.texto}` : `⚠ sin actualizar desde ${fresco.texto}`}
+            </span>
+          )}
+        </div>
+
+        {!res ? <div style={vacio()}>Buscando partidos en juego…</div>
+          : sinConexion ? (
+            <div style={vacio()}>
+              El marcador en directo necesita la conexión en vivo — la fuente de respaldo publica con
+              días de retraso, así que para esto no sirve. Compruébalo en <b>Ajustes → Verificar</b>.
+            </div>
+          ) : hayEnVivo ? (
+            partidos.map((m, i) => <TarjetaEnVivo key={m.id ?? i} m={m} teamId={team.id} />)
+          ) : (
+            <div style={vacio()}>No hay ningún partido en juego ahora mismo.</div>
+          )}
+      </div>
+
+      {/* Cuando no hay nada en directo, lo útil es saber cuánto falta. */}
+      {!hayEnVivo && proximo && (
+        <div style={{ ...card(), marginTop: 10, textAlign: "center" }}>
+          <div style={secTitle()}>Próximo partido</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, margin: "4px 0 8px" }}>
+            <TeamCrest teamId={proximo.homeId} size={30} />
+            <span style={{ fontSize: 13, color: "var(--t-text-muted,#b9b0d0)" }}>vs</span>
+            <TeamCrest teamId={proximo.awayId} size={30} />
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--t-accent,#c4b8ff)", fontFamily: "'Fraunces',serif" }}>
+            {cuentaAtras(proximoTs, ahora, { conHora: !!proximo.time }) || "—"}
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", marginTop: 3 }}>
+            {humanDate(proximo.date)}{proximo.time ? ` · ${proximo.time}` : " · hora por confirmar"}
+            {proximo.comp ? ` · ${proximo.comp}` : ""}
+          </div>
+        </div>
+      )}
+
+      {!hayEnVivo && ultimo && (
+        <div style={{ ...card(), marginTop: 10 }}>
+          <div style={secTitle()}>Último resultado</div>
+          <FilaPartido m={ultimo} teamId={team.id} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function TarjetaEnVivo({ m, teamId }) {
+  const est = estadoEnVivo(m);
+  const sc = marcadorEnVivo(m) || [0, 0];
+  const mio = m.homeId === teamId || m.awayId === teamId;
+  const nombre = (id, crudo) => teamById(id)?.short || String(crudo || "").replace(/\s+(FC|CF|AFC|SAD|CP)$/i, "");
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", marginBottom: 8,
+      borderRadius: 12,
+      background: mio ? "var(--t-accent-soft,rgba(167,139,250,0.12))" : "rgba(255,255,255,0.03)",
+      border: `1px solid ${mio ? "rgba(167,139,250,0.45)" : "var(--t-card-border,rgba(167,139,250,0.14))"}`,
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+          <TeamCrest teamId={m.homeId} size={20} />
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--t-text,#f0e8ff)", lineHeight: 1.3 }}>{nombre(m.homeId, m.home)}</span>
+          <span style={{ fontSize: 17, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontVariantNumeric: "tabular-nums" }}>{sc[0]}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <TeamCrest teamId={m.awayId} size={20} />
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--t-text,#f0e8ff)", lineHeight: 1.3 }}>{nombre(m.awayId, m.away)}</span>
+          <span style={{ fontSize: 17, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontVariantNumeric: "tabular-nums" }}>{sc[1]}</span>
+        </div>
+      </div>
+      <div style={{ flexShrink: 0, textAlign: "right" }}>
+        <span style={{
+          ...pill(est.color),
+          // `animation` y no `box-shadow` en bucle: solo opacidad, que compone.
+          // El reset global de index.html lo aterriza con reducir-movimiento.
+          animation: est.pulso ? "mpLivePulse 1.6s ease-in-out infinite" : undefined,
+        }}>
+          {est.pulso ? "● " : ""}{est.texto}
+        </span>
+        {m.comp && <div style={{ fontSize: 9.5, color: "var(--t-text-dim,#8f84ad)", marginTop: 4 }}>{m.comp}</div>}
+      </div>
     </div>
   );
 }
