@@ -35,6 +35,10 @@ const corsHeaders = {
 
 const BASE = 'https://api.football-data.org/v4';
 
+// Se devuelve en ?probe=1 y en la acción 'probe'. Sirve para que la app pueda
+// distinguir "desplegada con el código de hoy" de "desplegada hace meses".
+const FN_VERSION = '2026-09-16';
+
 // Códigos de competición de football-data. El plan gratuito cubre estas.
 const COMPETITIONS: Record<string, { code: string; name: string }> = {
   'es.1': { code: 'PD', name: 'LaLiga' },
@@ -173,6 +177,30 @@ async function handle(body: any, key: string) {
     }
   }
 
+  // Autodiagnóstico. No se limita a decir "estoy viva": llama de verdad a
+  // football-data con la clave y devuelve el código HTTP que contesta. Una
+  // clave caducada o revocada da 403 y hasta ahora eso era indistinguible de
+  // "la función no está" — la app caía al respaldo en silencio.
+  if (action === 'probe') {
+    let upstream: Record<string, unknown> = { probado: false };
+    try {
+      const r = await fetch(`${BASE}/competitions/PD`, { headers: { 'X-Auth-Token': key } });
+      let msg = '';
+      try { msg = ((await r.json()) as { message?: string })?.message || ''; } catch { /* sin cuerpo */ }
+      upstream = { probado: true, status: r.status, ok: r.ok, mensaje: msg };
+    } catch (e) {
+      upstream = { probado: true, status: 0, ok: false, mensaje: String((e as Error).message) };
+    }
+    return {
+      ok: true,
+      fn: 'football',
+      version: FN_VERSION,
+      hasKey: true,
+      upstream,
+      competitions: Object.keys(COMPETITIONS),
+    };
+  }
+
   return { error: 'accion_desconocida' };
 }
 
@@ -182,7 +210,7 @@ serve(async req => {
   const url = new URL(req.url);
   if (url.searchParams.get('probe') === '1') {
     return new Response(JSON.stringify({
-      ok: true, fn: 'football',
+      ok: true, fn: 'football', version: FN_VERSION,
       hasKey: !!Deno.env.get('FOOTBALL_DATA_KEY'),
       competitions: Object.keys(COMPETITIONS),
     }), { headers: corsHeaders });

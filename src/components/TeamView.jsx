@@ -4,6 +4,8 @@ import { getStandings, getTeamMatches, getScorers, getCompetitionMatches, getPri
 import { projectSeason, matchPreview, mulberry32 } from "../lib/montecarlo.js";
 import { fixtureToMission, mergeFixtures, fixtureKey } from "../lib/football.js";
 import { humanDate } from "../lib/dateLabel.js";
+import { runChecks, resumen, PASOS, OK, AVISO } from "../lib/teamDiagnostics.js";
+import { APP_VERSION } from "../constants.js";
 import TeamCrest from "./TeamCrest.jsx";
 import { uid } from "../utils.js";
 
@@ -170,6 +172,9 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
   const mia = tabla?.table?.find(r => r.teamId === teamId);
 
   const setCfg = patch => onPatchSettings?.({ ...cfg, id: teamId, ...patch });
+
+  // Partidos que ya trajo la sincronización (llevan `fixtureKey`).
+  const enCalendario = useMemo(() => allMissions.filter(m => m?.fixtureKey).length, [allMissions]);
 
   // Un partido normalizado → misión, reusando la lógica ya probada.
   const toFixture = m => ({ date: m.date, time: m.time, team1: m.home, team2: m.away });
@@ -359,24 +364,109 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
             </Fila>
           </div>
 
-          <div style={{ ...card(), marginTop: 10 }}>
-            <div style={secTitle()}>Conexión de datos</div>
-            <div style={{ fontSize: 12.5, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.55 }}>
-              {data?.source === "live" ? (
-                <>✅ <b>En vivo</b>. Clasificación al minuto, Champions, Copa y goleadores.</>
-              ) : (
-                <>
-                  ⚠ Ahora mismo se usa la <b>fuente de respaldo</b> (openfootball), que va con días de retraso
-                  y solo trae la liga.<br /><br />
-                  Para tener datos en vivo hay que desplegar la función <code style={code()}>football</code> en
-                  Supabase con una clave de <b>football-data.org</b> (la misma de tu widget). Está escrita y
-                  lista en <code style={code()}>supabase/functions/football</code>; los pasos están en{" "}
-                  <code style={code()}>docs/mi-equipo-datos.md</code>.
-                </>
-              )}
-            </div>
-          </div>
+          <Diagnostico
+            team={team}
+            cfg={cfg}
+            enCalendario={enCalendario}
+            onRefrescar={() => { setData(null); setTabla(null); setScorers(null); setProj(null); setSec("calendario"); }}
+          />
         </>
+      )}
+    </div>
+  );
+}
+
+// Autodiagnóstico: en vez de un texto fijo que dice "si ves ⚠ respaldo, mira
+// la documentación", pregunta de verdad a cada pieza y dice qué falta. Cinco
+// causas distintas producían el mismo síntoma; aquí se separan.
+function Diagnostico({ team, cfg, enCalendario, onRefrescar }) {
+  const [estado, setEstado] = useState("idle");   // idle | corriendo | listo
+  const [checks, setChecks] = useState([]);
+
+  const verificar = async () => {
+    setEstado("corriendo");
+    const r = await runChecks({ team, cfg, enCalendario, appVersion: APP_VERSION });
+    setChecks(r);
+    setEstado("listo");
+    onRefrescar?.();
+  };
+
+  const actualizarApp = async () => {
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+      await Promise.all(regs.map(r => r.update().catch(() => {})));
+      regs.forEach(r => r.waiting?.postMessage({ type: "SKIP_WAITING" }));
+    } catch { /* sin SW */ }
+    setTimeout(() => window.location.reload(), 400);
+  };
+
+  const res = estado === "listo" ? resumen(checks) : null;
+  const necesitaActualizar = checks.some(c => c.accion === "actualizar");
+
+  return (
+    <div style={{ ...card(), marginTop: 10 }}>
+      <div style={secTitle()}>Conexión de datos</div>
+
+      {estado === "idle" && (
+        <div style={{ fontSize: 12.5, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.55 }}>
+          Comprueba de una sola vez si la conexión en vivo está funcionando y, si no,
+          qué falta exactamente por hacer.
+        </div>
+      )}
+
+      {estado === "corriendo" && <div style={vacio()}>Comprobando…</div>}
+
+      {res && (
+        <div style={{
+          fontSize: 13, fontWeight: 700, lineHeight: 1.5, marginBottom: 10,
+          color: res.estado === OK ? "#34d399" : res.estado === AVISO ? "#fbbf24" : "#f87171",
+        }}>
+          {res.estado === OK ? "✅" : res.estado === AVISO ? "⚠️" : "❌"} {res.texto}
+        </div>
+      )}
+
+      {checks.map(c => (
+        <div key={c.id} style={{
+          display: "flex", gap: 8, padding: "9px 0",
+          borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.14))",
+        }}>
+          <span style={{ fontSize: 14, lineHeight: 1.4, flexShrink: 0 }} aria-hidden>
+            {c.estado === OK ? "✅" : c.estado === AVISO ? "⚠️" : "❌"}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t-text,#f8f4ff)" }}>{c.titulo}</div>
+            <div style={{ fontSize: 12, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.5, marginTop: 2 }}>{c.detalle}</div>
+            {c.accion && PASOS[c.accion] && (
+              <div style={{
+                fontSize: 12, color: "var(--t-text,#f8f4ff)", lineHeight: 1.5, marginTop: 6,
+                background: "rgba(167,139,250,0.10)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.2))",
+                borderRadius: 9, padding: "7px 9px",
+              }}>
+                <b>Qué hacer:</b> {PASOS[c.accion]}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <button onClick={verificar} disabled={estado === "corriendo"} style={{
+          ...btnPrimary(), opacity: estado === "corriendo" ? 0.6 : 1,
+        }}>
+          {estado === "corriendo" ? "Comprobando…" : estado === "listo" ? "Verificar otra vez" : "Verificar"}
+        </button>
+        {necesitaActualizar && (
+          <button onClick={actualizarApp} style={{ ...btnPrimary(), background: "linear-gradient(135deg,#a78bfa,#7c3aed)" }}>
+            Actualizar la app
+          </button>
+        )}
+      </div>
+
+      {estado === "listo" && res?.estado !== OK && (
+        <div style={{ fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", lineHeight: 1.5, marginTop: 10 }}>
+          El detalle completo, con capturas de dónde va cada cosa, está en{" "}
+          <code style={code()}>docs/mi-equipo-datos.md</code>.
+        </div>
       )}
     </div>
   );

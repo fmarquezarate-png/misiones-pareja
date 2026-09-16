@@ -7,6 +7,35 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.34.0] — 2026-09-16 · «Verificar»: la app se autodiagnostica
+
+Fran desplegó la Edge Function siguiendo los pasos, el despliegue terminó en verde… y en la app **no cambió nada**. El problema no era el despliegue: era que **cinco causas distintas producen el mismo síntoma** (`⚠ respaldo`) y ninguna se podía distinguir desde la pantalla.
+
+### El botón
+
+**Mi Equipo → Ajustes → Verificar.** Comprueba en orden y dice, para cada cosa, si está bien y **qué hacer** si no:
+
+| Comprobación | Qué detecta que antes era invisible |
+|---|---|
+| **Versión de la app** | El móvil ejecuta un bundle viejo cacheado por el service worker. Se despliega bien y no se ve nada. Botón **«Actualizar la app»** que fuerza el relevo del SW y recarga. |
+| **Tu equipo** | Nunca se eligió equipo → todo vacío, indistinguible de «está roto». |
+| **Servidor de datos** | Desplegada / no desplegada / desplegada sin clave / **desplegada con una versión antigua del código**. |
+| **La clave** | **Una clave caducada o revocada daba 403 y la app caía al respaldo en silencio** — idéntico a «no hay función». La acción `probe` ahora llama de verdad a football-data y devuelve el HTTP real. |
+| **Frescura** | Qué fuente está contestando *ahora mismo* y **cuántos días de retraso** trae, con el número. |
+| **Calendario** | Cuántos partidos hay añadidos y si el aviso está apagado. |
+
+La caché de datos (10 min en `localStorage`) se tira antes de diagnosticar: si no, se estaría diagnosticando la respuesta de hace un rato.
+
+### Cómo están escritos los mensajes
+
+Ningún texto muestra una excepción cruda ni menciona una terminal (hay una prueba que lo verifica). Cada fallo dice qué significa **para quien lo lee** y cuál es el siguiente paso, con el nombre exacto del botón que tiene que pulsar.
+
+### Por dentro
+
+`src/lib/teamDiagnostics.js` — las funciones que emiten el veredicto son **puras y están probadas** (30 tests); solo `runChecks` toca la red, y cada comprobación va envuelta para que un fallo no tumbe las demás. Se incluye un test que obliga a que **toda acción devuelta tenga su texto de «qué hacer»**: una acción sin instrucciones sería un hueco justo cuando más falta hacen.
+
+---
+
 ## [5.33.0] — 2026-09-15 · Pronóstico: el Monte Carlo del widget, portado
 
 Pestaña nueva en **Mi Equipo → Pronóstico**: probabilidad de ganar la liga, de entrar en Champions, de jugar en Europa y de salvarse; puntos y puesto previstos; y el 1X2 del próximo partido con el marcador más probable.
