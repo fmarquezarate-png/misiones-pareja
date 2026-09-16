@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { LEAGUES, teamsOfLeague, teamById } from "../lib/teams.js";
-import { getStandings, getTeamMatches, getScorers, getCompetitionMatches, getPriorSeason } from "../lib/footballApi.js";
+import { getStandings, getTeamMatches, getScorersMulti, getCompetitionMatches, getPriorSeason } from "../lib/footballApi.js";
+import { mergeScorers, sortScorers, filterMyTeam, hasAssists, totales, participaciones, compsConGoleadores, MODOS } from "../lib/scorers.js";
 import { projectSeason, matchPreview, mulberry32 } from "../lib/montecarlo.js";
 import { fixtureToMission, mergeFixtures, fixtureKey } from "../lib/football.js";
 import { humanDate } from "../lib/dateLabel.js";
@@ -13,7 +14,7 @@ const SECCIONES = [
   { id: "calendario",   label: "Partidos" },
   { id: "clasificacion",label: "Tablas" },
   { id: "pronostico",   label: "Pronóstico" },
-  { id: "jugadores",    label: "Goleadores" },
+  { id: "jugadores",    label: "Goles" },
   { id: "ajustes",      label: "Ajustes" },
 ];
 
@@ -102,7 +103,6 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
   const [data, setData] = useState(null);          // { source, matches }
   const [tabla, setTabla] = useState(null);
   const [comp, setComp] = useState(null);          // competición de la tabla
-  const [scorers, setScorers] = useState(null);
   const [proj, setProj] = useState(null);       // { probs, projPts, projPos, sims } | "loading" | "error"
   const [state, setState] = useState("idle");
   const [picking, setPicking] = useState(!team);
@@ -153,13 +153,6 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
       .catch(() => { if (vivo) setProj("error"); });
     return () => { vivo = false; };
   }, [team, sec]);
-
-  useEffect(() => {
-    if (!team || sec !== "jugadores") return;
-    let vivo = true;
-    getScorers(comp || team.league).then(s => { if (vivo) setScorers(s); });
-    return () => { vivo = false; };
-  }, [team, sec, comp]);
 
   const hoy = new Date().toISOString().slice(0, 10);
   const pasados = (data?.matches || []).filter(m => m.date < hoy).slice(-3).reverse();
@@ -310,34 +303,7 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
 
       {sec === "pronostico" && <Pronostico proj={proj} team={team} proximo={proximos[0]} tabla={tabla} />}
 
-      {sec === "jugadores" && (
-        <div style={card()}>
-          <div style={secTitle()}>Goleadores · {comp === "cl" ? "Champions" : liga?.name}</div>
-          {!scorers ? <div style={vacio()}>Cargando…</div>
-            : scorers.scorers?.length ? (
-              <>
-                {scorers.scorers.slice(0, 15).map((s, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(167,139,250,0.08)" }}>
-                    <span style={{ width: 18, fontSize: 11, color: "var(--t-text-dim,#8f84ad)", textAlign: "right" }}>{i + 1}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: "var(--t-text,#f0e8ff)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
-                      <div style={{ fontSize: 10.5, color: "var(--t-text-dim,#8f84ad)" }}>{s.teamName}</div>
-                    </div>
-                    {s.assists != null && <span style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)", flexShrink: 0 }}>{s.assists} asist.</span>}
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "var(--t-accent,#c4b8ff)", flexShrink: 0, minWidth: 22, textAlign: "right" }}>{s.goals}</span>
-                  </div>
-                ))}
-                <div style={{ fontSize: 10.5, color: "var(--t-text-dim,#8f84ad)", marginTop: 10, lineHeight: 1.45 }}>
-                  Goles y asistencias de la competición. Las tarjetas y la valoración media no las publica ninguna fuente abierta — ver Ajustes.
-                </div>
-              </>
-            ) : (
-              <div style={vacio()}>
-                Los goleadores necesitan la conexión en vivo. Mira los Ajustes para activarla.
-              </div>
-            )}
-        </div>
-      )}
+      {sec === "jugadores" && <Goleadores team={team} ligaLabel={liga?.short || "Liga"} />}
 
       {sec === "ajustes" && (
         <>
@@ -368,12 +334,189 @@ export default function TeamView({ settings = {}, allMissions = [], onPatchSetti
             team={team}
             cfg={cfg}
             enCalendario={enCalendario}
-            onRefrescar={() => { setData(null); setTabla(null); setScorers(null); setProj(null); setSec("calendario"); }}
+            onRefrescar={() => { setData(null); setTabla(null); setProj(null); setSec("calendario"); }}
           />
         </>
       )}
     </div>
   );
+}
+
+// Goleadores y asistentes.
+//
+// Tres filtros INDEPENDIENTES, y en particular el de competición es suyo: antes
+// compartía estado con la pestaña Tablas, así que para ver los goleadores de
+// Champions había que ir a Tablas, cambiar allí y volver.
+//
+//   [ Liga · Champions · Todas ]   ← competición (propia de esta pestaña)
+//   [ Goleadores · Asistentes ]    ← qué métrica manda
+//   [ Mi equipo · Todos ]          ← ámbito
+//
+// En "Mi equipo" la lista se convierte en tabla de PARTICIPACIONES (G, A, G+A),
+// que es la pregunta que de verdad se hace uno sobre su propio equipo.
+function Goleadores({ team, ligaLabel }) {
+  const [compSel, setCompSel] = useState(team.league);
+  const [modo, setModo] = useState("goles");
+  const [soloMio, setSoloMio] = useState(true);
+  const [res, setRes] = useState(null);           // { entries, parciales, source, updatedAt } | "error"
+
+  const compsGoles = useMemo(() => compsConGoleadores(team.league, ligaLabel), [team.league, ligaLabel]);
+
+  useEffect(() => {
+    let vivo = true;
+    setRes(null);
+    const ids = compSel === "todas" ? [team.league, "cl"] : [compSel];
+    getScorersMulti(ids)
+      .then(r => { if (vivo) setRes(r); })
+      .catch(() => { if (vivo) setRes("error"); });
+    return () => { vivo = false; };
+  }, [team.league, compSel]);
+
+  const todos = useMemo(() => mergeScorers(res?.entries || []), [res]);
+  const mios = useMemo(() => filterMyTeam(todos, team.id, team.tla), [todos, team.id, team.tla]);
+  const filas = soloMio ? mios : todos;
+  const ordenadas = useMemo(() => sortScorers(filas, modo), [filas, modo]);
+  const conAsistencias = hasAssists(filas);
+  const tot = totales(mios);
+
+  // Sin asistencias publicadas no tiene sentido dejar el modo puesto: se
+  // vería una lista entera de ceros como si nadie hubiera asistido nunca.
+  const modoEfectivo = modo === "asistencias" && !conAsistencias ? "goles" : modo;
+
+  return (
+    <div style={card()}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {compsGoles.map(c => (
+          <button key={c.id} onClick={() => setCompSel(c.id)} style={chip(compSel === c.id)}>{c.label}</button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {Object.entries(MODOS).map(([id, m]) => (
+          <button key={id} onClick={() => setModo(id)}
+            disabled={id === "asistencias" && res && !conAsistencias}
+            title={id === "asistencias" && res && !conAsistencias ? "Esta competición no publica asistencias" : undefined}
+            style={{ ...chip(modoEfectivo === id), opacity: id === "asistencias" && res && !conAsistencias ? 0.45 : 1 }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <button onClick={() => setSoloMio(true)} style={chip(soloMio)}>
+          <TeamCrest teamId={team.id} size={14} /><span style={{ marginLeft: 5 }}>Mi equipo</span>
+        </button>
+        <button onClick={() => setSoloMio(false)} style={chip(!soloMio)}>Todos los equipos</button>
+      </div>
+
+      {!res ? <div style={vacio()}>Cargando…</div>
+        : res === "error" || !ordenadas.length ? (
+          <div style={vacio()}>
+            {res !== "error" && res.source === "live"
+              ? (soloMio
+                  ? `Ningún jugador del ${team.short} aparece entre los máximos goleadores de ${compSel === "todas" ? "estas competiciones" : "esta competición"} todavía.`
+                  : "La fuente no ha publicado goleadores de esta competición.")
+              : "Los goleadores necesitan la conexión en vivo. Mira los Ajustes para activarla."}
+          </div>
+        ) : (
+          <>
+            {soloMio && (
+              <div style={{
+                display: "flex", gap: 14, alignItems: "baseline", marginBottom: 10, paddingBottom: 10,
+                borderBottom: "1px solid var(--t-card-border,rgba(167,139,250,0.16))",
+              }}>
+                <Dato n={tot.goles} label="goles" />
+                {conAsistencias && <Dato n={tot.asistencias} label="asistencias" />}
+                {conAsistencias && <Dato n={tot.goles + tot.asistencias} label="participaciones" destacado />}
+              </div>
+            )}
+
+            {soloMio
+              ? <TablaParticipaciones rows={ordenadas} modo={modoEfectivo} conAsistencias={conAsistencias} />
+              : <ListaRanking rows={ordenadas.slice(0, 20)} modo={modoEfectivo} teamId={team.id} />}
+
+            <div style={{ fontSize: 10.5, color: "var(--t-text-dim,#8f84ad)", marginTop: 10, lineHeight: 1.5 }}>
+              {compSel === "todas"
+                ? <>Suma de {ligaLabel} y Champions. </>
+                : null}
+              {res.parciales?.length ? <>No se han podido traer los datos de {res.parciales.join(" ni ")}, así que el total va incompleto. </> : null}
+              {soloMio ? <>Solo salen los jugadores que entran en los máximos goleadores de la competición, así que un jugador con muy pocos goles puede no aparecer. </> : null}
+              Las tarjetas y la valoración media no las publica ninguna fuente abierta.
+            </div>
+          </>
+        )}
+    </div>
+  );
+}
+
+function Dato({ n, label, destacado }) {
+  return (
+    <div>
+      <div style={{ fontSize: destacado ? 20 : 17, fontWeight: 700, color: destacado ? "var(--t-accent,#c4b8ff)" : "var(--t-text,#f8f4ff)", lineHeight: 1.1 }}>{n}</div>
+      <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{label}</div>
+    </div>
+  );
+}
+
+// Vista "mi equipo": la tabla de participaciones de gol de la temporada.
+function TablaParticipaciones({ rows, modo, conAsistencias }) {
+  const th = { fontSize: 10, color: "var(--t-text-dim,#8f84ad)", fontWeight: 700, textAlign: "right", padding: "0 0 6px" };
+  const td = { fontSize: 13, textAlign: "right", padding: "7px 0", fontVariantNumeric: "tabular-nums" };
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th style={{ ...th, textAlign: "left" }}>Jugador</th>
+          <th style={{ ...th, width: 34, color: modo === "goles" ? "var(--t-accent,#c4b8ff)" : undefined }}>G</th>
+          {conAsistencias && <th style={{ ...th, width: 34, color: modo === "asistencias" ? "var(--t-accent,#c4b8ff)" : undefined }}>A</th>}
+          {conAsistencias && <th style={{ ...th, width: 42 }}>G+A</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map(r => (
+          <tr key={`${r.name}|${r.teamName}`} style={{ borderTop: "1px solid rgba(167,139,250,0.08)" }}>
+            <td style={{ ...td, textAlign: "left", color: "var(--t-text,#f0e8ff)", lineHeight: 1.35 }}>
+              {r.name}
+              {Object.keys(r.porComp || {}).length > 1 && (
+                <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>
+                  {Object.entries(r.porComp).map(([c, v]) => `${c} ${v.g}`).join(" · ")}
+                </div>
+              )}
+            </td>
+            <td style={{ ...td, color: "var(--t-text,#f0e8ff)", fontWeight: modo === "goles" ? 700 : 400 }}>{r.goals}</td>
+            {conAsistencias && <td style={{ ...td, color: "var(--t-text,#f0e8ff)", fontWeight: modo === "asistencias" ? 700 : 400 }}>{r.assists ?? "—"}</td>}
+            {conAsistencias && <td style={{ ...td, color: "var(--t-accent,#c4b8ff)", fontWeight: 700 }}>{participaciones(r)}</td>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// Vista "todos los equipos": ranking clásico, con el escudo de cada club.
+function ListaRanking({ rows, modo, teamId }) {
+  const campo = MODOS[modo].campo;
+  return rows.map((s, i) => {
+    const suyo = teamById(teamId) && filterMyTeam([s], teamId).length > 0;
+    return (
+      <div key={`${s.name}|${s.teamName}`} style={{
+        display: "flex", alignItems: "center", gap: 8, padding: "7px 0",
+        borderBottom: "1px solid rgba(167,139,250,0.08)",
+      }}>
+        <span style={{ width: 18, fontSize: 11, color: "var(--t-text-dim,#8f84ad)", textAlign: "right" }}>{i + 1}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: suyo ? "var(--t-accent,#c4b8ff)" : "var(--t-text,#f0e8ff)", fontWeight: suyo ? 600 : 400, lineHeight: 1.35 }}>{s.name}</div>
+          <div style={{ fontSize: 10.5, color: "var(--t-text-dim,#8f84ad)" }}>{s.teamName}</div>
+        </div>
+        <span style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)", flexShrink: 0 }}>
+          {modo === "goles" ? (s.assists != null ? `${s.assists} A` : "") : `${s.goals} G`}
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--t-accent,#c4b8ff)", flexShrink: 0, minWidth: 22, textAlign: "right" }}>
+          {s[campo] ?? "—"}
+        </span>
+      </div>
+    );
+  });
 }
 
 // Autodiagnóstico: en vez de un texto fijo que dice "si ves ⚠ respaldo, mira
@@ -629,5 +772,13 @@ const secTitle = () => ({ fontSize: 11, color: "var(--t-text-muted,#b9b0d0)", te
 const vacio = () => ({ fontSize: 12.5, color: "var(--t-text-dim,#8f84ad)", fontStyle: "italic", padding: "6px 0", lineHeight: 1.5 });
 const btnPrimary = () => ({ marginTop: 10, padding: "8px 16px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "#fff", border: "none", background: "linear-gradient(135deg,#34d399,#10b981)" });
 const btnGhost = () => ({ display: "flex", alignItems: "center", padding: "6px 12px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, color: "var(--t-text-muted,#b9b0d0)", background: "transparent", border: "1px solid var(--t-card-border,rgba(167,139,250,0.2))" });
+const chip = activo => ({
+  display: "flex", alignItems: "center", justifyContent: "center", flex: 1,
+  padding: "6px 10px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit",
+  fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+  background: activo ? "var(--t-accent-soft,rgba(167,139,250,0.18))" : "transparent",
+  color: activo ? "var(--t-accent,#c4b8ff)" : "var(--t-text-muted,#b9b0d0)",
+  border: `1px solid ${activo ? "rgba(167,139,250,0.5)" : "var(--t-card-border,rgba(167,139,250,0.2))"}`,
+});
 const pill = c => ({ display: "inline-block", fontSize: 10.5, fontWeight: 600, padding: "3px 9px", borderRadius: 99, background: `${c}1a`, color: c, border: `1px solid ${c}44` });
 const code = () => ({ background: "rgba(167,139,250,0.14)", padding: "1px 5px", borderRadius: 5, fontSize: 11.5 });

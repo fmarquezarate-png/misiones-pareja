@@ -7,6 +7,34 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.35.0] — 2026-09-16 · La pestaña de Goles, con filtros propios
+
+### Tres ejes, independientes
+
+```
+[ LaLiga · Champions · Todas ]   ← competición (ANTES vivía en la pestaña Tablas)
+[ Goleadores · Asistentes ]      ← qué métrica manda
+[ Mi equipo · Todos ]            ← ámbito
+```
+
+El filtro de competición lo compartían Tablas y Goleadores a través de un único `comp` en el componente padre: para ver los goleadores de Champions había que ir a Tablas, cambiarlo allí y volver. Ahora cada pestaña tiene el suyo.
+
+### Participaciones de gol
+
+En **Mi equipo** la lista se convierte en tabla: **G · A · G+A** por jugador, con el total del equipo arriba. Con la competición en **Todas** se suman Liga y Champions, y a un jugador que ha marcado en las dos se le ve el desglose bajo el nombre (`Liga 8 · Champions 3`).
+
+### Lo que NO se inventa
+
+- **`null` no es `0`.** El plan gratuito de football-data publica asistencias en unas competiciones y en otras no. Si no las publica, el botón *Asistentes* se apaga con su explicación y las columnas de asistencias desaparecen — en vez de una lista de ceros que diría que nadie ha asistido nunca. La suma respeta el `null`: dos desconocidos suman desconocido, y si una competición sí lo trae se cuenta esa.
+- **La Copa del Rey no tiene botón.** No está en el plan gratuito, así que ofrecerla sería prometer datos que no llegan.
+- **El filtro «mi equipo» dice su límite**: la fuente publica los máximos goleadores *de la competición*, así que un jugador con muy pocos goles puede no aparecer. El `limit` sube de 20 a 100 (cliente y Edge Function) para que quepan los suplentes.
+
+### Por dentro
+
+`src/lib/scorers.js` — fusión, filtrado, orden y totales, **puro y con 23 tests**. Fija el caso trampa de siempre (`filterMyTeam` no cuela al *RCD Espanyol de Barcelona* en el Barça), que dos homónimos de equipos distintos no se fusionen, y que el orden tenga desempate estable para que la lista no baile entre recargas.
+
+---
+
 ## [5.34.0] — 2026-09-16 · «Verificar»: la app se autodiagnostica
 
 Fran desplegó la Edge Function siguiendo los pasos, el despliegue terminó en verde… y en la app **no cambió nada**. El problema no era el despliegue: era que **cinco causas distintas producen el mismo síntoma** (`⚠ respaldo`) y ninguna se podía distinguir desde la pantalla.

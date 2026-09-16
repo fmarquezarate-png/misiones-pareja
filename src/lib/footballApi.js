@@ -127,18 +127,44 @@ export async function getTeamMatches(teamId) {
 }
 
 // ── Goleadores ──────────────────────────────────────────────────────────────
-export async function getScorers(competitionId, limit = 20) {
-  const ck = `sc-${competitionId}`;
+// `limit` alto a propósito: para poder filtrar "solo mi equipo" hace falta
+// bajar bastante en la tabla de la competición — un jugador con 3 goles no
+// está entre los 20 primeros de LaLiga, pero sí es el tercer goleador de su
+// equipo. La caché va por competición Y por límite.
+export async function getScorers(competitionId, limit = 100) {
+  const ck = `sc-${competitionId}-${limit}`;
   const env = readCache(ck);
   if (env && Date.now() - env.ts < 60 * 60 * 1000) return env.data;
   try {
     const j = await call({ action: "scorers", competition: competitionId, limit });
-    const out = { source: "live", scorers: j.scorers || [], updatedAt: j.fetchedAt || Date.now() };
+    const out = { source: "live", competition: j.competition || null, scorers: j.scorers || [], updatedAt: j.fetchedAt || Date.now() };
     writeCache(ck, out);
     return out;
   } catch {
-    return env?.data || { source: "none", scorers: [] };
+    return env?.data || { source: "none", competition: null, scorers: [] };
   }
+}
+
+// Varias competiciones a la vez, para el modo "Todas". Devuelve las entradas
+// por separado (con su etiqueta) para que la fusión pueda decir de dónde sale
+// cada gol. Una competición que falle no tumba a las demás: se omite y se
+// refleja en `parciales`, para poder avisar de que el total está incompleto.
+export async function getScorersMulti(competitionIds = [], limit = 100) {
+  const res = await Promise.all(competitionIds.map(id =>
+    getScorers(id, limit)
+      .then(r => ({ id, ok: (r.scorers || []).length > 0, comp: r.competition || compIdLabel(id), scorers: r.scorers || [], source: r.source, updatedAt: r.updatedAt }))
+      .catch(() => ({ id, ok: false, comp: compIdLabel(id), scorers: [], source: "none" }))
+  ));
+  return {
+    entries: res.filter(r => r.ok).map(({ comp, scorers }) => ({ comp, scorers })),
+    parciales: res.filter(r => !r.ok).map(r => r.comp),
+    source: res.some(r => r.source === "live") ? "live" : "none",
+    updatedAt: Math.max(0, ...res.map(r => r.updatedAt || 0)) || null,
+  };
+}
+
+export function compIdLabel(id) {
+  return { "es.1": "Liga", "en.1": "Premier", cl: "Champions" }[id] || id;
 }
 
 

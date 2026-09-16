@@ -155,11 +155,15 @@ async function handle(body: any, key: string) {
   if (action === 'scorers') {
     const comp = COMPETITIONS[body.competition];
     if (!comp) return { error: 'competicion_desconocida' };
-    const ck = `scorers:${comp.code}`;
+    // Límite alto: la app filtra "solo mi equipo" del lado del cliente, y para
+    // que aparezca el tercer goleador de un equipo hay que bajar bastante en la
+    // tabla de la competición. La caché va por código Y por límite.
+    const lim = Math.min(Math.max(body.limit ?? 100, 1), 100);
+    const ck = `scorers:${comp.code}:${lim}`;
     const fresh = cached(ck, TTL.scorers);
     if (fresh) return fresh;
     try {
-      const j = await fd(`/competitions/${comp.code}/scorers?limit=${Math.min(body.limit ?? 20, 50)}`, key);
+      const j = await fd(`/competitions/${comp.code}/scorers?limit=${lim}`, key);
       const out = {
         competition: comp.name,
         scorers: (j.scorers ?? []).map((s: any) => ({
