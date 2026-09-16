@@ -7,6 +7,32 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.37.0] — 2026-09-16 · El partido en vivo se queda con el inicio
+
+Mientras el equipo esté **jugando de verdad** (`IN_PLAY` o `PAUSED`), la parte de arriba de la pantalla de inicio la ocupa el marcador —escudos grandes, goles, minuto si la fuente lo publica— en lugar de la notita, el agradecimiento y la idea del día. En cuanto pita el final vuelve todo solo, sin tocar nada. Toda la tarjeta es el botón que lleva a *Mi Equipo → En vivo*.
+
+**Lo que NO cambia:** el resto del inicio (semana, hoy, próximos, atrasadas, pulso) se queda como está. Y sin equipo elegido, o sin partido, no cambia absolutamente nada.
+
+### El problema real: el inicio está abierto todo el rato
+
+Sondear "por si acaso" gastaría cuota y batería los 365 días del año para servir 38 tardes. El bucle mira **primero el calendario del equipo** —que ya está cacheado 10 min en `localStorage`, así que casi siempre es gratis— y solo llama al marcador **dentro de la ventana de un partido** (`proximaVentana`: desde 10 min antes del saque inicial hasta 2 h 45 después). Fuera de ella no toca la red: duerme hasta que la ventana se abra, despertando en el momento exacto en vez de a intervalos fijos. Un partido ya terminado, aplazado o cancelado no reabre la ventana.
+
+Con la app en segundo plano no se pide **nada**, y el primer ciclo se retrasa 3 s para no competir con el arranque — el historial del proyecto está lleno de arranques lentos por llamadas «best-effort» metidas en la cadena crítica.
+
+### Dónde vive el estado
+
+En `App`, el ancestro común (regla de oro de §2), y no dentro del bloque del inicio — que se pinta dentro de una función, donde un hook no puede llamarse, y además va después de los `return` tempranos de carga y error.
+
+### Bundling
+
+El primer intento metió `footballApi` (catálogo de equipos + openfootball + clasificación) en el chunk que se parsea en **cada arranque**: +17 KB medidos, para una función que sirve 38 tardes al año. Corregido según la regla de §5: `footballApi` se carga con `import()` dinámico desde el hook y `LiveMatchCard` va en su propio chunk (2,7 KB) con `lazy()`. Coste final en el arranque: +4,5 KB, solo la lógica pura que decide si hay partido.
+
+### Por dentro
+
+`proximaVentana` y `miPartidoEnVivo` en `src/lib/live.js`, **puras y con 16 tests nuevos** (54 en el módulo). Entre ellos: que un partido terminado no reabre la ventana, que el inicio solo cambia mientras se juega, que el descanso sí cuenta, y que un martes cualquiera la espera es la máxima de una hora.
+
+---
+
 ## [5.36.0] — 2026-09-16 · Pestaña «En vivo»
 
 Primera pestaña de **Mi Equipo**, y la que abre. Los partidos en juego **ahora mismo** con el marcador refrescándose solo: el de tu equipo arriba y resaltado (llegue por la liga, por la Champions o por la Copa, porque la consulta de equipo no filtra por competición), y debajo el resto de la jornada ordenados por goles.

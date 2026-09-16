@@ -16,6 +16,7 @@ import { computeStreakDelta } from "./lib/streak.js";
 import { migrateBlob } from "./lib/migrateBlob.js";
 import { todaysGratitudes, GRATITUDE_MAX } from "./lib/gratitude.js";
 import GratitudeCard from "./components/GratitudeCard.jsx";
+import useLiveMatch from "./hooks/useLiveMatch.js";
 import { uploadWeekPhoto, uploadCapsulePhoto, uploadAvatarPhoto, isInlinePhoto, applyWeekPhotoMigration, applyCapsulePhotoMigration, applyAvatarMigration } from "./lib/photoStore.js";
 import { isValidAppData } from "./lib/validation.js";
 import supabase from "./supabase.js";
@@ -38,6 +39,8 @@ import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNo
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import { useCelebrations, celebrationKey } from "./lib/celebrations.js";
 const TeamView = lazy(() => import("./components/TeamView.jsx"));
+// Solo se monta mientras hay un partido en juego: fuera del chunk inicial.
+const LiveMatchCard = lazy(() => import("./components/LiveMatchCard.jsx"));
 import TaskCongrat from "./components/TaskCongrat.jsx";
 const WrappedModal = lazy(() => import("./components/WrappedModal.jsx"));
 import SpecialDayOverlay from "./components/SpecialDayOverlay.jsx";
@@ -1568,6 +1571,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     pushToast({ kind: "success", text: "♻️ Backup restaurado — guardando en el servidor…" });
   };
 
+  // Partido de tu equipo en juego AHORA. Vive aquí, en el ancestro común, por
+  // la regla de oro de §2 y porque el bloque del inicio se pinta dentro de una
+  // función, donde un hook no puede llamarse. Solo toca la red dentro de la
+  // ventana de un partido; el resto del tiempo duerme.
+  const { match: liveMatch, fetchedAt: liveAt } = useLiveMatch(data?.settings?.team?.id || data?.settings?.myTeam || null);
+
   if (loading) return (
     <div style={{ background:"var(--t-bg,#0a0714)", minHeight:"100vh", fontFamily:"system-ui", padding:"16px 16px calc(24px + env(safe-area-inset-bottom))", maxWidth:640, margin:"0 auto" }}>
       <style>{`@keyframes sk-pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
@@ -2337,27 +2346,44 @@ ${sorted.map(m=>{
           const offerWrapped = shouldOfferWrapped(new Date(), prevHasMissions, wrappedSeen);
           return (
             <>
-              <LoveNote note={currentNote} myName={personName} myPersonId={sessionPersonId} partnerName={partnerName}
-                onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
-              <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude}
-                onOpenTrophy={(data.gratitudes||[]).length ? () => setActiveTab("trophy") : null} />
-              {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
-                  inspiracional; HomeHighlight (fechas/idea) se oculta ese día. */}
-              {!showRitual && <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />}
-              {showRitual && (
-                <PlanningRitual
-                  onNotifyPartner={() => {
-                    sendContextualPush(coupleId, { body: `${personName} te invita a planificar la semana juntos 🗓️`, tag: "mp-ritual", url: "/?tab=home" }, sessionUserId)
-                      .catch(e => console.warn("[ritual] push:", e.message));
-                    pushToast({ kind: "success", text: "👉 Invitación enviada" });
-                    track("ritual_notify");
-                  }}
-                  onComplete={() => {
-                    update(d => ({ ...d, settings: { ...d.settings, ritual: { ...(d.settings?.ritual || {}), lastDoneWeek: todayWkey } } }));
-                    pushToast({ kind: "success", text: "🎉 ¡Semana planificada juntos!" });
-                    track("ritual_completed");
-                  }}
-                />
+              {/* Mientras el equipo esté JUGANDO, el partido se queda con la
+                  parte de arriba del inicio: la notita, el agradecimiento y la
+                  idea del día vuelven solos en cuanto pita el final. El resto
+                  del inicio (semana, hoy, pendientes) no se toca. */}
+              {liveMatch ? (
+                <Suspense fallback={null}>
+                  <LiveMatchCard
+                    match={liveMatch}
+                    teamId={data.settings?.team?.id || data.settings?.myTeam}
+                    fetchedAt={liveAt}
+                    onOpen={() => setActiveTab("team")}
+                  />
+                </Suspense>
+              ) : (
+                <>
+                  <LoveNote note={currentNote} myName={personName} myPersonId={sessionPersonId} partnerName={partnerName}
+                    onSave={addLoveNote} onClear={() => currentNote && deleteLoveNote(currentNote.id)} />
+                  <GratitudeCard mine={myGratitude} received={recvGratitude} partnerName={partnerName} onSend={addGratitude}
+                    onOpenTrophy={(data.gratitudes||[]).length ? () => setActiveTab("trophy") : null} />
+                  {/* Densidad (workshop v5): en día de ritual, el ritual ocupa el hueco
+                      inspiracional; HomeHighlight (fechas/idea) se oculta ese día. */}
+                  {!showRitual && <HomeHighlight upcoming={upcoming} onAddIdea={addDateIdea} ideaSeed={new Date().getDate()} />}
+                  {showRitual && (
+                    <PlanningRitual
+                      onNotifyPartner={() => {
+                        sendContextualPush(coupleId, { body: `${personName} te invita a planificar la semana juntos 🗓️`, tag: "mp-ritual", url: "/?tab=home" }, sessionUserId)
+                          .catch(e => console.warn("[ritual] push:", e.message));
+                        pushToast({ kind: "success", text: "👉 Invitación enviada" });
+                        track("ritual_notify");
+                      }}
+                      onComplete={() => {
+                        update(d => ({ ...d, settings: { ...d.settings, ritual: { ...(d.settings?.ritual || {}), lastDoneWeek: todayWkey } } }));
+                        pushToast({ kind: "success", text: "🎉 ¡Semana planificada juntos!" });
+                        track("ritual_completed");
+                      }}
+                    />
+                  )}
+                </>
               )}
               <HomeDashboard
                 week={{ week: todayWn, year: todayYr, epicGoal: todayWeekData.epicObjective, label: fmtWeekRange(todayWn, todayYr) }}

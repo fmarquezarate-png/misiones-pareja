@@ -147,6 +147,65 @@ export function dedupe(matches = []) {
   return out;
 }
 
+// ── Ventana de partido ──────────────────────────────────────────────────────
+//
+// Para poder enseñar el marcador en la PANTALLA DE INICIO hace falta estar
+// preguntando por él… y el inicio está abierto todo el rato. Preguntar cada
+// pocos minutos los 365 días para que sirva 38 tardes al año es tirar cuota y
+// batería.
+//
+// La solución: mirar primero el calendario del equipo (que ya está cacheado)
+// y solo encender el sondeo dentro de la ventana de un partido. Fuera de ella
+// no se llama a la red: se duerme hasta que la ventana se abra.
+
+export const VENTANA = {
+  antes: 10 * 60e3,        // se abre 10 min antes del saque inicial
+  despues: 165 * 60e3,     // se cierra 2 h 45 después (90' + descanso + añadido + prórroga)
+};
+
+const REVISION_MIN = 60e3;         // nunca despertar más de una vez por minuto
+const REVISION_MAX = 60 * 60e3;    // ni dormir más de una hora seguida
+
+/**
+ * ¿Toca mirar el marcador ahora, y si no, cuándo volver a comprobarlo?
+ * Puro: la decisión se toma con el calendario, no con un reloj escondido.
+ *
+ * @param {Array<{date:string,time?:string,status?:string}>} fixtures
+ * @returns {{dentro:boolean, esperaMs:number, kickoffTs:number|null}}
+ */
+export function proximaVentana(fixtures = [], ahora = Date.now()) {
+  let siguiente = null;
+
+  for (const m of fixtures) {
+    // Un partido ya terminado, aplazado o cancelado no abre ninguna ventana.
+    if (m?.status && ["FINISHED", "POSTPONED", "CANCELLED", "AWARDED"].includes(m.status)) continue;
+    const k = kickoffTs(m);
+    if (k == null) continue;
+
+    if (ahora >= k - VENTANA.antes && ahora <= k + VENTANA.despues) {
+      return { dentro: true, esperaMs: RITMO.enVivo, kickoffTs: k };
+    }
+    if (k > ahora && (siguiente == null || k < siguiente)) siguiente = k;
+  }
+
+  if (siguiente == null) return { dentro: false, esperaMs: REVISION_MAX, kickoffTs: null };
+
+  const falta = siguiente - VENTANA.antes - ahora;
+  return {
+    dentro: false,
+    esperaMs: Math.min(REVISION_MAX, Math.max(REVISION_MIN, falta)),
+    kickoffTs: siguiente,
+  };
+}
+
+// De todo lo que devuelve el servidor, el partido de MI equipo que esté en
+// juego ahora mismo. Null si no hay ninguno — y entonces el inicio no cambia.
+export function miPartidoEnVivo(res, teamId) {
+  if (!res || res.source !== "live" || !teamId) return null;
+  const todos = dedupe([...(res.mine || []), ...(res.others || [])]);
+  return todos.find(m => esEnVivo(m.status) && (m.homeId === teamId || m.awayId === teamId)) || null;
+}
+
 // ── Frescura del dato en vivo ───────────────────────────────────────────────
 // Si la última respuesta buena tiene más de dos minutos, el marcador puede
 // haberse quedado atrás. Se avisa en vez de pintarlo como si fuera de ahora.

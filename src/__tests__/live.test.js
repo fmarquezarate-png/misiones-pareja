@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   esEnVivo, estadoEnVivo, marcadorEnVivo, pollDelay, RITMO,
   kickoffTs, cuentaAtras, ordenarEnVivo, dedupe, frescura, CADUCA_MS,
+  proximaVentana, miPartidoEnVivo,
 } from "../lib/live.js";
 
 describe("esEnVivo / estadoEnVivo", () => {
@@ -185,6 +186,105 @@ describe("dedupe", () => {
       { date: "2026-09-16", home: "A", away: "B" },
       { date: "2026-09-16", home: "C", away: "D" },
     ])).toHaveLength(2);
+  });
+});
+
+describe("proximaVentana", () => {
+  const hoy = "2026-09-16";
+  const a = (h, m = 0, s = 0) => Date.parse(`2026-09-16T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+  const partido = (time, status) => ({ date: hoy, time, status });
+
+  it("dentro del partido: toca sondear", () => {
+    const v = proximaVentana([partido("21:00", "SCHEDULED")], a(21, 30));
+    expect(v.dentro).toBe(true);
+    expect(v.esperaMs).toBe(RITMO.enVivo);
+  });
+
+  it("se abre 10 min antes del saque inicial", () => {
+    expect(proximaVentana([partido("21:00")], a(20, 55)).dentro).toBe(true);
+    expect(proximaVentana([partido("21:00")], a(20, 45)).dentro).toBe(false);
+  });
+
+  it("se cierra 2 h 45 después", () => {
+    expect(proximaVentana([partido("21:00")], a(23, 30)).dentro).toBe(true);
+    expect(proximaVentana([partido("21:00")], a(23, 50)).dentro).toBe(false);
+  });
+
+  // Lo importante del coste: en un día cualquiera el inicio NO pide nada.
+  it("sin partidos cercanos duerme al máximo", () => {
+    const v = proximaVentana([{ date: "2026-09-23", time: "21:00" }], a(12));
+    expect(v.dentro).toBe(false);
+    expect(v.esperaMs).toBe(60 * 60e3);
+  });
+
+  it("sin ningún partido tampoco sondea", () => {
+    const v = proximaVentana([], a(12));
+    expect(v).toMatchObject({ dentro: false, kickoffTs: null });
+    expect(v.esperaMs).toBe(60 * 60e3);
+  });
+
+  it("despierta justo cuando se abre la ventana, no antes", () => {
+    const v = proximaVentana([partido("21:00")], a(20, 30));
+    expect(v.dentro).toBe(false);
+    expect(v.esperaMs).toBe(20 * 60e3);   // 20:30 → 20:50
+  });
+
+  it("nunca despierta más de una vez por minuto", () => {
+    const v = proximaVentana([partido("21:00")], a(20, 49, 30));
+    expect(v.esperaMs).toBeGreaterThanOrEqual(60e3);
+  });
+
+  // Un partido ya jugado no debe reabrir la ventana cada vez que se mira.
+  it("un partido terminado, aplazado o cancelado no abre ventana", () => {
+    for (const st of ["FINISHED", "POSTPONED", "CANCELLED"]) {
+      expect(proximaVentana([partido("21:00", st)], a(21, 30)).dentro).toBe(false);
+    }
+  });
+
+  it("con varios partidos, se queda con el primero que venga", () => {
+    const v = proximaVentana([
+      { date: "2026-09-20", time: "21:00" },
+      { date: "2026-09-17", time: "19:00" },
+    ], a(12));
+    expect(new Date(v.kickoffTs).getDate()).toBe(17);
+  });
+
+  it("un partido sin hora publicada no rompe el cálculo", () => {
+    expect(() => proximaVentana([{ date: "2026-09-20" }], a(12))).not.toThrow();
+  });
+});
+
+describe("miPartidoEnVivo", () => {
+  const enJuego = { homeId: "barcelona", awayId: "getafe", status: "IN_PLAY", ft: [1, 0], id: 1 };
+
+  it("encuentra el partido de mi equipo esté en `mine` o en `others`", () => {
+    expect(miPartidoEnVivo({ source: "live", mine: [enJuego], others: [] }, "barcelona")).toBe(enJuego);
+    expect(miPartidoEnVivo({ source: "live", mine: [], others: [enJuego] }, "barcelona")).toBe(enJuego);
+  });
+
+  it("ignora los partidos de otros equipos", () => {
+    const ajeno = { homeId: "sevilla", awayId: "betis", status: "IN_PLAY", id: 2 };
+    expect(miPartidoEnVivo({ source: "live", mine: [], others: [ajeno] }, "barcelona")).toBeNull();
+  });
+
+  // El corazón de la petición: el inicio solo cambia MIENTRAS se juega.
+  it("un partido terminado ya no cuenta como en vivo", () => {
+    const fin = { ...enJuego, status: "FINISHED" };
+    expect(miPartidoEnVivo({ source: "live", mine: [fin], others: [] }, "barcelona")).toBeNull();
+  });
+
+  it("el descanso sigue contando", () => {
+    const desc = { ...enJuego, status: "PAUSED" };
+    expect(miPartidoEnVivo({ source: "live", mine: [desc], others: [] }, "barcelona")).toBe(desc);
+  });
+
+  it("sin conexión en vivo no se enseña nada", () => {
+    expect(miPartidoEnVivo({ source: "none", mine: [], others: [] }, "barcelona")).toBeNull();
+    expect(miPartidoEnVivo(null, "barcelona")).toBeNull();
+  });
+
+  it("sin equipo elegido no se enseña nada", () => {
+    expect(miPartidoEnVivo({ source: "live", mine: [enJuego], others: [] }, null)).toBeNull();
   });
 });
 
