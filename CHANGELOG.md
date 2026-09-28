@@ -7,6 +7,52 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.40.0] — 2026-09-28 · La mascota, viva; y el panel de salud
+
+La pantalla de Salud se reordena como pidió Fran: **la mascota primero, viva**; luego el panel; luego la historia; lo técnico, plegado al final.
+
+### El hábitat (`Habitat.jsx` + `src/lib/petBehavior.js`, 22 tests)
+
+Qué hace la mascota en cada momento, según las reglas de Fran:
+
+| Modo | Cuándo | Sprite |
+|---|---|---|
+| **Entrenando** | mientras entrenas y hasta **15 min después** de terminar | `entrenar` |
+| **Durmiendo** | desde 15 min después de tu hora de acostarte hasta **15 min después de que te despiertes** | `dormir`, cielo de noche |
+| **Triste** | **solo** si pasan 2 días sin tocarla | `triste` |
+| **Libre** | el resto: pasea sola | `caminar_*` según la dirección visual del movimiento, pausas en `feliz` |
+
+- **Tocarla**: su animación más alegre (una vez), un saltito y un corazón. Cuenta como cariño. Dormida no se despierta (💤) y entrenando no se para (💪).
+- **Horario de sueño**: mediana de las últimas 21 noches **reales** (≥ 2 h: las siestas no marcan la hora de despertar), y la hora de hoy si ya llegó. El importador guarda ahora `wake_min`/`bed_min` (minutos desde la medianoche del día del despertar; acostarse la víspera es negativo).
+- **Límite honesto**: los entrenos llegan con la sincronización de cada hora, **después** de terminar. Si la app se entera tarde, la mascota entrena 15 min desde ese momento.
+- **Vista previa** de cualquier etapa, sin tocar la real.
+- **Solo `transform`/`opacity`**: la tira de sprites se desplaza con `translateX` en `steps(n, jump-none)` y el paseo es una transición de `transform`. Nada de `background-position`.
+- **Timers**: todos por un único `later()`/`clearTimers()`. La posición vive también en una `ref`: la primera versión lanzaba los timers del paseo **dentro de un `setPos(p => …)`**, que React puede ejecutar dos veces.
+
+**Verificado con Playwright a 390 px** y reloj fijado: 20 s de observación con posiciones y sprites anotados. Salieron dos fallos que ninguna captura suelta habría mostrado: la mascota **se salía medio cuerpo por el borde** (x = −8 px, el recorrido no descontaba el sprite) y **la caricia no se notaba** en las etapas sin animación de alegría (ahora hay saltito en todas). Tras el arreglo: se queda dentro, usa tres direcciones de caminar, reacciona y vuelve a pasear. A las 03:00 duerme y dice a qué hora se despertará.
+
+### Adoptar
+
+Broot o Nix, nombre opcional. Nace hoy, en el huevo. `settings.pets[userId]` (reducer puro): cada uno solo configura la suya; la de la pareja se ve y se acaricia.
+
+### El panel (`SaludPanel.jsx` + `src/lib/healthStats.js`, 14 tests)
+
+Hecho con la guía de visualización del proyecto:
+- **Metas de la semana**: días cumplidos desde el lunes y acumulado de las semanales. Los días sin dato se dicen y **no cuentan como fallados**.
+- **KPIs** (sueño, pulso en reposo, pasos, energía): media de 7 días frente a la semana anterior, con 7 barras y **hoy resaltado**. Un día sin dato es un punto, no una barra a cero. La flecha lleva icono y texto, y su color sabe qué es bueno para cada métrica: el pulso en reposo mejora al **bajar**. El pulso va como línea, porque es una tendencia y no una magnitud desde cero.
+- **Última noche**: barra apilada (no donut) con la paleta de 4 series **validada con el validador de paletas contra la tarjeta real de los 15 temas** (`--t-viz-1..4`, publicada por `ThemeInjector`). Si el reloj no manda fases, se dice.
+- **Último entreno** y **tipos de entreno** de 90 días (barras de un solo tono).
+
+No se copió del ejemplo lo que no tiene datos detrás: agua, línea del día, mapa del recorrido (las rutas GPS se descartan al importar), clima, insights de IA.
+
+### Sin conexión
+
+El service worker cachea los sprites al verlos (CacheFirst, sin precargar los 2,4 MB) y el manifest con StaleWhileRevalidate.
+
+623 tests.
+
+---
+
 ## [5.39.0] — 2026-09-28 · Importar historial, la vida de la mascota, y el importador probado con datos reales
 
 ### Incidente: el historial de salud en el repositorio público

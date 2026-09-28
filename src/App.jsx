@@ -2611,6 +2611,8 @@ ${sorted.map(m=>{
           sessionUserId={sessionUserId}
           personName={personName}
           partnerName={p1===personName ? p2 : p1}
+          pets={data.settings?.pets || {}}
+          onGuardarMascota={(uid, pet) => update(d => ({ ...d, settings: { ...d.settings, pets: { ...(d.settings?.pets || {}), [uid]: pet } } }))}
         />}
 
         {activeTab==="trophy" && <TrophyView

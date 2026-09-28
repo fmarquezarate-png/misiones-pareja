@@ -72,6 +72,28 @@ describe("sueño", () => {
   });
 });
 
+describe("hora de despertar y de acostarse", () => {
+  it("minutos desde la medianoche del día del despertar", () => {
+    const f = aplanar([metrica("sleep_analysis", "hr", [{
+      totalSleep: 7, sleepStart: "2026-09-19 23:40:00 +0200", sleepEnd: "2026-09-20 07:12:00 +0200",
+    }])]);
+    expect(buscar(f, "wake_min")[0]).toMatchObject({ day: "2026-09-20", value: 7 * 60 + 12 });
+    expect(buscar(f, "bed_min")[0].value).toBe(-20);          // la víspera
+  });
+  it("acostarse pasada la medianoche es positivo", () => {
+    const f = aplanar([metrica("sleep_analysis", "hr", [{
+      totalSleep: 6, sleepStart: "2026-09-20 01:30:00 +0200", sleepEnd: "2026-09-20 07:30:00 +0200",
+    }])]);
+    expect(buscar(f, "bed_min")[0].value).toBe(90);
+  });
+  it("sin sueño real no hay hora de despertar", () => {
+    const f = aplanar([metrica("sleep_analysis", "hr", [{
+      totalSleep: 0, asleep: 0, sleepStart: "2026-09-20 01:30:00 +0200", sleepEnd: "2026-09-20 07:30:00 +0200",
+    }])]);
+    expect(buscar(f, "wake_min")).toHaveLength(0);
+  });
+});
+
 describe("pulso: { Min, Avg, Max } sin qty", () => {
   // Antes se tiraban ENTEROS: 972 días de pulso de Fran, en silencio.
   it("se guardan media, mínimo y máximo", () => {

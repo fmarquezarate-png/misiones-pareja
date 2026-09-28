@@ -1,0 +1,102 @@
+import { describe, it, expect } from "vitest";
+import { serie, kpi, metasSemana, repartoEntrenos, ultimaNoche } from "../lib/healthStats.js";
+
+const f = (day, metric, value) => ({ day, metric, value });
+
+describe("serie", () => {
+  it("7 días terminando hoy, con null donde no hay dato", () => {
+    const s = serie([f("2026-09-28", "step_count", 9000), f("2026-09-25", "step_count", 4000)], "step_count", "2026-09-28");
+    expect(s.map(d => d.dia)).toEqual(["2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28"]);
+    expect(s[6].valor).toBe(9000);
+    expect(s[0].valor).toBeNull();
+  });
+  // Mismo criterio que el motor: 0 pasos es "no se midió".
+  it("un 0 en pasos o sueño es null, no cero", () => {
+    expect(serie([f("2026-09-28", "step_count", 0)], "step_count", "2026-09-28")[6].valor).toBeNull();
+  });
+});
+
+describe("kpi", () => {
+  const filas = [
+    ...[1, 2, 3, 4, 5, 6, 7].map(i => f(`2026-09-${String(14 + i).padStart(2, "0")}`, "resting_heart_rate", 60)),
+    ...[1, 2, 3, 4, 5, 6, 7].map(i => f(`2026-09-${String(21 + i).padStart(2, "0")}`, "resting_heart_rate", 57)),
+  ];
+  it("media de 7 días contra los 7 anteriores", () => {
+    const k = kpi(filas, "resting_heart_rate", "2026-09-28", { mejorSi: "baja" });
+    expect(k.actual).toBe(57);
+    expect(k.antes).toBe(60);
+    expect(k.delta).toBe(-3);
+  });
+  // El pulso en reposo mejora al BAJAR: la flecha no puede pintarse en rojo.
+  it("sabe qué dirección es buena", () => {
+    expect(kpi(filas, "resting_heart_rate", "2026-09-28", { mejorSi: "baja" }).bueno).toBe(true);
+    expect(kpi(filas, "resting_heart_rate", "2026-09-28", { mejorSi: "sube" }).bueno).toBe(false);
+  });
+  it("una variación mínima (<2 %) es neutra", () => {
+    const casi = [f("2026-09-20", "step_count", 8000), f("2026-09-27", "step_count", 8050)];
+    expect(kpi(casi, "step_count", "2026-09-28").bueno).toBeNull();
+  });
+  it("sin la semana anterior, no inventa variación", () => {
+    const k = kpi([f("2026-09-28", "step_count", 9000)], "step_count", "2026-09-28");
+    expect(k.delta).toBeNull();
+    expect(k.actual).toBe(9000);
+  });
+  it("la media es sobre los días CON dato, y lo dice", () => {
+    const k = kpi([f("2026-09-28", "step_count", 9000), f("2026-09-27", "step_count", 7000)], "step_count", "2026-09-28");
+    expect(k.actual).toBe(8000);
+    expect(k.diasConDato).toBe(2);
+  });
+});
+
+describe("metasSemana", () => {
+  const metas = [
+    { id: "p", tipo: "pasos", objetivo: 8000, periodo: "dia" },
+    { id: "k", tipo: "kcal", objetivo: 3500, periodo: "semana" },
+  ];
+  // Lunes 28/09 → solo cuenta hoy; jueves 01/10 → lun-jue.
+  it("cuenta los días cumplidos desde el lunes", () => {
+    const filas = [f("2026-09-28", "step_count", 9000), f("2026-09-29", "step_count", 3000), f("2026-09-30", "step_count", 8500)];
+    const r = metasSemana(filas, [], metas, "2026-10-01").find(m => m.id === "p");
+    expect(r).toMatchObject({ cumplidos: 2, conDato: 3, dias: 4 });
+  });
+  it("la meta semanal acumula y da el progreso", () => {
+    const filas = [f("2026-09-28", "active_energy", 1000), f("2026-09-29", "active_energy", 750)];
+    const r = metasSemana(filas, [], metas, "2026-09-29").find(m => m.id === "k");
+    expect(r.valor).toBe(1750);
+    expect(r.progreso).toBe(0.5);
+  });
+  it("sin datos en la semana, valor null y progreso 0", () => {
+    expect(metasSemana([], [], metas, "2026-09-29").find(m => m.id === "k")).toMatchObject({ valor: null, progreso: 0 });
+  });
+});
+
+describe("repartoEntrenos", () => {
+  const w = (d, name) => ({ start_at: `${d}T10:00:00+02:00`, name });
+  it("cuenta por tipo en la ventana, ordenado", () => {
+    const r = repartoEntrenos([w("2026-09-01", "Pádel"), w("2026-09-10", "Correr"), w("2026-09-20", "Pádel"), w("2025-01-01", "Remo")], "2026-09-28");
+    expect(r.total).toBe(3);
+    expect(r.tipos[0]).toMatchObject({ nombre: "Pádel", n: 2 });
+    expect(r.tipos.find(t => t.nombre === "Remo")).toBeUndefined();
+  });
+});
+
+describe("ultimaNoche", () => {
+  it("la última noche real, con sus fases si las hay", () => {
+    const r = ultimaNoche([
+      f("2026-09-27", "sleep_asleep", 7.5), f("2026-09-27", "sleep_deep", 1.5), f("2026-09-27", "sleep_rem", 1.2),
+      f("2026-09-27", "wake_min", 432),
+      f("2026-09-28", "sleep_asleep", 0.8),            // siesta: no cuenta
+    ], "2026-09-28");
+    expect(r.dia).toBe("2026-09-27");
+    expect(r.total).toBe(7.5);
+    expect(r.fases.map(x => x.nombre)).toEqual(["Profundo", "REM"]);
+    expect(r.despertar).toBe(432);
+  });
+  // Reloj Huawei: fases a 0 → sin fases, pero sí total.
+  it("sin fases, lista vacía (no barras a cero)", () => {
+    expect(ultimaNoche([f("2026-09-27", "sleep_asleep", 7)], "2026-09-28").fases).toEqual([]);
+  });
+  it("sin sueño, null", () => {
+    expect(ultimaNoche([], "2026-09-28")).toBeNull();
+  });
+});

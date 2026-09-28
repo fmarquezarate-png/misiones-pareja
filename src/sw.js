@@ -1,6 +1,6 @@
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, NetworkOnly } from 'workbox-strategies';
+import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 precacheAndRoute(self.__WB_MANIFEST);
@@ -58,6 +58,22 @@ registerRoute(
     cacheName: 'week-photos',
     plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 180 })],
   })
+);
+
+// Sprites de las mascotas (public/mascotas): se cachean al verlos, no se
+// precargan — son ~2,4 MB y la mayoría de etapas no se ve nunca a la vez.
+// CacheFirst: una vez vista, la mascota se ve también SIN conexión. El
+// manifest va con StaleWhileRevalidate para que un sprite regenerado llegue.
+registerRoute(
+  ({ url }) => url.pathname.startsWith('/mascotas/') && url.pathname.endsWith('.webp'),
+  new CacheFirst({
+    cacheName: 'mascotas',
+    plugins: [new ExpirationPlugin({ maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 365 })],
+  })
+);
+registerRoute(
+  ({ url }) => url.pathname === '/mascotas/manifest.json',
+  new StaleWhileRevalidate({ cacheName: 'mascotas-manifest' })
 );
 
 // ── Push notifications ────────────────────────────────────────────────────────

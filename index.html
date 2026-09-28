@@ -57,6 +57,14 @@
          GPU y no repinta. El reset de prefers-reduced-motion de más abajo lo
          aterriza en su fotograma final, así que el punto nunca desaparece. */
       @keyframes mpLivePulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+      /* Mascota: la tira de sprites se desplaza con transform en saltos exactos
+         (steps jump-none: cada fotograma el mismo tiempo, del primero al último).
+         Solo transform/opacity — nada de background-position, que repinta.
+         Con reducir-movimiento, el reset global la deja en su último fotograma. */
+      @keyframes mpSprite { from { transform: translateX(0); } to { transform: translateX(var(--mp-tx)); } }
+      @keyframes mpWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
+      @keyframes mpHop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-22px); } 70% { transform: translateY(0); } 85% { transform: translateY(-6px); } }
+      @keyframes mpHeart { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-70px) scale(1.15); opacity: 0; } }
       /* ─── Reducir movimiento: red de seguridad GLOBAL ──────────────────
          Antes esto solo cubría dos casos concretos y cada componente tenía
          que acordarse por su cuenta — 18 de ellos no lo hacían. Este reset

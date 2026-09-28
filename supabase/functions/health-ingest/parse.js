@@ -41,6 +41,7 @@ export const RANGOS = {
   sleep_asleep: [0, 16], sleep_in_bed: [0, 20], sleep_deep: [0, 8],
   sleep_rem: [0, 8], sleep_core: [0, 14], sleep_awake: [0, 8],
   mindful_minutes: [0, 600],
+  wake_min: [0, 1440], bed_min: [-720, 1440],
 };
 
 // Totales del día: si llegan dos veces (dos fuentes contando lo mismo),
@@ -122,6 +123,21 @@ export function aplanar(metrics = []) {
           ["sleep_deep", h(pos(d?.deep))], ["sleep_rem", h(pos(d?.rem))],
           ["sleep_core", h(pos(d?.core))], ["sleep_awake", h(pos(d?.awake))],
         ]) if (v !== null) out.push({ day, metric, value: v, unit: "h", source });
+
+        // Hora de despertar y de acostarse, en minutos desde la medianoche del
+        // día del despertar (acostarse la víspera a las 23:40 = −20). La
+        // mascota se despierta 15 min después que su dueño: sin esto solo
+        // sabríamos CUÁNTO se durmió, no CUÁNDO.
+        const hm = s => { const m = /[ T](\d{2}):(\d{2})/.exec(String(s || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+        const despertar = hm(d?.sleepEnd);
+        const acostarse = hm(d?.sleepStart);
+        if (despertar !== null && total !== null) {
+          out.push({ day, metric: "wake_min", value: despertar, unit: "min", source });
+          if (acostarse !== null) {
+            const mismoDia = diaLocal(d?.sleepStart) === day;
+            out.push({ day, metric: "bed_min", value: mismoDia ? acostarse : acostarse - 1440, unit: "min", source });
+          }
+        }
         continue;
       }
 

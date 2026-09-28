@@ -18,8 +18,8 @@ const FONDO = {
 };
 const dim = { fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", lineHeight: 1.5 };
 
-export default function VidaMascota({ filas, entrenos, manifest }) {
-  const [especie, setEspecie] = useState("broot");
+export default function VidaMascota({ filas, entrenos, manifest, especieInicial }) {
+  const [especie, setEspecie] = useState(especieInicial || "broot");
   const [sel, setSel] = useState(null);
 
   const primerDia = useMemo(() => filas.reduce((m, f) => (!m || f.day < m ? f.day : m), null), [filas]);

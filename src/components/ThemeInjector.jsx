@@ -65,6 +65,14 @@ export default function ThemeInjector({ themeId, fontId, colors }) {
       r.setProperty(`--t-ink-cat-${c.id}`, readableOn(c.color, t.card, AA_LARGE, t.bg));
     }
 
+    // ── Paleta de gráficas (4 series: fases del sueño) ──────────────────────
+    // Tonos validados con el validador de paletas (CVD, luminosidad, contraste)
+    // contra la tarjeta REAL de los 15 temas: la columna oscura en los temas
+    // oscuros y la clara en los claros (28/09/2026). Orden fijo, nunca ciclado.
+    const VIZ = t.dark === false
+      ? ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+      : ["#3987e5", "#d95926", "#199e70", "#c98500"];
+    VIZ.forEach((c, i) => r.setProperty(`--t-viz-${i + 1}`, c));
     document.documentElement.style.background = t.bg;
     try {
       const vars = {
