@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { filterMoods, aggregateMoods, summarizePoints } from "../lib/moodAnalysis.js";
 import MoodTimelineChart from "./MoodTimelineChart.jsx";
 import { Z } from "../lib/zLayers.js";
+import { APP_NAME } from "../lib/marca.js";
 
 const PERIODS = [["7d","Semana"],["30d","Mes"],["365d","Año"],["all","Todo"]];
 
@@ -106,7 +107,7 @@ export default function MoodReport({ moods, p1, p2, colors, initialPeriod = "30d
               <div style={{ fontSize:9.5, color:"#9a93b0", lineHeight:1.6 }}>
                 Cada punto representa el promedio de ánimo (valencia × intensidad, escala −10 a +10) del período correspondiente.
                 La banda sombreada indica la variabilidad local; los círculos punteados marcan cambios bruscos o días que se desvían de la tendencia.
-                Datos auto-reportados en la app Misiones de Pareja — no constituyen un diagnóstico clínico.
+                Datos auto-reportados en la app {APP_NAME} — no constituyen un diagnóstico clínico.
               </div>
             </>
           )}

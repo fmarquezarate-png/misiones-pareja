@@ -3,6 +3,7 @@ import { fetchSharedView } from "../supabase.js";
 import { isoWeekKey } from "../utils.js";
 import { STATUS, DEFAULT_COLORS } from "../constants.js";
 import { humanDate } from "../lib/dateLabel.js";
+import { APP_NAME } from "../lib/marca.js";
 
 // dismissSplash vive también en App.jsx — duplicado a propósito (no importado)
 // porque GuestView es una rama de render totalmente aparte del flujo con
@@ -114,7 +115,7 @@ export default function GuestView({ coupleId, token }) {
         )}
 
         <div style={{ textAlign:"center", marginTop:32, fontSize:11, color:"#4a4166" }}>
-          Enlace de solo lectura · Misiones de Pareja
+          Enlace de solo lectura · {APP_NAME}
         </div>
       </div>
     </div>

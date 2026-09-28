@@ -97,7 +97,7 @@ serve(async (req) => {
     const {
       coupleId,
       excludeUserId,
-      title = 'Misiones de Pareja',
+      title = 'Shared Calendar',   // mismo nombre que src/lib/marca.js
       body  = 'Tu pareja hizo cambios en la app',
       tag   = 'mp-push',
       url: clickUrl = '/',

@@ -3,6 +3,7 @@
 
 import supabase from '../supabase.js';
 import { VAPID_PUBLIC_KEY } from '../constants.js';
+import { APP_NAME } from './marca.js';
 
 
 function urlBase64ToUint8Array(b64) {
@@ -110,7 +111,7 @@ export async function unsubscribePush() {
 // Envía una notificación push contextual directamente a la Edge Function.
 // url: adónde navega la app al tocar la notificación (ver sw.js notificationclick).
 // Fire-and-forget: nunca lanza errores al llamador.
-export async function sendContextualPush(coupleId, { title = 'Misiones de Pareja', body, tag = 'mp-push', url }, excludeUserId) {
+export async function sendContextualPush(coupleId, { title = APP_NAME, body, tag = 'mp-push', url }, excludeUserId) {
   if (!coupleId || !body) return;
   try {
     const payload = { coupleId, title, body, tag };

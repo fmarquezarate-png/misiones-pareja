@@ -7,6 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.43.1] — 2026-09-28 · Un solo nombre: Shared Calendar
+
+Fran eligió el nombre. Convivían «Shared Calendar» (icono del móvil, cabecera, login, PDF, ICS) y «Misiones de Pareja» (notificaciones push, vista de invitado, informe de ánimo, exportación de disponibilidad, aviso de cambios de la pareja y prompt de Misi).
+
+- `src/lib/marca.js → APP_NAME`: un único sitio. Módulo diminuto a propósito, para que el service worker lo importe sin arrastrar `constants.js`.
+- Cambiados: `sw.js` (título por defecto de las notificaciones), `push.js`, `App.jsx`, `GuestView`, `MoodReport`, `AvailabilityExport`, y en las Edge Functions `send-push` y `misi-chat` (texto literal: Deno no puede importar el módulo de la app).
+- **No cambiado a propósito**: el nombre interno de la base de datos local (`localStore.js`, `"misiones-pareja"`). Cambiarlo dejaría a todo el mundo sin su copia offline, y nadie lo ve.
+- `marca.test.js`: falla si el nombre viejo vuelve a aparecer en cualquier archivo de la app.
+
+**Registro del despliegue de `misi-chat`** (lanzado a mano por Fran, logs revisados): correcto, «Deployed Functions … misi-chat». Las líneas `::error::` del log son el propio script mostrado antes de ejecutarse, no errores. Único aviso: GitHub retira Node 20 en sus acciones, sin efecto.
+
+---
+
 ## [5.43.0] — 2026-09-28 · El tour de Misi y un registro único de secciones
 
 ### Auditoría de conexiones (agente Scanner)

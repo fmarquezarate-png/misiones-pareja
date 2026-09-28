@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { S } from "../styles.js";
 import { dlBlob } from "../utils.js";
+import { APP_NAME } from "../lib/marca.js";
 
 // Exportar disponibilidad: calendario verde/rojo entre dos fechas para
 // coordinar partidos (liga de pádel) con los rivales. El cálculo automático
@@ -226,7 +227,7 @@ export default function AvailabilityExport({ weeks, p1, p2, colors, onClose }) {
     ctx.fillStyle = "#111827";
     ctx.fillText("Ocupados", gap + 302, ly + 2);
     ctx.fillStyle = "#c3c9d4"; ctx.font = "19px system-ui, sans-serif"; ctx.textAlign = "right";
-    ctx.fillText("Misiones de Pareja", W - gap - 6, ly + 2);
+    ctx.fillText(APP_NAME, W - gap - 6, ly + 2);
 
     canvas.toBlob(blob => { if (blob) dlBlob(blob, `disponibilidad-${from}-a-${to}.png`); }, "image/png");
   };

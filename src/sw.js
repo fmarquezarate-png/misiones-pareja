@@ -2,6 +2,7 @@ import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
+import { APP_NAME } from './lib/marca.js';
 
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
@@ -83,12 +84,12 @@ self.addEventListener('push', event => {
   let payload;
   try { payload = event.data.json(); } catch { payload = {}; }
   const {
-    title: rawTitle = 'Misiones de Pareja',
+    title: rawTitle = APP_NAME,
     body:  rawBody  = 'Tu pareja hizo cambios en la app',
     tag   = 'mp-push',
     url   = '/',
   } = payload;
-  const title = typeof rawTitle === 'string' ? rawTitle.slice(0, 100) : 'Misiones de Pareja';
+  const title = typeof rawTitle === 'string' ? rawTitle.slice(0, 100) : APP_NAME;
   const body  = typeof rawBody  === 'string' ? rawBody.slice(0, 300)  : 'Tu pareja hizo cambios en la app';
 
   event.waitUntil(

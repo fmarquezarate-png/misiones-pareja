@@ -52,6 +52,7 @@ import SpecialDayButton from "./components/SpecialDayButton.jsx";
 import ClickSparkles from "./components/ClickSparkles.jsx";
 import MatchDayTheme from "./components/MatchDayTheme.jsx";
 import MatchDayOverlay from "./components/MatchDayOverlay.jsx";
+import { APP_NAME } from "./lib/marca.js";
 const BirthdaysView = lazy(() => import("./components/BirthdaysView.jsx"));
 const NotesWallView = lazy(() => import("./components/NotesWallView.jsx"));
 const TrophyView = lazy(() => import("./components/TrophyView.jsx"));
@@ -1137,7 +1138,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
       if (typeof remoteVersion === "number") dataVersionRef.current = remoteVersion;
       setSavingState("idle");
       if (notifSettingsRef.current?.partnerChanges && document.visibilityState!=="visible") {
-        showNotif("📅 Misiones de Pareja", "Tu pareja actualizó el calendario", {tag:"partner-update"});
+        showNotif(`📅 ${APP_NAME}`, "Tu pareja actualizó el calendario", {tag:"partner-update"});
       }
       if (isPushSupported() && !pushSubscribedRef.current && !pushNudgeDismissRef.current) {
         setPushNudgeVisible(true);
