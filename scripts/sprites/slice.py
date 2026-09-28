@@ -134,10 +134,10 @@ S("nix", "upf", "Nix/Nix/NIX_UPF_ALL.png", "light", [
     ("caminar_izquierda", 320, 402, 183, 1520, 8),
     ("caminar_atras", 422, 518, 183, 1520, 8),
     ("caminar_frente", 535, 627, 183, 1520, 8),
-    ("dormir", 648, 712, 183, 1520, 8),
-    ("entrenar", 728, 808, 183, 1520, 8),
-    ("feliz", 823, 905, 183, 1520, 8),
-    ("triste", 922, 997, 183, 1520, 8),
+    ("dormir", 648, 712, 183, 1520, 8, {"dark_t": 45, "pocket_t": 34}),  # fondo índigo oscuro
+    ("entrenar", 728, 808, 194, 1520, 8),
+    ("feliz", 823, 905, 194, 1520, 8),
+    ("triste", 922, 997, 194, 1520, 8),
 ])
 
 # ============================ BROOT ========================================
@@ -240,7 +240,7 @@ def normconv(rgb, w, sigma):
     return out, den
 
 
-def matte_light(rgb, dark_t=95, dist_t=42, sigma=10, strong_t=70, min_area=25, shadow_sat=0.22):
+def matte_light(rgb, dark_t=95, dist_t=42, sigma=10, strong_t=70, min_area=25, shadow_sat=0.32, pocket_t=0):
     L = luma(rgb)
     dark = L < dark_t
     barrier = ndi.binary_dilation(dark, iterations=1)
@@ -255,6 +255,12 @@ def matte_light(rgb, dark_t=95, dist_t=42, sigma=10, strong_t=70, min_area=25, s
     # anillo de la dilatación de la barrera: si es claro y parecido al fondo, fuera
     ring = fg & ~dark & ndi.binary_dilation(bg1, iterations=2) & (dist < dist_t)
     fg &= ~ring
+    if pocket_t:
+        # bolsas de fondo encerradas (p.ej. dentro de remolinos de agua) sobre
+        # fondos oscuros de color muy característico: fuera por color global
+        bgc = np.median(rgb[bg1], axis=0)
+        pocket = np.sqrt(((rgb - bgc) ** 2).sum(-1)) < pocket_t
+        fg &= ~ndi.binary_opening(pocket, iterations=1)
     # limpiar componentes pequeños o débiles (bordes de celda, sombras tenues)
     lab, n = ndi.label(fg)
     if n:
@@ -308,6 +314,53 @@ def find_cuts(fg, n):
 
 
 # ---------------------------------------------------------------------------
+def assign_components(fg, cuts):
+    """Reparte los componentes del primer plano entre los n frames.
+
+    Los cortes por columna dan la partición inicial. Luego:
+    - componentes grandes (cuerpos) -> frame que contiene la mayoría de sus píxeles
+    - componentes pequeños (destellos, gotas, zzz) -> frame cuyo cuerpo principal
+      está más cerca en horizontal (un destello pegado al borde de la celda no
+      debe acabar en el frame vecino).
+    """
+    n = len(cuts) - 1
+    lab, nc = ndi.label(fg)
+    if nc == 0:
+        return [np.zeros_like(fg) for _ in range(n)]
+    idx = np.arange(1, nc + 1)
+    area = ndi.sum(np.ones(fg.shape), lab, idx)
+    objs = ndi.find_objects(lab)
+    colframe = np.zeros(fg.shape[1], int)
+    for i in range(n):
+        colframe[cuts[i]:cuts[i + 1]] = i
+    owner = np.zeros(nc + 1, int)
+    # cuerpo: el componente mayor de cada frame (por píxeles dentro del frame)
+    body_box = []
+    for i in range(n):
+        sub = lab[:, cuts[i]:cuts[i + 1]]
+        cnt = np.bincount(sub.ravel(), minlength=nc + 1)
+        cnt[0] = 0
+        b = int(cnt.argmax())
+        if cnt[b] == 0:
+            body_box.append((cuts[i], cuts[i + 1]))
+        else:
+            ob = objs[b - 1]
+            body_box.append((ob[1].start, ob[1].stop))
+    big = np.median([body_box[i][1] - body_box[i][0] for i in range(n)])
+    big_area = np.median(np.sort(area)[-n:]) if nc >= n else area.max()
+    for j in range(nc):
+        ob = objs[j]
+        cols = np.nonzero((lab[ob] == j + 1).any(0))[0] + ob[1].start
+        if area[j] >= 0.15 * big_area:
+            owner[j + 1] = np.bincount(colframe[cols], minlength=n).argmax()
+        else:
+            a0, a1 = cols[0], cols[-1] + 1
+            d = [max(0, b0 - a1, a0 - b1) for (b0, b1) in body_box]
+            owner[j + 1] = int(np.argmin(d))
+    own = owner[lab]
+    return [(own == i) & fg for i in range(n)]
+
+
 def load_sheet(path):
     im = Image.open(path)
     arr = np.asarray(im.convert("RGBA")).astype(np.float32)
@@ -319,30 +372,34 @@ def extract_sheet(sheet, src, debug=None):
     arr, _ = load_sheet(os.path.join(src, sheet["file"]))
     anims = {}
     dbg_rows = []
-    for (aid, y0, y1, x0, x1, n) in sheet["rows"]:
+    for r in sheet["rows"]:
+        aid, y0, y1, x0, x1, n = r[:6]
+        ropt = dict(sheet.get("light", {}), **(r[6] if len(r) > 6 else {}))
         band = arr[y0:y1, x0:x1]
         rgb = band[..., :3]
         if sheet["method"] == "light":
-            fg, _ = matte_light(rgb, **sheet.get("light", {}))
+            fg, _ = matte_light(rgb, **ropt)
         elif sheet["method"] == "alpha":
             fg = matte_alpha(band, sheet.get("alpha_t", 128))
             fg = ndi.binary_opening(fg, iterations=1)
         elif sheet["method"] == "alpha+light":
             a = band[..., 3] >= sheet.get("alpha_t", 200)
-            fl, _ = matte_light(rgb, **sheet.get("light", {}))
+            fl, _ = matte_light(rgb, **ropt)
             fg = a & fl
         else:
             raise ValueError(sheet["method"])
         cuts = find_cuts(fg, n)
+        masks = assign_components(fg, cuts)
         row = []
         for i in range(n):
-            c0, c1 = cuts[i], cuts[i + 1]
-            m = fg[:, c0:c1]
+            m = masks[i]
             if not m.any():
                 print(f"  ! {sheet['file']} {aid} frame vacío", file=sys.stderr)
                 continue
+            cols = np.nonzero(m.any(0))[0]
+            c0, c1 = cols[0], cols[-1] + 1
             rgba = band[:, c0:c1].copy()
-            rgba[..., 3] = m * 255.0
+            rgba[..., 3] = m[:, c0:c1] * 255.0
             row.append(rgba)
         # línea de suelo de la fila = mediana de la base del cuerpo principal
         base = float(np.median([frame_metrics(f)["bottom"] for f in row]))
@@ -384,7 +441,7 @@ def frame_metrics(rgba):
     return dict(size=float(np.sqrt(body.sum())), cx=float(xs.mean()), bottom=float(ys.max() + 1))
 
 
-PCT = 97  # percentil de extensión: los destellos más lejanos (raros) pueden recortarse
+PCT = 98  # los efectos más lejanos (raros) pueden tocar el borde; el cuerpo nunca
 
 
 def normalize_stage(groups):
@@ -403,7 +460,7 @@ def normalize_stage(groups):
         sizes[gid] = float(np.median(s))
     ref = max(sizes.values())
     rel = {g: ref / s for g, s in sizes.items()}
-    E = []
+    E, EB = [], []
     items = []
     for gid, anims in groups:
         k = rel[gid]
@@ -413,9 +470,14 @@ def normalize_stage(groups):
                 ys, xs = np.nonzero(f[..., 3] > 0)
                 E.append(((m["cx"] - xs.min()) * k, (xs.max() + 1 - m["cx"]) * k,
                           (base - ys.min()) * k, max(0.0, ys.max() + 1 - base) * k))
+                body = main_component(f[..., 3])
+                by, bx = np.nonzero(body)
+                EB.append(((m["cx"] - bx.min()) * k, (bx.max() + 1 - m["cx"]) * k,
+                           (base - by.min()) * k, max(0.0, by.max() + 1 - base) * k))
                 items.append((gid, aid, f, m, base, k))
-    E = np.array(E)
-    L, R, U, D = np.percentile(E, PCT, axis=0)
+    # efectos (salpicaduras, zzz) por percentil 98; el cuerpo por percentil 99
+    # (solo 1-2 poses extremas, p.ej. un remolino de agua pegado al cuerpo, pueden tocar el borde)
+    L, R, U, D = np.maximum(np.percentile(np.array(E), PCT, axis=0), np.percentile(np.array(EB), 99, axis=0))
     half = max(L, R)
     avail = CELL - 2 * MARGIN
     scale = min(avail / (2 * half), avail / (U + D))

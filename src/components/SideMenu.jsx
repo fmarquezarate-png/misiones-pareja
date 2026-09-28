@@ -22,6 +22,7 @@ const NOSOTROS_ITEMS = [
   { id:"notes",       label:"Notitas",            icon:"💌" },
   { id:"trophy",      label:"La Copa",            icon:"🏆" },
   { id:"team",        label:"Mi Equipo",          icon:"⚽" },
+  { id:"salud",       label:"Salud",              icon:"🩺" },
   { id:"birthdays",   label:"Cumpleaños",         icon:"🎂" },
   { id:"timecapsule", label:"Cápsula del tiempo", icon:"✉️" },
   { id:"links",       label:"Links de Interés",   icon:"🔗" },

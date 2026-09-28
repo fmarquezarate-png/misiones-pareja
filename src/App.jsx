@@ -39,6 +39,7 @@ import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNo
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import { useCelebrations, celebrationKey } from "./lib/celebrations.js";
 const TeamView = lazy(() => import("./components/TeamView.jsx"));
+const SaludView = lazy(() => import("./components/SaludView.jsx"));
 // Solo se monta mientras hay un partido en juego: fuera del chunk inicial.
 const LiveMatchCard = lazy(() => import("./components/LiveMatchCard.jsx"));
 import TaskCongrat from "./components/TaskCongrat.jsx";
@@ -734,7 +735,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","trophy","team","diagnostics"];
+    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","trophy","team","salud","diagnostics"];
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -2604,6 +2605,12 @@ ${sorted.map(m=>{
           allMissions={allDated}
           onPatchSettings={team => update(d => ({ ...d, settings: { ...d.settings, team, myTeam: undefined } }))}
           onImport={importTeamMatches}
+        />}
+
+        {activeTab==="salud" && <SaludView
+          sessionUserId={sessionUserId}
+          personName={personName}
+          partnerName={p1===personName ? p2 : p1}
         />}
 
         {activeTab==="trophy" && <TrophyView

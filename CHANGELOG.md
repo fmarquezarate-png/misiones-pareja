@@ -7,6 +7,41 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.38.0] — 2026-09-28 · Salud: ingesta desde Health Auto Export + motor de la mascota
+
+Primer lote del proyecto de la mascota virtual. Tres piezas:
+
+### 1. La ingesta (servidor)
+
+`supabase/functions/health-ingest` + `supabase/migrations/20260928_health_ingest.sql`. Health Auto Export manda cada hora un JSON a una URL con un **token por persona** (revocable por separado). La función:
+
+1. guarda el envío **crudo antes de interpretarlo** (`health_raw`, 14 días) — si el parser falla, se reprocesa en vez de perder el dato;
+2. aplana métricas y entrenos;
+3. **limpia**: iPhone + Watch contando lo mismo → en totales se coge el **mayor**, no la suma; valores imposibles → descartados **y apuntados** en `health_rejects`;
+4. sube con upsert sobre la clave natural *(pareja, persona, día, métrica)* → reenviar es idempotente. Health Auto Export reenvía ventanas solapadas todo el rato: aquí es donde muere el problema de los duplicados.
+
+Tablas propias, **nada en el blob** (series temporales que crecen a diario: meterlas en `app_data.data` repetiría el incidente de los 4 MB de v5.14.0). RLS: la app solo lee, y solo lo de su pareja; `health_tokens` y `health_raw` no tienen política de lectura.
+
+El workflow de despliegue ahora despliega **las funciones que cambiaron** en cada push (antes redesplegaba `football` pasara lo que pasara), y `health-ingest` va con `--no-verify-jwt` porque su autenticación es el token.
+
+### 2. El motor de la mascota (`src/lib/pet.js`, puro, 37 tests)
+
+La mascota **no guarda estado**: se recalcula reproduciendo el historial día a día desde que nació. Reglas acordadas con Fran:
+
+- cada uno elige su mascota y **solo come de sus datos**;
+- metas editables, **diarias y semanales** (las semanales se liquidan el domingo; el sueño semanal se promedia, no se suma);
+- puede ponerse triste y **desevolucionar, pero nunca muere** — una vez nacida no vuelve al huevo, y retroceder exige caer un 20 % bajo el umbral (histéresis) para que una semana regular no haga parpadear la forma.
+
+Y la regla del proyecto: **un día sin datos es neutro**. Que el móvil no sincronice no puede castigar a la mascota. Hoy solo suma. Las unidades del iPhone se normalizan (kJ → kcal, millas → km). Cada ánimo lleva su motivo («Anoche dormiste 4,5 h»).
+
+Un test cazó un fallo de diseño: con *ejercicio* como meta, «entrenando» ganaba siempre a «celebrando», así que **cumplir todas las metas nunca se celebraba**. Reordenado.
+
+### 3. Pantalla de prueba (☰ → Nosotros → Salud)
+
+Qué llega de cada uno, cuándo fue el último envío (aviso si pasan más de 3 h), los últimos 7 días con la meta cumplida en verde, y todas las métricas que manda cada iPhone. Además pasa el historial real por el motor y enseña qué mascota saldría. Un día sin dato se pinta como `·`, **no como 0**: son cosas distintas.
+
+---
+
 ## [5.37.0] — 2026-09-16 · El partido en vivo se queda con el inicio
 
 Mientras el equipo esté **jugando de verdad** (`IN_PLAY` o `PAUSED`), la parte de arriba de la pantalla de inicio la ocupa el marcador —escudos grandes, goles, minuto si la fuente lo publica— en lugar de la notita, el agradecimiento y la idea del día. En cuanto pita el final vuelve todo solo, sin tocar nada. Toda la tarjeta es el botón que lleva a *Mi Equipo → En vivo*.
