@@ -67,6 +67,7 @@
       /* Hábitat: todo en bucle anima solo transform/opacity. Con reducir-
          movimiento el reset global corta el bucle y cada capa vuelve a su
          posición de reposo (visible), no desaparece. */
+      @keyframes mpRespira { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.03); } }
       @keyframes mpBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
       @keyframes mpNube { from { transform: translateX(-140px); } to { transform: translateX(560px); } }
       @keyframes mpLluvia { from { transform: translateY(-50%); } to { transform: translateY(0); } }

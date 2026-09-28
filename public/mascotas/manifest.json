@@ -22,7 +22,13 @@
               "sourceSheet": "Egg_All.png"
             }
           },
-          "escala": 0.783
+          "escala": 0.783,
+          "cuerpo": {
+            "x0": 0.203,
+            "y0": 0.289,
+            "x1": 0.797,
+            "y1": 0.945
+          }
         },
         "jr": {
           "portrait": "broot/jr/retrato.webp",
@@ -84,7 +90,13 @@
               "sourceSheet": "Broot_JrWalk.png"
             }
           },
-          "escala": 1.0
+          "escala": 1.0,
+          "cuerpo": {
+            "x0": 0.289,
+            "y0": 0.398,
+            "x1": 0.812,
+            "y1": 0.938
+          }
         },
         "pro": {
           "portrait": "broot/pro/retrato.webp",
@@ -146,7 +158,13 @@
               "sourceSheet": "Broot_ProWalk.png"
             }
           },
-          "escala": 0.915
+          "escala": 0.915,
+          "cuerpo": {
+            "x0": 0.18,
+            "y0": 0.383,
+            "x1": 0.844,
+            "y1": 0.938
+          }
         },
         "prime": {
           "portrait": "broot/prime/retrato.webp",
@@ -208,7 +226,13 @@
               "sourceSheet": "Broot_PrimeWalk.png"
             }
           },
-          "escala": 1.129
+          "escala": 1.129,
+          "cuerpo": {
+            "x0": 0.203,
+            "y0": 0.453,
+            "x1": 0.789,
+            "y1": 0.953
+          }
         },
         "upf": {
           "portrait": "broot/upf/retrato.webp",
@@ -270,7 +294,13 @@
               "sourceSheet": "Broot_UPFWalk.png"
             }
           },
-          "escala": 1.206
+          "escala": 1.206,
+          "cuerpo": {
+            "x0": 0.188,
+            "y0": 0.328,
+            "x1": 0.836,
+            "y1": 0.953
+          }
         }
       }
     },
@@ -288,7 +318,13 @@
               "sourceSheet": "NixEgg_NixJr.png"
             }
           },
-          "escala": 0.775
+          "escala": 0.775,
+          "cuerpo": {
+            "x0": 0.195,
+            "y0": 0.188,
+            "x1": 0.812,
+            "y1": 0.961
+          }
         },
         "jr": {
           "portrait": "nix/jr/retrato.webp",
@@ -378,7 +414,13 @@
               "sourceSheet": "NixJr_SleepTrain.png"
             }
           },
-          "escala": 1.0
+          "escala": 1.0,
+          "cuerpo": {
+            "x0": 0.164,
+            "y0": 0.312,
+            "x1": 0.875,
+            "y1": 0.891
+          }
         },
         "pro": {
           "portrait": "nix/pro/retrato.webp",
@@ -440,7 +482,13 @@
               "sourceSheet": "NixPro_Walktrhough.png"
             }
           },
-          "escala": 1.093
+          "escala": 1.093,
+          "cuerpo": {
+            "x0": 0.117,
+            "y0": 0.469,
+            "x1": 0.93,
+            "y1": 0.938
+          }
         },
         "prime": {
           "portrait": "nix/prime/retrato.webp",
@@ -502,7 +550,13 @@
               "sourceSheet": "NixPrime_Walktrhough.png"
             }
           },
-          "escala": 1.438
+          "escala": 1.438,
+          "cuerpo": {
+            "x0": 0.188,
+            "y0": 0.484,
+            "x1": 0.812,
+            "y1": 0.945
+          }
         },
         "upf": {
           "portrait": "nix/upf/retrato.webp",
@@ -564,7 +618,13 @@
               "sourceSheet": "NIX_UPF_ALL.png"
             }
           },
-          "escala": 1.532
+          "escala": 1.532,
+          "cuerpo": {
+            "x0": 0.07,
+            "y0": 0.523,
+            "x1": 0.938,
+            "y1": 0.961
+          }
         }
       }
     }

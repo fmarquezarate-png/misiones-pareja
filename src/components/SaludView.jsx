@@ -16,6 +16,7 @@ import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pe
 import { horarioSueno } from "../lib/petBehavior.js";
 import { retrato, nombreEspecie } from "../lib/petSprites.js";
 import { humanDate } from "../lib/dateLabel.js";
+import { MODO_PRUEBAS } from "../lib/petConfig.js";
 import Habitat from "./Habitat.jsx";
 import SaludPanel from "./SaludPanel.jsx";
 import SaludImportar from "./SaludImportar.jsx";
@@ -169,19 +170,19 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
           <div style={{ height: "100%", width: `${Math.max(3, sim.progreso * 100)}%`, borderRadius: 99, background: "var(--t-accent,#a78bfa)" }} />
         </div>
       </div>
-      {/* Vista previa: para ver cómo será, sin tocar la etapa real. */}
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
+      {/* Vista previa (solo en modo pruebas): ver cada etapa sin tocar la real. */}
+      {MODO_PRUEBAS && <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
         <span style={{ ...dim, marginRight: 2 }}>Vista previa:</span>
         {ETAPAS.map(e => (
           <button key={e.id} onClick={() => setVista(e.id === sim.etapaId ? null : e.id)} style={{ ...chip(etapa === e.id), padding: "4px 9px", fontSize: 11 }}>
             {e.nombre}{e.id === sim.etapaId ? " ·" : ""}
           </button>
         ))}
-      </div>
+      </div>}
       {vista && <div style={{ ...dim, marginTop: 6 }}>Estás viendo cómo será en {ETAPAS.find(e => e.id === vista).nombre}. Su etapa real es {ETAPAS[sim.etapa].nombre}.</div>}
       {/* Fase de pruebas: cambiar de especie sin perder nada (misma fecha de
           nacimiento, mismas metas). Solo la dueña o el dueño. */}
-      {onCambiarEspecie && (
+      {MODO_PRUEBAS && onCambiarEspecie && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
           <span style={{ ...dim, marginRight: 2 }}>Especie (pruebas):</span>
           {Object.keys(manifest.pets).map(e => (

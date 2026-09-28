@@ -33,6 +33,23 @@ def cuerpo(anim):
             medidas.append(math.sqrt((bb[2] - bb[0]) * (bb[3] - bb[1])))
     return sum(medidas) / len(medidas)
 
+def caja_cuerpo(anims):
+    """Caja del cuerpo (0..1 del lienzo): mediana por borde sobre los
+    fotogramas de caminar — lo que más se ve mientras pasea o nada. Sirve
+    para ajustar la línea de flotación de Nix a CADA etapa: con una línea
+    fija, en Prime y UPF (más efectos, cuerpo más pequeño en el lienzo) la
+    línea no coincidía con el cuerpo."""
+    ids = [a for a in ("caminar_derecha", "caminar_izquierda") if a in anims] or [a for a in ("feliz", "idle") if a in anims]
+    bordes = []
+    for aid in ids:
+        an = anims[aid]
+        im = Image.open(RAIZ / an["src"]).convert("RGBA")
+        for i in range(an["frames"]):
+            bb = im.crop((i * 128, 0, (i + 1) * 128, 128)).getchannel("A").point(lambda v: 255 if v > 200 else 0).getbbox()
+            if bb: bordes.append(bb)
+    med = lambda k: sorted(b[k] for b in bordes)[len(bordes) // 2] / 128
+    return {"x0": round(med(0), 3), "y0": round(med(1), 3), "x1": round(med(2), 3), "y1": round(med(3), 3)}
+
 m = json.loads((RAIZ / "manifest.json").read_text())
 for pet, pd in m["pets"].items():
     tam = {}
@@ -41,5 +58,7 @@ for pet, pd in m["pets"].items():
         tam[st] = cuerpo(an)
     for st, sd in pd["stages"].items():
         sd["escala"] = round(OBJETIVO[st] * tam["jr"] / tam[st], 3)
-        print(f"{pet}/{st:6s} cuerpo {tam[st]:5.1f}px → escala {sd['escala']}  (se verá a {tam[st] * sd['escala']:.0f}px)")
+        sd["cuerpo"] = caja_cuerpo(sd["anims"])
+        c = sd["cuerpo"]
+        print(f"{pet}/{st:6s} cuerpo {tam[st]:5.1f}px → escala {sd['escala']}  · caja x {c['x0']}–{c['x1']} y {c['y0']}–{c['y1']}")
 (RAIZ / "manifest.json").write_text(json.dumps(m, ensure_ascii=False, indent=2) + "\n")

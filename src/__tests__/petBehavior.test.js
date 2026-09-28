@@ -134,7 +134,7 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
       else if (p.destino.x < p.desde.x) expect(p.anim).toBe("caminar_izquierda");
       else if (p.destino.y > p.desde.y) expect(p.anim).toBe("caminar_frente");
       else if (p.destino.y < p.desde.y) expect(p.anim).toBe("caminar_atras");
-      else expect(p.anim).toBe("feliz");
+      else expect(p.anim).toMatch(/^caminar_(derecha|izquierda)$/);   // quieta, mirando hacia donde iba
     }
   });
 
@@ -147,14 +147,19 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
     }
   });
 
-  // Inercia: la mayoría de tramos horizontales siguen la dirección anterior.
-  it("tiene inercia: tiende a seguir hacia donde iba", () => {
-    const pasos = pasear(1000, 11);
-    let horizontales = 0, siguen = 0, dirAnterior = 1;
+  // Inercia: en mitad del campo, rara vez se da la vuelta sin motivo. Los
+  // giros en la pared son obligados ("llega y gira") y no cuentan.
+  it("tiene inercia: en mitad del campo sigue hacia donde iba", () => {
+    const pasos = pasear(2000, 11);
+    let libres = 0, siguen = 0, dirAnterior = 1;
     for (const p of pasos) {
-      if (p.destino.x !== p.desde.x) { horizontales++; if (p.dir === dirAnterior) siguen++; dirAnterior = p.dir; }
+      if (p.destino.x === p.desde.x) continue;
+      // Giro obligado: a menos de un tramo mínimo (0,1) de la pared.
+      const enPared = p.desde.x - LIMITES.x[0] < 0.1 || LIMITES.x[1] - p.desde.x < 0.1;
+      if (!enPared) { libres++; if (p.dir === dirAnterior) siguen++; }
+      dirAnterior = p.dir;
     }
-    expect(siguen / horizontales).toBeGreaterThan(0.55);
+    expect(siguen / libres).toBeGreaterThan(0.65);
   });
 
   it("anda sobre todo en horizontal", () => {
@@ -166,8 +171,26 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
   it("la duración sale de la distancia y hay pausas", () => {
     for (const p of pasear(200, 13)) {
       if (p.ms) expect(p.ms).toBeGreaterThan(200);
-      expect(p.pausaMs).toBeGreaterThanOrEqual(1200);
+      expect(p.pausaMs).toBeGreaterThanOrEqual(500);
     }
+  });
+
+  // Fran: "está mucho rato celebrando y camina poco". Se MIDE el reparto.
+  it("pasa la mayor parte del tiempo caminando", () => {
+    const pasos = pasear(3000, 21);
+    const andando = pasos.reduce((a, p) => a + p.ms, 0);
+    const parada = pasos.reduce((a, p) => a + p.pausaMs, 0);
+    expect(andando / (andando + parada)).toBeGreaterThan(0.6);
+  });
+  it("celebra solo de vez en cuando", () => {
+    const pasos = pasear(3000, 22);
+    const celebra = pasos.filter(p => p.pausa.tipo === "feliz").reduce((a, p) => a + p.pausaMs, 0);
+    const total = pasos.reduce((a, p) => a + p.ms + p.pausaMs, 0);
+    expect(celebra / total).toBeLessThan(0.12);
+  });
+  it("la pausa normal es quieta, no una celebración", () => {
+    const tipos = pasear(1000, 23).map(p => p.pausa.tipo);
+    expect(tipos.filter(x => x === "quieto").length / tipos.length).toBeGreaterThan(0.8);
   });
 
   it("sin sprites de caminar, usa lo que haya", () => {

@@ -57,6 +57,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const moverA = useCallback(p => { posRef.current = p; setPos(p); }, []);
   const [viaje, setViaje] = useState(0);
   const [animId, setAnimId] = useState(null);
+  const [quieta, setQuieta] = useState(false);     // pausa: fotograma congelado + respiración
   const [caricia, setCaricia] = useState(null);
   const [corazones, setCorazones] = useState([]);
   const [ultimaCaricia, setUltimaCaricia] = useState(() => leer(claveCaricia, null));
@@ -67,6 +68,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const etapaDef = manifest?.pets?.[especie]?.stages?.[etapa];
   const anims = useMemo(() => new Set(Object.keys(etapaDef?.anims || {})), [etapaDef]);
   const tam = Math.round(TAM_BASE * (etapaDef?.escala || 1));
+  const cuerpo = etapaDef?.cuerpo || { x0: 0.1, x1: 0.9, y0: 0.3, y1: 0.95 };
   const esHuevo = etapa === "huevo";
   const agua = especie === "nix";
   const reducir = prefersReducedMotion();
@@ -133,6 +135,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
     clearTimers();
     if (modo !== "libre" || !visible || reducir || esHuevo || caricia) {
       setViaje(0);
+      setQuieta(false);
       if (modo !== "libre" || esHuevo) moverA({ x: 0.5, y: 0.78 });
       return;
     }
@@ -140,9 +143,16 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
       const plan = planificarPaseo(posRef.current, Math.random, util, anims, dirRef.current);
       dirRef.current = plan.dir;
       setAnimId(plan.anim);
+      setQuieta(false);
       setViaje(plan.ms);
       moverA(plan.destino);
-      later(() => { setAnimId(null); setViaje(0); later(paso, plan.pausaMs); }, plan.ms);
+      later(() => {
+        setViaje(0);
+        // La pausa normal: de pie mirando hacia donde iba (no celebrando).
+        if (plan.pausa.tipo === "feliz") { setAnimId("feliz"); setQuieta(false); }
+        else setQuieta(true);
+        later(paso, plan.pausaMs);
+      }, plan.ms);
     };
     later(paso, 1200);
     return clearTimers;
@@ -239,13 +249,19 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
           transition: viaje ? `transform ${viaje}ms linear` : "transform 0.6s ease",
           willChange: "transform",
         }}>
-          <div style={{ animation: agua ? "mpBob 2.6s ease-in-out infinite" : undefined }}>
+          <div style={{ animation: agua ? "mpBob 2.6s ease-in-out infinite" : quieta && !caricia ? "mpRespira 2.8s ease-in-out infinite" : undefined, transformOrigin: "50% 100%" }}>
             <div key={caricia?.t || "quieta"} style={{ position: "relative", animation: caricia ? (esHuevo ? "mpWiggle 0.5s ease 2" : "mpHop 0.55s ease-out 2") : undefined }}>
-              <PetSprite anim={anim} size={tam} onFin={caricia ? () => setCaricia(null) : undefined} />
+              <PetSprite anim={anim} size={tam} frame={quieta && !caricia && animId?.startsWith("caminar") ? 0 : null}
+                onFin={caricia ? () => setCaricia(null) : undefined} />
               {/* Medio cuerpo bajo el agua: la línea de flotación y el agua por delante */}
+              {/* Línea de flotación ajustada al CUERPO de cada etapa (manifest
+                  `cuerpo`): en Prime y UPF el cuerpo va más abajo y es más
+                  estrecho que el lienzo, y una línea fija no le cuadraba. */}
               {agua && (
                 <span aria-hidden style={{
-                  position: "absolute", left: -6, right: -6, bottom: 0, height: Math.round(tam * 0.34),
+                  position: "absolute",
+                  left: Math.round((cuerpo.x0 - 0.05) * tam), width: Math.round((cuerpo.x1 - cuerpo.x0 + 0.1) * tam),
+                  top: Math.round((cuerpo.y0 + (cuerpo.y1 - cuerpo.y0) * 0.55) * tam), bottom: 0,
                   background: `linear-gradient(180deg, ${pal.suelo}55 0%, ${pal.suelo}dd 45%, ${pal.suelo} 100%)`,
                   borderTop: "2px solid rgba(255,255,255,0.35)", borderRadius: "40% 40% 0 0 / 12px 12px 0 0",
                 }} />

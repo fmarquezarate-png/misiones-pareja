@@ -123,7 +123,21 @@ export function decidirModo({ ahora, horario, entrenos = [], ultimaCaricia = nul
 export const LIMITES = { x: [0.04, 0.96], y: [0.5, 0.95] };
 export const VELOCIDAD_PX_S = 34;
 
-const PROB = { quedarse: 0.12, profundidad: 0.16, seguir: 0.72 };
+// Ajuste v2.1 (Fran, 28/09): "está mucho rato celebrando y camina poco".
+// Dos causas medidas: (1) la pausa usaba la animación "feliz", que en las
+// hojas de sprites son 20 fotogramas de CELEBRACIÓN (saltos, brillos,
+// corazones), no un reposo; (2) las pausas duraban más que los tramos.
+// Ahora la pausa normal es QUIETA — de pie, mirando hacia donde iba, con el
+// primer fotograma de caminar y una respiración suave — y solo de vez en
+// cuando celebra. Un test mide que camine la mayor parte del tiempo.
+const PROB = { quedarse: 0.05, profundidad: 0.12, seguir: 0.75, celebrar: 0.12 };
+const MIN_TRAMO = 0.1;   // fracción del área útil: menos que esto es un tic, no un paso
+
+// Pausa entre tramos: quieta casi siempre; a veces, un momento de alegría.
+function pausa(rng, anims) {
+  if (anims.has("feliz") && rng() < PROB.celebrar) return { tipo: "feliz", ms: 2200 + rng() * 800 };
+  return { tipo: "quieto", ms: 500 + rng() * 1000 };
+}
 
 /**
  * @param {{x,y}} pos   posición actual, 0..1 dentro del área útil del hábitat
@@ -131,52 +145,54 @@ const PROB = { quedarse: 0.12, profundidad: 0.16, seguir: 0.72 };
  * @param {{ ancho: number, alto: number }} caja   px del área útil
  * @param {Set<string>} anims   animaciones disponibles en esta etapa
  * @param {number} dir   dirección horizontal que llevaba: 1 derecha, -1 izquierda
- * @returns {{ destino:{x,y}, anim:string, ms:number, pausaMs:number, dir:number }}
+ * @returns {{ destino:{x,y}, anim:string, ms:number, pausa:{tipo:'quieto'|'feliz', ms:number}, pausaMs:number, dir:number }}
  */
 export function planificarPaseo(pos, rng, caja, anims, dir = 1) {
   const idle = anims.has("feliz") ? "feliz" : [...anims][0];
   const tiene = a => (anims.has(a) ? a : idle);
   const r = rng();
+  const conPausa = o => { const p = pausa(rng, anims); return { ...o, pausa: p, pausaMs: p.ms }; };
 
-  // Quedarse un rato mirando.
+  // Quedarse un momento donde está (quieta).
   if (r < PROB.quedarse) {
-    return { destino: pos, anim: idle, ms: 0, pausaMs: 3500 + rng() * 4000, dir };
+    return conPausa({ destino: pos, anim: tiene(dir > 0 ? "caminar_derecha" : "caminar_izquierda"), ms: 0, dir });
   }
 
   // Un paso corto hacia ti o alejándose (cambiar de "carril").
   if (r < PROB.quedarse + PROB.profundidad) {
     const [lo, hi] = LIMITES.y;
-    const paso = 0.1 + rng() * 0.12;
-    const haciaTi = pos.y + paso <= hi && (pos.y - paso < lo || rng() < 0.5);
-    const y = haciaTi ? pos.y + paso : pos.y - paso;
+    const paso = 0.12 + rng() * 0.14;
+    // Hacia el lado donde quepa un paso de verdad (mismo motivo: nada de tics).
+    const cabeAbajo = hi - pos.y >= MIN_TRAMO, cabeArriba = pos.y - lo >= MIN_TRAMO;
+    const haciaTi = cabeAbajo && (!cabeArriba || rng() < 0.5);
+    // Sujeto a los límites: con la franja estrecha, un paso largo puede no
+    // caber hacia ningún lado (en el centro, ni +0,26 ni −0,26) y se salía.
+    const y = Math.min(hi, Math.max(lo, haciaTi ? pos.y + paso : pos.y - paso));
     const dy = Math.abs(y - pos.y) * caja.alto;
-    return {
+    return conPausa({
       destino: { x: pos.x, y },
       anim: tiene(haciaTi ? "caminar_frente" : "caminar_atras"),
       ms: Math.round((dy / VELOCIDAD_PX_S) * 1000),
-      pausaMs: 1200 + rng() * 2000,
       dir,
-    };
+    });
   }
 
-  // Tramo horizontal, con inercia y vuelta en los bordes.
+  // Tramo horizontal, con inercia; en la pared, llega y gira.
   const [lo, hi] = LIMITES.x;
   let d = rng() < PROB.seguir ? dir : -dir;
-  // Pegada a la pared en esa dirección: ahora sí, se da la vuelta. Antes
-  // giraba ANTES de llegar si el tramo no cabía, y con tramos largos rebotaba
-  // de lado a lado como un péndulo (medido: solo 35 % de tramos con inercia).
-  if ((d > 0 && hi - pos.x < 0.02) || (d < 0 && pos.x - lo < 0.02)) d = -d;
-  const largo = 0.1 + rng() * 0.18;
-  // Si el tramo no cabe, camina HASTA la pared y ahí se para.
+  // Si hacia ahí no le cabe un tramo decente, se da la vuelta: pegada a la
+  // pared, recortar el tramo dejaba "pasitos" de 0,2 s que se veían como un tic.
+  const cabe = dd => (dd > 0 ? hi - pos.x : pos.x - lo) >= MIN_TRAMO;
+  if (!cabe(d)) d = -d;
+  const largo = 0.25 + rng() * 0.3;
   const x = Math.min(hi, Math.max(lo, pos.x + d * largo));
   const dx = Math.abs(x - pos.x) * caja.ancho;
-  return {
+  return conPausa({
     destino: { x, y: pos.y },
     anim: tiene(d > 0 ? "caminar_derecha" : "caminar_izquierda"),
     ms: Math.round((dx / VELOCIDAD_PX_S) * 1000),
-    pausaMs: 1500 + rng() * 3000,
     dir: d,
-  };
+  });
 }
 
 // La animación de "reacción" al tocarla: la más alegre que tenga la etapa.

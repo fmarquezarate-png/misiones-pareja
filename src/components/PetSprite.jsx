@@ -10,7 +10,9 @@
 // uno el mismo tiempo — y al terminar una animación de una sola vez se queda
 // en el último fotograma, no en un hueco vacío.
 
-export default function PetSprite({ anim, size = 112, onFin, style }) {
+// `frame`: si se pasa, se enseña ESE fotograma quieto (la pausa: de pie,
+// mirando hacia donde iba, con el primer fotograma de caminar).
+export default function PetSprite({ anim, size = 112, onFin, style, frame = null }) {
   if (!anim) return null;
   const n = Math.max(1, anim.frames);
   const dur = n / Math.max(1, anim.fps || 8);
@@ -27,7 +29,8 @@ export default function PetSprite({ anim, size = 112, onFin, style }) {
         style={{
           display: "block", height: size, width: size * n, maxWidth: "none",
           "--mp-tx": `${-size * (n - 1)}px`,
-          animation: n > 1 ? `mpSprite ${dur}s steps(${n}, jump-none) ${bucle ? "infinite" : "1 forwards"}` : undefined,
+          transform: frame != null ? `translateX(${-size * Math.min(frame, n - 1)}px)` : undefined,
+          animation: frame == null && n > 1 ? `mpSprite ${dur}s steps(${n}, jump-none) ${bucle ? "infinite" : "1 forwards"}` : undefined,
           pointerEvents: "none",
         }}
       />

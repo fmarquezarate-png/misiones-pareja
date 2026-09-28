@@ -7,6 +7,33 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.42.0] — 2026-09-28 · Pasea más y celebra menos; la línea del agua, a medida
+
+### «Está mucho rato celebrando y camina poco» — dos causas medidas
+
+1. **La pausa usaba `feliz`, y `feliz` no es un reposo.** En las hojas de sprites son **20 fotogramas de celebración** (saltos, brillos, corazones). Cada pausa era una fiesta.
+2. **Las pausas duraban más que los tramos**: tramos de ~1,5 s frente a pausas de 1,5–4,5 s.
+
+Ahora la pausa normal es **quieta**: de pie, mirando hacia donde iba (primer fotograma de caminar, congelado con `PetSprite frame`) y respirando (`mpRespira`, solo `transform`). Solo el 12 % de las pausas son de alegría. Tramos más largos y pausas más cortas.
+
+Tests nuevos que **miden el reparto**: camina más del 60 % del tiempo, celebra menos del 12 %, y más del 80 % de las pausas son quietas. Medido además **en el navegador, 30 s**: Broot Pro camina el 68 % del tiempo (quieta 21 %, celebrando 11 %) y Nix Pro el 65 % (26 %, 9 %).
+
+Al ajustarlo, los tests cazaron dos fallos más:
+- **Se salía por arriba** (y = 0,45 con límite 0,5): en el centro de la franja, un paso largo en profundidad no cabía hacia ningún lado. Ahora se sujeta a los límites.
+- **«Pasitos» de 188 ms** junto a la pared, que se veían como un tic. Si no cabe un tramo mínimo (0,1), se da la vuelta. Tramo más corto medido: 450 ms.
+
+### La línea de flotación de Nix, por etapa
+
+`escala.py` guarda también la **caja del cuerpo** de cada etapa (`cuerpo`: mediana de los bordes en los sprites de caminar). En Prime y UPF el cuerpo empieza al 48–52 % del lienzo, frente al 31 % en Jr, y es más estrecho que el sprite: con una línea fija, en unas etapas cortaba demasiado arriba y en otras sobresalía por los lados. Ahora va al **55 % de la altura del cuerpo**, con la anchura del cuerpo más un margen.
+
+### Modo pruebas
+
+`src/lib/petConfig.js → MODO_PRUEBAS`: un único interruptor para la vista previa de etapas y el cambio de especie. Se apaga en la v6.0.0: en la versión final solo se ve el estado real.
+
+651 tests.
+
+---
+
 ## [5.41.0] — 2026-09-28 · El cielo del dueño, Nix en el agua, un paseo con sentido y el detalle de cada métrica
 
 Cinco peticiones de Fran tras probar la v5.40.0.
