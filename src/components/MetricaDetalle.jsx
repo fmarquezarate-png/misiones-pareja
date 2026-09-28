@@ -101,6 +101,15 @@ export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, 
         {/* Gráfica: la media como línea fina de referencia; tocar una barra la lee */}
         {todo && historico === "cargando" && <div style={{ ...dim, marginBottom: 6 }}>Cargando todo tu historial…</div>}
         {todo && historico?.error && <div style={{ ...dim, marginBottom: 6, color: "#fbbf24" }}>No se pudo cargar el historial completo; se muestran los últimos 120 días.</div>}
+        {/* Si el "histórico" apenas va más allá de los últimos meses, lo más
+            probable es que el historial antiguo no se haya importado: se dice
+            y se dice cómo, en vez de enseñar una gráfica corta sin explicar. */}
+        {todo && historico?.filas && (historico.filas.length === 0 || diasEntre(historico.filas[0].day, hoy) < 200) && (
+          <div style={{ ...dim, marginBottom: 8, padding: "8px 10px", borderRadius: 10, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", color: "var(--t-text-muted,#b9b0d0)" }}>
+            {historico.filas.length === 0 ? `Todavía no hay datos de ${def.nombre.toLowerCase()}.` : `Solo hay datos de ${def.nombre.toLowerCase()} desde ${humanDate(historico.filas[0].day)}.`}{" "}
+            Si tienes más historial en tu iPhone, impórtalo en <b>Salud → Datos y conexión → Importar historial completo</b>.
+          </div>
+        )}
         <div style={{ position: "relative", height: 120, display: "flex", alignItems: "flex-end", gap: todo ? 1 : nDias > 30 ? 4 : nDias > 7 ? 2 : 6 }}>
           {d.media != null && (
             <div aria-hidden style={{ position: "absolute", left: 0, right: 0, bottom: `${(d.media / max) * 100}%`, borderTop: "1px solid var(--t-text-dim,#8f84ad)", opacity: 0.6 }}>

@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.44.1] — 2026-09-28 · «Todo» avisa cuando falta historial
+
+Fran: «no tengo ningún dato histórico de sueño». Reproducido con su archivo real: el importador y la vista «Todo» actuales sacan **698 noches válidas** (ene 2022 → sep 2026, media 7,2 h, mejor mes abril 2024). El código funciona; lo que falta es el historial en Supabase: el envío de 5 años de Health Auto Export se quedó sin procesar (el de 4 MB de v5.38.2) y no consta la importación desde la app. En su archivo, además, no hay sueño antes de enero de 2022.
+
+Hasta ahora la vista enseñaba una gráfica vacía o corta sin explicar nada. Si el histórico no pasa de ~200 días (o está vacío), ahora lo dice y dice cómo traer el resto: **Salud → Datos y conexión → Importar historial completo**.
+
+---
+
 ## [5.44.0] — 2026-09-28 · El histórico completo en cada métrica; Misi dice por qué falla
 
 ### «Todo»: el historial entero
