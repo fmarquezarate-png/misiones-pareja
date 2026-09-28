@@ -4,6 +4,7 @@ import { S } from "../styles.js";
 import { DEFAULT_COLORS, THEMES, FONTS } from "../constants.js";
 import { getUserPrefs, saveUserPrefs } from "../lib/userPrefs.js";
 import { ALL_TABS } from "./BottomTabBar.jsx";
+import { MAX_BARRA, BARRA_DEFECTO } from "../lib/secciones.js";
 import { secureToken } from "../utils.js";
 import { RITUAL_DAYS } from "../lib/ritual.js";
 import { uploadAvatarPhoto } from "../lib/photoStore.js";
@@ -49,8 +50,8 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
   const COUPLE_EMOJIS = ["💞","💑","👫","🫂","💕","💓","💗","💝","💘","🥰","😍","💋","🌹","❤️","🫶","🩷","🔥","✨","🌟","🦋","👑","🎉","🌈","🎯"];
   const setColor = (key, val) => setColors(c=>({...c,[key]:val}));
 
-  const [bbEnabled, setBbEnabled] = useState(bottomBar?.enabled ?? false);
-  const [bbTabs,    setBbTabs]    = useState(bottomBar?.tabs ?? ["home","current","calendar","mood"]);
+  const [bbEnabled, setBbEnabled] = useState(bottomBar?.enabled ?? BARRA_DEFECTO.enabled);
+  const [bbTabs,    setBbTabs]    = useState(bottomBar?.tabs ?? BARRA_DEFECTO.tabs);
   const updateBb = (enabled, tabs) => {
     setBbEnabled(enabled);
     setBbTabs(tabs);
@@ -384,7 +385,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
                         </div>
                       );
                     })}
-                    {bbTabs.length < 4 && (
+                    {bbTabs.length < MAX_BARRA && (
                       <div style={{ marginTop:12 }}>
                         <div style={{ fontSize:11, color:"var(--t-text-dim,#8f84ad)", marginBottom:8 }}>Añadir pestaña</div>
                         <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
@@ -551,7 +552,7 @@ export default function ProfileModal({ data, update, coupleId, onClose, onStartT
               {/* Acciones extra — viven en la pestaña "más" para no ensuciar el footer */}
               <SectionTitle>Ayuda y app</SectionTitle>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🎓 Ver tutorial de nuevo</button>}
+                {onStartTutorial && <button onClick={onStartTutorial} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🤖 Repetir el tour con Misi</button>}
                 {onShowWrapped && <button onClick={()=>{ onClose(); onShowWrapped(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>📋 Revivir Wrapped (última semana)</button>}
                 <button onClick={()=>{ onClose(); onCheckUpdate && onCheckUpdate(); }} style={{ ...S.btnSecondary, fontSize:12, textAlign:"center", padding:"9px 14px", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>🔄 Actualizar app (última versión)</button>
               </div>

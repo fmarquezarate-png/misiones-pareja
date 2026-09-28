@@ -39,6 +39,8 @@ import { saveWithCAS, insertNormalizedMission, deleteNormalizedMission, updateNo
 import JuntosMoment from "./components/JuntosMoment.jsx";
 import { useCelebrations, celebrationKey } from "./lib/celebrations.js";
 const TeamView = lazy(() => import("./components/TeamView.jsx"));
+// El tour se ve una vez por dispositivo: fuera del chunk que se parsea al arrancar.
+const TourMisi = lazy(() => import("./components/TourMisi.jsx"));
 const SaludView = lazy(() => import("./components/SaludView.jsx"));
 // Solo se monta mientras hay un partido en juego: fuera del chunk inicial.
 const LiveMatchCard = lazy(() => import("./components/LiveMatchCard.jsx"));
@@ -67,7 +69,7 @@ import LoginScreen from "./components/LoginScreen.jsx";
 import GuestView from "./components/GuestView.jsx";
 import ResetPasswordScreen from "./components/ResetPasswordScreen.jsx";
 import OnboardingScreen from "./components/OnboardingScreen.jsx";
-import TutorialOverlay, { TUTORIAL_STEPS } from "./components/TutorialOverlay.jsx";
+import { pasosTour, CLAVE_TOUR } from "./lib/tour.js";
 const StatsView = lazy(() => import("./components/StatsView.jsx"));
 const GastosView = lazy(() => import("./components/GastosView.jsx"));
 const ProfileModal = lazy(() => import("./components/ProfileModal.jsx"));
@@ -81,6 +83,7 @@ const PendingView = lazy(() => import("./components/PendingView.jsx"));
 import SideMenu from "./components/SideMenu.jsx";
 import Topbar from "./components/Topbar.jsx";
 import BottomTabBar from "./components/BottomTabBar.jsx";
+import { IDS_PESTAÑA, sanearBarra, BARRA_DEFECTO } from "./lib/secciones.js";
 import PullToRefresh from "./components/PullToRefresh.jsx";
 const SearchOverlay = lazy(() => import("./components/SearchOverlay.jsx"));
 const AvailabilityExport = lazy(() => import("./components/AvailabilityExport.jsx"));
@@ -291,12 +294,12 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   const [localFontId,  setLocalFontId]  = useState(null);
   const [bottomBar, setBottomBar] = useState(() => {
     // Encendida por defecto (v5.1): la navegación con el pulgar es la fricción #1
-    // del uso diario — antes las 14 secciones vivían solo tras la hamburguesa.
-    // Sigue siendo personalizable/apagable desde Perfil.
-    try { return JSON.parse(localStorage.getItem("mp-bottom-bar") || "null") || { enabled: true, tabs: ["home","current","calendar","mood"] }; }
-    catch { return { enabled: true, tabs: ["home","current","calendar","mood"] }; }
+    // del uso diario. Personalizable/apagable desde Perfil. Se SANEA al cargar:
+    // un id guardado que ya no existe ocupaba un hueco invisible en la barra.
+    try { return sanearBarra(JSON.parse(localStorage.getItem("mp-bottom-bar") || "null") || BARRA_DEFECTO); }
+    catch { return BARRA_DEFECTO; }
   });
-  const updateBottomBar = cfg => { setBottomBar(cfg); localStorage.setItem("mp-bottom-bar", JSON.stringify(cfg)); };
+  const updateBottomBar = cfg => { const c = sanearBarra(cfg); setBottomBar(c); localStorage.setItem("mp-bottom-bar", JSON.stringify(c)); };
   const [weekSort, setWeekSort] = useState("default"); // default | chrono | type | who | status
   const [lightboxSrc,   setLightboxSrc]   = useState(null);
   const [syncing, setSyncing]       = useState(false);
@@ -735,7 +738,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const wn = parseInt(params.get("wn"));
     const yr = parseInt(params.get("yr"));
     const missionId = params.get("mission");
-    const VALID = ["home","current","calendar","pending","goals","stats","history","wishlist","mood","gastos","chat","system","links","birthdays","timecapsule","notes","trophy","team","salud","diagnostics"];
+    const VALID = IDS_PESTAÑA;   // registro único (src/lib/secciones.js)
     if (tab && VALID.includes(tab)) setActiveTab(tab);
     if (action === "add") { setActiveTab("current"); setShowAddForm(true); }
     if (missionId && wn && yr) setPendingMissionLink({ wn, yr, missionId });
@@ -764,7 +767,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   // Auto-launch tutorial on first visit
   useEffect(() => {
-    if (!loading && coupleId && !localStorage.getItem("shared-cal-tutorial-v1")) {
+    // Clave nueva para el tour de Misi (v6): lo ve una vez TODO el mundo,
+    // también quien ya había visto el tutorial viejo — ha cambiado casi todo.
+    if (!loading && coupleId && !localStorage.getItem(CLAVE_TOUR)) {
       const t = setTimeout(() => setTutorialStep(0), 700);
       return () => clearTimeout(t);
     }
@@ -1019,16 +1024,29 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   }, [loading]); // eslint-disable-line
 
   // Navigate to tab when tutorial step changes
+  // Guion del tour de Misi (src/lib/tour.js), personalizado. Declarado aquí,
+  // ANTES de los return tempranos de carga/error: el efecto de abajo lo lee.
+  const tourPasos = pasosTour({
+    nombre: personName,
+    temas: THEMES.length,
+    tieneMascota: !!data?.settings?.pets?.[sessionUserId],
+    tieneEquipo: !!(data?.settings?.team?.id || data?.settings?.myTeam),
+  });
+
   useEffect(() => {
-    if (tutorialStep !== null && TUTORIAL_STEPS[tutorialStep]?.tab) {
-      setActiveTab(TUTORIAL_STEPS[tutorialStep].tab);
+    if (tutorialStep !== null && tourPasos[tutorialStep]?.tab) {
+      setActiveTab(tourPasos[tutorialStep].tab);
+      setMenuOpen(false);
     }
+    // tourPasos se recalcula en cada render; basta con el paso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tutorialStep]);
 
-  const tutorialNext   = () => setTutorialStep(s => Math.min(s+1, TUTORIAL_STEPS.length-1));
+  const tutorialNext   = () => setTutorialStep(s => Math.min(s+1, tourPasos.length-1));
   const tutorialBack   = () => setTutorialStep(s => Math.max(s-1, 0));
-  const tutorialFinish = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); setActiveTab("home"); };
-  const tutorialSkip   = () => { localStorage.setItem("shared-cal-tutorial-v1","done"); setTutorialStep(null); };
+  const tutorialFinish = () => { localStorage.setItem(CLAVE_TOUR,"done"); setTutorialStep(null); setActiveTab("home"); };
+  const tutorialSkip   = () => { localStorage.setItem(CLAVE_TOUR,"done"); setTutorialStep(null); };
+  const tutorialCta    = cta => { localStorage.setItem(CLAVE_TOUR,"done"); setTutorialStep(null); setActiveTab(cta.tab); };
 
   // Sync notifGranted if user grants/denies permission mid-session
   useEffect(() => {
@@ -1975,7 +1993,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     haptic(15);
     const entry = { id: uid(), fromId: sessionPersonId, pinColor: normalizePin(pinColor), ...note };
     update(d => ({ ...d, loveNotes: [entry, ...(d.loveNotes || [])].slice(0, 50), loveNote: undefined }));
-    runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=home" }, sessionUserId));
+    // A su sección, no al Inicio: durante un partido en vivo la parte de arriba
+    // del Inicio la ocupa el marcador y la notita no se vería al abrir el aviso.
+    runAfterSave(() => sendContextualPush(coupleId, { body: `💌 ${personName} te dejó una notita`, tag: "mp-lovenote", url: "/?tab=notes" }, sessionUserId));
     track("lovenote_set");
     pushToast({ kind: "success", text: "💌 Notita enviada" });
   };
@@ -1992,7 +2012,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     haptic(15);
     const entry = { id: uid(), text: t.slice(0, GRATITUDE_MAX), fromName: personName, fromId: sessionPersonId, at: Date.now() };
     update(d => ({ ...d, gratitudes: [entry, ...(d.gratitudes || [])].slice(0, 200) }));
-    runAfterSave(() => sendContextualPush(coupleId, { body: `🙏 ${personName} te agradeció: ${entry.text.slice(0, 80)}`, tag: "mp-gratitude", url: "/?tab=home" }, sessionUserId));
+    runAfterSave(() => sendContextualPush(coupleId, { body: `🙏 ${personName} te agradeció: ${entry.text.slice(0, 80)}`, tag: "mp-gratitude", url: "/?tab=trophy" }, sessionUserId));
     track("gratitude_sent");
     pushToast({ kind: "success", text: "🙏 Gracias enviado" });
   };
@@ -2709,7 +2729,11 @@ ${sorted.map(m=>{
       )}
 
       {/* Tutorial overlay */}
-      {tutorialStep !== null && <TutorialOverlay step={tutorialStep} onNext={tutorialNext} onBack={tutorialBack} onSkip={tutorialSkip} onFinish={tutorialFinish} />}
+      {tutorialStep !== null && (
+        <Suspense fallback={null}><TourMisi pasos={tourPasos} paso={tutorialStep} onSiguiente={tutorialNext} onAtras={tutorialBack}
+          onSaltar={tutorialSkip} onTerminar={tutorialFinish} onCta={tutorialCta}
+          elevado={bottomBar.enabled && bottomBar.tabs.length > 0} /></Suspense>
+      )}
 
       {/* Lightbox */}
       {lightboxSrc && (
@@ -2811,7 +2835,8 @@ ${sorted.map(m=>{
           escribiendo (esperando IA) > pensando (chat abierto) >
           inspirado (festejo al completar misión) > cansado/durmiendo
           (inactividad) > alegre (default). */}
-      <MisiLiveLayer
+      {/* Durante el tour, Misi es la guía: no hace falta otra en la esquina. */}
+      {tutorialStep === null && <MisiLiveLayer
         emotion={
           misiThinking ? "escribiendo"
           : misiChatOpen ? "pensando"
@@ -2823,7 +2848,7 @@ ${sorted.map(m=>{
         onClick={() => setMisiChatOpen(true)}
         liftForTabBar={bottomBar.enabled && bottomBar.tabs.length > 0}
         paused={fullscreenCelebration}
-      />
+      />}
       {misiChatOpen && (
         <Suspense fallback={<ModalLoadingFallback />}>
           <MisiChatPanel

@@ -39,7 +39,17 @@ Ahora sí recibís CONTEXTO_REAL con datos vivos de Supabase. Usalo para respond
 
 Desde el chat in-app, por ahora tratá las acciones mutables como no confirmadas: si te piden marcar, borrar, mover o editar una misión, explicá qué harías y pedí confirmación humana en la app o en Telegram/Vento hasta que exista una acción de escritura segura en esta función.
 
-Respuestas breves. Si preguntan "cómo vamos", da números concretos y 2-3 focos útiles.`;
+Respuestas breves. Si preguntan "cómo vamos", da números concretos y 2-3 focos útiles.
+
+La app tiene más secciones que las misiones (28/09/2026); si preguntan dónde está algo, orientá con estas rutas:
+- Inicio, Semana actual, Calendario y Pendientes: el día a día de las misiones.
+- Salud (menú ☰ → Nosotros): cada uno adopta una mascota —Broot o Nix— que crece con SUS hábitos de sueño, pasos y ejercicio (datos del reloj vía Health Auto Export), duerme y entrena a su ritmo, y un panel de salud con metas de la semana.
+- Mi Equipo: partidos en directo, clasificación, pronóstico de la temporada y goleadores del club que elijan.
+- La Copa (agradecimientos), Notitas (post-its en un corcho), Metas, Ánimo, Cumpleaños, Cápsula del tiempo, Lista de compras, Links: en el menú ☰ → Nosotros.
+- Stats, Histórico, Gastos, Chat: en el menú ☰.
+- Cualquier sección se puede poner en la barra de abajo: ⚙️ → Ajustes → Apariencia → Barra de navegación inferior.
+- El tour guiado se repite en ⚙️ → Ajustes → Avisos y más.
+Si el mensaje empieza con "[Consulta sobre MI salud desde la app…]", respondé SOLO con los datos que trae ese bloque ("-" = sin dato, no es cero) y sin consejos médicos.`;
 
 type Mission = {
   title?: string;

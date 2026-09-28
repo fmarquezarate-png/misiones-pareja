@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { APP_VERSION, LAST_UPDATE } from "../constants.js";
+import { seccion, delGrupo } from "../lib/secciones.js";
 
 // Menú lateral agrupado (handoff v5): "Inicio" suelto arriba, y tres grupos
 // con encabezado. "Nosotros" es un acordeón — sus ítems (secundarios) viven
@@ -7,36 +8,15 @@ import { APP_VERSION, LAST_UPDATE } from "../constants.js";
 // grupos quedan fijos. "Actividad" no es una pestaña: abre el modal de
 // actividad reciente (onOpenActivity), igual que desde el menú ⋯.
 
-const HOME_ITEM = { id:"home", label:"Inicio", icon:"🏠" };
-
-const SEMANA_ITEMS = [
-  { id:"current",  label:"Semana actual", icon:"🎯" },
-  { id:"calendar", label:"Calendario",    icon:"📅" },
-  { id:"pending",  label:"Pendientes",    icon:"📋" },
-];
-
+// Todas las listas salen del registro único (src/lib/secciones.js): aquí ya
+// no se escriben a mano, para que el menú, la barra inferior y la cabecera
+// digan siempre lo mismo.
+const item = s => ({ id: s.id, label: s.nombre, icon: s.icono, modal: s.modal });
+const HOME_ITEM = item(seccion("home"));
+const SEMANA_ITEMS = delGrupo("semana").map(item);
 // Secundarias — plegadas detrás de "Ver todo"
-const NOSOTROS_ITEMS = [
-  { id:"goals",       label:"Metas",              icon:"🏅" },
-  { id:"mood",        label:"Ánimo",              icon:"🧠" },
-  { id:"notes",       label:"Notitas",            icon:"💌" },
-  { id:"trophy",      label:"La Copa",            icon:"🏆" },
-  { id:"team",        label:"Mi Equipo",          icon:"⚽" },
-  { id:"salud",       label:"Salud",              icon:"🩺" },
-  { id:"birthdays",   label:"Cumpleaños",         icon:"🎂" },
-  { id:"timecapsule", label:"Cápsula del tiempo", icon:"✉️" },
-  { id:"links",       label:"Links de Interés",   icon:"🔗" },
-  { id:"wishlist",    label:"Lista de compras",   icon:"🛍️" },
-];
-
-const HISTORIAL_ITEMS = [
-  { id:"stats",    label:"Stats",     icon:"📊" },
-  { id:"history",  label:"Histórico", icon:"🗂️" },
-  { id:"activity", label:"Actividad", icon:"🕐", modal:true }, // abre modal, no navega
-  { id:"gastos",   label:"Gastos",    icon:"💸" },
-  { id:"chat",     label:"Chat",      icon:"💬" },
-  { id:"system",   label:"Sistema Misi", icon:"🛡️" },
-];
+const NOSOTROS_ITEMS = delGrupo("nosotros").map(item);
+const HISTORIAL_ITEMS = delGrupo("historial").map(item);
 
 function SectionHeader({ children }) {
   return (

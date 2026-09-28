@@ -24,7 +24,7 @@ const VIDEO_BY_EMOTION = {
   inspirado:   "/misi-inspirado.mp4",   // festejo (misión completada, racha, etc.)
 };
 
-const POSTER_BY_EMOTION = {
+export const POSTER_BY_EMOTION = {
   alegre:      "/misi-alegre.jpg",
   pensando:    "/misi-pensando.jpg",
   leyendo:     "/misi-pensando.jpg",
@@ -74,7 +74,9 @@ function keyOutWhite(imageData) {
   return imageData;
 }
 
-function MisiCanvas({ emotion, size, style, videoRef, onFirstFrame, paused = false }) {
+// Exportado para el tour de Misi (TourMisi.jsx): la misma Misi, sin duplicar
+// el recorte del fondo.
+export function MisiCanvas({ emotion, size, style, videoRef, onFirstFrame, paused = false }) {
   const canvasRef = useRef(null);
   const drawCanvasRef = useRef(null); // offscreen, resolución baja para el pixel loop
   const rafRef = useRef(null);

@@ -1,3 +1,4 @@
+import { tituloCabecera } from "../lib/secciones.js";
 import { useState } from "react";
 import Brand from "./Brand.jsx";
 import OverflowMenu, { OverflowButton } from "./OverflowMenu.jsx";
@@ -36,19 +37,8 @@ export default function Topbar({
         {activeTab==="home"
           ? <Brand size={22} wordmark colors={colors} />
           : <span style={{ fontSize:13, fontWeight:500, color:"var(--t-text-muted,#b9b0d0)" }}>
-              {activeTab==="current"  ? `🎯 Semana ${currentWeekNumber}`
-              :activeTab==="pending"  ? "📋 Pendientes"
-              :activeTab==="calendar" ? "Calendario"
-              :activeTab==="history"  ? "🗂️ Histórico"
-              :activeTab==="goals"    ? "🏅 Metas"
-              :activeTab==="stats"    ? "📊 Stats"
-              :activeTab==="gastos"   ? "💸 Gastos Compartidos"
-              :activeTab==="chat"     ? "💬 Chat"
-              :activeTab==="system"   ? "🛡️ Sistema Misi"
-              :activeTab==="links"      ? "🔗 Links de Interés"
-              :activeTab==="birthdays"  ? "🎂 Cumpleaños"
-              :activeTab==="timecapsule" ? "✉️ Cápsula del tiempo"
-              : ""}
+              {/* Desde el registro único: antes 7 secciones salían sin título. */}
+              {tituloCabecera(activeTab, { semana: currentWeekNumber })}
             </span>
         }
       </div>

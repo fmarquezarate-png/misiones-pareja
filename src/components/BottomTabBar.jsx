@@ -1,20 +1,7 @@
-export const ALL_TABS = [
-  { id: "home",      label: "Inicio",     icon: "🏠" },
-  { id: "current",   label: "Semana",     icon: "📋" },
-  { id: "calendar",  label: "Calendario", icon: "📅" },
-  { id: "pending",   label: "Pendientes", icon: "⏳" },
-  { id: "goals",     label: "Metas",      icon: "🎯" },
-  { id: "stats",     label: "Stats",      icon: "📊" },
-  { id: "history",   label: "Histórico",  icon: "📚" },
-  { id: "wishlist",  label: "Lista",      icon: "🛍️" },
-  { id: "mood",      label: "Ánimo",      icon: "😊" },
-  { id: "gastos",    label: "Gastos",     icon: "💰" },
-  { id: "chat",      label: "Chat",       icon: "💬" },
-  { id: "system",    label: "Sistema",    icon: "🛡️" },
-  { id: "links",     label: "Links",      icon: "🔗" },
-  { id: "birthdays", label: "Cumpleaños", icon: "🎂" },
-  { id: "timecapsule", label: "Cápsula", icon: "✉️" },
-];
+import { PARA_BARRA } from "../lib/secciones.js";
+// Derivada del registro único: cualquier sección navegable puede ir en la
+// barra (antes faltaban Salud, Mi Equipo, La Copa y Notitas).
+export const ALL_TABS = PARA_BARRA.map(s => ({ id: s.id, label: s.corto, icon: s.icono }));
 
 export default function BottomTabBar({ tabs, activeTab, onTabChange, badges = {} }) {
   const tabDefs = tabs.map(id => ALL_TABS.find(t => t.id === id)).filter(Boolean);

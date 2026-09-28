@@ -7,6 +7,43 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.43.0] — 2026-09-28 · El tour de Misi y un registro único de secciones
+
+### Auditoría de conexiones (agente Scanner)
+
+Fran preguntó si podía poner «Salud» en la barra inferior. **No podía**, y el Scanner encontró por qué: las secciones vivían en cuatro listas escritas a mano que no coincidían.
+
+| Problema | Antes | Ahora |
+|---|---|---|
+| Barra inferior | Faltaban Salud, Mi Equipo, La Copa y Notitas; máximo 4 | Todas las navegables; máximo **5** |
+| Cabecera | 7 secciones sin título | Título para todas |
+| Iconos | 🎯 «Semana» en una lista y «Metas» en otra; 📋 igual | Un icono, un significado (con test) |
+| Tutorial | Definido dos veces (una copia muerta); «Shared Calendar», «14 temas», nada de lo nuevo | Tour de Misi, una sola fuente |
+| Barra guardada | Ids que ya no existían ocupaban un hueco invisible | Se sanea al cargar |
+| Avisos de notita y agradecimiento | Iban al Inicio, cuya parte de arriba puede estar ocupada por el partido en vivo | Van a Notitas y a La Copa |
+
+- **`src/lib/secciones.js`**: registro único. El menú lateral, `ALL_TABS`, `VALID` y los títulos del `Topbar` se **derivan** de él.
+- **`secciones.test.js`** (17 tests): lee `App.jsx` y falla si una pantalla se pinta sin registrar o al revés, si un icono se repite o si una pestaña queda sin título.
+- **Eliminado** `src/appConstants.js`: no lo importaba nadie. Tenía una copia muerta del tutorial y una lista `TABS` de 9 ids.
+
+### El tour de Misi (`TourMisi.jsx` · `src/lib/tour.js`)
+
+- **Misi, animada**, habla desde abajo con una emoción distinta en cada paso. Reutiliza `MisiCanvas`, sin duplicar el recorte del fondo. Mientras carga el vídeo (o con reducir movimiento) se ve su imagen fija en medallón, igual que la Misi de la esquina. Durante el tour se esconde la de la esquina.
+- **Navega de verdad** a cada sección y la deja visible detrás, bajo un velo suave. Son 11 pasos: Inicio, Semana, Calendario, Salud (mascota y panel), Mi Equipo, lo vuestro (La Copa, Notitas…), atajos, Misi y perfil.
+- Las rutas que nombra (**⚙️ → Ajustes → Apariencia → Barra de navegación inferior**, **⚙️ → Ajustes → Avisos y más**) están **comprobadas en el código**, no escritas de memoria.
+- Personalizado: saluda por el nombre, adapta los textos según si ya hay mascota o equipo, y si no hay mascota termina con «Adoptar mi mascota». El número de temas se calcula (`THEMES.length`).
+- Clave nueva `mp-tour-v6`: lo ve **una vez todo el mundo**, también quien ya había visto el tutorial viejo.
+- Carga diferida: 4 KB en su propio chunk. El arranque queda **por debajo** de antes (349,9 KB).
+- Recorrido completo probado en el navegador a 390 px: los 11 pasos en orden, cada uno en su sección, la llamada final funciona y no hay desbordes. El vídeo de Misi no se reproduce en el Chromium de pruebas (le falta el códec H.264); sí lo hace en iPhone y Android.
+
+### Misi, al día (solo en el repositorio)
+
+El prompt de `misi-chat` conoce ahora todas las secciones, sus rutas y el formato de las consultas de salud. **No se despliega solo**: la función se editó por última vez desde la web de GitHub y no está verificado que el repositorio coincida con lo desplegado.
+
+668 tests.
+
+---
+
 ## [5.42.0] — 2026-09-28 · Pasea más y celebra menos; la línea del agua, a medida
 
 ### «Está mucho rato celebrando y camina poco» — dos causas medidas
