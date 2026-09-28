@@ -157,7 +157,7 @@ S("broot", "jr", "Broot/Broot/Broot_JrStates.png", "light", [
     ("triste", 812, 893, 216, 1520, 10),
     ("triste", 909, 990, 216, 1520, 10),
 ])
-S("broot", "jr", "Broot/Broot/Broot_JrWalk.png", "light", [
+S("broot", "jr", "Broot/Broot/Broot_JrWalk.png", "light", light={"pocket_neutral": True}, rows=[
     ("caminar_derecha", 190, 345, 225, 1520, 8),
     ("caminar_izquierda", 392, 550, 225, 1520, 8),
     ("caminar_frente", 598, 752, 225, 1520, 8),
@@ -179,8 +179,8 @@ S("broot", "pro", "Broot/Broot/Broot_ProWalk.png", "alpha", [
     ("caminar_frente", 585, 752, 192, 1525, 8),
     ("caminar_atras", 800, 970, 192, 1525, 8),
 ])
-S("broot", "prime", "Broot/Broot/Broot_PrimeStates.png", "light", [
-    ("dormir", 150, 240, 168, 1525, 9),
+S("broot", "prime", "Broot/Broot/Broot_PrimeStates.png", "light", light={"pocket_neutral": True}, rows=[
+    ("dormir", 160, 240, 168, 1525, 9),
     ("dormir", 262, 342, 168, 1525, 9),
     ("entrenar", 375, 470, 168, 1525, 13),
     ("entrenar", 495, 585, 168, 1525, 12),
@@ -189,13 +189,13 @@ S("broot", "prime", "Broot/Broot/Broot_PrimeStates.png", "light", [
     ("triste", 850, 920, 168, 1525, 10),
     ("triste", 935, 1003, 168, 1525, 10),
 ])
-S("broot", "prime", "Broot/Broot/Broot_PrimeWalk.png", "light", [
+S("broot", "prime", "Broot/Broot/Broot_PrimeWalk.png", "light", light={"pocket_neutral": True}, rows=[
     ("caminar_derecha", 140, 295, 152, 1530, 8),
     ("caminar_izquierda", 345, 505, 152, 1530, 8),
     ("caminar_frente", 548, 730, 152, 1530, 8),
     ("caminar_atras", 772, 962, 152, 1530, 8),
 ])
-S("broot", "upf", "Broot/Broot/BRoot_UPFStates.png", "light", [
+S("broot", "upf", "Broot/Broot/BRoot_UPFStates.png", "light", light={"pocket_neutral": True}, rows=[
     ("dormir", 105, 208, 165, 1530, 10),
     ("dormir", 225, 322, 165, 1530, 10),
     ("entrenar", 350, 455, 165, 1530, 12),
@@ -205,7 +205,7 @@ S("broot", "upf", "Broot/Broot/BRoot_UPFStates.png", "light", [
     ("triste", 840, 912, 165, 1530, 10),
     ("triste", 928, 1003, 165, 1530, 10),
 ])
-S("broot", "upf", "Broot/Broot/Broot_UPFWalk.png", "light", [
+S("broot", "upf", "Broot/Broot/Broot_UPFWalk.png", "light", light={"pocket_neutral": True}, rows=[
     ("caminar_derecha", 115, 292, 150, 1530, 8),
     ("caminar_izquierda", 335, 505, 150, 1530, 8),
     ("caminar_frente", 540, 730, 150, 1530, 8),
@@ -240,7 +240,7 @@ def normconv(rgb, w, sigma):
     return out, den
 
 
-def matte_light(rgb, dark_t=95, dist_t=42, sigma=10, strong_t=70, min_area=25, shadow_sat=0.32, pocket_t=0):
+def matte_light(rgb, dark_t=95, dist_t=42, sigma=10, strong_t=70, min_area=25, shadow_sat=0.32, pocket_t=0, pocket_neutral=False):
     L = luma(rgb)
     dark = L < dark_t
     barrier = ndi.binary_dilation(dark, iterations=1)
@@ -261,6 +261,12 @@ def matte_light(rgb, dark_t=95, dist_t=42, sigma=10, strong_t=70, min_area=25, s
         bgc = np.median(rgb[bg1], axis=0)
         pocket = np.sqrt(((rgb - bgc) ** 2).sum(-1)) < pocket_t
         fg &= ~ndi.binary_opening(pocket, iterations=1)
+    if pocket_neutral:
+        # fondo de cuadros de ajedrez pintado: gris/blanco neutro encerrado
+        # entre patas u hojas. El personaje nunca es gris claro puro.
+        mxc, mnc = rgb.max(-1), rgb.min(-1)
+        neut = ((mxc - mnc) < 14) & (L > 185)
+        fg &= ~ndi.binary_opening(neut, iterations=1)
     # limpiar componentes pequeños o débiles (bordes de celda, sombras tenues)
     lab, n = ndi.label(fg)
     if n:
@@ -314,6 +320,20 @@ def find_cuts(fg, n):
 
 
 # ---------------------------------------------------------------------------
+def drop_edge_slivers(fg, max_h=12, max_area=900):
+    """Quita restos de números/insignias de la fila vecina: componentes pequeños
+    y planos que tocan el borde superior o inferior de la banda."""
+    lab, n = ndi.label(fg)
+    for j, ob in enumerate(ndi.find_objects(lab)):
+        if ob is None:
+            continue
+        touches = ob[0].start == 0 or ob[0].stop == fg.shape[0]
+        h = ob[0].stop - ob[0].start
+        if touches and h <= max_h and (lab[ob] == j + 1).sum() <= max_area:
+            fg[lab == j + 1] = False
+    return fg
+
+
 def assign_components(fg, cuts):
     """Reparte los componentes del primer plano entre los n frames.
 
@@ -351,13 +371,17 @@ def assign_components(fg, cuts):
     for j in range(nc):
         ob = objs[j]
         cols = np.nonzero((lab[ob] == j + 1).any(0))[0] + ob[1].start
-        if area[j] >= 0.15 * big_area:
+        if cols[-1] - cols[0] > 1.35 * (fg.shape[1] / n):
+            owner[j + 1] = -1  # personajes que se tocan: se reparten por columnas
+        elif area[j] >= 0.15 * big_area:
             owner[j + 1] = np.bincount(colframe[cols], minlength=n).argmax()
         else:
             a0, a1 = cols[0], cols[-1] + 1
             d = [max(0, b0 - a1, a0 - b1) for (b0, b1) in body_box]
             owner[j + 1] = int(np.argmin(d))
     own = owner[lab]
+    split = own == -1
+    own[split] = np.broadcast_to(colframe, fg.shape)[split]
     return [(own == i) & fg for i in range(n)]
 
 
@@ -388,6 +412,7 @@ def extract_sheet(sheet, src, debug=None):
             fg = a & fl
         else:
             raise ValueError(sheet["method"])
+        fg = drop_edge_slivers(fg)
         cuts = find_cuts(fg, n)
         masks = assign_components(fg, cuts)
         row = []
@@ -598,7 +623,21 @@ def main():
             json.dump(manifest, fh, indent=2, ensure_ascii=False)
 
 
-NOTES = []
+NOTES = [
+    "Las hojas dicen 'INFO SPRITE 64x64 transparente': es falso, son imágenes aplanadas de 1536x1024; se recortó y quitó el fondo por software (scripts/sprites/slice.py).",
+    "El número de frames real no siempre coincide con el rótulo de la hoja; se usa lo que hay dibujado, en orden de izquierda a derecha y de arriba abajo (los numeritos impresos están repetidos/mal en varias hojas y se ignoran).",
+    "broot/jr: dormir tiene 18 frames (rótulo 20) y entrenar 26 (rótulo 24).",
+    "broot/prime: dormir tiene 18 frames (rótulo 20) y entrenar 25 (rótulo 24).",
+    "nix/prime: entrenar tiene 26 frames (8+8+10; rótulo 24).",
+    "nix/huevo: solo hay animación idle (8 frames); no existe hoja de eclosión para Nix.",
+    "nix/jr: los paseos (caminar_*) salen de NixEgg_NixJr.png y tienen 6 frames; nix/pro también 6; prime y upf 8.",
+    "nix/jr tiene además alegria, celebracion, llorar y cansado; el resto de etapas solo feliz/triste/dormir/entrenar + caminar_*.",
+    "broot no tiene celebracion/llorar/cansado en ninguna etapa; broot/huevo tiene idle (filas 1-2 de Egg_All) y eclosion (filas 3-4, one-shot).",
+    "Etapa upf = forma final ('Ultra Prime Final' en Nix, 'UPF' en Broot). Nix UPF solo tiene 8 frames por animación.",
+    "Escala: cada etapa comparte lienzo/escala/suelo; entre etapas NO se conserva la escala relativa (cada etapa llena su lienzo de 128).",
+    "El suelo se ancla por fila (mediana), así los saltos conservan su movimiento vertical. El centro horizontal es el centroide del cuerpo en cada frame.",
+    "Algunos efectos muy grandes (remolinos de agua de nix/prime entrenar) pueden tocar el borde del lienzo en 1-2 frames.",
+]
 
 if __name__ == "__main__":
     main()
