@@ -78,3 +78,58 @@ describe("NOMBRES_METRICA", () => {
     }
   });
 });
+
+import { leerTodo } from "../lib/healthApi.js";
+
+describe("leerTodo (paginación)", () => {
+  // Simula el tope real de Supabase: nunca devuelve más de 1.000 filas.
+  const fuente = total => {
+    const filas = Array.from({ length: total }, (_, i) => ({ i }));
+    const llamadas = [];
+    const pedir = async (a, b) => {
+      llamadas.push([a, b]);
+      return { data: filas.slice(a, Math.min(b + 1, a + 1000)), error: null };
+    };
+    return { pedir, llamadas };
+  };
+
+  // El bug real: 1.288 filas y solo llegaban 1.000.
+  it("trae las 1.288 filas del primer envío de Fran, no las 1.000 primeras", async () => {
+    const { pedir } = fuente(1288);
+    const r = await leerTodo(pedir);
+    expect(r).toHaveLength(1288);
+    expect(r[1287].i).toBe(1287);
+  });
+
+  it("para en cuanto una página llega incompleta", async () => {
+    const { pedir, llamadas } = fuente(2500);
+    await leerTodo(pedir);
+    expect(llamadas).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
+  });
+
+  // Justo un múltiplo de la página: hace falta una petición más para saber
+  // que se acabó, y esa llega vacía.
+  it("un total exacto de 1.000 filas no se queda colgado ni duplica", async () => {
+    const { pedir, llamadas } = fuente(1000);
+    const r = await leerTodo(pedir);
+    expect(r).toHaveLength(1000);
+    expect(llamadas).toHaveLength(2);
+  });
+
+  it("sin filas devuelve lista vacía con una sola petición", async () => {
+    const { pedir, llamadas } = fuente(0);
+    expect(await leerTodo(pedir)).toEqual([]);
+    expect(llamadas).toHaveLength(1);
+  });
+
+  it("un error de Supabase se propaga, no se traga", async () => {
+    const pedir = async () => ({ data: null, error: { message: "boom" } });
+    await expect(leerTodo(pedir)).rejects.toThrow("boom");
+  });
+
+  // Nunca "todo" cuando no es todo.
+  it("si se pasa del tope de seguridad, falla en vez de devolver datos a medias", async () => {
+    const { pedir } = fuente(5000);
+    await expect(leerTodo(pedir, { maxPaginas: 2 })).rejects.toThrow(/demasiadas filas/);
+  });
+});

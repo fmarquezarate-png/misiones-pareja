@@ -114,9 +114,9 @@ export function indexar(filas = [], entrenos = []) {
     if (!f?.day || !f?.metric || !Number.isFinite(f.value)) continue;
     // En sueño y pasos, un 0 no es una medida: es que no se midió. Nadie
     // duerme 0 h con el reloj puesto, ni da 0 pasos llevando el móvil.
-    // Tomarlo por dato contaba la meta como FALLADA: el primer envío real de
-    // Fran (28/09) traía "0 h de sueño" todas las noches por un formato de
-    // Health Auto Export, y la mascota no salía del huevo en 79 días.
+    // Tomarlo por dato contaba la meta como FALLADA: en el primer envío real
+    // de Fran (28/09) llegaban campos de sueño a 0 según el reloj, y la
+    // mascota no salía del huevo.
     if (esSinDato(f.metric, f.value)) continue;
     if (!porDia.has(f.day)) porDia.set(f.day, {});
     porDia.get(f.day)[f.metric] = normalizar(f.metric, f.value, f.unit);
@@ -127,6 +127,7 @@ export function indexar(filas = [], entrenos = []) {
     if (!porDia.has(dia)) porDia.set(dia, {});
     const d = porDia.get(dia);
     d.__workouts = (d.__workouts || 0) + 1;
+    if (Number.isFinite(w.minutes) && w.minutes > 0) d.__workout_min = (d.__workout_min || 0) + w.minutes;
   }
   return porDia;
 }
@@ -135,7 +136,14 @@ function valorDe(datosDia, tipo) {
   const m = METRICAS[tipo];
   if (!m || !datosDia) return null;
   const v = datosDia[m.metric];
-  return Number.isFinite(v) ? v : null;
+  if (Number.isFinite(v)) return v;
+  // Los "minutos de ejercicio" son un invento del Apple Watch: con otros
+  // relojes (el de Fran es Huawei) esa métrica no existe. Entonces el
+  // ejercicio del día son los minutos de los ENTRENOS registrados. Sin
+  // entreno ni minutos, no hay dato — un día de descanso no se puede
+  // distinguir de uno sin registrar, así que no se castiga.
+  if (tipo === "ejercicio" && Number.isFinite(datosDia.__workout_min)) return datosDia.__workout_min;
+  return null;
 }
 
 // ── Evaluar un día ──────────────────────────────────────────────────────────

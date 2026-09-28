@@ -7,11 +7,35 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.38.2] — 2026-09-28 · Salud: historial cortado, ejercicio sin Apple Watch, envíos grandes
+
+Tres fallos que salieron al mirar los datos reales de Fran con SQL (`health_raw`), en vez de suponer:
+
+### 1. El historial se cortaba el 8 de septiembre — el límite de 1.000 filas de Supabase
+
+La consulta de `health_raw` demostró que el envío traía datos **hasta el 28/09**, y que la pantalla se cortaba en el 8. Supabase devuelve como mucho **1.000 filas por consulta**, diga lo que diga `.limit(20000)`, y **no avisa**. Ordenadas por fecha, las 1.000 primeras de 1.288 terminan hacia el 8/09 (1.000/1.288 × 99 días ≈ 77 días desde el 22/06). Los datos estaban completos: se truncaban al leer.
+
+`leerTodo()` pide página a página hasta que una llega incompleta, con **orden total** (día + persona + métrica), porque con un orden ambiguo las páginas pueden repetir o saltarse filas. Si pasa del tope de seguridad (60.000 filas), **falla** en vez de devolver lo leído: devolverlo sería fingir que es todo, el mismo bug con otro número. Se aplica también a la mascota, que se recalcula desde su nacimiento. 6 tests con una fuente falsa que imita el tope real, incluido el caso de un múltiplo exacto de 1.000.
+
+### 2. Sin Apple Watch no hay «minutos de ejercicio»
+
+El reloj de Fran es **Huawei**. `apple_exercise_time` y `apple_stand_hour` solo existen con Apple Watch, así que la meta de ejercicio nunca se evaluaba (y la instrucción «añade Apple Exercise Time» era errónea para él). Ahora, si no llega esa métrica, el ejercicio del día son **los minutos de los entrenos registrados**. Sin entreno ni minutos, es «sin dato» y no se castiga: un día de descanso no se distingue de uno sin registrar.
+
+### 3. El envío de 5 años se quedaba a medias sin avisar
+
+`health_raw` mostró un envío de 4,1 MB (2021 → hoy) con `parsed: null`: guardado en crudo, **nunca procesado**. Lo más probable es que se agotara el límite de CPU de la Edge Function. Morir en silencio es lo peor: Health Auto Export cree que funcionó. Medido: 1,3 MB (21 meses) entra bien. Ahora el tope es **2,5 MB** y se rechaza en el momento, pidiendo exportar de año en año. Las subidas van además en **tandas de 500** filas, para que ninguna sentencia se acerque al `statement_timeout`.
+
+### Corregido en la documentación
+
+La explicación del sueño a 0 de v5.38.1 daba por hecho un Apple Watch. El JSON real es de un Huawei. El arreglo vale para los dos formatos; se corrigieron los comentarios y el changelog.
+
+---
+
 ## [5.38.1] — 2026-09-28 · Sueño a 0 todas las noches
 
 **Síntoma (primer envío real de Fran):** 79 días de datos, la mascota de prueba en *huevo · vitalidad 6*, y «Sueño: 0» en la lista de métricas pese a llegar sueño ligero, profundo y REM.
 
-**Causa:** con Apple Watch y fases de sueño (iOS 16+), Health Auto Export manda `asleep: 0` e `inBed: 0` y reparte el sueño real en `core + deep + rem` (a veces con `totalSleep`). El parser se creía el 0 → «0 h» cada noche → el motor contaba la meta de sueño como **fallada** a diario. Con los pasos cumpliendo y el sueño fallando, casi todos los días puntuaban 0,5 o menos, y la mascota no salía del huevo.
+**Causa (corregida tras ver el JSON real):** la hipótesis inicial era un Apple Watch con fases de sueño. El JSON real del 28/09 salió de un reloj **Huawei** (`"source": "Salud de HUAWEI: Europa"`), con `inBed: 0` y fases a 0 pero `totalSleep` y `asleep` bien rellenos. El arreglo es el mismo para los dos formatos: se toma el primer valor **positivo** de `totalSleep → asleep → suma de fases`, y un 0 no se interpreta como dato. El parser se creía el 0 → «0 h» cada noche → el motor contaba la meta de sueño como **fallada** a diario. Con los pasos cumpliendo y el sueño fallando, casi todos los días puntuaban 0,5 o menos, y la mascota no salía del huevo.
 
 **Arreglo, en dos capas:**
 1. `health-ingest`: el total de sueño es el primer valor **positivo** de `totalSleep → asleep → suma de fases`. Minutos u horas se decide con `units` de la métrica y, si no viene, **una vez por noche** con el total — decidirlo fase a fase convertía 20 min de sueño profundo en «20 horas».

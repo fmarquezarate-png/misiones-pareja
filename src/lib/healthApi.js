@@ -12,34 +12,63 @@ import supabase from "../supabase.js";
 import { withTimeout } from "../utils.js";
 import { sumarDias, isoDia } from "./pet.js";
 
+// ── Lectura completa, por páginas ───────────────────────────────────────────
+//
+// BUG REAL (28/09/2026): Supabase devuelve como mucho 1.000 filas por
+// consulta, diga lo que diga `.limit()`. Pedíamos `.limit(20000)` y llegaban
+// las 1.000 primeras, SIN AVISO. Ordenadas por fecha, eso cortaba el
+// historial de Fran el 8 de septiembre aunque en la base de datos estaba
+// hasta el 28 — y la pantalla decía "últimos 7 días: vacío".
+//
+// Aquí se pide página a página hasta que una llega incompleta. `pedir` es una
+// fábrica (from, to) → promesa, para poder probarlo sin Supabase.
+export const PAGINA = 1000;
+
+export async function leerTodo(pedir, { pagina = PAGINA, maxPaginas = 60 } = {}) {
+  const todo = [];
+  for (let i = 0; i < maxPaginas; i++) {
+    const desde = i * pagina;
+    const { data, error } = await pedir(desde, desde + pagina - 1);
+    if (error) throw new Error(error.message || String(error));
+    const filas = data || [];
+    todo.push(...filas);
+    if (filas.length < pagina) return todo;      // última página: se acabó
+  }
+  // Tope de seguridad alcanzado: se FALLA en vez de devolver lo leído, porque
+  // devolverlo sería fingir que es todo (el mismo bug de las 1.000 filas, con
+  // otro número). 60 páginas = 60.000 filas: más de 5 años de datos de pareja.
+  throw new Error(`demasiadas filas (más de ${maxPaginas * pagina})`);
+}
+
 /**
- * Filas diarias y entrenos de los últimos `dias` días, de las dos personas.
+ * Filas diarias y entrenos desde `desde` (o los últimos `dias` días), de las
+ * dos personas.
  * @returns {{ filas: Array, entrenos: Array, error: string|null }}
  */
-export async function cargarSalud({ dias = 120 } = {}) {
-  const desde = sumarDias(isoDia(new Date()), -dias);
+export async function cargarSalud({ dias = 120, desde = null } = {}) {
+  const inicio = desde || sumarDias(isoDia(new Date()), -dias);
   try {
-    const [d, w] = await Promise.all([
-      withTimeout(
+    const [filas, entrenos] = await Promise.all([
+      withTimeout(leerTodo((a, b) =>
         supabase.from("health_daily")
           .select("user_id, day, metric, value, unit, source, updated_at")
-          .gte("day", desde)
+          .gte("day", inicio)
+          // Orden TOTAL (no solo por día): con páginas, un orden ambiguo puede
+          // repetir o saltarse filas entre una página y la siguiente.
           .order("day", { ascending: true })
-          .limit(20000),
-        15000, "health_daily",
-      ),
-      withTimeout(
+          .order("user_id", { ascending: true })
+          .order("metric", { ascending: true })
+          .range(a, b)), 30000, "health_daily"),
+      withTimeout(leerTodo((a, b) =>
         supabase.from("health_workouts")
           .select("user_id, start_at, end_at, name, minutes, kcal, distance_km, avg_hr")
-          .gte("start_at", desde)
+          .gte("start_at", inicio)
           .order("start_at", { ascending: true })
-          .limit(2000),
-        15000, "health_workouts",
-      ),
+          .order("user_id", { ascending: true })
+          .order("name", { ascending: true })
+          .range(a, b)), 30000, "health_workouts"),
     ]);
-    if (d.error) throw new Error(d.error.message);
-    if (w.error) throw new Error(w.error.message);
-    return { filas: d.data || [], entrenos: w.data || [], error: null };
+    return { filas, entrenos, error: null };
   } catch (e) {
     // "No existe la tabla" y "sin red" son cosas distintas y se dicen distinto.
     const msg = String(e?.message || e);

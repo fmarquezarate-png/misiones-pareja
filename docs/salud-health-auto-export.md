@@ -84,7 +84,10 @@ En la app **Health Auto Export**:
    sobrescriben.
 7. **Sync Cadence**: cada **hora** está bien.
 8. **Métricas** a marcar (con estas la mascota tiene de sobra):
-   - Step Count · Active Energy · Apple Exercise Time · Apple Stand Hour
+   - Step Count · Active Energy
+   - Apple Exercise Time · Apple Stand Hour — **solo existen con Apple
+     Watch**. Con otro reloj (Huawei, Garmin…) no llegan, y el ejercicio se
+     calcula con los minutos de tus entrenos.
    - Sleep Analysis
    - Resting Heart Rate · Heart Rate Variability
    - Walking + Running Distance · Mindful Minutes
@@ -98,6 +101,18 @@ En la app **Health Auto Export**:
 
 Haz un envío manual con **Date Range** de los últimos **90 días**. La mascota
 arranca mejor sabiendo de dónde vienes. Luego vuelve a dejarlo en 7.
+
+### ¿Se pisan las dos automatizaciones (salud y entrenos)?
+
+No. Cada una rellena **su propia tabla** y nunca toca la de la otra:
+
+| Automatización | Va a | Un dato es "el mismo" si coincide… |
+|---|---|---|
+| Health Metrics | `health_daily` | persona + día + métrica |
+| Workouts | `health_workouts` | persona + hora de inicio + tipo |
+
+Da igual el orden en que las mandes, y reenviar cualquiera de las dos
+**sobrescribe**, nunca duplica.
 
 ## Paso 4 — Comprobar que llega
 
@@ -143,9 +158,9 @@ Medido con el primer envío real (28/09/2026, ~16 datos por persona y día):
 | `health_rejects` (descartes) | Mínimo | 60 días. |
 
 La limpieza la hace **la propia función en cada envío**, así que no depende de
-que `pg_cron` esté activado. Además, un envío de más de 8 MB se rechaza con un
-mensaje que pide trocear el rango de fechas, en vez de meter de golpe años de
-datos.
+que `pg_cron` esté activado. Además, un envío de más de **2,5 MB** se rechaza en el momento con un mensaje
+que pide exportar de año en año. Medido: 21 meses (1,3 MB) entran bien; 5 años
+de golpe (4,1 MB) se quedaban a medias sin avisar.
 
 Nada de esto toca `app_data`, así que no dispara el trigger de backups que
 causó el problema de los 4 MB.

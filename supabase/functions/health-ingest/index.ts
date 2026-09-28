@@ -24,7 +24,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-const FN_VERSION = '2026-09-28c';
+const FN_VERSION = '2026-09-28d';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -43,7 +43,15 @@ const cors = {
 // La limpieza la hace ESTA función, en cada envío, y no solo un pg_cron: si
 // la extensión no está activada, el cron simplemente no existe y nadie se
 // entera hasta que la base de datos se llena. Aquí no depende de nada.
-const MAX_BYTES = 8_000_000;
+// Medido el 28/09: 1,3 MB (21 meses) se procesó bien; 4,1 MB (5 años,
+// ~30.000 filas) se guardó en crudo y la función murió antes de terminar —
+// casi seguro el límite de CPU de las Edge Functions. Morir en silencio es lo
+// peor: Health Auto Export no se entera y parece que funcionó. Por encima de
+// 2,5 MB se rechaza EN EL MOMENTO, con un mensaje que dice cómo trocearlo.
+const MAX_BYTES = 2_500_000;
+// Subir en tandas: una sola sentencia con miles de filas puede pasarse del
+// statement_timeout (el incidente de los 4 MB de app_data, v5.14.0).
+const TANDA = 500;
 const RETENCION = { rawDias: 7, rejectsDias: 60 };   // 48 envíos/día × 7 días ≈ 340 filas como mucho
 
 async function autolimpieza(db: any) {
@@ -143,12 +151,12 @@ function aplanar(metrics: any[]): Fila[] {
         // 02:00 del martes es la noche del martes, no la del lunes.
         const day = diaLocal(d?.sleepEnd) ?? diaLocal(d?.date) ?? diaLocal(d?.sleepStart);
         if (!day) continue;
-        // TRAMPA REAL (28/09/2026, primer envío de Fran): con Apple Watch y
-        // fases de sueño (iOS 16+), Health Auto Export manda `asleep: 0` e
-        // `inBed: 0`, y el sueño de verdad va repartido en core + deep + rem
-        // (a veces también en `totalSleep`). Creerse ese 0 guardaba "0 horas"
-        // TODAS las noches, y el motor lo contaba como meta de sueño fallada
-        // cada día: la mascota no salía del huevo.
+        // TRAMPA REAL (28/09/2026, primer envío de Fran): según el reloj, los
+        // campos del sueño llegan a 0 aunque se haya dormido. El JSON real de
+        // Fran (reloj Huawei, "Salud de HUAWEI: Europa") trae `inBed: 0` y las
+        // fases (core/deep/rem) a 0, con el total en `totalSleep`/`asleep`.
+        // Con Apple Watch es al revés: fases rellenas y `asleep` a 0. Creerse
+        // un 0 guardaba "0 horas" y el motor lo contaba como meta fallada.
         //
         // Regla: en el sueño, un 0 no es una medida, es "no hay dato". Nadie
         // duerme 0 h con el reloj puesto. El total sale del primer valor
@@ -285,7 +293,7 @@ serve(async req => {
   if (crudo.length > MAX_BYTES) {
     return new Response(JSON.stringify({
       error: 'envio_demasiado_grande',
-      ayuda: 'Reduce el rango de fechas (por ejemplo, de 3 en 3 meses) y vuelve a enviar.',
+      ayuda: 'Demasiado grande para una sola vez. Exporta de año en año (por ejemplo, 2024 entero, luego 2025) y vuelve a enviar.',
       kb: Math.round(crudo.length / 1024),
     }), { status: 413, headers: cors });
   }
@@ -308,23 +316,31 @@ serve(async req => {
     if (filasLimpias.length) {
       // upsert sobre (couple_id, user_id, day, metric): reenviar el mismo día
       // ACTUALIZA, no duplica. Aquí es donde muere el problema de duplicados.
-      const { error } = await db.from('health_daily').upsert(
-        filasLimpias.map(f => ({
-          couple_id: tk.couple_id, user_id: tk.user_id,
-          day: f.day, metric: f.metric, value: f.value,
-          unit: f.unit, source: f.source, updated_at: new Date().toISOString(),
-        })),
-        { onConflict: 'couple_id,user_id,day,metric' },
-      );
-      if (error) throw new Error('health_daily: ' + error.message);
+      const ahora = new Date().toISOString();
+      const filas = filasLimpias.map(f => ({
+        couple_id: tk.couple_id, user_id: tk.user_id,
+        day: f.day, metric: f.metric, value: f.value,
+        unit: f.unit, source: f.source, updated_at: ahora,
+      }));
+      for (let i = 0; i < filas.length; i += TANDA) {
+        const { error } = await db.from('health_daily').upsert(
+          filas.slice(i, i + TANDA),
+          { onConflict: 'couple_id,user_id,day,metric' },
+        );
+        if (error) throw new Error(`health_daily (tanda ${i / TANDA + 1}): ${error.message}`);
+      }
     }
 
     if (entrenos.length) {
-      const { error } = await db.from('health_workouts').upsert(
-        entrenos.map(w => ({ couple_id: tk.couple_id, user_id: tk.user_id, ...w, updated_at: new Date().toISOString() })),
-        { onConflict: 'couple_id,user_id,start_at,name' },
-      );
-      if (error) throw new Error('health_workouts: ' + error.message);
+      const ahora = new Date().toISOString();
+      const filas = entrenos.map(w => ({ couple_id: tk.couple_id, user_id: tk.user_id, ...w, updated_at: ahora }));
+      for (let i = 0; i < filas.length; i += TANDA) {
+        const { error } = await db.from('health_workouts').upsert(
+          filas.slice(i, i + TANDA),
+          { onConflict: 'couple_id,user_id,start_at,name' },
+        );
+        if (error) throw new Error(`health_workouts (tanda ${i / TANDA + 1}): ${error.message}`);
+      }
     }
 
     if (rechazos.length) {

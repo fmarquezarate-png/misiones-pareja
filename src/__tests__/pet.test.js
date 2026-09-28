@@ -100,6 +100,34 @@ describe("ceros que no son datos", () => {
   });
 });
 
+describe("ejercicio sin Apple Watch", () => {
+  // El reloj de Fran es Huawei: no manda apple_exercise_time. El ejercicio
+  // sale de los entrenos.
+  it("sin apple_exercise_time, cuentan los minutos de los entrenos", () => {
+    const idx = indexar([], [
+      { start_at: "2026-09-01T08:00:00+02:00", minutes: 20 },
+      { start_at: "2026-09-01T19:00:00+02:00", minutes: 15 },
+    ]);
+    const ej = evaluarDia("2026-09-01", idx).metas.find(m => m.tipo === "ejercicio");
+    expect(ej.valor).toBe(35);
+    expect(ej.cumplida).toBe(true);
+  });
+
+  it("si el reloj SÍ manda minutos de ejercicio, mandan esos", () => {
+    const idx = indexar(
+      [{ day: "2026-09-01", metric: "apple_exercise_time", value: 50 }],
+      [{ start_at: "2026-09-01T08:00:00+02:00", minutes: 20 }],
+    );
+    expect(evaluarDia("2026-09-01", idx).metas.find(m => m.tipo === "ejercicio").valor).toBe(50);
+  });
+
+  // Un día sin entreno no se puede distinguir de uno sin registrar.
+  it("sin entreno ni minutos, el ejercicio es 'sin dato', no fallado", () => {
+    const idx = indexar([{ day: "2026-09-01", metric: "step_count", value: 9000 }]);
+    expect(evaluarDia("2026-09-01", idx).metas.find(m => m.tipo === "ejercicio").valor).toBeNull();
+  });
+});
+
 describe("evaluarSemana", () => {
   const metas = [{ id: "kcal-s", tipo: "kcal", objetivo: 3500, periodo: "semana" },
                  { id: "sueno-s", tipo: "sueno", objetivo: 7, periodo: "semana" }];
