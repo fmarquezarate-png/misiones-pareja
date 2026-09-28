@@ -1,0 +1,577 @@
+{
+  "cell": 128,
+  "pets": {
+    "broot": {
+      "name": "Broot",
+      "stages": {
+        "huevo": {
+          "portrait": "broot/huevo/retrato.webp",
+          "anims": {
+            "idle": {
+              "src": "broot/huevo/idle.webp",
+              "frames": 8,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "Egg_All.png"
+            },
+            "eclosion": {
+              "src": "broot/huevo/eclosion.webp",
+              "frames": 8,
+              "fps": 8,
+              "loop": false,
+              "sourceSheet": "Egg_All.png"
+            }
+          }
+        },
+        "jr": {
+          "portrait": "broot/jr/retrato.webp",
+          "anims": {
+            "dormir": {
+              "src": "broot/jr/dormir.webp",
+              "frames": 18,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "Broot_JrStates.png"
+            },
+            "entrenar": {
+              "src": "broot/jr/entrenar.webp",
+              "frames": 26,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_JrStates.png"
+            },
+            "feliz": {
+              "src": "broot/jr/feliz.webp",
+              "frames": 20,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "Broot_JrStates.png"
+            },
+            "triste": {
+              "src": "broot/jr/triste.webp",
+              "frames": 20,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "Broot_JrStates.png"
+            },
+            "caminar_derecha": {
+              "src": "broot/jr/caminar_derecha.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_JrWalk.png"
+            },
+            "caminar_izquierda": {
+              "src": "broot/jr/caminar_izquierda.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_JrWalk.png"
+            },
+            "caminar_frente": {
+              "src": "broot/jr/caminar_frente.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_JrWalk.png"
+            },
+            "caminar_atras": {
+              "src": "broot/jr/caminar_atras.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_JrWalk.png"
+            }
+          }
+        },
+        "pro": {
+          "portrait": "broot/pro/retrato.webp",
+          "anims": {
+            "dormir": {
+              "src": "broot/pro/dormir.webp",
+              "frames": 20,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "Broot_ProStates.png"
+            },
+            "entrenar": {
+              "src": "broot/pro/entrenar.webp",
+              "frames": 24,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_ProStates.png"
+            },
+            "feliz": {
+              "src": "broot/pro/feliz.webp",
+              "frames": 20,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "Broot_ProStates.png"
+            },
+            "triste": {
+              "src": "broot/pro/triste.webp",
+              "frames": 20,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "Broot_ProStates.png"
+            },
+            "caminar_derecha": {
+              "src": "broot/pro/caminar_derecha.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_ProWalk.png"
+            },
+            "caminar_izquierda": {
+              "src": "broot/pro/caminar_izquierda.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_ProWalk.png"
+            },
+            "caminar_frente": {
+              "src": "broot/pro/caminar_frente.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_ProWalk.png"
+            },
+            "caminar_atras": {
+              "src": "broot/pro/caminar_atras.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_ProWalk.png"
+            }
+          }
+        },
+        "prime": {
+          "portrait": "broot/prime/retrato.webp",
+          "anims": {
+            "dormir": {
+              "src": "broot/prime/dormir.webp",
+              "frames": 18,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeStates.png"
+            },
+            "entrenar": {
+              "src": "broot/prime/entrenar.webp",
+              "frames": 25,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeStates.png"
+            },
+            "feliz": {
+              "src": "broot/prime/feliz.webp",
+              "frames": 20,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeStates.png"
+            },
+            "triste": {
+              "src": "broot/prime/triste.webp",
+              "frames": 20,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeStates.png"
+            },
+            "caminar_derecha": {
+              "src": "broot/prime/caminar_derecha.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeWalk.png"
+            },
+            "caminar_izquierda": {
+              "src": "broot/prime/caminar_izquierda.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeWalk.png"
+            },
+            "caminar_frente": {
+              "src": "broot/prime/caminar_frente.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeWalk.png"
+            },
+            "caminar_atras": {
+              "src": "broot/prime/caminar_atras.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_PrimeWalk.png"
+            }
+          }
+        },
+        "upf": {
+          "portrait": "broot/upf/retrato.webp",
+          "anims": {
+            "dormir": {
+              "src": "broot/upf/dormir.webp",
+              "frames": 20,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "BRoot_UPFStates.png"
+            },
+            "entrenar": {
+              "src": "broot/upf/entrenar.webp",
+              "frames": 24,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "BRoot_UPFStates.png"
+            },
+            "feliz": {
+              "src": "broot/upf/feliz.webp",
+              "frames": 20,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "BRoot_UPFStates.png"
+            },
+            "triste": {
+              "src": "broot/upf/triste.webp",
+              "frames": 20,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "BRoot_UPFStates.png"
+            },
+            "caminar_derecha": {
+              "src": "broot/upf/caminar_derecha.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_UPFWalk.png"
+            },
+            "caminar_izquierda": {
+              "src": "broot/upf/caminar_izquierda.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_UPFWalk.png"
+            },
+            "caminar_frente": {
+              "src": "broot/upf/caminar_frente.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_UPFWalk.png"
+            },
+            "caminar_atras": {
+              "src": "broot/upf/caminar_atras.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "Broot_UPFWalk.png"
+            }
+          }
+        }
+      }
+    },
+    "nix": {
+      "name": "Nix",
+      "stages": {
+        "huevo": {
+          "portrait": "nix/huevo/retrato.webp",
+          "anims": {
+            "idle": {
+              "src": "nix/huevo/idle.webp",
+              "frames": 8,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "NixEgg_NixJr.png"
+            }
+          }
+        },
+        "jr": {
+          "portrait": "nix/jr/retrato.webp",
+          "anims": {
+            "caminar_derecha": {
+              "src": "nix/jr/caminar_derecha.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixEgg_NixJr.png"
+            },
+            "caminar_izquierda": {
+              "src": "nix/jr/caminar_izquierda.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixEgg_NixJr.png"
+            },
+            "caminar_frente": {
+              "src": "nix/jr/caminar_frente.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixEgg_NixJr.png"
+            },
+            "caminar_atras": {
+              "src": "nix/jr/caminar_atras.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixEgg_NixJr.png"
+            },
+            "feliz": {
+              "src": "nix/jr/feliz.webp",
+              "frames": 8,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "NixJr_HappySad.png"
+            },
+            "alegria": {
+              "src": "nix/jr/alegria.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixJr_HappySad.png"
+            },
+            "celebracion": {
+              "src": "nix/jr/celebracion.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": false,
+              "sourceSheet": "NixJr_HappySad.png"
+            },
+            "triste": {
+              "src": "nix/jr/triste.webp",
+              "frames": 8,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "NixJr_HappySad.png"
+            },
+            "llorar": {
+              "src": "nix/jr/llorar.webp",
+              "frames": 8,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "NixJr_HappySad.png"
+            },
+            "cansado": {
+              "src": "nix/jr/cansado.webp",
+              "frames": 8,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "NixJr_HappySad.png"
+            },
+            "dormir": {
+              "src": "nix/jr/dormir.webp",
+              "frames": 20,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "NixJr_SleepTrain.png"
+            },
+            "entrenar": {
+              "src": "nix/jr/entrenar.webp",
+              "frames": 24,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixJr_SleepTrain.png"
+            }
+          }
+        },
+        "pro": {
+          "portrait": "nix/pro/retrato.webp",
+          "anims": {
+            "feliz": {
+              "src": "nix/pro/feliz.webp",
+              "frames": 20,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "NixPro_HappySad.png"
+            },
+            "triste": {
+              "src": "nix/pro/triste.webp",
+              "frames": 20,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "NixPro_HappySad.png"
+            },
+            "dormir": {
+              "src": "nix/pro/dormir.webp",
+              "frames": 20,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "NixPro_SleepTrain.png"
+            },
+            "entrenar": {
+              "src": "nix/pro/entrenar.webp",
+              "frames": 24,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPro_SleepTrain.png"
+            },
+            "caminar_derecha": {
+              "src": "nix/pro/caminar_derecha.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPro_Walktrhough.png"
+            },
+            "caminar_izquierda": {
+              "src": "nix/pro/caminar_izquierda.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPro_Walktrhough.png"
+            },
+            "caminar_atras": {
+              "src": "nix/pro/caminar_atras.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPro_Walktrhough.png"
+            },
+            "caminar_frente": {
+              "src": "nix/pro/caminar_frente.webp",
+              "frames": 6,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPro_Walktrhough.png"
+            }
+          }
+        },
+        "prime": {
+          "portrait": "nix/prime/retrato.webp",
+          "anims": {
+            "feliz": {
+              "src": "nix/prime/feliz.webp",
+              "frames": 20,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "NixPrime_HappySad.png"
+            },
+            "triste": {
+              "src": "nix/prime/triste.webp",
+              "frames": 20,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "NixPrime_HappySad.png"
+            },
+            "dormir": {
+              "src": "nix/prime/dormir.webp",
+              "frames": 24,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "NixPrime_SleepTrain.png"
+            },
+            "entrenar": {
+              "src": "nix/prime/entrenar.webp",
+              "frames": 26,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPrime_SleepTrain.png"
+            },
+            "caminar_derecha": {
+              "src": "nix/prime/caminar_derecha.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPrime_Walktrhough.png"
+            },
+            "caminar_izquierda": {
+              "src": "nix/prime/caminar_izquierda.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPrime_Walktrhough.png"
+            },
+            "caminar_atras": {
+              "src": "nix/prime/caminar_atras.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPrime_Walktrhough.png"
+            },
+            "caminar_frente": {
+              "src": "nix/prime/caminar_frente.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NixPrime_Walktrhough.png"
+            }
+          }
+        },
+        "upf": {
+          "portrait": "nix/upf/retrato.webp",
+          "anims": {
+            "caminar_derecha": {
+              "src": "nix/upf/caminar_derecha.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "caminar_izquierda": {
+              "src": "nix/upf/caminar_izquierda.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "caminar_atras": {
+              "src": "nix/upf/caminar_atras.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "caminar_frente": {
+              "src": "nix/upf/caminar_frente.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "dormir": {
+              "src": "nix/upf/dormir.webp",
+              "frames": 8,
+              "fps": 5,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "entrenar": {
+              "src": "nix/upf/entrenar.webp",
+              "frames": 8,
+              "fps": 10,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "feliz": {
+              "src": "nix/upf/feliz.webp",
+              "frames": 8,
+              "fps": 8,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            },
+            "triste": {
+              "src": "nix/upf/triste.webp",
+              "frames": 8,
+              "fps": 6,
+              "loop": true,
+              "sourceSheet": "NIX_UPF_ALL.png"
+            }
+          }
+        }
+      }
+    }
+  },
+  "notes": [
+    "Las hojas dicen 'INFO SPRITE 64x64 transparente': es falso, son imágenes aplanadas de 1536x1024; se recortó y quitó el fondo por software (scripts/sprites/slice.py).",
+    "El número de frames real no siempre coincide con el rótulo de la hoja; se usa lo que hay dibujado, en orden de izquierda a derecha y de arriba abajo (los numeritos impresos están repetidos/mal en varias hojas y se ignoran).",
+    "broot/jr: dormir tiene 18 frames (rótulo 20) y entrenar 26 (rótulo 24).",
+    "broot/prime: dormir tiene 18 frames (rótulo 20) y entrenar 25 (rótulo 24).",
+    "nix/prime: entrenar tiene 26 frames (8+8+10; rótulo 24).",
+    "nix/huevo: solo hay animación idle (8 frames); no existe hoja de eclosión para Nix.",
+    "nix/jr: los paseos (caminar_*) salen de NixEgg_NixJr.png y tienen 6 frames; nix/pro también 6; prime y upf 8.",
+    "nix/jr tiene además alegria, celebracion, llorar y cansado; el resto de etapas solo feliz/triste/dormir/entrenar + caminar_*.",
+    "broot no tiene celebracion/llorar/cansado en ninguna etapa; broot/huevo tiene idle (filas 1-2 de Egg_All) y eclosion (filas 3-4, one-shot).",
+    "Etapa upf = forma final ('Ultra Prime Final' en Nix, 'UPF' en Broot). Nix UPF solo tiene 8 frames por animación.",
+    "Escala: cada etapa comparte lienzo/escala/suelo; entre etapas NO se conserva la escala relativa (cada etapa llena su lienzo de 128).",
+    "El suelo se ancla por fila (mediana), así los saltos conservan su movimiento vertical. El centro horizontal es el centroide del cuerpo en cada frame.",
+    "Algunos efectos muy grandes (remolinos de agua de nix/prime entrenar) pueden tocar el borde del lienzo en 1-2 frames."
+  ]
+}

@@ -51,7 +51,8 @@ from scipy import ndimage as ndi
 
 CELL = 128          # tamaño de frame de salida
 MARGIN = 4          # margen interior del lienzo de 128 (px de salida)
-WEBP_QUALITY = 85
+WEBP_QUALITY = 75
+WEBP_ALPHA_QUALITY = 80  # tiras largas (20-26 frames) de arte muy detallado: 85 superaba 3 MB en total
 
 # ---------------------------------------------------------------------------
 # Configuración de hojas.
@@ -547,7 +548,7 @@ NAMES = {"broot": "Broot", "nix": "Nix"}
 def write_strip(frames, path):
     strip = np.concatenate(frames, axis=1)
     im = Image.fromarray(strip, "RGBA")
-    im.save(path, "WEBP", quality=WEBP_QUALITY, method=6, exact=False)
+    im.save(path, "WEBP", quality=WEBP_QUALITY, alpha_quality=WEBP_ALPHA_QUALITY, method=6)
     return os.path.getsize(path)
 
 
@@ -605,7 +606,7 @@ def main():
         prel = f"{pet}/{stage}/retrato.webp"
         if not args.no_write:
             Image.fromarray(norm[pa][0], "RGBA").save(os.path.join(args.out, prel), "WEBP",
-                                                      quality=WEBP_QUALITY, method=6)
+                                                      quality=WEBP_QUALITY, alpha_quality=WEBP_ALPHA_QUALITY, method=6)
         st["portrait"] = prel
         st = {"portrait": st["portrait"], "anims": st["anims"]}
         manifest["pets"].setdefault(pet, {"name": NAMES[pet], "stages": {}})
