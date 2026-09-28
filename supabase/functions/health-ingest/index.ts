@@ -24,7 +24,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-const FN_VERSION = '2026-09-28';
+const FN_VERSION = '2026-09-28b';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -122,16 +122,37 @@ function aplanar(metrics: any[]): Fila[] {
         // 02:00 del martes es la noche del martes, no la del lunes.
         const day = diaLocal(d?.sleepEnd) ?? diaLocal(d?.date) ?? diaLocal(d?.sleepStart);
         if (!day) continue;
-        const tramos: Array<[string, unknown]> = [
-          ['sleep_asleep', d?.asleep], ['sleep_in_bed', d?.inBed],
-          ['sleep_deep', d?.deep], ['sleep_rem', d?.rem],
-          ['sleep_core', d?.core], ['sleep_awake', d?.awake],
+        // TRAMPA REAL (28/09/2026, primer envío de Fran): con Apple Watch y
+        // fases de sueño (iOS 16+), Health Auto Export manda `asleep: 0` e
+        // `inBed: 0`, y el sueño de verdad va repartido en core + deep + rem
+        // (a veces también en `totalSleep`). Creerse ese 0 guardaba "0 horas"
+        // TODAS las noches, y el motor lo contaba como meta de sueño fallada
+        // cada día: la mascota no salía del huevo.
+        //
+        // Regla: en el sueño, un 0 no es una medida, es "no hay dato". Nadie
+        // duerme 0 h con el reloj puesto. El total sale del primer valor
+        // POSITIVO de: totalSleep → asleep → suma de fases.
+        const unidadesSueno = String(m?.units ?? '').toLowerCase();
+        const pos = (v: unknown) => { const n = num(v); return n !== null && n > 0 ? n : null; };
+        const fases = [pos(d?.core), pos(d?.deep), pos(d?.rem), pos(d?.asleepUnspecified)].filter((v): v is number => v !== null);
+        const sumaFases = fases.length ? fases.reduce((a, b) => a + b, 0) : null;
+        const total = pos(d?.totalSleep) ?? pos(d?.asleep) ?? sumaFases;
+
+        // Minutos u horas: lo dice la métrica (`units`). Si no lo dice, se
+        // decide UNA vez con el total, y se aplica a todas las fases de esa
+        // noche. Decidirlo fase a fase convertía 20 min de sueño profundo en
+        // "20 horas" (y el rango de cordura lo tiraba).
+        const enMinutos = unidadesSueno.startsWith('min') || (!unidadesSueno.startsWith('h') && (total ?? 0) > 24);
+        const h = (v: number | null) => v === null ? null : (enMinutos ? v / 60 : v);
+
+        const tramos: Array<[string, number | null]> = [
+          ['sleep_asleep', h(total)], ['sleep_in_bed', h(pos(d?.inBed))],
+          ['sleep_deep', h(pos(d?.deep))], ['sleep_rem', h(pos(d?.rem))],
+          ['sleep_core', h(pos(d?.core))], ['sleep_awake', h(pos(d?.awake))],
         ];
         for (const [metric, v] of tramos) {
-          const n = num(v);
-          if (n === null) continue;    // la fuente no lo publica: no se inventa
-          // Health Auto Export manda minutos; > 24 solo puede ser eso.
-          out.push({ day, metric, value: n > 24 ? n / 60 : n, unit: 'h', source });
+          if (v === null) continue;    // sin dato (o un 0 que no es dato): no se inventa
+          out.push({ day, metric, value: v, unit: 'h', source });
         }
         continue;
       }

@@ -98,6 +98,11 @@ export function lunesDe(dia) {
   return isoDia(f);
 }
 
+// Métricas en las que 0 significa "sin dato", no "cero". Exportada para que
+// la pantalla de Salud enseñe exactamente lo mismo que ve el motor.
+const SIN_CEROS = /^(sleep_|step_count$)/;
+export const esSinDato = (metric, value) => !Number.isFinite(value) || (value <= 0 && SIN_CEROS.test(metric));
+
 // ── Índice de datos: día → métrica → valor ──────────────────────────────────
 /**
  * @param {Array<{day, metric, value, unit}>} filas   de `health_daily`
@@ -107,6 +112,12 @@ export function indexar(filas = [], entrenos = []) {
   const porDia = new Map();
   for (const f of filas) {
     if (!f?.day || !f?.metric || !Number.isFinite(f.value)) continue;
+    // En sueño y pasos, un 0 no es una medida: es que no se midió. Nadie
+    // duerme 0 h con el reloj puesto, ni da 0 pasos llevando el móvil.
+    // Tomarlo por dato contaba la meta como FALLADA: el primer envío real de
+    // Fran (28/09) traía "0 h de sueño" todas las noches por un formato de
+    // Health Auto Export, y la mascota no salía del huevo en 79 días.
+    if (esSinDato(f.metric, f.value)) continue;
     if (!porDia.has(f.day)) porDia.set(f.day, {});
     porDia.get(f.day)[f.metric] = normalizar(f.metric, f.value, f.unit);
   }

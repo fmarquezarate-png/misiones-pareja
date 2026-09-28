@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.38.1] — 2026-09-28 · Sueño a 0 todas las noches
+
+**Síntoma (primer envío real de Fran):** 79 días de datos, la mascota de prueba en *huevo · vitalidad 6*, y «Sueño: 0» en la lista de métricas pese a llegar sueño ligero, profundo y REM.
+
+**Causa:** con Apple Watch y fases de sueño (iOS 16+), Health Auto Export manda `asleep: 0` e `inBed: 0` y reparte el sueño real en `core + deep + rem` (a veces con `totalSleep`). El parser se creía el 0 → «0 h» cada noche → el motor contaba la meta de sueño como **fallada** a diario. Con los pasos cumpliendo y el sueño fallando, casi todos los días puntuaban 0,5 o menos, y la mascota no salía del huevo.
+
+**Arreglo, en dos capas:**
+1. `health-ingest`: el total de sueño es el primer valor **positivo** de `totalSleep → asleep → suma de fases`. Minutos u horas se decide con `units` de la métrica y, si no viene, **una vez por noche** con el total — decidirlo fase a fase convertía 20 min de sueño profundo en «20 horas».
+2. `pet.js`: en sueño y pasos, **un 0 es «sin dato»**, no una meta fallada (`esSinDato`, exportada para que la pantalla de Salud enseñe exactamente lo mismo que ve el motor). Hace falta aunque el parser ya esté bien: las filas a 0 guardadas antes del arreglo siguen en la tabla. En el ejercicio, en cambio, 0 sí es un dato real y se respeta.
+
+Un test fija el caso: 79 días con pasos buenos y sueño a 0 ya **no** dejan la mascota en el huevo.
+
+---
+
 ## [5.38.0] — 2026-09-28 · Salud: ingesta desde Health Auto Export + motor de la mascota
 
 Primer lote del proyecto de la mascota virtual. Tres piezas:

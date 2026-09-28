@@ -67,6 +67,39 @@ describe("evaluarDia", () => {
   });
 });
 
+describe("ceros que no son datos", () => {
+  // El caso real del 28/09: Health Auto Export mandaba sleep_asleep = 0 cada
+  // noche (el sueño iba repartido en fases). Contarlo como "dormí 0 h" hacía
+  // fallar la meta de sueño a diario y la mascota no salía del huevo.
+  it("0 h de sueño es 'sin dato', no una meta fallada", () => {
+    const idx = indexar([
+      { day: "2026-09-01", metric: "step_count", value: 9000 },
+      { day: "2026-09-01", metric: "sleep_asleep", value: 0 },
+    ]);
+    const ev = evaluarDia("2026-09-01", idx);
+    expect(ev.metas.find(m => m.tipo === "sueno").valor).toBeNull();
+    expect(ev.puntuacion).toBe(1);           // solo cuentan los pasos, que sí cumple
+  });
+
+  it("0 pasos también es 'sin dato'", () => {
+    const idx = indexar([{ day: "2026-09-01", metric: "step_count", value: 0 }]);
+    expect(evaluarDia("2026-09-01", idx).puntuacion).toBeNull();
+  });
+
+  // Donde 0 sí es un valor real, se respeta.
+  it("0 minutos de ejercicio SÍ es un dato (y falla la meta)", () => {
+    const idx = indexar([{ day: "2026-09-01", metric: "apple_exercise_time", value: 0 }]);
+    expect(evaluarDia("2026-09-01", idx).puntuacion).toBe(0);
+  });
+
+  it("79 días con pasos buenos y sueño a 0 ya no dejan la mascota en el huevo", () => {
+    const filas = dias("2026-06-22", 79, () => ({ step_count: 9000, sleep_asleep: 0, sleep_in_bed: 0 }));
+    const s = simular({ nacimiento: "2026-06-22", filas, hoy: "2026-09-09" });
+    expect(s.nacida).toBe(true);
+    expect(s.etapaId).not.toBe("huevo");
+  });
+});
+
 describe("evaluarSemana", () => {
   const metas = [{ id: "kcal-s", tipo: "kcal", objetivo: 3500, periodo: "semana" },
                  { id: "sueno-s", tipo: "sueno", objetivo: 7, periodo: "semana" }];

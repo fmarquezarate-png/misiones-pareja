@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cargarSalud, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
-import { simular, animo, ETAPAS, METAS_POR_DEFECTO, METRICAS, sumarDias, isoDia } from "../lib/pet.js";
+import { simular, animo, ETAPAS, METAS_POR_DEFECTO, METRICAS, sumarDias, isoDia, esSinDato } from "../lib/pet.js";
 import { humanDate } from "../lib/dateLabel.js";
 
 const card = { background: "var(--t-card,#1d1733)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.16))", borderRadius: 14, padding: "12px 14px", marginBottom: 10 };
@@ -100,7 +100,11 @@ export default function SaludView({ sessionUserId, personName, partnerName }) {
 function Persona({ p, nombre }) {
   const hoy = isoDia(new Date());
   const ultimos7 = Array.from({ length: 7 }, (_, i) => sumarDias(hoy, i - 6));
-  const val = (dia, metric) => p.filas.find(f => f.day === dia && f.metric === metric)?.value;
+  // Mismo criterio que el motor: un 0 en sueño o pasos es "no se midió".
+  const val = (dia, metric) => {
+    const v = p.filas.find(f => f.day === dia && f.metric === metric)?.value;
+    return v == null || esSinDato(metric, v) ? null : v;
+  };
 
   // Prueba del motor: "si tu mascota hubiera nacido el primer día con datos".
   const sim = useMemo(() => p.primerDia
@@ -201,7 +205,9 @@ function Persona({ p, nombre }) {
                 <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{m.metric}{m.source ? ` · ${m.source}` : ""}</div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 12.5, color: "var(--t-text,#f0e8ff)" }}>{formatoValor(m.metric, m.value, m.unit)}</div>
+                <div style={{ fontSize: 12.5, color: esSinDato(m.metric, m.value) ? "#fbbf24" : "var(--t-text,#f0e8ff)" }}>
+                  {esSinDato(m.metric, m.value) ? "sin dato (llega 0)" : formatoValor(m.metric, m.value, m.unit)}
+                </div>
                 <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{humanDate(m.day)}</div>
               </div>
             </div>

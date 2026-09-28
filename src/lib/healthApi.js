@@ -109,6 +109,15 @@ export const NOMBRES_METRICA = {
   respiratory_rate: "Respiración",
   blood_oxygen_saturation: "Oxígeno en sangre",
   vo2_max: "VO₂ máx",
+  headphone_audio_exposure: "Volumen en auriculares",
+  environmental_audio_exposure: "Ruido ambiente",
+  walking_speed: "Velocidad al caminar",
+  walking_step_length: "Longitud de paso",
+  walking_asymmetry_percentage: "Asimetría al caminar",
+  walking_double_support_percentage: "Doble apoyo al caminar",
+  six_minute_walking_test_distance: "Test de 6 min caminando",
+  stair_speed_up: "Velocidad subiendo escaleras",
+  stair_speed_down: "Velocidad bajando escaleras",
 };
 
 export function formatoValor(metric, value, unit) {
