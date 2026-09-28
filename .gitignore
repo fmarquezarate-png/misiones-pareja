@@ -7,3 +7,9 @@ dist/
 # Caché de Python (scripts/sprites)
 __pycache__/
 *.pyc
+
+# Exportaciones de Salud: datos médicos personales. NUNCA en el repositorio
+# (es público). Se importan desde la app, que los manda directo a Supabase.
+HealthAutoExport-*.json
+**/HealthAutoExport*
+*.health.json
