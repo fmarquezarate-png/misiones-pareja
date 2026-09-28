@@ -8,8 +8,10 @@
 //     saldría: etapa, ánimo y POR QUÉ.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { cargarSalud, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
-import { simular, animo, ETAPAS, METAS_POR_DEFECTO, METRICAS, sumarDias, isoDia, esSinDato } from "../lib/pet.js";
+import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
+import SaludImportar from "./SaludImportar.jsx";
+import VidaMascota from "./VidaMascota.jsx";
+import { sumarDias, isoDia, esSinDato } from "../lib/pet.js";
 import { humanDate } from "../lib/dateLabel.js";
 
 const card = { background: "var(--t-card,#1d1733)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.16))", borderRadius: 14, padding: "12px 14px", marginBottom: 10 };
@@ -30,6 +32,17 @@ function haceCuanto(iso) {
 export default function SaludView({ sessionUserId, personName, partnerName }) {
   const [estado, setEstado] = useState("cargando");   // cargando | listo
   const [datos, setDatos] = useState({ filas: [], entrenos: [], error: null });
+  // Historial largo para "la vida de tu mascota": solo cuando se pide.
+  const [historia, setHistoria] = useState(null);    // null | "cargando" | { filas, entrenos, manifest, error }
+
+  const verHistoria = useCallback(async () => {
+    setHistoria("cargando");
+    const [h, manifest] = await Promise.all([
+      cargarHistorialMotor(),
+      fetch("/mascotas/manifest.json").then(r => r.json()).catch(() => null),
+    ]);
+    setHistoria({ ...h, manifest });
+  }, []);
 
   const cargar = useCallback(async () => {
     setEstado("cargando");
@@ -59,6 +72,10 @@ export default function SaludView({ sessionUserId, personName, partnerName }) {
         }}>{estado === "cargando" ? "Cargando…" : "↻ Recargar"}</button>
       </div>
 
+      {datos.error !== "sin_tablas" && (
+        <SaludImportar personName={personName} onTerminado={() => { cargar(); setHistoria(null); }} />
+      )}
+
       {estado === "cargando" ? <div style={card}><div style={dim}>Leyendo tus datos…</div></div>
         : datos.error === "sin_tablas" ? (
           <div style={card}>
@@ -81,7 +98,8 @@ export default function SaludView({ sessionUserId, personName, partnerName }) {
         ) : (
           <>
             {personas.map(p => (
-              <Persona key={p.userId} p={p} nombre={p.userId === sessionUserId ? `${personName || "Tú"} (tú)` : (partnerName || "Tu pareja")} />
+              <Persona key={p.userId} p={p} nombre={p.userId === sessionUserId ? `${personName || "Tú"} (tú)` : (partnerName || "Tu pareja")}
+                historia={historia} onVerHistoria={verHistoria} />
             ))}
             {personas.length === 1 && (
               <div style={card}>
@@ -97,7 +115,7 @@ export default function SaludView({ sessionUserId, personName, partnerName }) {
   );
 }
 
-function Persona({ p, nombre }) {
+function Persona({ p, nombre, historia, onVerHistoria }) {
   const hoy = isoDia(new Date());
   const ultimos7 = Array.from({ length: 7 }, (_, i) => sumarDias(hoy, i - 6));
   // Mismo criterio que el motor: un 0 en sueño o pasos es "no se midió".
@@ -105,14 +123,6 @@ function Persona({ p, nombre }) {
     const v = p.filas.find(f => f.day === dia && f.metric === metric)?.value;
     return v == null || esSinDato(metric, v) ? null : v;
   };
-
-  // Prueba del motor: "si tu mascota hubiera nacido el primer día con datos".
-  const sim = useMemo(() => p.primerDia
-    ? simular({ nacimiento: p.primerDia, filas: p.filas, entrenos: p.entrenos, hoy })
-    : null, [p, hoy]);
-  const an = sim ? animo(sim) : null;
-  const evol = sim?.eventos.filter(e => e.tipo === "evoluciona").length || 0;
-  const desevol = sim?.eventos.filter(e => e.tipo === "desevoluciona").length || 0;
 
   const fresco = p.ultimoEnvio && Date.now() - new Date(p.ultimoEnvio).getTime() < 3 * 3600e3;
 
@@ -171,29 +181,28 @@ function Persona({ p, nombre }) {
         <div style={{ ...dim, marginTop: 8 }}>En verde, meta cumplida. Un punto (·) es que ese día no llegó el dato — no que fuera cero.</div>
       </div>
 
-      {sim && (
-        <div style={card}>
-          <div style={titulo}>Prueba del motor de la mascota</div>
-          <div style={{ ...dim, marginBottom: 8 }}>
-            Si tu mascota hubiera nacido el {humanDate(p.primerDia)} con las metas por defecto
-            ({METAS_POR_DEFECTO.map(m => `${METRICAS[m.tipo].nombre.toLowerCase()} ${m.objetivo.toLocaleString("es-ES")}${METRICAS[m.tipo].unidad ? " " + METRICAS[m.tipo].unidad : ""}/${m.periodo === "dia" ? "día" : "semana"}`).join(" · ")}):
-          </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "baseline", flexWrap: "wrap" }}>
-            <Dato n={ETAPAS[sim.etapa].nombre} label="etapa" destacado />
-            <Dato n={Math.round(sim.xp)} label="vitalidad" />
-            <Dato n={`${Math.round(sim.progreso * 100)}%`} label={ETAPAS[sim.etapa + 1] ? `hacia ${ETAPAS[sim.etapa + 1].nombre}` : "etapa final"} />
-          </div>
-          <div style={{ height: 6, borderRadius: 99, background: "rgba(255,255,255,0.07)", overflow: "hidden", margin: "10px 0" }}>
-            <div style={{ height: "100%", width: `${Math.max(2, sim.progreso * 100)}%`, background: "linear-gradient(90deg,#a78bfa,#34d399)" }} />
-          </div>
-          <div style={txt}>Ánimo ahora: <b>{an.animo}</b></div>
-          <div style={{ ...dim, marginTop: 2 }}>{an.motivo}</div>
-          <div style={{ ...dim, marginTop: 8 }}>
-            En este tiempo habría evolucionado {evol} {evol === 1 ? "vez" : "veces"}
-            {desevol ? ` y retrocedido ${desevol}` : ""}.
-          </div>
-        </div>
-      )}
+      <div style={card}>
+        <div style={titulo}>La vida de tu mascota</div>
+        {historia === null ? (
+          <>
+            <div style={{ ...dim, marginBottom: 8 }}>¿En qué estado habría estado tu mascota en cada época del pasado, según tus hábitos reales?</div>
+            <button onClick={onVerHistoria} style={{
+              padding: "7px 12px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600,
+              color: "var(--t-accent,#c4b8ff)", background: "transparent", border: "1px solid var(--t-card-border,rgba(167,139,250,0.3))",
+            }}>Ver su historia</button>
+          </>
+        ) : historia === "cargando" ? (
+          <div style={dim}>Cargando todo tu historial…</div>
+        ) : historia.error ? (
+          <div style={dim}>No se pudo cargar el historial. Prueba a recargar.</div>
+        ) : (
+          <VidaMascota
+            filas={historia.filas.filter(f => f.user_id === p.userId)}
+            entrenos={historia.entrenos.filter(w => w.user_id === p.userId)}
+            manifest={historia.manifest}
+          />
+        )}
+      </div>
 
       <details style={card}>
         <summary style={{ ...titulo, marginBottom: 0, cursor: "pointer" }}>Todo lo que llega ({p.metricas.length} métricas)</summary>
@@ -215,14 +224,5 @@ function Persona({ p, nombre }) {
         </div>
       </details>
     </>
-  );
-}
-
-function Dato({ n, label, destacado }) {
-  return (
-    <div>
-      <div style={{ fontSize: destacado ? 20 : 16, fontWeight: 700, lineHeight: 1.1, color: destacado ? "var(--t-accent,#c4b8ff)" : "var(--t-text,#f8f4ff)" }}>{n}</div>
-      <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{label}</div>
-    </div>
   );
 }

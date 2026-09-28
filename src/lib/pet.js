@@ -38,10 +38,16 @@ export const ETAPAS = [
 // tiene que sentirse como algo que pasa, no como un parpadeo.
 export const HISTERESIS = 0.8;
 
+// Ajustado con 5 años de datos reales de Fran (28/09/2026), comparando cuatro
+// variantes. Con la primera versión (a medias +6, flojo +1, sin techo) la
+// mascota llegaba a la forma final en 2 años y ya no bajaba NUNCA — ni en las
+// épocas malas —, lo contrario de lo acordado ("puede desevolucionar"). Esta
+// es la que reproduce su historia: forma final en su mejor época, baja tras
+// la racha floja de la primavera de 2025, y hoy en Prime.
 export const PUNTOS = {
   diaPerfecto: 10,       // todas las metas diarias cumplidas
-  diaBueno: 6,           // al menos la mitad
-  diaFlojo: 1,           // algo hizo
+  diaBueno: 3,           // al menos la mitad
+  diaFlojo: 0,           // algo hizo: ni sube ni baja
   diaMalo: -6,           // no cumplió casi nada → baja, despacio
   semanaCumplida: 25,    // cada meta semanal cumplida al cerrar la semana
   semanaFallada: -8,     // cada meta semanal fallada (con datos)
@@ -50,12 +56,21 @@ export const PUNTOS = {
 // ── Catálogo de métricas que pueden ser meta ────────────────────────────────
 // `agg` dice cómo se junta una SEMANA: los totales se suman, el sueño se
 // promedia (7 h de media, no 49 h "acumuladas").
+// Reglas del juego (puntos por día y techo de vitalidad). Van en un objeto
+// para poder comparar alternativas contra el historial real antes de fijarlas.
+// Techo de vitalidad: 2400 = umbral de la forma final (2000) + 20 %. Sin
+// techo, los puntos de sobra hacían de colchón infinito y la mascota no podía
+// retroceder nunca.
+export const REGLAS = { puntos: PUNTOS, tope: 2400 };
+
 export const METRICAS = {
   pasos:     { metric: "step_count",               unidad: "pasos", nombre: "Pasos",               agg: "sum" },
   sueno:     { metric: "sleep_asleep",             unidad: "h",     nombre: "Sueño",               agg: "avg" },
   ejercicio: { metric: "apple_exercise_time",      unidad: "min",   nombre: "Ejercicio",           agg: "sum" },
   kcal:      { metric: "active_energy",            unidad: "kcal",  nombre: "Calorías activas",    agg: "sum" },
-  distancia: { metric: "distance_walking_running", unidad: "km",    nombre: "Distancia",           agg: "sum" },
+  // Health Auto Export la llama `walking_running_distance`; la documentación
+  // de HealthKit, `distance_walking_running`. Se aceptan las dos.
+  distancia: { metric: "walking_running_distance", alias: ["distance_walking_running"], unidad: "km", nombre: "Distancia", agg: "sum" },
   depie:     { metric: "apple_stand_hour",         unidad: "h",     nombre: "Horas de pie",        agg: "sum" },
   mente:     { metric: "mindful_minutes",          unidad: "min",   nombre: "Mindfulness",         agg: "sum" },
   entrenos:  { metric: "__workouts",               unidad: "",      nombre: "Entrenos",            agg: "sum" },
@@ -77,7 +92,7 @@ export function normalizar(metric, value, unit) {
   if (metric === "active_energy" || metric === "basal_energy_burned") {
     if (u === "kj") return value / 4.184;
   }
-  if (metric === "distance_walking_running") {
+  if (metric === "distance_walking_running" || metric === "walking_running_distance") {
     if (u === "mi") return value * 1.609344;
     if (u === "m") return value / 1000;
   }
@@ -101,7 +116,13 @@ export function lunesDe(dia) {
 // Métricas en las que 0 significa "sin dato", no "cero". Exportada para que
 // la pantalla de Salud enseñe exactamente lo mismo que ve el motor.
 const SIN_CEROS = /^(sleep_|step_count$)/;
-export const esSinDato = (metric, value) => !Number.isFinite(value) || (value <= 0 && SIN_CEROS.test(metric));
+// Mínimos por debajo de los cuales el valor no representa lo que dice. Medido
+// en el historial real de Fran: 25 "noches" de menos de 2 h, que empiezan a
+// cualquier hora (muchas por la tarde): siestas y registros cortados, no
+// noches. Contarlas como sueño fallado pondría triste a la mascota sin motivo.
+const MINIMOS = { sleep_asleep: 2 };
+export const esSinDato = (metric, value) =>
+  !Number.isFinite(value) || (value <= 0 && SIN_CEROS.test(metric)) || (MINIMOS[metric] != null && value < MINIMOS[metric]);
 
 // ── Índice de datos: día → métrica → valor ──────────────────────────────────
 /**
@@ -135,8 +156,10 @@ export function indexar(filas = [], entrenos = []) {
 function valorDe(datosDia, tipo) {
   const m = METRICAS[tipo];
   if (!m || !datosDia) return null;
-  const v = datosDia[m.metric];
-  if (Number.isFinite(v)) return v;
+  for (const clave of [m.metric, ...(m.alias || [])]) {
+    const v = datosDia[clave];
+    if (Number.isFinite(v)) return v;
+  }
   // Los "minutos de ejercicio" son un invento del Apple Watch: con otros
   // relojes (el de Fran es Huawei) esa métrica no existe. Entonces el
   // ejercicio del día son los minutos de los ENTRENOS registrados. Sin
@@ -180,12 +203,12 @@ export function evaluarSemana(lunes, porDia, metas = METAS_POR_DEFECTO, hastaDia
   });
 }
 
-export function puntosDelDia(puntuacion) {
+export function puntosDelDia(puntuacion, P = PUNTOS) {
   if (puntuacion == null) return 0;                 // neutro: sin datos
-  if (puntuacion >= 1) return PUNTOS.diaPerfecto;
-  if (puntuacion >= 0.5) return PUNTOS.diaBueno;
-  if (puntuacion > 0) return PUNTOS.diaFlojo;
-  return PUNTOS.diaMalo;
+  if (puntuacion >= 1) return P.diaPerfecto;
+  if (puntuacion >= 0.5) return P.diaBueno;
+  if (puntuacion > 0) return P.diaFlojo;
+  return P.diaMalo;
 }
 
 export function etapaPorXp(xp) {
@@ -216,7 +239,12 @@ export function siguienteEtapa(actual, xp) {
  *   historial: Array<{dia, puntuacion, xp, etapa}>
  * }}
  */
-export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], entrenos = [], hoy = isoDia(new Date()) }) {
+export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], entrenos = [], hoy = isoDia(new Date()), reglas = REGLAS }) {
+  const P = { ...PUNTOS, ...(reglas.puntos || {}) };
+  const tope = reglas.tope ?? Infinity;
+  // La vitalidad vive entre 0 y el tope. Sin techo, los puntos de sobra se
+  // acumulan como colchón y la mascota no puede retroceder nunca.
+  const acotar = v => Math.min(tope, Math.max(0, v));
   const porDia = indexar(filas, entrenos);
   let xp = 0;
   let etapa = 0;
@@ -239,13 +267,13 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
   // Días CERRADOS: de nacimiento a ayer. Hoy aún está en juego y no se castiga.
   for (let dia = nacimiento; dia < hoy; dia = sumarDias(dia, 1)) {
     const ev = evaluarDia(dia, porDia, metas);
-    xp = Math.max(0, xp + puntosDelDia(ev.puntuacion));
+    xp = acotar(xp + puntosDelDia(ev.puntuacion, P));
 
     // El domingo cierra la semana: se liquidan las metas semanales.
     if (aFecha(dia).getDay() === 0) {
       for (const s of evaluarSemana(lunesDe(dia), porDia, metas)) {
         if (s.sinDatos) continue;   // semana sin datos: neutra
-        xp = Math.max(0, xp + (s.cumplida ? PUNTOS.semanaCumplida : PUNTOS.semanaFallada));
+        xp = acotar(xp + (s.cumplida ? P.semanaCumplida : P.semanaFallada));
       }
     }
     cambiar(dia, siguienteEtapa(etapa, xp));
@@ -254,8 +282,8 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
 
   // Hoy: SOLO suma. Si ya cumpliste, lo ves reflejado ya; si aún no, no resta.
   const evHoy = evaluarDia(hoy, porDia, metas);
-  const extra = Math.max(0, puntosDelDia(evHoy.puntuacion));
-  xp += extra;
+  const extra = Math.max(0, puntosDelDia(evHoy.puntuacion, P));
+  xp = acotar(xp + extra);
   cambiar(hoy, siguienteEtapa(etapa, xp));
 
   const sig = ETAPAS[etapa + 1];
@@ -323,4 +351,38 @@ export function animo(sim, { hora = new Date().getHours(), metas = METAS_POR_DEF
 export function frameHuevo(sim, totalFrames = 16) {
   if (sim.nacida) return totalFrames - 1;
   return Math.min(totalFrames - 1, Math.floor(sim.progreso * totalFrames));
+}
+
+// ── La vida de la mascota, mes a mes ────────────────────────────────────────
+// Para responder "¿cómo habría estado mi mascota en cada época?": se simula
+// desde el primer día con datos y se resume por meses. Es un "qué habría
+// pasado" — la mascota de verdad nace el día en que se adopta.
+//
+// Cada mes: la etapa con la que lo TERMINA, la más alta que alcanzó, cómo fue
+// de media (ánimo del mes), cuántos días tuvo datos y qué pasó (evoluciones).
+export function lineaTemporal(sim) {
+  const meses = new Map();
+  for (const h of sim?.historial || []) {
+    const mes = h.dia.slice(0, 7);
+    if (!meses.has(mes)) meses.set(mes, { mes, puntuaciones: [], etapa: h.etapa, etapaMax: h.etapa, xpFin: h.xp, eventos: [] });
+    const m = meses.get(mes);
+    if (h.puntuacion != null) m.puntuaciones.push(h.puntuacion);
+    m.etapa = h.etapa;
+    m.xpFin = h.xp;
+    if (ETAPAS.findIndex(e => e.id === h.etapa) > ETAPAS.findIndex(e => e.id === m.etapaMax)) m.etapaMax = h.etapa;
+  }
+  for (const ev of sim?.eventos || []) {
+    const m = meses.get(ev.dia.slice(0, 7));
+    if (m) m.eventos.push(ev);
+  }
+  return [...meses.values()].map(({ puntuaciones, ...m }) => {
+    const media = puntuaciones.length ? puntuaciones.reduce((a, b) => a + b, 0) / puntuaciones.length : null;
+    return {
+      ...m,
+      diasConDatos: puntuaciones.length,
+      media,
+      // Sin datos no hay ánimo: se dice, no se inventa.
+      animo: media == null ? "sin datos" : media >= 0.67 ? "feliz" : media >= 0.34 ? "normal" : "triste",
+    };
+  });
 }

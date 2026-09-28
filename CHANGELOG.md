@@ -7,6 +7,60 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.39.0] — 2026-09-28 · Importar historial, la vida de la mascota, y el importador probado con datos reales
+
+### Incidente: el historial de salud en el repositorio público
+
+Para hacer llegar su exportación completa (5,7 MB, 2021 → hoy), Fran la commiteó en `supabase/`. El repositorio es **público**: peso, IMC, % de grasa, pulso, oxígeno, actividad sexual y seguimiento de ciclo quedaron descargables. Se quitó del árbol en el acto y `.gitignore` bloquea cualquier `HealthAutoExport-*`. **Sigue en el historial de git** (commit `9be4032`): hacer el repositorio privado y/o reescribir el historial es decisión del dueño. Regla nueva en CLAUDE.md §5.
+
+### 1. Importar historial desde la app (☰ → Salud)
+
+Se elige el `.json` en el dispositivo y va directo a Supabase con la **sesión** de quien lo sube (la Edge Function acepta ahora token *o* sesión; los datos siempre quedan a nombre de quien está conectado). Antes de enviar, **en el propio teléfono** (`src/lib/healthImport.js`, 10 tests):
+- se quita lo íntimo (`sexual_activity`, datos de ciclo);
+- se quita lo pesado que el importador no usa (pulso segundo a segundo de cada entreno, rutas GPS);
+- se trocea por años, y por trimestres si un año no cabe.
+
+Con el archivo real: **5,5 MB → 2,05 MB en 6 envíos**, el mayor de 454 KB.
+
+### 2. El importador, con tests y cuatro fallos arreglados
+
+La interpretación pasa a `supabase/functions/health-ingest/parse.js`, módulo puro compartido entre la Edge Function y Vitest (21 tests, cada uno con la **forma real** de un dato del archivo, con valores inventados):
+- **pulso** como `{Min, Avg, Max}` sin `qty` → antes se tiraba entero (972 días); ahora media, mínimo y máximo;
+- **energía de entrenos en kJ** guardada como kcal (×4,2) → convertida;
+- **`duration` en segundos** leída como minutos → corregido;
+- **`walking_running_distance`** → el motor la busca por su nombre real y por el antiguo.
+
+Ensayo completo con el archivo real: 22.406 datos limpios, 82 entrenos (24 duplicados de dos apps fusionados), 114 descartes (104 «en la cama» de más de 20 h, 7 noches de más de 16 h). Sin días repetidos: la mezcla de fuentes (iPhone + Huawei + Zepp + Mi Fitness) ya la resuelve la app Salud antes de exportar.
+
+### 3. Sueño: siestas y registros cortados
+
+De 866 noches, 25 duraban menos de 2 h y empezaban a cualquier hora (muchas por la tarde). Por debajo de 2 h, el sueño es «sin dato» para las metas: contarlas como noches malas ponía triste a la mascota sin motivo.
+
+### 4. Reglas del juego, ajustadas contra 5 años de datos
+
+Con la primera versión (día «a medias» +6, sin techo) la mascota llegaba a la forma final en mayo de 2023 y **no bajaba nunca**, ni en las épocas malas: 41 meses en UPF, 0 retrocesos — lo contrario de lo acordado. Se compararon cuatro variantes con el historial real (`simular` acepta ahora `reglas`):
+
+| | Hoy | Meses en UPF | Retrocesos |
+|---|---|---|---|
+| A (anterior) | UPF | 41 | 0 |
+| B (techo 2400) | UPF | 31 | 1 |
+| **C (techo + «a medias» +3, flojo 0)** | **Prime** | **20** | **1** |
+| D (C + castigos duros) | Jr | 0 | 2 |
+
+Se adopta **C**: forma final en su mejor época (2022–24), retrocede tras la racha floja de la primavera de 2025, hoy en Prime.
+
+### 5. La vida de tu mascota
+
+`lineaTemporal()` resume la simulación mes a mes (etapa, ánimo del mes, días con datos, evoluciones). `VidaMascota`: cuadrícula años × meses con el retrato de la etapa, coloreada por ánimo, con ▲/▼ en los cambios y detalle al tocar. Comprobada con Playwright a 390 px con los datos y sprites reales, sin scroll horizontal; la captura cazó que el botón «Con Broot» enseñaba a Nix. El historial largo se carga **bajo demanda** y solo con las 8 métricas que usa el motor.
+
+### 6. Lectura paginada
+
+`leerTodo()`: Supabase corta a 1.000 filas sin avisar. Cualquier lectura que pueda pasar de ahí pagina con orden total.
+
+584 tests.
+
+---
+
 ## [5.38.2] — 2026-09-28 · Salud: historial cortado, ejercicio sin Apple Watch, envíos grandes
 
 Tres fallos que salieron al mirar los datos reales de Fran con SQL (`health_raw`), en vez de suponer:

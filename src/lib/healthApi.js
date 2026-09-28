@@ -10,7 +10,7 @@
 
 import supabase from "../supabase.js";
 import { withTimeout } from "../utils.js";
-import { sumarDias, isoDia } from "./pet.js";
+import { sumarDias, isoDia, METRICAS } from "./pet.js";
 
 // ── Lectura completa, por páginas ───────────────────────────────────────────
 //
@@ -158,4 +158,68 @@ export function formatoValor(metric, value, unit) {
   const u = unit && unit !== "count" ? ` ${unit}` : "";
   const n = Math.abs(value) >= 100 ? Math.round(value).toLocaleString("es-ES") : value.toLocaleString("es-ES", { maximumFractionDigits: 1 });
   return `${n}${u}`;
+}
+
+// ── Historial largo, solo lo que usa el motor ───────────────────────────────
+// Para "la vida de tu mascota" hace falta TODO el historial (años), pero no
+// todas las métricas: de las ~20 que manda el iPhone, el motor usa unas 8.
+// Pedir solo esas (y sin columnas que no usa) reduce la descarga a menos de
+// la mitad. Se carga bajo demanda, al pulsar el botón: no en cada apertura.
+
+export const METRICAS_MOTOR = [...new Set(
+  Object.values(METRICAS).flatMap(m => [m.metric, ...(m.alias || [])]).filter(m => !m.startsWith("__")),
+)];
+
+export async function cargarHistorialMotor() {
+  try {
+    const [filas, entrenos] = await Promise.all([
+      withTimeout(leerTodo((a, b) =>
+        supabase.from("health_daily")
+          .select("user_id, day, metric, value, unit")
+          .in("metric", METRICAS_MOTOR)
+          .order("day", { ascending: true })
+          .order("user_id", { ascending: true })
+          .order("metric", { ascending: true })
+          .range(a, b)), 60000, "historial"),
+      withTimeout(leerTodo((a, b) =>
+        supabase.from("health_workouts")
+          .select("user_id, start_at, name, minutes")
+          .order("start_at", { ascending: true })
+          .order("user_id", { ascending: true })
+          .order("name", { ascending: true })
+          .range(a, b)), 60000, "entrenos"),
+    ]);
+    return { filas, entrenos, error: null };
+  } catch (e) {
+    return { filas: [], entrenos: [], error: String(e?.message || e) };
+  }
+}
+
+// ── Enviar un trozo del importador ──────────────────────────────────────────
+// Va con la sesión de quien está conectado: los datos quedan a SU nombre.
+// Traduce las respuestas de error a algo que se entienda.
+export async function enviarTrozo(cuerpo) {
+  try {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke("health-ingest", { body: cuerpo }), 90000, "health-ingest");
+    if (error) {
+      let detalle = null;
+      try { detalle = await error.context?.json?.(); } catch { /* sin cuerpo */ }
+      return { ok: false, motivo: traducir(detalle?.error || error.message) };
+    }
+    if (data?.ok) return { ok: true, metricas: data.metricas, entrenos: data.entrenos, descartados: data.descartados };
+    return { ok: false, motivo: traducir(data?.error) };
+  } catch (e) {
+    return { ok: false, motivo: /timeout/i.test(String(e?.message)) ? "El servidor tardó demasiado. Prueba otra vez." : "Sin conexión." };
+  }
+}
+
+function traducir(codigo) {
+  return ({
+    envio_demasiado_grande: "Este trozo es demasiado grande.",
+    falta_token: "No hay sesión iniciada.",
+    token_invalido: "Sesión no válida. Cierra y vuelve a abrir la app.",
+    sin_pareja: "Tu cuenta no está vinculada a una pareja.",
+    json_invalido: "El archivo está dañado.",
+  })[codigo] || "No se pudo guardar este trozo.";
 }

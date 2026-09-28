@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ETAPAS, PUNTOS, HISTERESIS,
-  normalizar, sumarDias, lunesDe, indexar, evaluarDia, evaluarSemana,
+  normalizar, sumarDias, lunesDe, indexar, evaluarDia, evaluarSemana, lineaTemporal,
   puntosDelDia, etapaPorXp, siguienteEtapa, simular, animo, frameHuevo,
 } from "../lib/pet.js";
 
@@ -97,6 +97,27 @@ describe("ceros que no son datos", () => {
     const s = simular({ nacimiento: "2026-06-22", filas, hoy: "2026-09-09" });
     expect(s.nacida).toBe(true);
     expect(s.etapaId).not.toBe("huevo");
+  });
+});
+
+describe("formatos reales del historial", () => {
+  it("una 'noche' de menos de 2 h (siesta o registro cortado) es sin dato", () => {
+    const idx = indexar([{ day: "2025-05-14", metric: "sleep_asleep", value: 0.97 }]);
+    expect(evaluarDia("2025-05-14", idx).metas.find(m => m.tipo === "sueno").valor).toBeNull();
+  });
+  it("2 h o más sí cuenta (y falla la meta de 7 h)", () => {
+    const idx = indexar([{ day: "2025-05-14", metric: "sleep_asleep", value: 4 }]);
+    expect(evaluarDia("2025-05-14", idx).metas.find(m => m.tipo === "sueno").cumplida).toBe(false);
+  });
+  it("la distancia se encuentra con el nombre que usa Health Auto Export", () => {
+    const metas = [{ id: "d", tipo: "distancia", objetivo: 5, periodo: "dia" }];
+    const idx = indexar([{ day: "2026-09-01", metric: "walking_running_distance", value: 6.2 }]);
+    expect(evaluarDia("2026-09-01", idx, metas).puntuacion).toBe(1);
+  });
+  it("...y con el nombre antiguo", () => {
+    const metas = [{ id: "d", tipo: "distancia", objetivo: 5, periodo: "dia" }];
+    const idx = indexar([{ day: "2026-09-01", metric: "distance_walking_running", value: 6.2 }]);
+    expect(evaluarDia("2026-09-01", idx, metas).puntuacion).toBe(1);
   });
 });
 
@@ -215,6 +236,28 @@ describe("simular", () => {
     expect(s.nacida).toBe(true);           // ...pero sigue viva
   });
 
+  // La regla de Fran: puede desevolucionar. Sin techo, una mascota que
+  // llegaba arriba acumulaba tanto colchón que no bajaba nunca.
+  it("la vitalidad tiene techo", () => {
+    const s = simular({ nacimiento: "2024-01-01", filas: dias("2024-01-01", 600, perfecto), hoy: "2026-01-01" });
+    expect(s.etapaId).toBe("upf");
+    expect(s.xp).toBeLessThanOrEqual(2400);
+  });
+
+  it("desde la forma final, una mala racha larga la hace bajar", () => {
+    const filas = [...dias("2024-01-01", 600, perfecto), ...dias("2025-08-23", 150, malo)];
+    const s = simular({ nacimiento: "2024-01-01", filas, hoy: "2026-01-20" });
+    expect(s.eventos.some(e => e.tipo === "desevoluciona" && e.de === "upf")).toBe(true);
+    expect(s.nacida).toBe(true);
+  });
+
+  it("las reglas se pueden cambiar para comparar", () => {
+    const filas = dias("2026-01-01", 30, perfecto);
+    const blanda = simular({ nacimiento: "2026-01-01", filas, hoy: "2026-02-01", reglas: { puntos: { diaPerfecto: 20 }, tope: Infinity } });
+    const normal = simular({ nacimiento: "2026-01-01", filas, hoy: "2026-02-01" });
+    expect(blanda.xp).toBeGreaterThan(normal.xp);
+  });
+
   it("la xp nunca es negativa", () => {
     const s = simular({ nacimiento: "2026-09-01", filas: dias("2026-09-01", 30, malo), hoy: "2026-10-01" });
     expect(s.xp).toBeGreaterThanOrEqual(0);
@@ -305,5 +348,39 @@ describe("frameHuevo", () => {
   it("nunca se pasa del último frame", () => {
     const s = simular({ nacimiento: "2026-01-01", filas: dias("2026-01-01", 200, perfecto), hoy: "2026-10-19" });
     expect(frameHuevo(s, 16)).toBe(15);
+  });
+});
+
+describe("lineaTemporal", () => {
+  const sim = simular({
+    nacimiento: "2026-01-01",
+    filas: [...dias("2026-01-01", 31, perfecto), ...dias("2026-02-01", 28, malo)],
+    hoy: "2026-04-01",
+  });
+  const lt = lineaTemporal(sim);
+
+  it("un resumen por mes, en orden", () => {
+    expect(lt.map(m => m.mes)).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+  it("el ánimo del mes sale de la media", () => {
+    expect(lt[0].animo).toBe("feliz");
+    expect(lt[1].animo).toBe("triste");
+  });
+  // Un mes sin datos no es un mes triste.
+  it("un mes sin datos dice 'sin datos', no inventa un ánimo", () => {
+    expect(lt[2]).toMatchObject({ animo: "sin datos", media: null, diasConDatos: 0 });
+  });
+  it("los eventos caen en su mes", () => {
+    expect(lt[0].eventos.some(e => e.tipo === "evoluciona" && e.a === "jr")).toBe(true);
+  });
+  // 31 días perfectos = 310 puntos: pasa por Jr (60) y termina en Pro (300).
+  it("etapa con la que termina el mes y la más alta alcanzada", () => {
+    expect(lt[0].etapa).toBe("pro");
+    expect(lt[0].etapaMax).toBe("pro");
+    const orden = ETAPAS.map(e => e.id);
+    for (const m of lt) expect(orden.indexOf(m.etapaMax)).toBeGreaterThanOrEqual(orden.indexOf(m.etapa));
+  });
+  it("sin simulación, lista vacía", () => {
+    expect(lineaTemporal(null)).toEqual([]);
   });
 });
