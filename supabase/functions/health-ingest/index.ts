@@ -24,13 +24,34 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-const FN_VERSION = '2026-09-28b';
+const FN_VERSION = '2026-09-28c';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey, x-health-key',
   'Content-Type': 'application/json',
 };
+
+// ── Presupuesto de almacenamiento ───────────────────────────────────────────
+// Medido con el primer envío real (28/09/2026): ~16 filas por persona y día.
+//   · health_daily   ~1,8 MB al AÑO → no se limpia NUNCA. Es el historial del
+//     que se recalcula la mascota: borrarlo la haría retroceder.
+//   · health_raw     ~20 KB por envío × 48 envíos/día ≈ 0,9 MB/día. SIN
+//     limpieza son ~340 MB al año, y el plan gratuito de Supabase tiene 500.
+//     Esta es la tabla que puede tumbar la base de datos.
+//
+// La limpieza la hace ESTA función, en cada envío, y no solo un pg_cron: si
+// la extensión no está activada, el cron simplemente no existe y nadie se
+// entera hasta que la base de datos se llena. Aquí no depende de nada.
+const MAX_BYTES = 8_000_000;
+const RETENCION = { rawDias: 7, rejectsDias: 60 };   // 48 envíos/día × 7 días ≈ 340 filas como mucho
+
+async function autolimpieza(db: any) {
+  const hace = (dias: number) => new Date(Date.now() - dias * 864e5).toISOString();
+  // Borrar por fecha es barato: hay índice por received_at / at.
+  await db.from('health_raw').delete().lt('received_at', hace(RETENCION.rawDias));
+  await db.from('health_rejects').delete().lt('at', hace(RETENCION.rejectsDias));
+}
 
 // ── Rangos de cordura ───────────────────────────────────────────────────────
 // Un dato fuera de estos márgenes no es un dato: es un sensor loco, una
@@ -258,6 +279,16 @@ serve(async req => {
   }
 
   const crudo = await req.text();
+  // Tope de tamaño: un envío de 99 días pesa ~250 KB. 8 MB solo puede ser un
+  // rango enorme por error (años enteros) — mejor pedir que se trocee que
+  // meter de golpe un bloque que infle la base de datos.
+  if (crudo.length > MAX_BYTES) {
+    return new Response(JSON.stringify({
+      error: 'envio_demasiado_grande',
+      ayuda: 'Reduce el rango de fechas (por ejemplo, de 3 en 3 meses) y vuelve a enviar.',
+      kb: Math.round(crudo.length / 1024),
+    }), { status: 413, headers: cors });
+  }
   let payload: any = null;
   try { payload = JSON.parse(crudo); } catch {
     return new Response(JSON.stringify({ error: 'json_invalido' }), { status: 400, headers: cors });
@@ -304,6 +335,7 @@ serve(async req => {
 
     const resumen = { metricas: filasLimpias.length, entrenos: entrenos.length, descartados: rechazos.length };
     await db.from('health_raw').update({ parsed: resumen }).eq('id', raw?.id ?? -1);
+    await autolimpieza(db);
     await db.from('health_tokens').update({ last_seen_at: new Date().toISOString(), last_error: null }).eq('token', token);
 
     return new Response(JSON.stringify({ ok: true, ...resumen }), { headers: cors });

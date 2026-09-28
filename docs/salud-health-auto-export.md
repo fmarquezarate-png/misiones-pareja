@@ -128,3 +128,37 @@ parecida a:
 | Te duermes a las 2:00 del martes | La noche cuenta para el día en que **te despiertas**. |
 | Zonas horarias | El día es el de **tu reloj**, no UTC — así no se cuela un día de más o de menos. |
 | El parser se equivoca en algo | El envío crudo se guarda **antes** de interpretarlo (14 días). Se reprocesa sin pedirte nada. |
+
+---
+
+## Espacio en Supabase: qué crece y qué se limpia
+
+Medido con el primer envío real (28/09/2026, ~16 datos por persona y día):
+
+| Tabla | Crece | Regla |
+|---|---|---|
+| `health_daily` (el historial limpio) | ~1,8 MB **al año** | **No se borra nunca.** La mascota se recalcula desde su nacimiento; borrar historial la haría retroceder. |
+| `health_workouts` | Mínimo | No se borra. |
+| `health_raw` (envíos crudos) | ~0,9 MB **al día** | Se guarda **7 días** y se borra sola. Sin esta regla serían ~340 MB al año (el plan gratuito tiene 500 MB). |
+| `health_rejects` (descartes) | Mínimo | 60 días. |
+
+La limpieza la hace **la propia función en cada envío**, así que no depende de
+que `pg_cron` esté activado. Además, un envío de más de 8 MB se rechaza con un
+mensaje que pide trocear el rango de fechas, en vez de meter de golpe años de
+datos.
+
+Nada de esto toca `app_data`, así que no dispara el trigger de backups que
+causó el problema de los 4 MB.
+
+### Para vigilarlo (SQL Editor)
+
+```sql
+select relname                                        as tabla,
+       n_live_tup                                     as filas,
+       pg_size_pretty(pg_total_relation_size(relid))  as tamaño
+from pg_stat_user_tables
+where relname like 'health_%' or relname in ('app_data', 'app_data_backups')
+order by pg_total_relation_size(relid) desc;
+```
+
+Si `health_raw` pasa de ~20 MB, algo no se está limpiando: avísame.
