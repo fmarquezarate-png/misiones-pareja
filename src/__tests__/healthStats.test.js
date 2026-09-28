@@ -100,3 +100,72 @@ describe("ultimaNoche", () => {
     expect(ultimaNoche([], "2026-09-28")).toBeNull();
   });
 });
+
+import { detalleMetrica, porSemanas, resumenParaIA } from "../lib/healthStats.js";
+
+describe("detalleMetrica", () => {
+  const filas = [
+    f("2026-09-20", "step_count", 12000), f("2026-09-21", "step_count", 3000),
+    f("2026-09-22", "step_count", 9000), f("2026-09-23", "step_count", 8500),
+    f("2026-09-24", "step_count", 8100), f("2026-09-26", "step_count", 9500),
+  ];
+  const d = detalleMetrica(filas, "step_count", "2026-09-26", 7, { meta: 8000 });
+
+  it("día más alto y más bajo, con su fecha", () => {
+    expect(d.mas).toEqual({ dia: "2026-09-20", valor: 12000 });
+    expect(d.menos).toEqual({ dia: "2026-09-21", valor: 3000 });
+  });
+  it("cobertura: 6 de 7 días con dato", () => {
+    expect(d.conDato).toBe(6);
+    expect(d.total).toBe(7);
+  });
+  // Un día sin dato (el 25) no rompe la racha ni la cuenta: se salta.
+  it("racha de días cumpliendo la meta, hasta el hueco o el fallo", () => {
+    expect(d.racha).toBe(1);   // 26 cumple; 25 sin dato → corta (solo hoy puede faltar)
+  });
+  it("hoy sin dato todavía no rompe la racha", () => {
+    const r = detalleMetrica([...filas, f("2026-09-25", "step_count", 9000)], "step_count", "2026-09-27", 8, { meta: 8000 });
+    expect(r.racha).toBe(5);   // 22–26 cumplen; 27 (hoy) aún sin dato
+  });
+  // El pulso en reposo es MEJOR cuanto más bajo.
+  it("en métricas que mejoran al bajar, el mejor día es el mínimo", () => {
+    const hr = [f("2026-09-25", "resting_heart_rate", 62), f("2026-09-26", "resting_heart_rate", 55)];
+    const r = detalleMetrica(hr, "resting_heart_rate", "2026-09-26", 7, { mejorSi: "baja" });
+    expect(r.mejor.valor).toBe(55);
+    expect(r.peor.valor).toBe(62);
+  });
+  it("tendencia: segunda mitad frente a la primera", () => {
+    const sube = Array.from({ length: 14 }, (_, i) => f(`2026-09-${String(i + 1).padStart(2, "0")}`, "step_count", i < 7 ? 5000 : 10000));
+    expect(detalleMetrica(sube, "step_count", "2026-09-14", 14).tendencia).toBeCloseTo(1);
+  });
+  it("con pocos datos no inventa tendencia", () => {
+    expect(detalleMetrica([f("2026-09-26", "step_count", 9000)], "step_count", "2026-09-26", 14).tendencia).toBeNull();
+  });
+});
+
+describe("porSemanas", () => {
+  it("agrupa de lunes a domingo con la media de los días con dato", () => {
+    const s = [{ dia: "2026-09-21", valor: 10 }, { dia: "2026-09-22", valor: 20 }, { dia: "2026-09-28", valor: 5 }, { dia: "2026-09-29", valor: null }];
+    expect(porSemanas(s)).toEqual([{ dia: "2026-09-21", valor: 15 }, { dia: "2026-09-28", valor: 5 }]);
+  });
+});
+
+describe("resumenParaIA", () => {
+  const d = detalleMetrica([f("2026-09-25", "step_count", 9000), f("2026-09-26", "step_count", 4000)], "step_count", "2026-09-26", 7);
+  const txt = resumenParaIA({ nombre: "Pasos", unidad: "pasos/día", dias: 7, detalle: d, pregunta: "¿Qué día anduve más?" });
+  it("lleva la métrica, los valores, los extremos y la pregunta", () => {
+    expect(txt).toContain("Pasos");
+    expect(txt).toContain("09-25:9000");
+    expect(txt).toContain("máx 9000 (2026-09-25)");
+    expect(txt).toContain("¿Qué día anduve más?");
+  });
+  // Un hueco no es un cero, tampoco para la IA.
+  it("marca los días sin dato como '-' y lo explica", () => {
+    expect(txt).toContain("09-20:-");
+    expect(txt).toMatch(/sin dato, no es cero/);
+  });
+  it("es compacto incluso con 90 días", () => {
+    const largo = detalleMetrica(Array.from({ length: 90 }, (_, i) => f(`2026-0${i < 30 ? 7 : i < 61 ? 8 : 9}-${String((i % 30) + 1).padStart(2, "0")}`, "step_count", 8000 + i)), "step_count", "2026-09-30", 90);
+    expect(resumenParaIA({ nombre: "Pasos", unidad: "pasos", dias: 90, detalle: largo, pregunta: "?" }).length).toBeLessThan(2000);
+  });
+});

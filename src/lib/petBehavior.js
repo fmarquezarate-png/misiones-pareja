@@ -107,34 +107,76 @@ export function decidirModo({ ahora, horario, entrenos = [], ultimaCaricia = nul
 }
 
 // ── El paseo ────────────────────────────────────────────────────────────────
-// La mascota elige un punto al azar y va hacia él con el sprite de caminar
-// que corresponde a la dirección; al llegar se para un rato (idle feliz).
-export const LIMITES = { x: [0.1, 0.9], y: [0.3, 0.82] };
-export const VELOCIDAD_PX_S = 38;
+//
+// Versión 2 (28/09/2026). La primera elegía un punto al azar y cruzaba en
+// DIAGONAL con el sprite de la dirección dominante: iba "por aquí y por allá
+// a lo loco" (Fran), y en las diagonales el dibujo no coincidía con el
+// movimiento. Ahora el paseo tiene una lógica que se puede seguir:
+//
+//   · Tramos RECTOS, nunca diagonales: o se mueve en horizontal (izquierda /
+//     derecha, lo normal) o en profundidad (hacia ti / alejándose, poco y
+//     corto). Así el sprite siempre coincide con lo que hace.
+//   · INERCIA: tiende a seguir en la dirección que llevaba; da la vuelta en
+//     los bordes o, de vez en cuando, porque sí.
+//   · Anda sobre el suelo: la profundidad cambia poco, en pasos cortos.
+//   · Entre tramos, se para y mira (idle); a veces se queda un buen rato.
+export const LIMITES = { x: [0.04, 0.96], y: [0.5, 0.95] };
+export const VELOCIDAD_PX_S = 34;
+
+const PROB = { quedarse: 0.12, profundidad: 0.16, seguir: 0.72 };
 
 /**
- * @param {{x,y}} pos       posición actual, 0..1 dentro del hábitat
+ * @param {{x,y}} pos   posición actual, 0..1 dentro del área útil del hábitat
  * @param {() => number} rng
- * @param {{ ancho: number, alto: number }} caja   px, para que la dirección sea la VISUAL
+ * @param {{ ancho: number, alto: number }} caja   px del área útil
  * @param {Set<string>} anims   animaciones disponibles en esta etapa
- * @returns {{ destino:{x,y}, anim:string, ms:number, pausaMs:number }}
+ * @param {number} dir   dirección horizontal que llevaba: 1 derecha, -1 izquierda
+ * @returns {{ destino:{x,y}, anim:string, ms:number, pausaMs:number, dir:number }}
  */
-export function planificarPaseo(pos, rng, caja, anims) {
-  const pausaMs = 1500 + rng() * 3000;
-  // A veces solo se queda donde está, mirando: no todo es andar.
-  if (rng() < 0.2) return { destino: pos, anim: anims.has("feliz") ? "feliz" : [...anims][0], ms: 0, pausaMs: pausaMs + 1500 };
+export function planificarPaseo(pos, rng, caja, anims, dir = 1) {
+  const idle = anims.has("feliz") ? "feliz" : [...anims][0];
+  const tiene = a => (anims.has(a) ? a : idle);
+  const r = rng();
 
-  const destino = {
-    x: LIMITES.x[0] + rng() * (LIMITES.x[1] - LIMITES.x[0]),
-    y: LIMITES.y[0] + rng() * (LIMITES.y[1] - LIMITES.y[0]),
+  // Quedarse un rato mirando.
+  if (r < PROB.quedarse) {
+    return { destino: pos, anim: idle, ms: 0, pausaMs: 3500 + rng() * 4000, dir };
+  }
+
+  // Un paso corto hacia ti o alejándose (cambiar de "carril").
+  if (r < PROB.quedarse + PROB.profundidad) {
+    const [lo, hi] = LIMITES.y;
+    const paso = 0.1 + rng() * 0.12;
+    const haciaTi = pos.y + paso <= hi && (pos.y - paso < lo || rng() < 0.5);
+    const y = haciaTi ? pos.y + paso : pos.y - paso;
+    const dy = Math.abs(y - pos.y) * caja.alto;
+    return {
+      destino: { x: pos.x, y },
+      anim: tiene(haciaTi ? "caminar_frente" : "caminar_atras"),
+      ms: Math.round((dy / VELOCIDAD_PX_S) * 1000),
+      pausaMs: 1200 + rng() * 2000,
+      dir,
+    };
+  }
+
+  // Tramo horizontal, con inercia y vuelta en los bordes.
+  const [lo, hi] = LIMITES.x;
+  let d = rng() < PROB.seguir ? dir : -dir;
+  // Pegada a la pared en esa dirección: ahora sí, se da la vuelta. Antes
+  // giraba ANTES de llegar si el tramo no cabía, y con tramos largos rebotaba
+  // de lado a lado como un péndulo (medido: solo 35 % de tramos con inercia).
+  if ((d > 0 && hi - pos.x < 0.02) || (d < 0 && pos.x - lo < 0.02)) d = -d;
+  const largo = 0.1 + rng() * 0.18;
+  // Si el tramo no cabe, camina HASTA la pared y ahí se para.
+  const x = Math.min(hi, Math.max(lo, pos.x + d * largo));
+  const dx = Math.abs(x - pos.x) * caja.ancho;
+  return {
+    destino: { x, y: pos.y },
+    anim: tiene(d > 0 ? "caminar_derecha" : "caminar_izquierda"),
+    ms: Math.round((dx / VELOCIDAD_PX_S) * 1000),
+    pausaMs: 1500 + rng() * 3000,
+    dir: d,
   };
-  const dx = (destino.x - pos.x) * caja.ancho, dy = (destino.y - pos.y) * caja.alto;
-  let anim = Math.abs(dx) >= Math.abs(dy)
-    ? (dx >= 0 ? "caminar_derecha" : "caminar_izquierda")
-    : (dy >= 0 ? "caminar_frente" : "caminar_atras");
-  if (!anims.has(anim)) anim = anims.has("feliz") ? "feliz" : [...anims][0];
-  const ms = Math.round((Math.hypot(dx, dy) / VELOCIDAD_PX_S) * 1000);
-  return { destino, anim, ms, pausaMs };
 }
 
 // La animación de "reacción" al tocarla: la más alegre que tenga la etapa.

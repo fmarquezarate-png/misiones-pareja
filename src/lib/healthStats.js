@@ -89,3 +89,67 @@ export function ultimaNoche(filas, hoy) {
   return { dia, total: v.sleep_asleep, fases, acostarse: v.bed_min ?? null, despertar: v.wake_min ?? null };
 }
 
+
+// ── Detalle de una métrica (al tocar su caja) ───────────────────────────────
+/**
+ * Resumen de una métrica en los últimos `dias` días: serie, media, mejor y
+ * peor día, cobertura, tendencia (segunda mitad vs primera) y, si hay meta,
+ * la racha actual de días cumpliéndola. Todo sobre días CON dato.
+ */
+export function detalleMetrica(filas, metric, hoy, dias = 30, { meta = null, mejorSi = "sube" } = {}) {
+  const s = serie(filas, metric, hoy, dias);
+  const con = s.filter(d => d.valor != null);
+  const media = con.length ? con.reduce((a, d) => a + d.valor, 0) / con.length : null;
+  const orden = [...con].sort((a, b) => b.valor - a.valor || (a.dia < b.dia ? -1 : 1));
+  // "Mejor" depende de la métrica: el pulso en reposo es mejor cuanto más bajo.
+  const [alto, bajo] = [orden[0] || null, orden[orden.length - 1] || null];
+  const mitad = Math.floor(s.length / 2);
+  const m1 = con.filter(d => d.dia < s[mitad].dia), m2 = con.filter(d => d.dia >= s[mitad].dia);
+  const med = xs => (xs.length ? xs.reduce((a, d) => a + d.valor, 0) / xs.length : null);
+  const tendencia = m1.length >= 3 && m2.length >= 3 ? (med(m2) - med(m1)) / med(m1) : null;
+  let racha = null;
+  if (meta != null) {
+    racha = 0;
+    for (let i = s.length - 1; i >= 0; i--) {
+      const v = s[i].valor;
+      if (v == null && i === s.length - 1) continue;          // hoy sin dato aún: no rompe la racha
+      if (v != null && (mejorSi === "sube" ? v >= meta : v <= meta)) racha++; else break;
+    }
+  }
+  return {
+    serie: s, media, conDato: con.length, total: s.length,
+    mas: alto, menos: bajo,
+    mejor: mejorSi === "sube" ? alto : bajo,
+    peor: mejorSi === "sube" ? bajo : alto,
+    tendencia, racha,
+  };
+}
+
+/** Semanas (lunes a domingo) con su media, para vistas largas. */
+export function porSemanas(s) {
+  const grupos = new Map();
+  for (const d of s) {
+    const f = new Date(+d.dia.slice(0, 4), +d.dia.slice(5, 7) - 1, +d.dia.slice(8, 10));
+    const lunes = sumarDias(d.dia, -((f.getDay() + 6) % 7));
+    if (!grupos.has(lunes)) grupos.set(lunes, []);
+    if (d.valor != null) grupos.get(lunes).push(d.valor);
+  }
+  return [...grupos.entries()].map(([dia, vs]) => ({ dia, valor: vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null }));
+}
+
+/**
+ * Texto compacto para preguntarle a la IA. SOLO esta métrica y este periodo:
+ * es lo mínimo necesario para responder, y es lo que sale del teléfono.
+ */
+export function resumenParaIA({ nombre, unidad, dias, detalle, pregunta }) {
+  const fmt = v => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
+  const valores = detalle.serie.map(d => `${d.dia.slice(5)}:${d.valor == null ? "-" : fmt(d.valor)}`).join(" ");
+  const linea = (et, x) => (x ? `${et} ${fmt(x.valor)} (${x.dia})` : `${et} -`);
+  return [
+    `[Consulta sobre MI salud desde la app. Responde breve, en español, solo con estos datos; si no bastan, dilo. No des consejos médicos: sugiere consultar a un profesional si procede.]`,
+    `Métrica: ${nombre} (${unidad}). Últimos ${dias} días, ${detalle.conDato} con dato ("-" = sin dato, no es cero).`,
+    `Media ${detalle.media == null ? "-" : fmt(detalle.media)}; ${linea("máx", detalle.mas)}; ${linea("mín", detalle.menos)}.`,
+    `Valores (mes-día:valor): ${valores}`,
+    `Pregunta: ${pregunta}`,
+  ].join("\n");
+}

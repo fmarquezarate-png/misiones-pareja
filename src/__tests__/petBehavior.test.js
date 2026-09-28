@@ -105,42 +105,73 @@ describe("decidirModo", () => {
   });
 });
 
-describe("planificarPaseo", () => {
+describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
   const todas = new Set(["feliz", "caminar_derecha", "caminar_izquierda", "caminar_frente", "caminar_atras"]);
-  const caja = { ancho: 360, alto: 220 };
+  const caja = { ancho: 300, alto: 150 };
+  const pasear = (n, semilla = 7) => {
+    const rng = rngConSemilla(semilla);
+    let pos = { x: 0.5, y: 0.7 }, dir = 1;
+    const pasos = [];
+    for (let i = 0; i < n; i++) {
+      const p = planificarPaseo(pos, rng, caja, todas, dir);
+      pasos.push({ desde: pos, ...p });
+      pos = p.destino; dir = p.dir;
+    }
+    return pasos;
+  };
 
-  it("el sprite de caminar sigue la dirección VISUAL del movimiento", () => {
-    const rng = rngConSemilla(7);
-    for (let i = 0; i < 200; i++) {
-      const pos = { x: rng(), y: 0.3 + rng() * 0.5 };
-      const p = planificarPaseo(pos, rng, caja, todas);
-      if (p.ms === 0) continue;
-      const dx = (p.destino.x - pos.x) * caja.ancho, dy = (p.destino.y - pos.y) * caja.alto;
-      const esperado = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "caminar_derecha" : "caminar_izquierda") : (dy >= 0 ? "caminar_frente" : "caminar_atras");
-      expect(p.anim).toBe(esperado);
+  // El fallo de la v1: cruzaba en diagonal y el dibujo no cuadraba.
+  it("nunca se mueve en diagonal", () => {
+    for (const p of pasear(500)) {
+      const cambiaX = p.destino.x !== p.desde.x, cambiaY = p.destino.y !== p.desde.y;
+      expect(cambiaX && cambiaY).toBe(false);
     }
   });
+
+  it("el sprite coincide SIEMPRE con el movimiento", () => {
+    for (const p of pasear(500)) {
+      if (p.destino.x > p.desde.x) expect(p.anim).toBe("caminar_derecha");
+      else if (p.destino.x < p.desde.x) expect(p.anim).toBe("caminar_izquierda");
+      else if (p.destino.y > p.desde.y) expect(p.anim).toBe("caminar_frente");
+      else if (p.destino.y < p.desde.y) expect(p.anim).toBe("caminar_atras");
+      else expect(p.anim).toBe("feliz");
+    }
+  });
+
   it("nunca se sale del hábitat", () => {
-    const rng = rngConSemilla(3);
-    for (let i = 0; i < 300; i++) {
-      const { destino } = planificarPaseo({ x: 0.5, y: 0.5 }, rng, caja, todas);
-      expect(destino.x).toBeGreaterThanOrEqual(LIMITES.x[0]);
-      expect(destino.x).toBeLessThanOrEqual(LIMITES.x[1]);
-      expect(destino.y).toBeGreaterThanOrEqual(LIMITES.y[0]);
-      expect(destino.y).toBeLessThanOrEqual(LIMITES.y[1]);
+    for (const p of pasear(800, 3)) {
+      expect(p.destino.x).toBeGreaterThanOrEqual(LIMITES.x[0]);
+      expect(p.destino.x).toBeLessThanOrEqual(LIMITES.x[1]);
+      expect(p.destino.y).toBeGreaterThanOrEqual(LIMITES.y[0] - 1e-9);
+      expect(p.destino.y).toBeLessThanOrEqual(LIMITES.y[1] + 1e-9);
     }
   });
-  it("la duración sale de la distancia: no se teletransporta", () => {
-    const rng = rngConSemilla(11);
-    for (let i = 0; i < 50; i++) {
-      const p = planificarPaseo({ x: 0.5, y: 0.5 }, rng, caja, todas);
-      if (p.ms) expect(p.ms).toBeGreaterThan(100);
-      expect(p.pausaMs).toBeGreaterThanOrEqual(1500);
+
+  // Inercia: la mayoría de tramos horizontales siguen la dirección anterior.
+  it("tiene inercia: tiende a seguir hacia donde iba", () => {
+    const pasos = pasear(1000, 11);
+    let horizontales = 0, siguen = 0, dirAnterior = 1;
+    for (const p of pasos) {
+      if (p.destino.x !== p.desde.x) { horizontales++; if (p.dir === dirAnterior) siguen++; dirAnterior = p.dir; }
+    }
+    expect(siguen / horizontales).toBeGreaterThan(0.55);
+  });
+
+  it("anda sobre todo en horizontal", () => {
+    const pasos = pasear(1000, 5).filter(p => p.ms > 0);
+    const horiz = pasos.filter(p => p.destino.x !== p.desde.x).length;
+    expect(horiz / pasos.length).toBeGreaterThan(0.7);
+  });
+
+  it("la duración sale de la distancia y hay pausas", () => {
+    for (const p of pasear(200, 13)) {
+      if (p.ms) expect(p.ms).toBeGreaterThan(200);
+      expect(p.pausaMs).toBeGreaterThanOrEqual(1200);
     }
   });
-  // Etapas sin sprites de caminar (el huevo): no se rompe, se queda en idle.
+
   it("sin sprites de caminar, usa lo que haya", () => {
-    const p = planificarPaseo({ x: 0.5, y: 0.5 }, rngConSemilla(1), caja, new Set(["idle"]));
+    const p = planificarPaseo({ x: 0.5, y: 0.7 }, rngConSemilla(1), caja, new Set(["idle"]), 1);
     expect(p.anim).toBe("idle");
   });
 });

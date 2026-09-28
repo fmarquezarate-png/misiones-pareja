@@ -64,6 +64,14 @@
       @keyframes mpSprite { from { transform: translateX(0); } to { transform: translateX(var(--mp-tx)); } }
       @keyframes mpWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
       @keyframes mpHop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-22px); } 70% { transform: translateY(0); } 85% { transform: translateY(-6px); } }
+      /* Hábitat: todo en bucle anima solo transform/opacity. Con reducir-
+         movimiento el reset global corta el bucle y cada capa vuelve a su
+         posición de reposo (visible), no desaparece. */
+      @keyframes mpBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+      @keyframes mpNube { from { transform: translateX(-140px); } to { transform: translateX(560px); } }
+      @keyframes mpLluvia { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+      @keyframes mpOnda { 0%,100% { opacity: 0.12; } 50% { opacity: 0.4; } }
+      @keyframes mpRayo { 0%,93%,100% { opacity: 0; } 94%,96% { opacity: 0.55; } 95% { opacity: 0.1; } }
       @keyframes mpHeart { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-70px) scale(1.15); opacity: 0; } }
       /* ─── Reducir movimiento: red de seguridad GLOBAL ──────────────────
          Antes esto solo cubría dos casos concretos y cada componente tenía

@@ -21,7 +21,8 @@
               "loop": false,
               "sourceSheet": "Egg_All.png"
             }
-          }
+          },
+          "escala": 0.783
         },
         "jr": {
           "portrait": "broot/jr/retrato.webp",
@@ -82,7 +83,8 @@
               "loop": true,
               "sourceSheet": "Broot_JrWalk.png"
             }
-          }
+          },
+          "escala": 1.0
         },
         "pro": {
           "portrait": "broot/pro/retrato.webp",
@@ -143,7 +145,8 @@
               "loop": true,
               "sourceSheet": "Broot_ProWalk.png"
             }
-          }
+          },
+          "escala": 0.915
         },
         "prime": {
           "portrait": "broot/prime/retrato.webp",
@@ -204,7 +207,8 @@
               "loop": true,
               "sourceSheet": "Broot_PrimeWalk.png"
             }
-          }
+          },
+          "escala": 1.129
         },
         "upf": {
           "portrait": "broot/upf/retrato.webp",
@@ -265,7 +269,8 @@
               "loop": true,
               "sourceSheet": "Broot_UPFWalk.png"
             }
-          }
+          },
+          "escala": 1.206
         }
       }
     },
@@ -282,7 +287,8 @@
               "loop": true,
               "sourceSheet": "NixEgg_NixJr.png"
             }
-          }
+          },
+          "escala": 0.775
         },
         "jr": {
           "portrait": "nix/jr/retrato.webp",
@@ -371,7 +377,8 @@
               "loop": true,
               "sourceSheet": "NixJr_SleepTrain.png"
             }
-          }
+          },
+          "escala": 1.0
         },
         "pro": {
           "portrait": "nix/pro/retrato.webp",
@@ -432,7 +439,8 @@
               "loop": true,
               "sourceSheet": "NixPro_Walktrhough.png"
             }
-          }
+          },
+          "escala": 1.093
         },
         "prime": {
           "portrait": "nix/prime/retrato.webp",
@@ -493,7 +501,8 @@
               "loop": true,
               "sourceSheet": "NixPrime_Walktrhough.png"
             }
-          }
+          },
+          "escala": 1.438
         },
         "upf": {
           "portrait": "nix/upf/retrato.webp",
@@ -554,7 +563,8 @@
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png"
             }
-          }
+          },
+          "escala": 1.532
         }
       }
     }

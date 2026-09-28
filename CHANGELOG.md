@@ -7,6 +7,49 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.41.0] — 2026-09-28 · El cielo del dueño, Nix en el agua, un paseo con sentido y el detalle de cada métrica
+
+Cinco peticiones de Fran tras probar la v5.40.0.
+
+### 1. El paseo, rehecho (`planificarPaseo` v2)
+
+La v1 elegía un punto al azar y cruzaba **en diagonal** con el sprite de la dirección dominante: «va por aquí y por allá a lo loco», y en las diagonales el dibujo no coincidía con el movimiento. Ahora:
+- **tramos rectos**, nunca diagonales: horizontal (lo normal) o un paso corto en profundidad;
+- **inercia**: sigue hacia donde iba; en la pared, **llega y entonces gira**.
+
+El test de inercia cazó que con tramos largos rebotaba de pared a pared como un péndulo: solo el 35 % de los tramos seguía la dirección anterior. Ahora pasa del 55 %. Verificado en el navegador durante 20 s: **0 diagonales, 0 sprites que no cuadran con la dirección** y siempre dentro del hábitat.
+
+### 2. El cielo del dueño (`cielo.js`, 11 tests · `tiempo.js`)
+
+- **El sol se calcula en el teléfono** (fórmula de la NOAA): sin red ni API. Comprobado contra valores astronómicos: 72° en el solsticio a mediodía en Barcelona, 48° en el equinoccio. Da noche, crepúsculo, amanecer/atardecer y día, con el disco en su posición real (sale por el este y se pone por el oeste).
+- **El tiempo viene de Open-Meteo** (sin clave, con CORS). El proxy de la sesión no deja comprobarlo desde aquí; hay evidencia en un proyecto real que migró a Open-Meteo porque su API anterior bloqueaba el navegador. Por eso **no es imprescindible**: sin respuesta, el cielo queda despejado y la etiqueta dice «sin datos del tiempo». Caché de 30 min y última lectura válida hasta 6 h sin red.
+- Nubes, lluvia, nieve, niebla y tormenta en capas que solo animan `transform`/`opacity`. La noche oscurece también a la mascota.
+- **Ubicación en el dispositivo** (no en los datos de la pareja), redondeada a ~1 km. Por defecto Barcelona, y se dice.
+- Probado con la **zona horaria de Madrid**: la primera prueba salió de noche a las «19:25» porque el navegador de pruebas iba en UTC, y en Madrid eran las 21:25.
+
+### 3. Nix nada
+
+Su hábitat es agua: flota meciéndose (`mpBob`), con la línea de flotación y medio cuerpo bajo la superficie. Ondas en el agua.
+
+### 4. Las formas evolucionadas se veían más pequeñas
+
+Medido: el cuerpo de Nix UPF ocupaba 54 px de alto y el de Nix Jr, 73. Cada etapa se recortó llenando su lienzo **con sus efectos incluidos**, y las evolucionadas traen más. `scripts/sprites/escala.py` mide el cuerpo real (alfa > 200, `sqrt(ancho × alto)`) y escribe una `escala` por etapa en el manifest, para que crezca siempre: Jr 1,0 → Pro 1,15 → Prime 1,3 → UPF 1,45. Como las evolucionadas se amplían hasta un 53 %, quedan algo menos nítidas; se ha pasado al diseñador un prompt para sprites nuevos a escala coherente.
+
+### 5. Cambiar de especie en pruebas
+
+Botones Broot / Nix en la tarjeta de la mascota. Se conservan el nacimiento y las metas.
+
+### 6. Detalle de cada métrica (`MetricaDetalle.jsx` · `detalleMetrica`, 9 tests)
+
+Toda la caja abre una hoja con:
+- periodo de 7, 30 o 90 días (a 90, barras por semana), con la media marcada y una barra para cada día que se puede tocar;
+- día más alto y más bajo con su fecha (en el pulso en reposo, el mejor es el más bajo), cobertura, tendencia y racha de la meta (hoy sin dato todavía no la rompe);
+- **preguntar a Misi**: se reutiliza la Edge Function `misi-chat` con un resumen compacto de **esa métrica y ese periodo** (≤ 2 KB; «-» = sin dato, no cero). Se avisa en pantalla de que va a la IA de Misi (OpenAI). No hay consejos médicos.
+
+648 tests.
+
+---
+
 ## [5.40.0] — 2026-09-28 · La mascota, viva; y el panel de salud
 
 La pantalla de Salud se reordena como pidió Fran: **la mascota primero, viva**; luego el panel; luego la historia; lo técnico, plegado al final.

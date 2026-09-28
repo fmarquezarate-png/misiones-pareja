@@ -11,7 +11,8 @@
 //    los 15 temas (--t-viz-1..4, publicada por ThemeInjector), orden fijo.
 //  · Los números van en tinta de texto, nunca en el color de la serie.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import MetricaDetalle from "./MetricaDetalle.jsx";
 import { kpi, metasSemana, repartoEntrenos, ultimaNoche } from "../lib/healthStats.js";
 import { METRICAS } from "../lib/pet.js";
 import { humanDate } from "../lib/dateLabel.js";
@@ -84,11 +85,17 @@ function Linea({ serie, formato }) {
   );
 }
 
-function Tile({ icono, nombre, k, formato, unidad, forma = "barras", formatoDelta }) {
+function Tile({ icono, nombre, k, formato, unidad, forma = "barras", formatoDelta, onAbrir }) {
   const Grafica = forma === "linea" ? Linea : Barras;
+  // Toda la caja abre el detalle (regla de blancos táctiles, CLAUDE.md §5).
   return (
-    <div style={card}>
-      <div style={titulo}><span aria-hidden>{icono}</span>{nombre}</div>
+    <div style={{ ...card, cursor: "pointer" }} role="button" tabIndex={0} onClick={onAbrir}
+      onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onAbrir?.())}
+      aria-label={`${nombre}: ver detalle`}>
+      <div style={{ ...titulo, justifyContent: "space-between" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span aria-hidden>{icono}</span>{nombre}</span>
+        <span aria-hidden style={{ fontSize: 13, color: "var(--t-text-dim,#8f84ad)" }}>›</span>
+      </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 2 }}>
         <span style={{ fontSize: 24, fontWeight: 700, color: "var(--t-text,#f8f4ff)", letterSpacing: -0.5 }}>
           {k.actual == null ? "—" : formato(k.actual)}
@@ -117,7 +124,8 @@ function Meter({ progreso, hecho }) {
   );
 }
 
-export default function SaludPanel({ filas, entrenos, metas, hoy }) {
+export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, personName }) {
+  const [abierta, setAbierta] = useState(null);
   const k = useMemo(() => ({
     sueno: kpi(filas, "sleep_asleep", hoy),
     pulso: kpi(filas, "resting_heart_rate", hoy, { mejorSi: "baja" }),
@@ -132,6 +140,18 @@ export default function SaludPanel({ filas, entrenos, metas, hoy }) {
     ? [...reparto.tipos.slice(0, 4), { nombre: "Otros", n: reparto.tipos.slice(4).reduce((a, t) => a + t.n, 0) }]
     : reparto.tipos;
   const maxTipo = Math.max(1, ...tipos.map(t => t.n));
+  const metaDe = tipo => metas.find(m => m.tipo === tipo && m.periodo === "dia")?.objetivo ?? null;
+  // Las preguntas sugeridas se pueden responder con los datos que se envían.
+  const DEFS = {
+    sueno: { metric: "sleep_asleep", nombre: "Sueño", icono: "🌙", unidadLarga: "horas por noche", formato: hm, meta: metaDe("sueno"), mejorSi: "sube",
+      sugerencias: ["¿Duermo más los fines de semana?", "¿Mi sueño está mejorando?", "¿Qué noches fueron las peores?"] },
+    pulso: { metric: "resting_heart_rate", nombre: "Pulso en reposo", icono: "❤️", unidadLarga: "latidos por minuto", formato: v => `${Math.round(v)} lpm`, meta: null, mejorSi: "baja",
+      sugerencias: ["¿Mi pulso en reposo está bajando?", "¿Qué días lo tuve más alto?"] },
+    pasos: { metric: "step_count", nombre: "Pasos", icono: "👟", unidadLarga: "pasos al día", formato: miles, meta: metaDe("pasos"), mejorSi: "sube",
+      sugerencias: ["¿Qué día de la semana ando más?", "¿Cuántos días llegué a la meta?", "¿Voy mejorando?"] },
+    kcal: { metric: "active_energy", nombre: "Energía activa", icono: "🔥", unidadLarga: "kcal al día", formato: v => `${miles(v)} kcal`, meta: null, mejorSi: "sube",
+      sugerencias: ["¿Qué días me moví más?", "¿Estoy más activo que al principio?"] },
+  };
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -166,10 +186,10 @@ export default function SaludPanel({ filas, entrenos, metas, hoy }) {
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-        <Tile icono="🌙" nombre="Sueño" k={k.sueno} formato={hm} formatoDelta={d => `${Math.round(d * 60)} min`} />
-        <Tile icono="❤️" nombre="Pulso en reposo" k={k.pulso} formato={v => Math.round(v)} unidad="lpm" forma="linea" formatoDelta={d => `${Math.round(d)} lpm`} />
-        <Tile icono="👟" nombre="Pasos" k={k.pasos} formato={miles} unidad="al día" formatoDelta={d => miles(d)} />
-        <Tile icono="🔥" nombre="Energía activa" k={k.kcal} formato={miles} unidad="kcal/día" formatoDelta={d => `${miles(d)} kcal`} />
+        <Tile icono="🌙" nombre="Sueño" k={k.sueno} formato={hm} formatoDelta={d => `${Math.round(d * 60)} min`} onAbrir={() => setAbierta("sueno")} />
+        <Tile icono="❤️" nombre="Pulso en reposo" k={k.pulso} formato={v => Math.round(v)} unidad="lpm" forma="linea" formatoDelta={d => `${Math.round(d)} lpm`} onAbrir={() => setAbierta("pulso")} />
+        <Tile icono="👟" nombre="Pasos" k={k.pasos} formato={miles} unidad="al día" formatoDelta={d => miles(d)} onAbrir={() => setAbierta("pasos")} />
+        <Tile icono="🔥" nombre="Energía activa" k={k.kcal} formato={miles} unidad="kcal/día" formatoDelta={d => `${miles(d)} kcal`} onAbrir={() => setAbierta("kcal")} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
@@ -232,6 +252,8 @@ export default function SaludPanel({ filas, entrenos, metas, hoy }) {
           )}
         </div>
       </div>
+
+      {abierta && <MetricaDetalle def={DEFS[abierta]} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} onCerrar={() => setAbierta(null)} />}
 
       {/* Tipos de entreno */}
       <div style={card}>

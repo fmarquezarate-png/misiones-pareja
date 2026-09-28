@@ -2609,6 +2609,7 @@ ${sorted.map(m=>{
 
         {activeTab==="salud" && <SaludView
           sessionUserId={sessionUserId}
+          coupleId={coupleId}
           personName={personName}
           partnerName={p1===personName ? p2 : p1}
           pets={data.settings?.pets || {}}
