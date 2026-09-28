@@ -99,7 +99,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
 
       {/* 2. El panel */}
       {filas.length || entrenos.length
-        ? <SaludPanel filas={filas} entrenos={entrenos} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} />
+        ? <SaludPanel filas={filas} entrenos={entrenos} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} userId={uid} />
         : <div style={card}><div style={txt}>Todavía no ha llegado ningún dato de {nombre}.</div>
             <div style={{ ...dim, marginTop: 6 }}>En Health Auto Export, pulsa <b>Export Now</b> en la automatización y vuelve aquí.</div></div>}
 

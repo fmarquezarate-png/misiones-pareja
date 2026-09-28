@@ -81,6 +81,13 @@ describe("ceros que no son datos", () => {
     expect(ev.puntuacion).toBe(1);           // solo cuentan los pasos, que sí cumple
   });
 
+  it("un día de menos de 300 pasos (móvil olvidado) es sin dato", () => {
+    const idx = indexar([{ day: "2025-04-20", metric: "step_count", value: 25 }]);
+    expect(evaluarDia("2025-04-20", idx).puntuacion).toBeNull();
+    const idx2 = indexar([{ day: "2025-04-20", metric: "step_count", value: 1200 }]);
+    expect(evaluarDia("2025-04-20", idx2).puntuacion).toBe(0);     // 1.200 sí es un día (flojo)
+  });
+
   it("0 pasos también es 'sin dato'", () => {
     const idx = indexar([{ day: "2026-09-01", metric: "step_count", value: 0 }]);
     expect(evaluarDia("2026-09-01", idx).puntuacion).toBeNull();

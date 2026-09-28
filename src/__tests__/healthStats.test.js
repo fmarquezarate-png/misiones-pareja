@@ -169,3 +169,45 @@ describe("resumenParaIA", () => {
     expect(resumenParaIA({ nombre: "Pasos", unidad: "pasos", dias: 90, detalle: largo, pregunta: "?" }).length).toBeLessThan(2000);
   });
 });
+
+import { diasEntre, porMeses, extremosMensuales, resumenHistoricoParaIA } from "../lib/healthStats.js";
+
+describe("histórico completo", () => {
+  it("diasEntre es inclusivo y cruza años", () => {
+    expect(diasEntre("2026-09-01", "2026-09-30")).toBe(30);
+    expect(diasEntre("2025-12-31", "2026-01-01")).toBe(2);
+  });
+
+  const s = [
+    ...Array.from({ length: 20 }, (_, i) => ({ dia: `2025-01-${String(i + 1).padStart(2, "0")}`, valor: 6000 })),
+    ...Array.from({ length: 25 }, (_, i) => ({ dia: `2025-02-${String(i + 1).padStart(2, "0")}`, valor: 11000 })),
+    { dia: "2025-03-01", valor: 30000 }, { dia: "2025-03-02", valor: null },
+  ];
+  const meses = porMeses(s);
+
+  it("medias mensuales con el nº de días con dato", () => {
+    expect(meses.map(m => [m.mes, m.valor, m.dias])).toEqual([["2025-01", 6000, 20], ["2025-02", 11000, 25], ["2025-03", 30000, 1]]);
+  });
+  // Un mes con 1 día suelto no puede ser "tu mejor mes".
+  it("el mejor mes exige datos suficientes", () => {
+    const e = extremosMensuales(meses);
+    expect(e.mejor.mes).toBe("2025-02");
+    expect(e.peor.mes).toBe("2025-01");
+  });
+  it("en métricas que mejoran al bajar, se invierte", () => {
+    const e = extremosMensuales(meses, { mejorSi: "baja" });
+    expect(e.mejor.mes).toBe("2025-01");
+  });
+  it("sin meses válidos, no inventa récords", () => {
+    expect(extremosMensuales([{ mes: "2025-03", valor: 1, dias: 2 }])).toEqual({ mejor: null, peor: null });
+  });
+  it("el resumen histórico va por meses y es compacto aunque haya 6 años", () => {
+    const largo = Array.from({ length: 72 }, (_, i) => ({ mes: `20${20 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`, valor: 8000 + i, dias: 30 }));
+    const det = { conDato: 2000, media: 8500, mas: { dia: "2022-05-02", valor: 31642 }, menos: { dia: "2024-01-01", valor: 900 }, serie: [{ dia: "2020-01-01" }, { dia: "2026-09-28" }] };
+    const txt = resumenHistoricoParaIA({ nombre: "Pasos", unidad: "pasos al día", detalle: det, meses: largo, extremos: extremosMensuales(largo), pregunta: "¿He mejorado?" });
+    expect(txt).toContain("HISTÓRICO COMPLETO");
+    expect(txt).toContain("día más alto 31642 (2022-05-02)");
+    expect(txt).toContain("mejor mes 2025-12");
+    expect(txt.length).toBeLessThan(2600);
+  });
+});

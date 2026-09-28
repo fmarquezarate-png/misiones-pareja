@@ -7,6 +7,32 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [5.44.0] — 2026-09-28 · El histórico completo en cada métrica; Misi dice por qué falla
+
+### «Todo»: el historial entero
+
+Fran: «logro ver hasta 90 días, pero no históricamente el peor o mejor dato». El detalle de cada métrica tiene ahora el periodo **Todo**:
+- carga **bajo demanda** solo esa métrica de esa persona (`cargarMetricaCompleta`, paginada);
+- gráfica **por meses** (60-70 barras se leen; 1.900 no), con los años debajo;
+- **media histórica**, **día más alto y más bajo de siempre**, y **mejor y peor mes** (`extremosMensuales`: solo cuentan meses con ≥ 10 días con dato; uno con 2 días sueltos no es «tu mejor mes»);
+- Misi recibe **medias mensuales + récords** (`resumenHistoricoParaIA`, < 2,6 KB), no cientos de valores diarios. Las preguntas sugeridas cambian a las que se pueden responder con eso.
+
+Con el historial real de Fran: 1.883 días con dato desde mayo de 2021, día más alto 39.279 pasos (10/07/2022), mejor mes julio de 2023 (13.374 de media).
+
+Al revisarlo apareció un fallo que habría dejado la vista **colgada en «Cargando…» para siempre**: el propio `setHistorico("cargando")` volvía a disparar el efecto, su limpieza marcaba la petición como abandonada y la respuesta se tiraba. Ahora solo se descarta si se cierra la hoja.
+
+### Menos de 300 pasos = sin dato
+
+El primer «día más bajo de siempre» salió de **25 pasos**. Medido: 37 días (1,9 %) por debajo de 300 en 5 años. Con el móvil encima, un día entero así es imposible: son días sin llevarlo. Igual que las «noches» de menos de 2 h, pasan a ser sin dato. Afecta también al motor: esos días ya no le quitan puntos a la mascota.
+
+### Misi: el motivo real del fallo
+
+«Pregúntale a Misi» se tragaba el error y enseñaba un mensaje genérico, justo lo que la regla de v4.23.1 dice que no se haga con Misi. Ahora el mensaje amable va acompañado, en pequeño, del **motivo técnico** (p. ej. «OpenAI respondió 429: insufficient_quota»). Probado en el navegador con una respuesta correcta y con un fallo simulado.
+
+677 tests.
+
+---
+
 ## [5.43.1] — 2026-09-28 · Un solo nombre: Shared Calendar
 
 Fran eligió el nombre. Convivían «Shared Calendar» (icono del móvil, cabecera, login, PDF, ICS) y «Misiones de Pareja» (notificaciones push, vista de invitado, informe de ánimo, exportación de disponibilidad, aviso de cambios de la pareja y prompt de Misi).

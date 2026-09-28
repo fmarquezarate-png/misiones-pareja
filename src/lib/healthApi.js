@@ -223,3 +223,21 @@ function traducir(codigo) {
     json_invalido: "El archivo está dañado.",
   })[codigo] || "No se pudo guardar este trozo.";
 }
+
+// ── Histórico completo de UNA métrica ───────────────────────────────────────
+// Para la vista "Todo" del detalle: solo esa métrica y esa persona, bajo
+// demanda (al pulsar "Todo"). Años de pasos son ~2.000 filas: 2-3 páginas.
+export async function cargarMetricaCompleta(userId, metric) {
+  try {
+    const filas = await withTimeout(leerTodo((a, b) =>
+      supabase.from("health_daily")
+        .select("day, metric, value")
+        .eq("user_id", userId)
+        .eq("metric", metric)
+        .order("day", { ascending: true })
+        .range(a, b)), 30000, "metrica_completa");
+    return { filas, error: null };
+  } catch (e) {
+    return { filas: [], error: String(e?.message || e) };
+  }
+}

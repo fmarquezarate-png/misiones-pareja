@@ -120,7 +120,11 @@ const SIN_CEROS = /^(sleep_|step_count$)/;
 // en el historial real de Fran: 25 "noches" de menos de 2 h, que empiezan a
 // cualquier hora (muchas por la tarde): siestas y registros cortados, no
 // noches. Contarlas como sueño fallado pondría triste a la mascota sin motivo.
-const MINIMOS = { sleep_asleep: 2 };
+// Y pasos: en 5 años de historial, 37 días (1,9 %) por debajo de 300, el más
+// bajo con 25 pasos. Con el móvil encima es imposible un día entero así: son
+// días sin llevarlo o sincronizaciones a medias. Como "día más bajo de siempre"
+// o como meta fallada, mentían.
+const MINIMOS = { sleep_asleep: 2, step_count: 300 };
 export const esSinDato = (metric, value) =>
   !Number.isFinite(value) || (value <= 0 && SIN_CEROS.test(metric)) || (MINIMOS[metric] != null && value < MINIMOS[metric]);
 

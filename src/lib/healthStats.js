@@ -153,3 +153,60 @@ export function resumenParaIA({ nombre, unidad, dias, detalle, pregunta }) {
     `Pregunta: ${pregunta}`,
   ].join("\n");
 }
+
+// ── Histórico completo ──────────────────────────────────────────────────────
+// "Logro ver hasta 90 días, pero no históricamente el peor o mejor dato"
+// (Fran, 28/09/2026). Con años de datos, la vista "Todo" agrupa por MESES
+// (60 barras se leen; 1.900 no) y da los récords de siempre.
+
+/** Días entre dos fechas ISO (inclusive). */
+export function diasEntre(desde, hasta) {
+  const a = Date.UTC(+desde.slice(0, 4), +desde.slice(5, 7) - 1, +desde.slice(8, 10));
+  const b = Date.UTC(+hasta.slice(0, 4), +hasta.slice(5, 7) - 1, +hasta.slice(8, 10));
+  return Math.round((b - a) / 864e5) + 1;
+}
+
+/** Medias mensuales (solo de días con dato), en orden. */
+export function porMeses(s) {
+  const grupos = new Map();
+  for (const d of s) {
+    const mes = d.dia.slice(0, 7);
+    if (!grupos.has(mes)) grupos.set(mes, []);
+    if (d.valor != null) grupos.get(mes).push(d.valor);
+  }
+  return [...grupos.entries()].map(([mes, vs]) => ({
+    dia: `${mes}-01`, mes, dias: vs.length,
+    valor: vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null,
+  }));
+}
+
+/**
+ * Mejor y peor MES. Solo cuentan meses con datos suficientes (≥ 10 días):
+ * un mes con 2 días sueltos no es "tu mejor mes", es un mes sin datos.
+ */
+export function extremosMensuales(meses, { mejorSi = "sube", minDias = 10 } = {}) {
+  const validos = meses.filter(m => m.valor != null && m.dias >= minDias);
+  if (!validos.length) return { mejor: null, peor: null };
+  const orden = [...validos].sort((a, b) => b.valor - a.valor || (a.mes < b.mes ? -1 : 1));
+  const [alto, bajo] = [orden[0], orden[orden.length - 1]];
+  return mejorSi === "sube" ? { mejor: alto, peor: bajo } : { mejor: bajo, peor: alto };
+}
+
+/**
+ * Resumen para la IA en vistas largas: medias MENSUALES + récords, en vez de
+ * cientos de valores diarios (compacto y suficiente para "¿he mejorado desde
+ * 2023?"). Los días sueltos se quedan en el teléfono.
+ */
+export function resumenHistoricoParaIA({ nombre, unidad, detalle, meses, extremos, pregunta }) {
+  const fmt = v => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
+  const lista = meses.map(m => `${m.mes}:${m.valor == null ? "-" : fmt(m.valor)}(${m.dias}d)`).join(" ");
+  const rec = (et, x) => (x ? `${et} ${fmt(x.valor)} (${x.dia})` : `${et} -`);
+  const mes = (et, x) => (x ? `${et} ${x.mes} (media ${fmt(x.valor)})` : `${et} -`);
+  return [
+    `[Consulta sobre MI salud desde la app. Responde breve, en español, solo con estos datos; si no bastan, dilo. No des consejos médicos: sugiere consultar a un profesional si procede.]`,
+    `Métrica: ${nombre} (${unidad}). HISTÓRICO COMPLETO: ${detalle.conDato} días con dato entre ${detalle.serie[0]?.dia} y ${detalle.serie.at(-1)?.dia}.`,
+    `Media histórica ${detalle.media == null ? "-" : fmt(detalle.media)}; ${rec("día más alto", detalle.mas)}; ${rec("día más bajo", detalle.menos)}; ${mes("mejor mes", extremos.mejor)}; ${mes("peor mes", extremos.peor)}.`,
+    `Medias mensuales (mes:media(días con dato), "-" = sin dato, no es cero): ${lista}`,
+    `Pregunta: ${pregunta}`,
+  ].join("\n");
+}

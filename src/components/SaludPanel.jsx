@@ -124,7 +124,7 @@ function Meter({ progreso, hecho }) {
   );
 }
 
-export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, personName }) {
+export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, personName, userId }) {
   const [abierta, setAbierta] = useState(null);
   const k = useMemo(() => ({
     sueno: kpi(filas, "sleep_asleep", hoy),
@@ -253,7 +253,7 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
         </div>
       </div>
 
-      {abierta && <MetricaDetalle def={DEFS[abierta]} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} onCerrar={() => setAbierta(null)} />}
+      {abierta && <MetricaDetalle def={DEFS[abierta]} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} userId={userId} onCerrar={() => setAbierta(null)} />}
 
       {/* Tipos de entreno */}
       <div style={card}>
