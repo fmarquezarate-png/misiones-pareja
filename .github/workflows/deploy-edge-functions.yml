@@ -28,6 +28,7 @@ on:
         type: choice
         options:
           - football
+          - health-ingest
           - misi-chat
           - send-push
           - get-shared-view
@@ -35,7 +36,7 @@ on:
     branches: ["main"]
     paths:
       - "supabase/functions/football/**"
-      - ".github/workflows/deploy-edge-functions.yml"
+      - "supabase/functions/health-ingest/**"
 
 jobs:
   deploy:
@@ -52,6 +53,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # hace falta historial para saber qué cambió en el push
+
+      # En un push hay que desplegar LA función que cambió, no la del
+      # desplegable: si no, tocar `health-ingest` redesplegaría `football`.
+      - name: ¿Qué funciones hay que desplegar?
+        id: cuales
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "lista=$FUNCION" >> "$GITHUB_OUTPUT"
+            echo "Elegida a mano: $FUNCION"
+            exit 0
+          fi
+          CAMBIADAS=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- supabase/functions/ 2>/dev/null \
+            | awk -F/ '/^supabase\/functions\/[^/]+\//{print $3}' | sort -u | tr '\n' ' ')
+          if [ -z "$CAMBIADAS" ]; then CAMBIADAS="$FUNCION"; fi
+          echo "lista=$CAMBIADAS" >> "$GITHUB_OUTPUT"
+          echo "Cambiadas en este push: $CAMBIADAS"
 
       # Sin token no se puede desplegar. Si lo pidió una persona (Run workflow),
       # falla en rojo con la explicación. Si fue un push automático, se salta en
@@ -69,12 +88,14 @@ jobs:
             echo "listo=no" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ ! -d "supabase/functions/$FUNCION" ]; then
-            echo "::error::No existe la carpeta supabase/functions/$FUNCION en esta rama."
-            exit 1
-          fi
+          for f in ${{ steps.cuales.outputs.lista }}; do
+            if [ ! -d "supabase/functions/$f" ]; then
+              echo "::error::No existe la carpeta supabase/functions/$f en esta rama."
+              exit 1
+            fi
+          done
           echo "listo=si" >> "$GITHUB_OUTPUT"
-          echo "Desplegando '$FUNCION' al proyecto $PROJECT_REF"
+          echo "Desplegando '${{ steps.cuales.outputs.lista }}' al proyecto $PROJECT_REF"
 
       - name: Instalar Supabase CLI
         if: steps.check.outputs.listo == 'si'
@@ -85,7 +106,7 @@ jobs:
       # La clave de football-data.org se guarda como secreto DEL SERVIDOR.
       # Nunca se escribe en el repo ni llega al navegador (regla de CLAUDE.md §5).
       - name: Guardar la clave de fútbol en Supabase
-        if: steps.check.outputs.listo == 'si' && env.FUNCION == 'football'
+        if: steps.check.outputs.listo == 'si' && contains(steps.cuales.outputs.lista, 'football')
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
         run: |
@@ -100,14 +121,21 @@ jobs:
       - name: Desplegar la función
         if: steps.check.outputs.listo == 'si'
         run: |
-          supabase functions deploy "$FUNCION" --project-ref "$PROJECT_REF"
-          echo "✅ '$FUNCION' desplegada."
+          # `health-ingest` la llama Health Auto Export, que no sabe mandar un
+          # JWT de Supabase: su autenticación es el token de `health_tokens`,
+          # comprobado dentro de la propia función. El resto sí verifica JWT.
+          for f in ${{ steps.cuales.outputs.lista }}; do
+            EXTRA=""
+            if [ "$f" = "health-ingest" ]; then EXTRA="--no-verify-jwt"; fi
+            supabase functions deploy "$f" --project-ref "$PROJECT_REF" $EXTRA
+            echo "✅ '$f' desplegada. $EXTRA"
+          done
 
       # Verificación de vida: el endpoint ?probe=1 responde sin llamar a ninguna
       # API externa y dice si el secreto está puesto. Solo corre si el repo tiene
       # el anon key (el mismo que ya usa keepalive.yml).
       - name: Comprobar que responde
-        if: steps.check.outputs.listo == 'si' && env.FUNCION == 'football'
+        if: steps.check.outputs.listo == 'si' && contains(steps.cuales.outputs.lista, 'football')
         env:
           SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://txnsotchljquilfmdpdy.supabase.co' }}
           ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
@@ -116,11 +144,11 @@ jobs:
             echo "::notice::Sin VITE_SUPABASE_ANON_KEY no se puede probar desde aquí. Ábrela desde la app (Menú → Mi Equipo) y mira si pone '● en vivo'."
             exit 0
           fi
-          URL="${SUPABASE_URL%/}/functions/v1/${FUNCION}?probe=1"
+          URL="${SUPABASE_URL%/}/functions/v1/football?probe=1"
           body=$(curl -s --max-time 20 -H "Authorization: Bearer $ANON_KEY" -H "apikey: $ANON_KEY" "$URL" || echo "")
           echo "Respuesta: $body"
           case "$body" in
             *'"hasKey":true'*)  echo "✅ Desplegada y con clave — datos en vivo."; ;;
             *'"hasKey":false'*) echo "::warning::Desplegada pero SIN la clave. Añade el secret FOOTBALL_DATA_KEY y vuelve a pulsar Run workflow."; ;;
-            *)                  echo "::warning::La función respondió algo inesperado (o no respondió). Revisa los logs en Supabase → Edge Functions → $FUNCION."; ;;
+            *)                  echo "::warning::La función respondió algo inesperado (o no respondió). Revisa los logs en Supabase → Edge Functions → football."; ;;
           esac
