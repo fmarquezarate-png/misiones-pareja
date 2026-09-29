@@ -151,7 +151,7 @@ export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "12px 0" }}>
           <Dato titulo={todo ? "Media histórica" : "Media"} valor={d.media == null ? "—" : f(d.media)} nota={todo && d.serie.length ? `${d.conDato} días con dato desde ${nombreMes(d.serie[0].dia.slice(0, 7))}` : `${d.conDato} de ${d.total} días con dato`} />
           <Dato titulo="Tendencia" valor={tend == null ? "—" : `${tend > 0 ? "↑" : tend < 0 ? "↓" : "→"} ${Math.abs(Math.round(tend * 100))} %`}
-            nota="2.ª mitad del periodo vs 1.ª" color={tend == null || Math.abs(tend) < 0.02 ? null : (def.mejorSi === "baja" ? tend < 0 : tend > 0) ? "#34d399" : "#f87171"} />
+            nota="2.ª mitad del periodo vs 1.ª" color={tend == null || Math.abs(tend) < 0.02 || def.mejorSi === "neutral" ? null : (def.mejorSi === "baja" ? tend < 0 : tend > 0) ? "#34d399" : "#f87171"} />
           <Dato titulo={`${def.mejorSi === "baja" ? "Mejor día (más bajo)" : "Día más alto"}${todo ? " de siempre" : ""}`} valor={d.mejor ? f(d.mejor.valor) : "—"} nota={d.mejor ? humanDate(d.mejor.dia) : ""} />
           <Dato titulo={`${def.mejorSi === "baja" ? "Día más alto" : "Día más bajo"}${todo ? " de siempre" : ""}`} valor={d.peor ? f(d.peor.valor) : "—"} nota={d.peor ? humanDate(d.peor.dia) : ""} />
           {todo && <Dato titulo="Mejor mes" valor={extremos.mejor ? f(extremos.mejor.valor) : "—"} nota={extremos.mejor ? `${nombreMes(extremos.mejor.mes)} · de media` : "sin meses completos"} />}

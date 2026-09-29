@@ -21,6 +21,7 @@ import { modoPruebas, fijarModoPruebas } from "../lib/petConfig.js";
 import Habitat from "./Habitat.jsx";
 import SaludPanel from "./SaludPanel.jsx";
 import SaludAjustes from "./SaludAjustes.jsx";
+import MetricaDetalle from "./MetricaDetalle.jsx";
 import { tarjetasDisponibles, nuevaVersionMetas } from "../lib/saludPanel.js";
 import SaludImportar from "./SaludImportar.jsx";
 import VidaMascota from "./VidaMascota.jsx";
@@ -54,6 +55,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   const [quien, setQuien] = useState("yo");            // yo | pareja
   const [historia, setHistoria] = useState(null);
   const [ajustes, setAjustes] = useState(false);
+  const [metricaAbierta, setMetricaAbierta] = useState(null);   // { metric, unit } desde «Datos y conexión»
   const [pruebas, setPruebas] = useState(() => modoPruebas());
 
   // Cuántos días hay que pedir: los 120 de siempre, o desde que nació la
@@ -160,6 +162,11 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
           }} />
       )}
 
+      {metricaAbierta && (
+        <MetricaDetalle def={defGenerica(metricaAbierta.metric, metricaAbierta.unit)} filas={filas} hoy={hoy} coupleId={coupleId}
+          personName={personName} userId={uid} puedePreguntar={quien === "yo"} onCerrar={() => setMetricaAbierta(null)} />
+      )}
+
       {/* 3. La vida de la mascota */}
       <div style={{ ...card, marginTop: 10 }}>
         <div style={titulo}>La vida de {quien === "yo" ? "tu" : "su"} mascota</div>
@@ -178,7 +185,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
         <summary style={{ ...titulo, marginBottom: 0, cursor: "pointer" }}>Datos y conexión</summary>
         <div style={{ marginTop: 10 }}>
           {quien === "yo" && <SaludImportar personName={personName} onTerminado={() => { cargar(); setHistoria(null); }} />}
-          <Conexion p={personas.find(x => x.userId === uid)} />
+          <Conexion p={personas.find(x => x.userId === uid)} onAbrir={m => setMetricaAbierta(m)} />
           {quien === "yo" && pet && (
             <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, ...dim, minHeight: 44 }}>
               <input type="checkbox" checked={pruebas} onChange={e => { fijarModoPruebas(e.target.checked); setPruebas(e.target.checked); }} style={{ width: 20, height: 20 }} />
@@ -306,28 +313,65 @@ function Adoptar({ manifest, onAdoptar }) {
   );
 }
 
-// ── Conexión: último envío y todo lo que llega ──────────────────────────────
-function Conexion({ p }) {
+// Detalle de CUALQUIER métrica que llegue (no solo las cuatro del panel): la vista
+// «Todo», los extremos y las preguntas a Misi funcionan igual para todas.
+function defGenerica(metric, unit) {
+  const nombre = NOMBRES_METRICA[metric] || metric;
+  return {
+    metric, nombre, icono: "📈", unidadLarga: unit && unit !== "count" ? unit : nombre.toLowerCase(),
+    formato: v => formatoValor(metric, v, unit), meta: null, mejorSi: "neutral",
+    sugerencias: ["¿Cómo ha cambiado con el tiempo?", "¿Cuándo tuve el valor más alto y el más bajo?"],
+  };
+}
+
+// ── Conexión: qué llega y qué no ────────────────────────────────────────────
+// Health Auto Export solo puede mandar lo que HAY en Apple Salud. Aquí se ve, métrica
+// por métrica, qué está llegando (con cuántos días y desde cuándo; tócala para ver todo
+// su historial) y qué métricas conocidas no llegan.
+function Conexion({ p, onAbrir }) {
   if (!p) return <div style={dim}>Todavía no ha llegado nada.</div>;
   const fresco = p.ultimoEnvio && Date.now() - new Date(p.ultimoEnvio).getTime() < 3 * 3600e3;
+  const resumen = new Map();
+  for (const f of p.filas) {
+    const r = resumen.get(f.metric) || { dias: new Set(), desde: f.day };
+    r.dias.add(f.day); if (f.day < r.desde) r.desde = f.day;
+    resumen.set(f.metric, r);
+  }
+  // distance_walking_running es el mismo dato con otro nombre; las fases del sueño (sleep_*) dependen del reloj.
+  const noLlegan = Object.keys(NOMBRES_METRICA).filter(m => !resumen.has(m) && !m.startsWith("sleep_") && m !== "distance_walking_running");
   return (
     <div style={{ marginTop: 6 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: fresco ? "#34d399" : "#fbbf24" }}>{fresco ? "●" : "⚠"} Último envío {haceCuanto(p.ultimoEnvio)}</div>
-      <div style={{ ...dim, marginBottom: 8 }}>{p.numDias} días con datos en los últimos 120 · {p.entrenos.length} entrenos</div>
-      {p.metricas.map(m => (
-        <div key={m.metric} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "5px 0", borderTop: "1px solid rgba(167,139,250,0.08)" }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, color: "var(--t-text,#f0e8ff)" }}>{NOMBRES_METRICA[m.metric] || m.metric}</div>
-            <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{m.metric}{m.source ? ` · ${m.source}` : ""}</div>
-          </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 12.5, color: esSinDato(m.metric, m.value) ? "#fbbf24" : "var(--t-text,#f0e8ff)" }}>
-              {esSinDato(m.metric, m.value) ? "sin dato" : formatoValor(m.metric, m.value, m.unit)}
+      <div style={{ ...dim, marginBottom: 8 }}>{p.numDias} días con datos · {p.entrenos.length} entrenos · <b>toca una métrica para ver todo su historial</b></div>
+      {p.metricas.map(m => {
+        const r = resumen.get(m.metric);
+        return (
+          <button key={m.metric} onClick={() => onAbrir?.({ metric: m.metric, unit: m.unit })}
+            aria-label={`${NOMBRES_METRICA[m.metric] || m.metric}: ver historial`}
+            style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "8px 0", minHeight: 44, width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+              background: "transparent", border: "none", borderTop: "1px solid rgba(167,139,250,0.08)" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, color: "var(--t-text,#f0e8ff)" }}>{NOMBRES_METRICA[m.metric] || m.metric} <span aria-hidden style={{ color: "var(--t-text-dim,#8f84ad)" }}>›</span></div>
+              <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{r ? `${r.dias.size} días con dato desde ${humanDate(r.desde)}` : ""}{m.source ? ` · ${m.source}` : ""}</div>
             </div>
-            <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>{humanDate(m.day)}</div>
-          </div>
-        </div>
-      ))}
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontSize: 12.5, color: esSinDato(m.metric, m.value) ? "#fbbf24" : "var(--t-text,#f0e8ff)" }}>
+                {esSinDato(m.metric, m.value) ? "sin dato" : formatoValor(m.metric, m.value, m.unit)}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--t-text-dim,#8f84ad)" }}>último: {humanDate(m.day)}</div>
+            </div>
+          </button>
+        );
+      })}
+
+      <div style={{ ...titulo, marginTop: 14 }}>Lo que NO está llegando</div>
+      <div style={{ ...dim, marginBottom: 6 }}>
+        Health Auto Export solo manda lo que existe en la app <b>Salud</b> del iPhone. Si tu reloj guarda algo en su propia app y no lo comparte con Salud, aquí no puede aparecer.
+      </div>
+      {noLlegan.length ? <div style={dim}>{noLlegan.map(m => NOMBRES_METRICA[m]).join(" · ")}</div> : <div style={dim}>Llega todo lo que la app conoce.</div>}
+      <div style={{ ...dim, marginTop: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(167,139,250,0.08)" }}>
+        <b>¿Y el estrés?</b> Apple Salud no tiene una medida de «estrés» propia: la que da tu reloj se queda en su app (Huawei Health, Zepp…). Lo más parecido que sí pasa a Salud es la <b>variabilidad cardiaca</b> (HRV){resumen.has("heart_rate_variability") ? ", que ya te está llegando" : ", que ahora mismo no llega"} y los <b>minutos de mindfulness</b>{resumen.has("mindful_minutes") ? ", que también llegan" : ""}. Para saber si un dato de tu reloj llega a Salud: abre la app Salud del iPhone → Explorar → busca la medida; si no está ahí, no puede llegar aquí.
+      </div>
     </div>
   );
 }

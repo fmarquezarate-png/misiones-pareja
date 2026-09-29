@@ -130,6 +130,14 @@ export const NOMBRES_METRICA = {
   apple_exercise_time: "Minutos de ejercicio",
   apple_stand_hour: "Horas de pie",
   apple_stand_time: "Tiempo de pie",
+  wake_min: "Hora de despertar",
+  bed_min: "Hora de acostarte",
+  walking_running_distance: "Distancia caminando/corriendo",
+  heart_rate_min: "Pulso mínimo del día",
+  heart_rate_max: "Pulso máximo del día",
+  height: "Altura",
+  body_mass_index: "Índice de masa corporal",
+  uv_exposure: "Exposición al sol (UV)",
   sleep_asleep: "Sueño",
   sleep_in_bed: "En la cama",
   sleep_deep: "Sueño profundo",
@@ -160,6 +168,11 @@ export const NOMBRES_METRICA = {
 
 export function formatoValor(metric, value, unit) {
   if (!Number.isFinite(value)) return "—";
+  // Horas del día guardadas como minutos desde medianoche (negativo = antes de las 00:00).
+  if (metric === "wake_min" || metric === "bed_min") {
+    const m = ((Math.round(value) % 1440) + 1440) % 1440;
+    return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  }
   if (metric.startsWith("sleep_")) {
     const h = Math.floor(value), m = Math.round((value - h) * 60);
     return m === 60 ? `${h + 1} h` : `${h} h ${String(m).padStart(2, "0")}`;

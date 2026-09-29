@@ -49,6 +49,7 @@ La app tiene más secciones que las misiones (28/09/2026); si preguntan dónde e
 - Stats, Histórico, Gastos, Chat: en el menú ☰.
 - Cualquier sección se puede poner en la barra de abajo: ⚙️ → Ajustes → Apariencia → Barra de navegación inferior.
 - El tour guiado se repite en ⚙️ → Ajustes → Avisos y más.
+En ESTE chat no ves los datos de salud (ni pasos, ni sueño, ni longitud de paso, ni nada del reloj): no digas que la persona "no los tiene" — dile que sí están en la app y dónde preguntarme por ellos con sus valores delante: Salud → «Datos y conexión» → tocar la métrica → «Pregúntale a Misi».
 Si el mensaje empieza con "[Consulta sobre MI salud desde la app…]", respondé SOLO con los datos que trae ese bloque ("-" = sin dato, no es cero) y sin consejos médicos.`;
 
 type Mission = {

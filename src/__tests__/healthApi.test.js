@@ -146,3 +146,11 @@ describe("resumirPorPersona: «último envío» ignora los imports de historial"
     expect(resumirPorPersona([{ user_id: "u", day: "2026-09-28", metric: "x", value: 1 }])[0].ultimoEnvio).toBeNull();
   });
 });
+
+describe("formatoValor: horas del día", () => {
+  it("wake_min y bed_min se leen como reloj, también los negativos (antes de medianoche)", () => {
+    expect(formatoValor("wake_min", 616, "min")).toBe("10:16");
+    expect(formatoValor("bed_min", -30, "min")).toBe("23:30");
+    expect(formatoValor("bed_min", 75, "min")).toBe("01:15");
+  });
+});

@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.1.1] — 2026-09-29 · Cualquier métrica abre su historial; «qué llega y qué no»; Misi orienta
+
+- **Datos y conexión**: cada métrica que llega es un botón que abre el detalle completo (`defGenerica`): vista «Todo», extremos y preguntas a Misi para TODAS, no solo las cuatro del panel. Cada fila indica días con dato y desde cuándo.
+- **«Lo que NO está llegando»**: lista de métricas conocidas sin datos + explicación del estrés (Apple Salud no tiene esa medida; la del reloj se queda en su app; alternativa: HRV y mindfulness) y cómo comprobar en la app Salud si un dato existe.
+- **Misi (misi-chat)**: el chat general no recibe datos de salud (solo el bloque que envía el detalle de una métrica). Su prompt ahora dice que los datos sí están en la app y dónde preguntarle con ellos delante, en vez de «no tengo acceso».
+- Nombres legibles (`wake_min`, `bed_min`, distancia, altura, IMC, UV…) y horas como reloj. Tendencias de métricas neutras sin verde/rojo.
+
+---
+
 ## [6.1.0] — 2026-09-29 · Hábitats con fondo y fauna; sprites de Nix revisados; historial 2021–2024 cargado
 
 **Historial** — Diagnóstico con la base real: `health_daily` empezaba el 2025-01-01 (una sola carga de 7.788 filas el 28/09); el archivo de 5 años nunca se había importado. Se cargaron los datos previos a 2025 directamente en Supabase (pasos, distancia no; sueño, hora de despertar/acostarse, pulso en reposo, energía activa, peso, altura, IMC y 38 entrenos), verificando por cada métrica recuento y suma contra el archivo (coinciden exactamente). No se cargaron las métricas que la app no muestra (pasos de marcha, audio, UV, pisos, basal, pulso min/max).
