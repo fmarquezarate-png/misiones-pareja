@@ -14,7 +14,7 @@ describe("sanearPanel: la configuración guardada no es de fiar", () => {
   it("periodo solo 7, 14 o 30; secciones apagables", () => {
     expect(sanearPanel({ dias: 14 }).dias).toBe(14);
     expect(sanearPanel({ dias: 10 }).dias).toBe(7);
-    expect(sanearPanel({ secciones: { noche: false } }).secciones).toEqual({ metas: true, noche: false, entreno: true, tipos: true });
+    expect(sanearPanel({ secciones: { noche: false } }).secciones).toEqual({ metas: true, noche: false, entreno: true, deporte: true, tipos: true });
   });
   it("todas las tarjetas por defecto existen en el registro", () => {
     for (const id of PANEL_DEFECTO.tarjetas) expect(TARJETAS[id]).toBeTruthy();

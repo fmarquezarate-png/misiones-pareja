@@ -15,6 +15,7 @@ import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, 
 import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
 import { estadoDeDatos } from "../lib/petEstado.js";
+import { entrenosDelCalendario } from "../lib/deporteCalendario.js";
 import { urlRetrato, nombreEspecie, cargarManifest } from "../lib/petSprites.js";
 import { humanDate } from "../lib/dateLabel.js";
 import { modoPruebas, fijarModoPruebas } from "../lib/petConfig.js";
@@ -46,7 +47,7 @@ function haceCuanto(iso) {
   return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`;
 }
 
-export default function SaludView({ sessionUserId, coupleId, personName, partnerName, pets = {}, onGuardarMascota }) {
+export default function SaludView({ sessionUserId, coupleId, personName, partnerName, weeks = {}, sessionPersonId = null, pets = {}, onGuardarMascota }) {
   const [estado, setEstado] = useState("cargando");   // cargando | listo — solo la PRIMERA carga bloquea la pantalla
   const [actualizando, setActualizando] = useState(false);
   const [datos, setDatos] = useState({ filas: [], entrenos: [], error: null });
@@ -116,7 +117,23 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   const uid = quien === "yo" ? sessionUserId : parejaId;
   const nombre = quien === "yo" ? (personName || "Tú") : (partnerName || "Tu pareja");
   const filas = useMemo(() => datos.filas.filter(f => f.user_id === uid), [datos, uid]);
-  const entrenos = useMemo(() => datos.entrenos.filter(w => w.user_id === uid), [datos, uid]);
+  const entrenosReloj = useMemo(() => datos.entrenos.filter(w => w.user_id === uid), [datos, uid]);
+  // El deporte apuntado en el calendario (pádel, gym…) cuenta como entreno si el
+  // reloj no lo registró como tal: se cruza con sus pasos, energía y pulso
+  // (deporteCalendario.js). Cada persona, lo suyo y lo que hicisteis juntos.
+  const persona = quien === "yo" ? sessionPersonId : sessionPersonId === "person1" ? "person2" : sessionPersonId === "person2" ? "person1" : null;
+  const hoyCal = isoDia(new Date());
+  const calendario = useMemo(() => entrenosDelCalendario({ weeks, persona, filas, entrenos: entrenosReloj, hoy: hoyCal }),
+    [weeks, persona, filas, entrenosReloj, hoyCal]);
+  const entrenos = useMemo(() => [...entrenosReloj, ...calendario.entrenos], [entrenosReloj, calendario]);
+  // La historia larga (años) también come del calendario; memorizada: VidaMascota
+  // re-simula todo el historial cada vez que cambian sus entrenos.
+  const historiaEntrenos = useMemo(() => {
+    if (!historia || historia === "cargando" || historia.error) return [];
+    const reloj = historia.entrenos.filter(w => w.user_id === uid);
+    const f = historia.filas.filter(x => x.user_id === uid);
+    return [...reloj, ...entrenosDelCalendario({ weeks, persona, filas: f, entrenos: reloj, hoy: hoyCal }).entrenos];
+  }, [historia, uid, weeks, persona, hoyCal]);
   const pet = uid ? pets[uid] : null;
   const hoy = isoDia(new Date());
 
@@ -145,7 +162,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
 
       {/* 2. El panel */}
       {filas.length || entrenos.length
-        ? <SaludPanel filas={filas} entrenos={entrenos} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} userId={uid}
+        ? <SaludPanel filas={filas} entrenos={entrenos} deporteCalendario={calendario} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} userId={uid}
             panel={pet?.panel} puedePreguntar={quien === "yo"} onPersonalizar={quien === "yo" && pet ? () => setAjustes(true) : null} />
         : <div style={card}><div style={txt}>Todavía no ha llegado ningún dato de {nombre}.</div>
             <div style={{ ...dim, marginTop: 6 }}>En Health Auto Export, pulsa <b>Export Now</b> en la automatización y vuelve aquí.</div></div>}
@@ -177,7 +194,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
           </>
         ) : historia === "cargando" ? <div style={dim}>Cargando todo el historial…</div>
           : historia.error ? <div style={dim}>No se pudo cargar el historial.</div>
-          : <VidaMascota filas={historia.filas.filter(f => f.user_id === uid)} entrenos={historia.entrenos.filter(w => w.user_id === uid)} manifest={manifest} especieInicial={pet?.especie} />}
+          : <VidaMascota filas={historia.filas.filter(f => f.user_id === uid)} entrenos={historiaEntrenos} manifest={manifest} especieInicial={pet?.especie} />}
       </div>
 
       {/* 4. Lo técnico, plegado */}
@@ -216,6 +233,8 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
   const sim = useMemo(() => simular({ nacimiento: pet.nacimiento, filas, entrenos, metas: pet.metas || METAS_POR_DEFECTO, metasHistorial: pet.metasHistorial, hoy }), [pet, filas, entrenos, hoy]);
   const horario = useMemo(() => horarioSueno(filas, hoy), [filas, hoy]);
   const datosEstado = useMemo(() => estadoDeDatos({ filas, sim, hoy }), [filas, sim, hoy]);
+  // Para «entrena contigo» hace falta la hora: un evento sin hora no se dibuja.
+  const entrenosConHora = useMemo(() => entrenos.filter(w => String(w.start_at || "").length > 10), [entrenos]);
   const etapa = (pruebas && vista) || sim.etapaId;
   const sig = ETAPAS[sim.etapa + 1];
   const ultimoCambio = sim.eventos[sim.eventos.length - 1] || null;
@@ -232,7 +251,7 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
         </div>
       </div>
       <Habitat key={uid} userId={uid} manifest={manifest} especie={pet.especie} etapa={etapa} horario={horario}
-        entrenos={entrenos} nombre={pet.nombre} estado={datosEstado} />
+        entrenos={entrenosConHora} nombre={pet.nombre} estado={datosEstado} />
       <div style={{ marginTop: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--t-text-muted,#b9b0d0)", marginBottom: 4 }}>
           <span>{sig ? `Hacia ${sig.nombre}` : "Forma final"}</span>
@@ -343,7 +362,7 @@ function Conexion({ p, onAbrir }) {
     <div style={{ marginTop: 6 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: fresco ? "#34d399" : "#fbbf24" }}>{fresco ? "●" : "⚠"} Último envío {haceCuanto(p.ultimoEnvio)}</div>
       <div style={{ ...dim, marginBottom: 8 }}>{p.numDias} días con datos · {p.entrenos.length} entrenos · <b>toca una métrica para ver todo su historial</b></div>
-      {p.metricas.map(m => {
+      {p.metricas.filter(m => !m.metric.startsWith("hr_pico_")).map(m => {
         const r = resumen.get(m.metric);
         return (
           <button key={m.metric} onClick={() => onAbrir?.({ metric: m.metric, unit: m.unit })}

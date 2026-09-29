@@ -72,7 +72,9 @@ export function repartoEntrenos(entrenos, hoy, dias = 90) {
   for (const w of entrenos) {
     const d = String(w.start_at || "").slice(0, 10);
     if (d < desde || d > hoy) continue;
-    const k = String(w.name || "Otro");
+    // El deporte del calendario se agrupa por DEPORTE («Pádel»), no por el título
+    // del evento: «Padel Masc Moli» y «Padel Mixto» son lo mismo para esta cuenta.
+    const k = String(w.nombreDeporte || w.name || "Otro");
     cuenta.set(k, (cuenta.get(k) || 0) + 1);
     total++;
   }

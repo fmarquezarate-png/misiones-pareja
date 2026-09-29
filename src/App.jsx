@@ -2633,6 +2633,8 @@ ${sorted.map(m=>{
           coupleId={coupleId}
           personName={personName}
           partnerName={p1===personName ? p2 : p1}
+          weeks={data.weeks}
+          sessionPersonId={sessionPersonId}
           pets={data.settings?.pets || {}}
           // `parche` se FUSIONA sobre la mascota que hay en el estado fresco (dentro del
           // reducer): con `[uid]: pet` se guardaba una copia entera capturada antes,

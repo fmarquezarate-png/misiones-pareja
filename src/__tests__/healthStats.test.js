@@ -231,3 +231,14 @@ describe("histórico completo", () => {
     expect(txt.length).toBeLessThan(2600);
   });
 });
+
+describe("repartoEntrenos: el deporte del calendario se agrupa por deporte", () => {
+  it("dos títulos distintos de pádel cuentan como «Pádel»", () => {
+    const r = repartoEntrenos([
+      { start_at: "2026-09-22T21:00:00", name: "Padel Mixto Moli", nombreDeporte: "Pádel" },
+      { start_at: "2026-09-23T20:00:00", name: "Padel Masc Moli", nombreDeporte: "Pádel" },
+      { start_at: "2026-09-24T18:40:55+00:00", name: "Interior Ejecutar" },
+    ], "2026-09-29");
+    expect(r.tipos[0]).toMatchObject({ nombre: "Pádel", n: 2 });
+  });
+});

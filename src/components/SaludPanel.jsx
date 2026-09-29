@@ -14,8 +14,9 @@
 import { useMemo, useState } from "react";
 import MetricaDetalle from "./MetricaDetalle.jsx";
 import { kpi, metasSemana, repartoEntrenos, ultimaNoche } from "../lib/healthStats.js";
-import { METRICAS } from "../lib/pet.js";
+import { METRICAS, diaLocalDe, horaLocalDe } from "../lib/pet.js";
 import { TARJETAS, sanearPanel, formatoDetalle } from "../lib/saludPanel.js";
+import { TEXTO_NIVEL, UMBRAL } from "../lib/deporteCalendario.js";
 import { humanDate } from "../lib/dateLabel.js";
 
 const card = { background: "var(--t-card,#1d1733)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.16))", borderRadius: 16, padding: "12px 14px", minWidth: 0 };
@@ -126,7 +127,7 @@ function Meter({ progreso, hecho }) {
   );
 }
 
-export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, personName, userId, panel, puedePreguntar = true, onPersonalizar }) {
+export default function SaludPanel({ filas, entrenos, deporteCalendario = null, metas, hoy, coupleId, personName, userId, panel, puedePreguntar = true, onPersonalizar }) {
   const [abierta, setAbierta] = useState(null);
   const cfg = useMemo(() => sanearPanel(panel), [panel]);
   const metaDe = tipo => metas.find(m => m.tipo === tipo && m.periodo === "dia")?.objetivo ?? null;
@@ -137,7 +138,10 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
   const semana = useMemo(() => metasSemana(filas, entrenos, metas, hoy), [filas, entrenos, metas, hoy]);
   const reparto = useMemo(() => repartoEntrenos(entrenos, hoy, 90), [entrenos, hoy]);
   const noche = useMemo(() => ultimaNoche(filas, hoy), [filas, hoy]);
-  const ultimo = useMemo(() => [...entrenos].sort((a, b) => (a.start_at < b.start_at ? 1 : -1))[0] || null, [entrenos]);
+  // Orden por INSTANTE (Date.parse): los del reloj vienen en UTC con huso y los del
+  // calendario en hora local sin huso; comparar el texto los mezclaba.
+  const ultimo = useMemo(() => [...entrenos].sort((a, b) => (Date.parse(b.start_at) || 0) - (Date.parse(a.start_at) || 0))[0] || null, [entrenos]);
+  const [verTodoDeporte, setVerTodoDeporte] = useState(false);
   const tipos = reparto.tipos.length > 5
     ? [...reparto.tipos.slice(0, 4), { nombre: "Otros", n: reparto.tipos.slice(4).reduce((a, t) => a + t.n, 0) }]
     : reparto.tipos;
@@ -235,11 +239,14 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
           {!ultimo ? <div style={dim}>Aún no hay entrenos. Crea la automatización de Workouts en Health Auto Export.</div> : (
             <>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--t-text,#f8f4ff)" }}>{ultimo.name}</div>
-              <div style={{ ...dim, marginBottom: 10 }}>{humanDate(String(ultimo.start_at).slice(0, 10))} · {String(ultimo.start_at).slice(11, 16)}</div>
+              <div style={{ ...dim, marginBottom: 10 }}>
+                {humanDate(diaLocalDe(String(ultimo.start_at)))}{horaLocalDe(String(ultimo.start_at)) ? ` · ${horaLocalDe(String(ultimo.start_at))}` : ""}
+                {ultimo.source === "calendario" && <> · <span aria-hidden>📅</span> de tu calendario, {TEXTO_NIVEL[ultimo.nivel]}</>}
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
                 {[
                   ["⏱️", ultimo.minutes != null ? `${Math.round(ultimo.minutes)} min` : null, "Duración"],
-                  ["🔥", ultimo.kcal != null ? `${miles(ultimo.kcal)} kcal` : null, "Energía"],
+                  ["🔥", ultimo.kcal != null ? `${ultimo.source === "calendario" && ultimo.nivel !== "confirmado" ? "≈ " : ""}${miles(ultimo.kcal)} kcal` : null, ultimo.source === "calendario" ? (ultimo.nivel === "confirmado" ? "Energía (medida por el reloj)" : "Energía (estimada)") : "Energía"],
                   ["📍", ultimo.distance_km != null ? `${ultimo.distance_km.toFixed(1).replace(".", ",")} km` : null, "Distancia"],
                   ["❤️", ultimo.avg_hr != null ? `${Math.round(ultimo.avg_hr)} lpm` : null, "Pulso medio"],
                 ].filter(([, v]) => v).map(([ic, v, l]) => (
@@ -253,6 +260,46 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
           )}
         </div>}
       </div>
+
+      {/* Deporte del calendario: el pádel, el gym… que el reloj no guarda como entreno */}
+      {cfg.secciones.deporte && deporteCalendario?.evaluados?.length > 0 && (() => {
+        const lista = [...deporteCalendario.evaluados].reverse();
+        const vis = verTodoDeporte ? lista : lista.slice(0, 6);
+        const r = deporteCalendario.resumen;
+        const color = { confirmado: BUENO, probable: "var(--t-accent,#c4b8ff)", sin_reloj: "var(--t-text-muted,#b9b0d0)", no_coincide: "#fbbf24" };
+        return (
+          <div style={card}>
+            <div style={titulo}><span aria-hidden>📅</span>Deporte del calendario</div>
+            <div style={{ ...dim, marginBottom: 8 }}>
+              Lo que apuntas en el calendario (pádel, gym…) cuenta como entreno aunque el reloj no lo guarde así. Se cruza con tu día:
+              pulso máximo ≥ {UMBRAL.pulso}, +{UMBRAL.kcal} kcal y +{miles(UMBRAL.pasos)} pasos sobre tu día normal. Dos señales = confirmado.
+              {" "}{r.confirmados} confirmados · {r.probables} probables · {r.sinReloj} sin reloj{r.noCoincide ? ` · ${r.noCoincide} que el reloj no vio` : ""}{r.enReloj ? ` · ${r.enReloj} ya registrados por el reloj` : ""}.
+            </div>
+            {vis.map(e => (
+              <div key={e.id + e.dia} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 0", borderTop: "1px solid rgba(167,139,250,0.08)" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>{e.emoji || "🏅"}</span> {e.titulo}</div>
+                  <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>
+                    {humanDate(e.dia)}{e.inicio != null ? ` · ${String(Math.floor(e.inicio / 60)).padStart(2, "0")}:${String(e.inicio % 60).padStart(2, "0")}` : ""} · {e.minutos} min
+                    {e.pulsoMax != null ? ` · pulso máx ${Math.round(e.pulsoMax)}` : ""}{e.delta?.pasos != null ? ` · ${e.delta.pasos >= 0 ? "+" : ""}${miles(e.delta.pasos)} pasos` : ""}
+                    {e.picoEnHora === true ? " · el pico fue a esa hora" : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--t-text,#f0e8ff)" }}>{e.cuenta ? `${e.nivel === "confirmado" ? "" : "≈ "}${miles(e.kcal)} kcal` : "—"}</div>
+                  <div style={{ fontSize: 10.5, color: color[e.nivel] }}>{TEXTO_NIVEL[e.nivel]}</div>
+                </div>
+              </div>
+            ))}
+            {lista.length > 6 && (
+              <button onClick={() => setVerTodoDeporte(v => !v)} style={{ marginTop: 6, minHeight: 44, width: "100%", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600,
+                color: "var(--t-accent,#c4b8ff)", background: "transparent", border: "1px solid var(--t-card-border,rgba(167,139,250,0.25))" }}>
+                {verTodoDeporte ? "Ver menos" : `Ver los ${lista.length}`}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {abierta && <MetricaDetalle def={defDe(abierta)} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} userId={userId} puedePreguntar={puedePreguntar} onCerrar={() => setAbierta(null)} />}
 

@@ -7,6 +7,22 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.3.0] — 2026-09-30 · El deporte del calendario cuenta como entreno (regla ajustada con el historial)
+
+**Problema** (Fran): Huawei → Apple Salud no guarda el pádel como entreno, aunque sí cuenta sus calorías; los partidos están apuntados en el calendario de la app con su hora.
+
+**Análisis sobre datos reales** (39 días de pádel apuntados, mar–sep 2026, contra el archivo completo de Health Auto Export):
+- Días normales: pulso máximo mediana ~120; días de pádel: 184 (p10 161).
+- Base = mediana de los 35 días previos sin deporte apuntado. Señales: pulso máx ≥ 160, +250 kcal, +2.500 pasos. ≥2 → confirmado (30/39); 1 → probable; 0 con reloj → «no coincide» (3: no se cuentan); sin pulso ese día → «sin reloj» (se cuentan con estimación).
+- Calorías: se compararon tres fórmulas. `0,045 × Δpasos + 379 × horas` → error mediano **12 %** (kcal/hora a secas 21 %, MET 7 × 85 kg 20 %). Validación hacia adelante (aprender del pasado, predecir el siguiente): 19 % con la fórmula simple. Confirmado → kcal MEDIDAS del día, acotadas a ±50 % de la fórmula y repartidas por duración si hay dos eventos.
+- **Hora del pico**: `health-ingest` guarda `hr_pico_desde/hasta` (segundos Unix) cuando el máximo del día sube de 150 entre dos envíos automáticos (`ventanaPico`, parse.js). El 29/09: 94 lpm a las 20:10 → 195 a las 00:41, franja que contiene el pádel de 20:30. Si el pico cayó a otra hora, no cuenta como señal.
+
+**Código**: `src/lib/deporteCalendario.js` (puro, 22 tests): detección por título + emoji con exclusiones medidas en el calendario real («Comidita CROSSFITEROS», «Cumple … Box», «Cotizar zapatillas de pádel», partidos de Mi Equipo con escudo); cada persona su deporte (`who`: person1/person2/together); sin doble conteo con los entrenos que sí registra el reloj (±60 min). Se suman a los entrenos del reloj en Salud: meta de ejercicio, simulación de la mascota (y «entrena contigo» a la hora del evento), «Último entreno», «Tus entrenos» (agrupado por deporte) y la sección nueva **Deporte del calendario**.
+
+**Datos**: (1) `active_energy` y `basal_energy_burned` estaban en **kJ** hasta el 22/09 (625 filas c/u): convertidas a kcal en la base (totales verificados) + `normalizarFila` al leer. (2) Pulso diario medio y máximo 2022–2026 (972 días) cargado desde el archivo: el importador antiguo lo descartaba.
+
+---
+
 ## [6.2.1] — 2026-09-29 · Nix con su capa de agua
 
 Capa translúcida del pecho hacia abajo, fuera del vaivén de Nix (él sube y baja, el agua queda a nivel), con dos crestas de ola SVG que corren a distinta velocidad (más rápida al nadar; tiles de 60/30 px para bucle sin salto) y una estela detrás según la dirección. Solo `transform`/`opacity`; quieta con «reducir movimiento». Sustituye al rectángulo eliminado en 6.2.0.

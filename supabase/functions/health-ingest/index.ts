@@ -24,7 +24,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 // Interpretación y limpieza: módulo puro compartido con los tests de la app.
-import { aplanarConAvisos, limpiar, aplanarEntrenos, sanearPayload, sinRecientes } from './parse.js';
+import { aplanarConAvisos, limpiar, aplanarEntrenos, sanearPayload, sinRecientes, ventanaPico } from './parse.js';
 
 const FN_VERSION = '2026-09-29a';
 
@@ -192,6 +192,19 @@ serve(async req => {
         day: f.day, metric: f.metric, value: f.value,
         unit: f.unit, source: f.source, updated_at: ahora,
       }));
+      // Franja del pico de pulso (solo envíos automáticos: una importación no
+      // sabe a qué hora pasó nada). Se lee el máximo guardado ANTES del upsert.
+      if (token) {
+        for (const f of filasLimpias.filter(x => x.metric === 'heart_rate_max')) {
+          const { data: previo } = await db.from('health_daily').select('value, updated_at')
+            .eq('user_id', tk.user_id).eq('day', f.day).eq('metric', 'heart_rate_max').maybeSingle();
+          const v = ventanaPico(previo, f.value, Date.now() / 1000);
+          if (!v) continue;
+          const base = { couple_id: tk.couple_id, user_id: tk.user_id, day: f.day, unit: 's', source: 'health-ingest', updated_at: ahora };
+          filas.push({ ...base, metric: 'hr_pico_hasta', value: v.hasta });
+          if (v.desde !== null) filas.push({ ...base, metric: 'hr_pico_desde', value: v.desde });
+        }
+      }
       for (let i = 0; i < filas.length; i += TANDA) {
         const { error } = await db.from('health_daily').upsert(
           filas.slice(i, i + TANDA),

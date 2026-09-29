@@ -58,13 +58,14 @@ export const SECCIONES = {
   metas:   "Metas de la semana",
   noche:   "Última noche",
   entreno: "Último entreno",
+  deporte: "Deporte del calendario",
   tipos:   "Tipos de entreno",
 };
 
 export const PANEL_DEFECTO = {
   tarjetas: ["sueno", "pulso", "pasos", "kcal"],
   dias: 7,
-  secciones: { metas: true, noche: true, entreno: true, tipos: true },
+  secciones: { metas: true, noche: true, entreno: true, deporte: true, tipos: true },
 };
 
 /** La configuración guardada es entrada NO fiable (sincronizada, editada, de otra versión): se sanea siempre. */

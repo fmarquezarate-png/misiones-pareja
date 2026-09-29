@@ -287,6 +287,29 @@ export function sinRecientes(filas, desdeDia) {
   return filas.filter(f => f.day < desdeDia);
 }
 
+// ── Cuándo fue el pico de pulso del día ─────────────────────────────────────
+// Health Auto Export manda el pulso del día ya resumido (mínimo, media, máximo):
+// la HORA se pierde. Pero cada envío automático trae el máximo ACUMULADO hasta
+// ese momento, así que si entre el envío anterior y este el máximo sube por
+// encima de PICO_UMBRAL, el pico ocurrió en esa franja. Medido el 29/09/2026:
+// 94 lpm a las 20:10 y 195 a las 00:41 → el pico cayó en el pádel de 20:30.
+// Se guarda como dos filas (`hr_pico_desde`/`hr_pico_hasta`, segundos Unix) que
+// la regla del deporte del calendario cruza con la hora del evento.
+export const PICO_UMBRAL = 150;
+
+/**
+ * @param {{value:number, updated_at:string}|null} previo  heart_rate_max guardado de ese día antes de este envío
+ * @param {number} nuevoMax  heart_rate_max que trae este envío
+ * @param {number} ahoraSeg  segundos Unix de este envío
+ * @returns {{desde:number|null, hasta:number}|null}  null = no hay pico nuevo que fechar
+ */
+export function ventanaPico(previo, nuevoMax, ahoraSeg) {
+  if (!Number.isFinite(nuevoMax) || nuevoMax < PICO_UMBRAL) return null;
+  if (previo && Number.isFinite(previo.value) && previo.value >= nuevoMax) return null;
+  const t = previo?.updated_at ? Date.parse(previo.updated_at) : NaN;
+  return { desde: Number.isFinite(t) ? Math.floor(t / 1000) : null, hasta: Math.floor(ahoraSeg) };
+}
+
 // ── Limpieza ────────────────────────────────────────────────────────────────
 export function limpiar(filas = []) {
   const acc = new Map();

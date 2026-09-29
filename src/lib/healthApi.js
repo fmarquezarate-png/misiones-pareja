@@ -68,7 +68,7 @@ export async function cargarSalud({ dias = 120, desde = null } = {}) {
           .order("name", { ascending: true })
           .range(a, b)), 30000, "health_workouts"),
     ]);
-    return { filas, entrenos, error: null };
+    return { filas: filas.map(normalizarFila), entrenos, error: null };
   } catch (e) {
     // "No existe la tabla" y "sin red" son cosas distintas y se dicen distinto.
     const msg = String(e?.message || e);
@@ -188,9 +188,21 @@ export function formatoValor(metric, value, unit) {
 // Pedir solo esas (y sin columnas que no usa) reduce la descarga a menos de
 // la mitad. Se carga bajo demanda, al pulsar el botón: no en cada apertura.
 
-export const METRICAS_MOTOR = [...new Set(
-  Object.values(METRICAS).flatMap(m => [m.metric, ...(m.alias || [])]).filter(m => !m.startsWith("__")),
-)];
+export const METRICAS_MOTOR = [...new Set([
+  ...Object.values(METRICAS).flatMap(m => [m.metric, ...(m.alias || [])]).filter(m => !m.startsWith("__")),
+  // Para confirmar el deporte del calendario (deporteCalendario.js).
+  "heart_rate_max", "hr_pico_desde", "hr_pico_hasta",
+])];
+
+// La energía llegó en kJ hasta el 22/09/2026 (se corrigió en la base el 30/09).
+// Por si vuelve a pasar: todo lo que se lee sale en kcal, para TODOS los lectores
+// (panel, detalle, Misi), no solo para el motor.
+export function normalizarFila(f) {
+  if ((f?.metric === "active_energy" || f?.metric === "basal_energy_burned") && String(f.unit || "").toLowerCase() === "kj" && Number.isFinite(f.value)) {
+    return { ...f, value: f.value / 4.184, unit: "kcal" };
+  }
+  return f;
+}
 
 export async function cargarHistorialMotor() {
   try {
@@ -211,7 +223,7 @@ export async function cargarHistorialMotor() {
           .order("name", { ascending: true })
           .range(a, b)), 60000, "entrenos"),
     ]);
-    return { filas, entrenos, error: null };
+    return { filas: filas.map(normalizarFila), entrenos, error: null };
   } catch (e) {
     return { filas: [], entrenos: [], error: String(e?.message || e) };
   }
@@ -255,12 +267,12 @@ export async function cargarMetricaCompleta(userId, metric) {
   try {
     const filas = await withTimeout(leerTodo((a, b) =>
       supabase.from("health_daily")
-        .select("day, metric, value")
+        .select("day, metric, value, unit")
         .eq("user_id", userId)
         .eq("metric", metric)
         .order("day", { ascending: true })
         .range(a, b)), 30000, "metrica_completa");
-    return { filas, error: null };
+    return { filas: filas.map(normalizarFila), error: null };
   } catch (e) {
     return { filas: [], error: String(e?.message || e) };
   }
