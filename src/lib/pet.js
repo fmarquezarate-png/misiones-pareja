@@ -277,12 +277,6 @@ export function puntosDelDia(puntuacion, P = PUNTOS, medibles = 2) {
   return pts;
 }
 
-export function etapaPorXp(xp) {
-  let i = 0;
-  for (let k = 0; k < ETAPAS.length; k++) if (xp >= ETAPAS[k].desde) i = k;
-  return i;
-}
-
 // Siguiente etapa con histéresis: subir al cruzar el umbral; bajar solo al
 // caer por debajo del 80 % del umbral de la etapa actual. Y una vez nacida,
 // la mascota NUNCA vuelve al huevo: desevolucionar es encogerse, no des-nacer.
@@ -305,7 +299,23 @@ export function siguienteEtapa(actual, xp) {
  *   historial: Array<{dia, puntuacion, xp, etapa}>
  * }}
  */
-export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], entrenos = [], hoy = isoDia(new Date()), reglas = REGLAS }) {
+/**
+ * Metas vigentes un día dado. `historial` = [{ desde: 'YYYY-MM-DD', metas }]:
+ * cambiar una meta hoy NO reescribe el pasado — cada día se juzga con las
+ * metas que había entonces (antes, subir la meta de pasos de golpe hacía que
+ * meses ya cerrados "fallaran" con efecto retroactivo y la mascota
+ * retrocediera por algo que no había pasado).
+ */
+export function metasEn(historial, dia, respaldo = METAS_POR_DEFECTO) {
+  if (!Array.isArray(historial) || !historial.length) return respaldo;
+  let vigente = null;
+  for (const h of historial) if (h?.desde <= dia && Array.isArray(h.metas) && (!vigente || h.desde >= vigente.desde)) vigente = h;
+  // Antes de la primera versión registrada rige la primera (no hay "sin metas").
+  return (vigente || [...historial].filter(h => Array.isArray(h?.metas)).sort((a, b) => (a.desde < b.desde ? -1 : 1))[0])?.metas || respaldo;
+}
+
+export function simular({ nacimiento, metas = METAS_POR_DEFECTO, metasHistorial = null, filas = [], entrenos = [], hoy = isoDia(new Date()), reglas = REGLAS }) {
+  const M = dia => (metasHistorial?.length ? metasEn(metasHistorial, dia, metas) : metas);
   const P = { ...PUNTOS, ...(reglas.puntos || {}) };
   const tope = reglas.tope ?? Infinity;
   // La vitalidad vive entre 0 y el tope. Sin techo, los puntos de sobra se
@@ -319,7 +329,7 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
 
   if (!nacimiento || nacimiento > hoy) {
     return { xp: 0, etapa: 0, etapaId: "huevo", nacida: false, progreso: 0, eventos, historial,
-      hoy: evaluarDia(hoy, porDia, metas), semana: evaluarSemana(lunesDe(hoy), porDia, metas, hoy),
+      hoy: evaluarDia(hoy, porDia, M(hoy)), semana: evaluarSemana(lunesDe(hoy), porDia, M(hoy), hoy),
       datosHoy: porDia.get(hoy) || {} };
   }
 
@@ -332,12 +342,12 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
 
   // Días CERRADOS: de nacimiento a ayer. Hoy aún está en juego y no se castiga.
   for (let dia = nacimiento; dia < hoy; dia = sumarDias(dia, 1)) {
-    const ev = evaluarDia(dia, porDia, metas);
+    const ev = evaluarDia(dia, porDia, M(dia));
     xp = acotar(xp + puntosDelDia(ev.puntuacion, P, ev.medibles));
 
     // El domingo cierra la semana: se liquidan las metas semanales.
     if (aFecha(dia).getDay() === 0) {
-      for (const s of evaluarSemana(lunesDe(dia), porDia, metas, null, nacimiento)) {
+      for (const s of evaluarSemana(lunesDe(dia), porDia, M(dia), null, nacimiento)) {
         if (s.sinDatos) continue;   // semana sin datos: neutra
         xp = acotar(xp + (s.cumplida ? P.semanaCumplida : P.semanaFallada));
       }
@@ -352,7 +362,7 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
   // la fracción baja — la mascota evolucionaba a las 8:00 y desevolucionaba a
   // las 11:00. Para hoy se cuenta lo cumplido sobre TODAS las metas diarias:
   // solo puede crecer a lo largo del día (los pasos no bajan).
-  const evHoy = evaluarDia(hoy, porDia, metas);
+  const evHoy = evaluarDia(hoy, porDia, M(hoy));
   const diariasHoy = evHoy.metas.length;
   const cumplidasHoy = evHoy.metas.filter(m => m.cumplida).length;
   const puntuacionHoy = diariasHoy && evHoy.medibles ? cumplidasHoy / diariasHoy : null;
@@ -370,63 +380,9 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
     xp, etapa, etapaId: ETAPAS[etapa].id, nacida: etapa > 0, progreso,
     eventos, historial,
     hoy: evHoy,
-    semana: evaluarSemana(lunesDe(hoy), porDia, metas, hoy, nacimiento),
+    semana: evaluarSemana(lunesDe(hoy), porDia, M(hoy), hoy, nacimiento),
     datosHoy: porDia.get(hoy) || {},
   };
-}
-
-// ── Ánimo ───────────────────────────────────────────────────────────────────
-// La etapa es a largo plazo; el ánimo es de HOY y cambia rápido. Cada ánimo
-// lleva su MOTIVO en castellano, para que la mascota no sea una caja negra:
-// "está cansada" sin decir por qué no ayuda a cambiar nada.
-export const ANIMOS = ["durmiendo", "entrenando", "celebrando", "feliz", "normal", "cansado", "triste"];
-
-/**
- * @param {ReturnType<typeof simular>} sim
- * @param {{ hora?: number, metas?: Array }} o
- * @returns {{ animo: string, motivo: string }}
- */
-export function animo(sim, { hora = new Date().getHours(), metas = METAS_POR_DEFECTO } = {}) {
-  if (hora >= 23 || hora < 7) return { animo: "durmiendo", motivo: "Es de noche. Shhh." };
-
-  const hoy = sim.hoy;
-  const crudo = sim.datosHoy || {};
-  const metaSueno = metas.find(m => m.tipo === "sueno" && m.periodo === "dia")?.objetivo ?? 7;
-  // Se lee del dato crudo: el sueño cuenta para el ánimo aunque no sea una meta.
-  const sueno = Number.isFinite(crudo.sleep_asleep) ? crudo.sleep_asleep : null;
-
-  // Cumplirlo TODO es el logro más grande del día y va primero. Si fuera
-  // detrás de "entrenando", con el ejercicio como meta nunca se celebraría:
-  // cumplir todas implica cumplir la de ejercicio, y esa ganaría siempre.
-  if (hoy.puntuacion === 1) return { animo: "celebrando", motivo: "¡Todas las metas de hoy cumplidas!" };
-
-  // Entrenando: hay un entreno registrado hoy, o ya cumplió los minutos.
-  const ej = hoy.metas.find(m => m.tipo === "ejercicio");
-  if (crudo.__workouts > 0) return { animo: "entrenando", motivo: crudo.__workouts === 1 ? "Hoy has entrenado." : `Hoy llevas ${crudo.__workouts} entrenos.` };
-  if (ej?.cumplida) return { animo: "entrenando", motivo: `Hoy ya llevas ${Math.round(ej.valor)} min de ejercicio.` };
-
-  if (sueno != null && sueno < metaSueno - 1) {
-    return { animo: "cansado", motivo: `Anoche dormiste ${sueno.toFixed(1).replace(".", ",")} h.` };
-  }
-
-  // Tristeza: tendencia de los últimos 3 días cerrados CON datos.
-  const recientes = sim.historial.slice(-3).filter(h => h.puntuacion != null);
-  if (recientes.length >= 2) {
-    const media = recientes.reduce((a, h) => a + h.puntuacion, 0) / recientes.length;
-    if (media < 0.34) return { animo: "triste", motivo: "Los últimos días han sido flojitos. Te echa de menos." };
-    if (media >= 0.67) return { animo: "feliz", motivo: "Llevas unos días muy buenos." };
-  }
-
-  if (hoy.puntuacion != null && hoy.puntuacion >= 0.5) return { animo: "feliz", motivo: "Vas bien hoy." };
-  return { animo: "normal", motivo: "Un día tranquilo." };
-}
-
-// Progreso del huevo → frame de la animación de eclosión (0..n-1). Las hojas
-// de sprites traen el huevo agrietándose poco a poco: cuanto más cerca de
-// nacer, más grietas.
-export function frameHuevo(sim, totalFrames = 16) {
-  if (sim.nacida) return totalFrames - 1;
-  return Math.min(totalFrames - 1, Math.floor(sim.progreso * totalFrames));
 }
 
 // ── La vida de la mascota, mes a mes ────────────────────────────────────────

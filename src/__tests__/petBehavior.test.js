@@ -186,6 +186,13 @@ describe("planificarPaseo (v3: tramos rectos, ciclos enteros, zancada real)", ()
       if (p.destino.y === p.desde.y && p.ms) expect(p.ciclos).toBeLessThanOrEqual(CICLOS.max);
     }
   });
+  it("con poca energía descansa más entre tramos; los tramos no cambian", () => {
+    const media = en => { let t = 0, n = 0; const rng = rngConSemilla(9);
+      for (let i = 0; i < 800; i++) { const p = planificarPaseo({ x: 0.5, y: 0.6 }, rng, caja, todas, 1, marcha, en); if (p.pausa.tipo === "quieto") { t += p.pausaMs; n++; } }
+      return t / n; };
+    expect(media(0.6)).toBeGreaterThan(media(1) * 1.8);
+    expect(media(1.1)).toBeLessThan(media(1));
+  });
   it("con otra etapa (zancada distinta) la velocidad cambia con ella", () => {
     const rng = rngConSemilla(3);
     const lenta = planificarPaseo({ x: 0.2, y: 0.5 }, rng, caja, todas, 1, { cicloMs: 1000, zancadaPx: 20 });
@@ -247,5 +254,28 @@ describe("elegirSprite: una sola decisión", () => {
   });
   it("libre y paseando: la animación del paseo", () => {
     expect(elegirSprite({ modo: "libre", caricia: null, animId: "caminar_derecha", anims }).id).toBe("caminar_derecha");
+  });
+});
+
+describe("horarioSueno: laborables y fines de semana no se mezclan", () => {
+  // 28/09/2026 es lunes. Noches (día en que despierta): laborables 07:00 (420), sábados/domingos 09:30 (570).
+  const noches = [];
+  const dia = n => { const d = new Date(2026, 8, 1 + n); return `2026-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  for (let n = 0; n < 27; n++) {
+    const d = dia(n), sem = new Date(2026, 8, 1 + n).getDay(), finde = sem === 0 || sem === 6;
+    noches.push({ day: d, metric: "sleep_asleep", value: 7 }, { day: d, metric: "wake_min", value: finde ? 570 : 420 }, { day: d, metric: "bed_min", value: finde ? -15 : -60 });
+  }
+  it("un lunes usa el despertar de los laborables", () => {
+    expect(horarioSueno(noches, "2026-09-28").despertarTipico).toBe(420);
+  });
+  it("un sábado usa el de los fines de semana", () => {
+    expect(horarioSueno(noches, "2026-09-26").despertarTipico).toBe(570);
+  });
+  it("la víspera de un sábado (viernes) se acuesta como se acuesta antes de un finde", () => {
+    expect(horarioSueno(noches, "2026-09-25").acostarseTipico).toBe(-15);
+  });
+  it("con pocas noches del tipo, cae a la mediana de todas (no se queda sin horario)", () => {
+    const pocas = noches.filter(f => f.day <= "2026-09-03");
+    expect(Number.isFinite(horarioSueno(pocas, "2026-09-05").despertarTipico)).toBe(true);
   });
 });

@@ -25,15 +25,22 @@ const media = xs => { const v = xs.filter(x => x != null); return v.length ? v.r
  * la variación. `mejorSi` dice qué dirección es buena (el pulso en reposo
  * mejora al BAJAR), para colorear la flecha con sentido.
  */
-export function kpi(filas, metric, hoy, { mejorSi = "sube" } = {}) {
-  const ultimos = serie(filas, metric, hoy, 7);
-  const previos = serie(filas, metric, sumarDias(hoy, -7), 7);
+export function kpi(filas, metric, hoy, { mejorSi = "sube", n = 7, cerrados = false } = {}) {
+  // `cerrados`: para lo que se ACUMULA durante el día (pasos, energía): hoy va
+  // por la mitad y meterlo en la media la hunde ("4.000 pasos de media" a las
+  // 10:00) y hace que la variación mienta. La media y la comparación se hacen
+  // sobre días cerrados; la gráfica sí incluye hoy y `hoyValor` lo da aparte.
+  const fin = cerrados ? sumarDias(hoy, -1) : hoy;
+  const grafica = serie(filas, metric, hoy, n);
+  const ultimos = cerrados ? serie(filas, metric, fin, n) : grafica;
+  const previos = serie(filas, metric, sumarDias(fin, -n), n);
   const actual = media(ultimos.map(d => d.valor));
   const antes = media(previos.map(d => d.valor));
   const delta = actual != null && antes != null ? actual - antes : null;
   const pct = delta != null && antes ? delta / antes : null;
   const bueno = delta == null || Math.abs(pct ?? 0) < 0.02 ? null : (mejorSi === "sube" ? delta > 0 : delta < 0);
-  return { serie: ultimos, actual, antes, delta, pct, bueno, diasConDato: ultimos.filter(d => d.valor != null).length };
+  return { serie: grafica, actual, antes, delta, pct, bueno, diasConDato: ultimos.filter(d => d.valor != null).length,
+    n, cerrados, hoyValor: cerrados ? (grafica[grafica.length - 1]?.valor ?? null) : null };
 }
 
 /**

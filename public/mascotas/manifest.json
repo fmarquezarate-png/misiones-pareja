@@ -75,7 +75,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "Broot_JrWalk.png",
-              "v": "3beec69f"
+              "v": "1af443b2"
             },
             "caminar_izquierda": {
               "src": "broot/jr/caminar_izquierda.webp",
@@ -83,7 +83,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "Broot_JrWalk.png",
-              "v": "32aa2a23"
+              "v": "20e05b56"
             },
             "caminar_frente": {
               "src": "broot/jr/caminar_frente.webp",
@@ -91,7 +91,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "Broot_JrWalk.png",
-              "v": "4a18804b"
+              "v": "beaf6789"
             },
             "caminar_atras": {
               "src": "broot/jr/caminar_atras.webp",
@@ -99,14 +99,14 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "Broot_JrWalk.png",
-              "v": "2fa48928"
+              "v": "6a826c2f"
             }
           },
           "escala": 1.0,
           "cuerpo": {
             "x0": 0.289,
             "y0": 0.406,
-            "x1": 0.727,
+            "x1": 0.719,
             "y1": 0.938
           },
           "portraitV": "0f47bea8",

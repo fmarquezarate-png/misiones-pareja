@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import MetricaDetalle from "./MetricaDetalle.jsx";
 import { kpi, metasSemana, repartoEntrenos, ultimaNoche } from "../lib/healthStats.js";
 import { METRICAS } from "../lib/pet.js";
+import { TARJETAS, sanearPanel, formatoDetalle } from "../lib/saludPanel.js";
 import { humanDate } from "../lib/dateLabel.js";
 
 const card = { background: "var(--t-card,#1d1733)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.16))", borderRadius: 16, padding: "12px 14px", minWidth: 0 };
@@ -50,13 +51,13 @@ function Barras({ serie, formato }) {
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
+      {serie.length <= 14 && <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
         {serie.map((d, i) => (
           <span key={d.dia} style={{ flex: 1, textAlign: "center", fontSize: 9, color: i === serie.length - 1 ? "var(--t-text,#f0e8ff)" : "var(--t-text-dim,#8f84ad)", fontWeight: i === serie.length - 1 ? 700 : 400 }}>
             {letraDe(d.dia)}
           </span>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -78,9 +79,9 @@ function Linea({ serie, formato }) {
         {ult.valor != null && <circle cx={x(serie.length - 1)} cy={y(ult.valor)} r="4" fill="var(--t-accent,#a78bfa)"
           stroke="var(--t-card,#1d1733)" strokeWidth="2" vectorEffect="non-scaling-stroke" />}
       </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+      {serie.length <= 14 && <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
         {serie.map((d, i) => <span key={d.dia} style={{ fontSize: 9, color: i === serie.length - 1 ? "var(--t-text,#f0e8ff)" : "var(--t-text-dim,#8f84ad)", fontWeight: i === serie.length - 1 ? 700 : 400 }}>{letraDe(d.dia)}</span>)}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -103,15 +104,16 @@ function Tile({ icono, nombre, k, formato, unidad, forma = "barras", formatoDelt
         {unidad && k.actual != null && <span style={{ fontSize: 11.5, color: "var(--t-text-muted,#b9b0d0)" }}>{unidad}</span>}
       </div>
       <div style={{ ...dim, marginBottom: 8, minHeight: 16 }}>
-        {k.delta == null ? `media de ${k.diasConDato} ${k.diasConDato === 1 ? "día" : "días"} con dato`
+        {k.delta == null ? `media de ${k.diasConDato} ${k.diasConDato === 1 ? "día" : "días"} con dato${k.cerrados ? " cerrados" : ""}`
           : (
             <span style={{ color: k.bueno == null ? "var(--t-text-muted,#b9b0d0)" : k.bueno ? BUENO : MALO, fontWeight: 600 }}>
               {k.delta > 0 ? "↑" : k.delta < 0 ? "↓" : "→"} {formatoDelta(Math.abs(k.delta))}
-              <span style={{ color: "var(--t-text-dim,#8f84ad)", fontWeight: 400 }}> vs. semana anterior</span>
+              <span style={{ color: "var(--t-text-dim,#8f84ad)", fontWeight: 400 }}> vs. {k.n === 7 ? "semana anterior" : `${k.n} días antes`}</span>
             </span>
           )}
       </div>
       <Grafica serie={k.serie} formato={v => `${formato(v)}${unidad ? " " + unidad : ""}`} />
+      {k.hoyValor != null && <div style={{ ...dim, marginTop: 4 }}>Hoy, por ahora: <b style={{ color: "var(--t-text,#f0e8ff)", fontWeight: 600 }}>{formato(k.hoyValor)}</b></div>}
     </div>
   );
 }
@@ -124,14 +126,14 @@ function Meter({ progreso, hecho }) {
   );
 }
 
-export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, personName, userId }) {
+export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, personName, userId, panel, puedePreguntar = true, onPersonalizar }) {
   const [abierta, setAbierta] = useState(null);
-  const k = useMemo(() => ({
-    sueno: kpi(filas, "sleep_asleep", hoy),
-    pulso: kpi(filas, "resting_heart_rate", hoy, { mejorSi: "baja" }),
-    pasos: kpi(filas, "step_count", hoy),
-    kcal: kpi(filas, "active_energy", hoy),
-  }), [filas, hoy]);
+  const cfg = useMemo(() => sanearPanel(panel), [panel]);
+  const metaDe = tipo => metas.find(m => m.tipo === tipo && m.periodo === "dia")?.objetivo ?? null;
+  const k = useMemo(() => Object.fromEntries(cfg.tarjetas.map(id => {
+    const t = TARJETAS[id];
+    return [id, kpi(filas, t.metric, hoy, { mejorSi: t.mejorSi || "sube", n: cfg.dias, cerrados: !!t.cerrados })];
+  })), [filas, hoy, cfg]);
   const semana = useMemo(() => metasSemana(filas, entrenos, metas, hoy), [filas, entrenos, metas, hoy]);
   const reparto = useMemo(() => repartoEntrenos(entrenos, hoy, 90), [entrenos, hoy]);
   const noche = useMemo(() => ultimaNoche(filas, hoy), [filas, hoy]);
@@ -140,23 +142,22 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
     ? [...reparto.tipos.slice(0, 4), { nombre: "Otros", n: reparto.tipos.slice(4).reduce((a, t) => a + t.n, 0) }]
     : reparto.tipos;
   const maxTipo = Math.max(1, ...tipos.map(t => t.n));
-  const metaDe = tipo => metas.find(m => m.tipo === tipo && m.periodo === "dia")?.objetivo ?? null;
-  // Las preguntas sugeridas se pueden responder con los datos que se envían.
-  const DEFS = {
-    sueno: { metric: "sleep_asleep", nombre: "Sueño", icono: "🌙", unidadLarga: "horas por noche", formato: hm, meta: metaDe("sueno"), mejorSi: "sube",
-      sugerencias: ["¿Duermo más los fines de semana?", "¿Mi sueño está mejorando?", "¿Qué noches fueron las peores?"] },
-    pulso: { metric: "resting_heart_rate", nombre: "Pulso en reposo", icono: "❤️", unidadLarga: "latidos por minuto", formato: v => `${Math.round(v)} lpm`, meta: null, mejorSi: "baja",
-      sugerencias: ["¿Mi pulso en reposo está bajando?", "¿Qué días lo tuve más alto?"] },
-    pasos: { metric: "step_count", nombre: "Pasos", icono: "👟", unidadLarga: "pasos al día", formato: miles, meta: metaDe("pasos"), mejorSi: "sube",
-      sugerencias: ["¿Qué día de la semana ando más?", "¿Cuántos días llegué a la meta?", "¿Voy mejorando?"] },
-    kcal: { metric: "active_energy", nombre: "Energía activa", icono: "🔥", unidadLarga: "kcal al día", formato: v => `${miles(v)} kcal`, meta: null, mejorSi: "sube",
-      sugerencias: ["¿Qué días me moví más?", "¿Estoy más activo que al principio?"] },
-  };
+  // Detalle de una tarjeta: sale del MISMO registro que la tarjeta (antes había una tabla aparte que se desincronizaba).
+  const defDe = id => { const t = TARJETAS[id]; return { metric: t.metric, nombre: t.nombre, icono: t.icono, unidadLarga: t.unidadLarga,
+    formato: formatoDetalle(id), meta: t.meta ? metaDe(t.meta) : null, mejorSi: t.mejorSi || "sube", sugerencias: t.sugerencias }; };
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
+      {onPersonalizar && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onPersonalizar} style={{ padding: "10px 14px", minHeight: 44, borderRadius: 99, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600,
+            color: "var(--t-accent,#c4b8ff)", background: "transparent", border: "1px solid var(--t-card-border,rgba(167,139,250,0.3))" }}>
+            <span aria-hidden>⚙️</span> Personalizar panel y metas
+          </button>
+        </div>
+      )}
       {/* Metas de la semana */}
-      <div style={card}>
+      {cfg.secciones.metas && <div style={card}>
         <div style={titulo}><span aria-hidden>🎯</span>Metas de la semana</div>
         {semana.map(m => {
           const meta = METRICAS[m.tipo];
@@ -182,19 +183,19 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
             </div>
           );
         })}
-      </div>
+      </div>}
 
-      {/* KPIs */}
+      {/* KPIs: las tarjetas que la persona ha elegido, en su orden */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-        <Tile icono="🌙" nombre="Sueño" k={k.sueno} formato={hm} formatoDelta={d => `${Math.round(d * 60)} min`} onAbrir={() => setAbierta("sueno")} />
-        <Tile icono="❤️" nombre="Pulso en reposo" k={k.pulso} formato={v => Math.round(v)} unidad="lpm" forma="linea" formatoDelta={d => `${Math.round(d)} lpm`} onAbrir={() => setAbierta("pulso")} />
-        <Tile icono="👟" nombre="Pasos" k={k.pasos} formato={miles} unidad="al día" formatoDelta={d => miles(d)} onAbrir={() => setAbierta("pasos")} />
-        <Tile icono="🔥" nombre="Energía activa" k={k.kcal} formato={miles} unidad="kcal/día" formatoDelta={d => `${miles(d)} kcal`} onAbrir={() => setAbierta("kcal")} />
+        {cfg.tarjetas.map(id => {
+          const t = TARJETAS[id];
+          return <Tile key={id} icono={t.icono} nombre={t.nombre} k={k[id]} formato={t.formato} unidad={t.unidad} forma={t.forma} formatoDelta={t.delta} onAbrir={() => setAbierta(id)} />;
+        })}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
         {/* Última noche */}
-        <div style={card}>
+        {cfg.secciones.noche && <div style={card}>
           <div style={titulo}><span aria-hidden>😴</span>Última noche</div>
           {!noche ? <div style={dim}>Aún no hay ninguna noche registrada.</div> : (
             <>
@@ -226,10 +227,10 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
               ) : <div style={{ ...dim, marginTop: 6 }}>Tu reloj no manda las fases del sueño (profundo, REM…), solo el total.</div>}
             </>
           )}
-        </div>
+        </div>}
 
         {/* Último entreno */}
-        <div style={card}>
+        {cfg.secciones.entreno && <div style={card}>
           <div style={titulo}><span aria-hidden>🏃</span>Último entreno</div>
           {!ultimo ? <div style={dim}>Aún no hay entrenos. Crea la automatización de Workouts en Health Auto Export.</div> : (
             <>
@@ -250,13 +251,13 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
               </div>
             </>
           )}
-        </div>
+        </div>}
       </div>
 
-      {abierta && <MetricaDetalle def={DEFS[abierta]} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} userId={userId} onCerrar={() => setAbierta(null)} />}
+      {abierta && <MetricaDetalle def={defDe(abierta)} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} userId={userId} puedePreguntar={puedePreguntar} onCerrar={() => setAbierta(null)} />}
 
       {/* Tipos de entreno */}
-      <div style={card}>
+      {cfg.secciones.tipos && <div style={card}>
         <div style={titulo}><span aria-hidden>📊</span>Tus entrenos · últimos 90 días</div>
         {!reparto.total ? <div style={dim}>Sin entrenos en los últimos 90 días.</div> : (
           <>
@@ -270,7 +271,7 @@ export default function SaludPanel({ filas, entrenos, metas, hoy, coupleId, pers
             ))}
           </>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

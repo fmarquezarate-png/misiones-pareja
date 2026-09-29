@@ -41,7 +41,7 @@ const ICONO = { despejado: "☀️", poco_nuboso: "🌤️", nuboso: "⛅", cubi
 // Estrellas fijas: posiciones deterministas (sin Math.random en el render).
 const ESTRELLAS = Array.from({ length: 16 }, (_, i) => ({ x: (i * 37 + 11) % 97, y: (i * 23 + 7) % 46, r: i % 3 === 0 ? 2 : 1.2 }));
 
-export default function Habitat({ userId, manifest, especie, etapa, horario, entrenos = [], nombre }) {
+export default function Habitat({ userId, manifest, especie, etapa, horario, entrenos = [], nombre, estado = null }) {
   const caja = useRef(null);
   const timers = useRef(new Set());
   const later = useCallback((fn, ms) => {
@@ -154,6 +154,9 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const util = { ancho: Math.max(1, ancho - cuerpoAncho - 2 * MARGEN), alto: Math.max(1, ALTO - MARGEN - (sueloPx + PISO_MIN)) };
   const utilRef = useRef(util);
   utilRef.current = util;
+  // El ritmo del día (sueño) se lee al planificar cada tramo: cambiarlo no reinicia el paseo.
+  const energiaRef = useRef(1);
+  energiaRef.current = estado?.energia ?? 1;
 
   // Dónde está DE VERDAD ahora (a mitad de un tramo, la transición lleva el
   // cuerpo entre dos puntos). Al interrumpir el paseo se re-ancla ahí: sin
@@ -182,7 +185,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
       return;
     }
     const paso = () => {
-      const plan = planificarPaseo(posRef.current, Math.random, utilRef.current, anims, dirRef.current, marcha);
+      const plan = planificarPaseo(posRef.current, Math.random, utilRef.current, anims, dirRef.current, marcha, energiaRef.current);
       dirRef.current = plan.dir;
       setAnimId(plan.anim);
       setQuieta(false);
@@ -237,7 +240,8 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
 
   return (
     <div>
-      <div ref={caja} onClick={tocar} role="button"
+      <div ref={caja} onClick={tocar} role="button" tabIndex={0}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tocar(); } }}
         aria-label={`${nombre || "Tu mascota"}: ${motivo} ${cl.texto}. Tócala para hacerle caso.`}
         style={{
           position: "relative", height: ALTO, borderRadius: 18, overflow: "hidden", cursor: "pointer",
@@ -294,6 +298,16 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
           transition: viaje ? `transform ${viaje}ms ${EASING}` : "transform 0.6s ease",
           willChange: "transform",
         }}>
+          {/* Aura de hoy: dorada con racha, verde con la meta de pasos. Solo opacidad. */}
+          {estado?.aura && !esHuevo && (
+            <span aria-hidden style={{
+              position: "absolute", left: centroX - cuerpoAncho * 0.9, width: cuerpoAncho * 1.8, top: pieY - (cuerpo.y1 - cuerpo.y0) * tam * 1.15,
+              height: (cuerpo.y1 - cuerpo.y0) * tam * 1.3, borderRadius: "50%", pointerEvents: "none",
+              background: `radial-gradient(closest-side, ${estado.aura === "racha" ? "rgba(255,196,64,0.55)" : "rgba(52,211,153,0.45)"}, transparent 72%)`,
+              animation: reducir ? undefined : "mpAura 3.2s ease-in-out infinite",
+              opacity: reducir ? 0.7 : undefined,
+            }} />
+          )}
           <div style={{ animation: agua ? "mpBob 2.6s ease-in-out infinite" : enPausa ? "mpRespira 2.8s ease-in-out infinite" : undefined, transformOrigin: "50% 100%" }}>
             <div key={caricia?.t || "quieta"} style={{ position: "relative", animation: caricia && !reducir ? (esHuevo ? "mpWiggle 0.5s ease 2" : "mpHop 0.55s ease-out 2") : undefined }}>
               <PetSprite anim={anim} size={tam} frame={congelado ? 0 : null}
@@ -313,6 +327,10 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
               )}
             </div>
           </div>
+          {/* Poca energía tras dormir poco: un zzz suave sobre la cabeza (transform/opacity). */}
+          {modo === "libre" && !esHuevo && estado?.sueno?.nivel === "corta" && !reducir && (
+            <span aria-hidden style={{ position: "absolute", left: centroX + cuerpoAncho * 0.25, top: cuerpo.y0 * tam - 6, fontSize: 15, fontWeight: 700, color: "#fff", pointerEvents: "none", animation: "mpZzz 3.4s ease-in-out infinite" }}>💤</span>
+          )}
           {corazones.map(id => (
             <span key={id} aria-hidden onAnimationEnd={() => setCorazones(c => c.filter(x => x !== id))}
               style={{ position: "absolute", left: centroX - 8, top: cuerpo.y0 * tam - 10, fontSize: 18, pointerEvents: "none", animation: "mpHeart 1.3s ease-out forwards" }}>
@@ -351,7 +369,8 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
       </div>
 
       <div style={{ fontSize: 12.5, color: "var(--t-text-muted,#b9b0d0)", marginTop: 8, lineHeight: 1.45, textAlign: "center" }}>
-        {esHuevo && modo === "libre" ? "Está calentita en su huevo. Cuida tus hábitos para que eclosione." : motivo}
+        {esHuevo && modo === "libre" ? "Está calentita en su huevo. Cuida tus hábitos para que eclosione."
+          : modo === "libre" && estado?.burbuja ? <><span aria-hidden>{estado.burbuja.icono} </span>{estado.burbuja.texto}</> : motivo}
       </div>
       {ubi.porDefecto && (
         <div style={{ textAlign: "center", marginTop: 6 }}>

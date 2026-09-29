@@ -21,12 +21,16 @@ from scipy import ndimage
 
 CELDA = 128
 MIN_LARGO = 24
+# En los ciclos de CAMINAR (sin efectos sueltos en el dibujo) también sobran los
+# restos más cortos: rayas de 1–2 px de ancho y >= 10 de alto (los bordes de
+# celda que quedaban tras la 1.ª pasada, vistos junto a Broot Jr al pasear).
+MIN_LARGO_CAMINAR, MAX_ANCHO_CAMINAR = 10, 2
 MIN_RELACION = 8
 DISTANCIA_MIN = 3
 SATURACION_MAX = 45     # las líneas de basura son grises/blancas; los efectos del dibujo (lágrimas azules…) son de color
 QUALITY, ALPHA_QUALITY = 84, 90      # algo por encima del de slice.py: es una 2.ª codificación
 
-def _lineas_del_fotograma(trozo):
+def _lineas_del_fotograma(trozo, caminar=False):
     """Devuelve la máscara (bool) de los píxeles a borrar en un fotograma RGBA."""
     alfa = trozo[:, :, 3]
     fuerte = alfa > 40
@@ -48,19 +52,22 @@ def _lineas_del_fotograma(trozo):
         largo, ancho = max(h, w), max(1, min(h, w))
         rgb = trozo[:, :, :3][comp].astype(int)
         saturacion = float((rgb.max(axis=1) - rgb.min(axis=1)).mean())
-        if largo >= MIN_LARGO and largo / ancho >= MIN_RELACION and dist[comp].min() >= DISTANCIA_MIN and saturacion <= SATURACION_MAX:
+        larga = largo >= MIN_LARGO and largo / ancho >= MIN_RELACION
+        raya = caminar and largo >= MIN_LARGO_CAMINAR and ancho <= MAX_ANCHO_CAMINAR
+        if (larga or raya) and dist[comp].min() >= DISTANCIA_MIN and saturacion <= SATURACION_MAX:
             borrar |= ndimage.binary_dilation(comp, iterations=2)
     borrar &= ~ndimage.binary_dilation(cuerpo, iterations=1)   # nunca tocar el cuerpo
     return borrar if borrar.any() else None
 
 def limpiar_tira(ruta, solo_medir=False):
     """Limpia una tira; devuelve cuántos fotogramas tenían líneas."""
+    caminar = Path(ruta).name.startswith("caminar_")
     im = Image.open(ruta).convert("RGBA")
     arr = np.array(im)
     tocados = 0
     for i in range(arr.shape[1] // CELDA):
         trozo = arr[:, i * CELDA:(i + 1) * CELDA]
-        borrar = _lineas_del_fotograma(trozo)
+        borrar = _lineas_del_fotograma(trozo, caminar)
         if borrar is not None:
             tocados += 1
             if not solo_medir:

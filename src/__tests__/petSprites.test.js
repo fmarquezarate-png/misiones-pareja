@@ -3,12 +3,13 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { elegirAnimacion, retrato, PREFERENCIAS } from "../lib/petSprites.js";
-import { ETAPAS, ANIMOS } from "../lib/pet.js";
+import { ETAPAS } from "../lib/pet.js";
 
 // Se prueba contra el manifest REAL: si alguien regenera los sprites y falta
 // una animación, esto lo dice antes de que la mascota salga en blanco.
 const raiz = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public", "mascotas");
 const manifest = JSON.parse(readFileSync(join(raiz, "manifest.json"), "utf8"));
+const ANIMOS = Object.keys(PREFERENCIAS);   // los ánimos que sabe pintar el catálogo de sprites
 const ESPECIES = Object.keys(manifest.pets);
 
 describe("manifest real", () => {

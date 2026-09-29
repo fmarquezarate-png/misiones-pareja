@@ -29,12 +29,22 @@ const mediana = xs => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+// Sábado y domingo se duermen a otras horas. Con la mediana de TODAS las
+// noches, un horario bimodal (07:00 entre semana, 09:30 el finde) daba una
+// hora intermedia que no era la de ningún día — la mascota se despertaba
+// "a deshoras" los dos tipos de día. Ahora se usa la mediana de los días del
+// MISMO tipo (laborable/finde) que el de hoy (para despertar) y el de mañana
+// (para acostarse: la noche que empieza esta tarde termina mañana).
+const esFinde = dia => { const d = new Date(+dia.slice(0, 4), +dia.slice(5, 7) - 1, +dia.slice(8, 10)).getDay(); return d === 0 || d === 6; };
+const diaSiguiente = dia => { const d = new Date(+dia.slice(0, 4), +dia.slice(5, 7) - 1, +dia.slice(8, 10) + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const MIN_DEL_TIPO = 5;   // noches del mismo tipo para fiarse; con menos, se usan todas
+
 /**
- * Horario de sueño típico (mediana de las últimas noches REALES) y la hora
- * de despertar de hoy si ya ha llegado.
+ * Horario de sueño típico (mediana de las últimas noches REALES, del mismo tipo
+ * de día) y la hora de despertar de hoy si ya ha llegado.
  * @param {Array<{day, metric, value}>} filas  de health_daily
  */
-export function horarioSueno(filas = [], hoy, { dias = 21 } = {}) {
+export function horarioSueno(filas = [], hoy, { dias = 42 } = {}) {
   const porDia = new Map();
   for (const f of filas) {
     if (!["wake_min", "bed_min", "sleep_asleep"].includes(f.metric)) continue;
@@ -47,10 +57,15 @@ export function horarioSueno(filas = [], hoy, { dias = 21 } = {}) {
     .filter(([d, v]) => d <= hoy && v.sleep_asleep >= 2 && Number.isFinite(v.wake_min))
     .sort(([a], [b]) => (a < b ? 1 : -1))
     .slice(0, dias);
+  const del = (tipoFinde, campo) => {
+    const propias = noches.filter(([d, v]) => esFinde(d) === tipoFinde && Number.isFinite(v[campo])).map(([, v]) => v[campo]);
+    const todas = noches.filter(([, v]) => Number.isFinite(v[campo])).map(([, v]) => v[campo]);
+    return mediana(propias.length >= MIN_DEL_TIPO ? propias : todas);
+  };
   const deHoy = porDia.get(hoy);
   return {
-    despertarTipico: mediana(noches.map(([, v]) => v.wake_min)) ?? DEFECTO.despertar,
-    acostarseTipico: mediana(noches.filter(([, v]) => Number.isFinite(v.bed_min)).map(([, v]) => v.bed_min)) ?? DEFECTO.acostarse,
+    despertarTipico: del(esFinde(hoy), "wake_min") ?? DEFECTO.despertar,
+    acostarseTipico: del(esFinde(diaSiguiente(hoy)), "bed_min") ?? DEFECTO.acostarse,
     despertarHoy: deHoy?.sleep_asleep >= 2 && Number.isFinite(deHoy.wake_min) ? deHoy.wake_min : null,
     noches: noches.length,
   };
@@ -133,9 +148,12 @@ export const MARCHA_POR_DEFECTO = { cicloMs: 800, zancadaPx: 30 };
 // "mucho rato celebrando y poco caminando" — medido, hay test).
 const PROB = { quedarse: 0.05, profundidad: 0.12, seguir: 0.75, celebrar: 0.12 };
 
-function pausa(rng, anims) {
-  if (anims.has("feliz") && rng() < PROB.celebrar) return { tipo: "feliz", ms: 2200 + rng() * 800 };
-  return { tipo: "quieto", ms: 500 + rng() * 1000 };
+// `energia` (0,6–1,1, de petEstado.js): con poca energía descansa más entre
+// tramos y celebra menos; con mucha, casi no para. Se nota en el ritmo, no en el ánimo.
+function pausa(rng, anims, energia = 1) {
+  const e = Math.min(1.1, Math.max(0.5, energia));
+  if (anims.has("feliz") && rng() < PROB.celebrar * Math.min(1, e)) return { tipo: "feliz", ms: 2200 + rng() * 800 };
+  return { tipo: "quieto", ms: Math.round((500 + rng() * 1000) / (e * e)) };
 }
 
 /**
@@ -157,13 +175,14 @@ export function marchaDe(etapaDef, tam) {
  * @param {Set<string>} anims   animaciones disponibles en esta etapa
  * @param {number} dir   dirección horizontal que llevaba: 1 derecha, -1 izquierda
  * @param {{cicloMs:number, zancadaPx:number}} marcha
+ * @param {number} energia   ritmo del día (petEstado.energia); 1 = normal
  * @returns {{ destino:{x,y}, anim:string, ms:number, ciclos:number, pausa:{tipo:'quieto'|'feliz', ms:number}, pausaMs:number, dir:number }}
  */
-export function planificarPaseo(pos, rng, caja, anims, dir = 1, marcha = MARCHA_POR_DEFECTO) {
+export function planificarPaseo(pos, rng, caja, anims, dir = 1, marcha = MARCHA_POR_DEFECTO, energia = 1) {
   const idle = anims.has("feliz") ? "feliz" : [...anims][0];
   const tiene = a => (anims.has(a) ? a : idle);
   const { cicloMs, zancadaPx } = marcha;
-  const conPausa = o => { const p = pausa(rng, anims); return { ciclos: 0, ...o, pausa: p, pausaMs: p.ms }; };
+  const conPausa = o => { const p = pausa(rng, anims, energia); return { ciclos: 0, ...o, pausa: p, pausaMs: p.ms }; };
   // Ciclos completos que caben en `espacioPx` (el destino siempre cae en una zancada exacta).
   const caben = espacioPx => Math.floor(espacioPx / zancadaPx + 1e-9);
   const r = rng();
