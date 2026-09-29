@@ -61,7 +61,7 @@
          (steps jump-none: cada fotograma el mismo tiempo, del primero al último).
          Solo transform/opacity — nada de background-position, que repinta.
          Con reducir-movimiento, el reset global la deja en su último fotograma. */
-      @keyframes mpSprite { from { transform: translateX(0); } to { transform: translateX(var(--mp-tx)); } }
+      @keyframes mpSprite { from { transform: translateX(var(--mp-tx0, 0px)); } to { transform: translateX(var(--mp-tx)); } }
       @keyframes mpWiggle { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-9deg); } 75% { transform: rotate(9deg); } }
       @keyframes mpHop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-22px); } 70% { transform: translateY(0); } 85% { transform: translateY(-6px); } }
       /* Hábitat: todo en bucle anima solo transform/opacity. Con reducir-
@@ -70,6 +70,9 @@
       @keyframes mpRespira { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.03); } }
       @keyframes mpAura { 0%,100% { opacity: 0.45; } 50% { opacity: 0.95; } }
       @keyframes mpZzz { 0% { transform: translate(0,0); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(10px,-22px); opacity: 0; } }
+      @keyframes mpCruza { from { transform: translateX(var(--x0)); } to { transform: translateX(var(--x1)); } }
+      @keyframes mpAletea { from { transform: translateY(-7px); } to { transform: translateY(7px); } }
+      @keyframes mpAlas { from { transform: scaleY(1); } to { transform: scaleY(0.72); } }
       @keyframes mpBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
       @keyframes mpNube { from { transform: translateX(-140px); } to { transform: translateX(560px); } }
       @keyframes mpLluvia { from { transform: translateY(-50%); } to { transform: translateY(0); } }

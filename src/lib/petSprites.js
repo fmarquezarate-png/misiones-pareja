@@ -75,6 +75,18 @@ export function precargarEtapa(etapaDef) {
   }
 }
 
+// ── Fondos del hábitat ──────────────────────────────────────────────────────
+// Un panorama por especie (public/mascotas/fondos/). `horizonte` = fracción de
+// la altura donde acaba el cielo y empieza el suelo/agua en la imagen; `fade` =
+// px (sobre 260 de alto) entre los que el borde superior se funde con el cielo
+// DINÁMICO (sol real, nubes, estrellas y tiempo se pintan detrás). Subir `v`
+// al cambiar el archivo (el SW sirve /mascotas con CacheFirst).
+export const FONDOS = {
+  nix:   { src: "fondos/nix.webp",   v: "1", horizonte: 0.38, fade: [58, 90] },
+  broot: { src: "fondos/broot.webp", v: "1", horizonte: 0.5,  fade: [44, 84] },
+};
+export const fondoDe = especie => FONDOS[especie] || null;
+
 // ── Carga del manifest ──────────────────────────────────────────────────────
 // Antes: fetch sin tiempo límite dentro de un Promise.all con los datos. Un
 // cuelgue de WKWebView (regla de red de CLAUDE.md §5) dejaba "Despertando a tu

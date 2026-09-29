@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
-import { spriteUrl, urlRetrato } from "../lib/petSprites.js";
+import { spriteUrl, urlRetrato, FONDOS } from "../lib/petSprites.js";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public", "mascotas");
 const manifest = JSON.parse(readFileSync(join(RAIZ, "manifest.json"), "utf8"));
@@ -75,7 +75,8 @@ describe("archivos WebP reales", () => {
     }
   }
   it("no hay archivos en disco que el manifest no conozca", () => {
-    const enDisco = archivosWebP(RAIZ).map(p => relative(RAIZ, p).split("\\").join("/"));
+    // fondos/ y fauna/ no son sprites del manifest: los comprueban FONDOS y petAmbiente.
+    const enDisco = archivosWebP(RAIZ).map(p => relative(RAIZ, p).split("\\").join("/")).filter(f => !/^(fondos|fauna)\//.test(f));
     expect(enDisco.filter(f => !referenciados.has(f))).toEqual([]);
   });
   it("ningún archivo de documentación se publica dentro de public/mascotas", () => {
@@ -97,5 +98,32 @@ describe("URLs versionadas", () => {
     const st = manifest.pets.nix.stages.jr;
     expect(urlRetrato(manifest, "nix", "jr")).toBe(`/mascotas/${st.portrait}?v=${st.portraitV}`);
     expect(urlRetrato(manifest, "dragon", "jr")).toBeNull();
+  });
+});
+
+describe("bucles: solo se repite la parte que no cuenta una historia", () => {
+  const anims = Object.entries(manifest.pets).flatMap(([p, pd]) => Object.entries(pd.stages).flatMap(([s, sd]) => Object.entries(sd.anims).map(([a, ad]) => [`${p}/${s}/${a}`, ad])));
+  it("el rango cabe en la tira y deja al menos 5 fotogramas", () => {
+    for (const [nombre, a] of anims) {
+      if (!a.bucle) continue;
+      expect(a.bucle[0], nombre).toBeGreaterThanOrEqual(0);
+      expect(a.bucle[1], nombre).toBeLessThan(a.frames);
+      expect(a.bucle[1] - a.bucle[0] + 1, nombre).toBeGreaterThanOrEqual(5);
+    }
+  });
+  it("todo dormir que empieza despierto tiene su bucle", () => {
+    for (const [nombre, a] of anims) if (/\/dormir$/.test(nombre) && a.frames >= 18) expect(a.bucle, nombre).toBeTruthy();
+  });
+});
+
+describe("fondos del hábitat", () => {
+  it("cada especie del manifest tiene su panorama y existe el archivo", () => {
+    for (const e of Object.keys(manifest.pets)) {
+      expect(FONDOS[e], e).toBeTruthy();
+      expect(existsSync(join(RAIZ, FONDOS[e].src)), e).toBe(true);
+      expect(FONDOS[e].horizonte).toBeGreaterThan(0.2);
+      expect(FONDOS[e].horizonte).toBeLessThan(0.7);
+      expect(FONDOS[e].fade[0]).toBeLessThan(FONDOS[e].fade[1]);
+    }
   });
 });

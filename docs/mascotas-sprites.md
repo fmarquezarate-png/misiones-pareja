@@ -41,3 +41,11 @@ que el manifest no conoce, o si vuelve a aparecer una línea suelta en un fotogr
 - El suelo (pies) siempre a la misma altura en todos los fotogramas de una etapa.
 - Sin texto, números de fotograma, paletas ni marcos.
 - `dormir` debe ser un **bucle de dormido** (respirando), no «acostarse → dormir → despertarse».
+
+## Limpieza, bucles, fondos y fauna (v6.1.0)
+
+- **`limpiar.py`** (se ejecuta tras `slice.py`, antes de `escala.py`): quita rayas sueltas del recorte y **restos del fondo blanco** de las hojas (píxeles casi blancos y sin color conectados al exterior; sobre el agua se veían como una mancha blanca alrededor de Nix). Lo blanco encerrado por el cuerpo no se toca. Ejecutarlo UNA vez sobre la salida de `slice.py`: cada pasada recomprime el WebP.
+- **Bucles** (`BUCLES` en `escala.py` → `bucle: [primero, último]` en el manifest): `dormir` cuenta una historia (despierta → se tumba → duerme → a veces despierta). `PetSprite` repite solo el tramo de sueño; la tira no se recorta.
+- **Fondos** (`public/mascotas/fondos/{nix,broot}.webp`, registro `FONDOS` en `petSprites.js`): panorama por especie; el cielo dinámico (sol real, estrellas, tiempo) va detrás, fundido por el borde superior. Al cambiar un archivo, subir su `v`.
+- **Fauna** (`public/mascotas/fauna/*.webp`, registro `FAUNA` en `petAmbiente.js`): mariposas, abeja y pájaros (Broot), gaviotas (Nix), recortados de las hojas de entorno. Cruzan de día y con buen tiempo, máximo dos a la vez.
+- Las hojas originales de entorno (pájaros, peces, cangrejos, árboles, flores, lluvia…) traen más piezas sin usar: cangrejos y peces del mar, arbustos, setas y árboles del prado. Siguiente paso posible.

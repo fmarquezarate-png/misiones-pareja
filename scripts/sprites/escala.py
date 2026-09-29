@@ -27,6 +27,24 @@ RAIZ_DEFECTO = Path(__file__).resolve().parents[2] / "public" / "mascotas"
 OBJETIVO = {"huevo": 0.9, "jr": 1.0, "pro": 1.15, "prime": 1.3, "upf": 1.45}
 CELDA = 128
 
+# BUCLES: rango de fotogramas [primero, último] (inclusive) que se repite en las
+# animaciones que en la hoja original CUENTAN UNA HISTORIA: dormir empieza con la
+# mascota despierta, se tumba, duerme y (en Nix Jr/Pro) vuelve a despertarse. En
+# bucle cada pocos segundos, se veía acostarse y despertar sin parar. La tira
+# NO se recorta (regenerable, sin pérdida): el manifest guarda el rango y
+# PetSprite solo reproduce esa parte. Elegido mirando cada tira fotograma a
+# fotograma (auditoría 29/09/2026); `mascotasAssets.test.js` comprueba que
+# el rango cabe en la tira.
+BUCLES = {
+    ("broot", "jr", "dormir"): (4, 17),
+    ("broot", "pro", "dormir"): (4, 19),
+    ("broot", "prime", "dormir"): (4, 17),
+    ("broot", "upf", "dormir"): (4, 19),
+    ("nix", "jr", "dormir"): (7, 15),
+    ("nix", "pro", "dormir"): (3, 15),
+    ("nix", "prime", "dormir"): (3, 23),
+}
+
 def _cajas(raiz, anim):
     im = Image.open(raiz / anim["src"]).convert("RGBA")
     for i in range(anim["frames"]):
@@ -60,8 +78,13 @@ def postprocesar(raiz=RAIZ_DEFECTO, verbose=True):
             sd["cuerpoPx"] = round(tam[st], 1)      # cuerpo medido en el lienzo de 128 px
             sd["escala"] = round(OBJETIVO[st] * tam["jr"] / tam[st], 3)
             sd["cuerpo"] = caja_cuerpo(raiz, sd["anims"])
-            for a in sd["anims"].values():
+            for aid, a in sd["anims"].items():
                 a["v"] = hash_archivo(raiz / a["src"])
+                rango = BUCLES.get((pet, st, aid))
+                if rango:
+                    a["bucle"] = list(rango)
+                else:
+                    a.pop("bucle", None)
             sd["portraitV"] = hash_archivo(raiz / sd["portrait"])
             if verbose:
                 c = sd["cuerpo"]

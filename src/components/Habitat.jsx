@@ -18,7 +18,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PetSprite from "./PetSprite.jsx";
-import { elegirAnimacion, precargarEtapa } from "../lib/petSprites.js";
+import VidaAmbiente from "./VidaAmbiente.jsx";
+import { permitido } from "../lib/petAmbiente.js";
+import { elegirAnimacion, precargarEtapa, fondoDe, spriteUrl } from "../lib/petSprites.js";
 import { decidirModo, planificarPaseo, animCaricia, marchaDe, elegirSprite } from "../lib/petBehavior.js";
 import { sol, fase as faseDe, clima as climaDe, paleta, discoSol } from "../lib/cielo.js";
 import { ubicacion, pedirUbicacion, tiempoActual } from "../lib/tiempo.js";
@@ -26,7 +28,7 @@ import { prefersReducedMotion } from "../utils.js";
 
 const TAM_BASE = 104;       // px de un sprite a escala 1
 const ALTO = 260;
-const SUELO = 0.56;         // dónde empieza el suelo / el agua (fracción del alto)
+const SUELO_POR_DEFECTO = 0.56;   // dónde empieza el suelo / el agua (fracción del alto) si no hay panorama
 const MARGEN = 6;           // px entre el cuerpo y las paredes
 const PISO_MIN = 12;        // px bajo el horizonte donde pisa lo más lejano
 const ESCALA_FONDO = 0.9;   // profundidad: lo lejano se ve un 10 % más pequeño
@@ -79,6 +81,8 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const cuerpo = etapaDef?.cuerpo || { x0: 0.1, x1: 0.9, y0: 0.3, y1: 0.95 };
   const esHuevo = etapa === "huevo";
   const agua = especie === "nix";
+  const fondo = fondoDe(especie);
+  const SUELO = fondo ? fondo.horizonte : SUELO_POR_DEFECTO;
   const reducir = prefersReducedMotion();
   const marcha = useMemo(() => marchaDe(etapaDef, tam), [etapaDef, tam]);
   useEffect(() => { precargarEtapa(etapaDef); }, [etapaDef]);
@@ -266,8 +270,8 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
         )}
         {noche && !cl.gris && <span aria-hidden style={{ position: "absolute", top: 16, right: 22, fontSize: 22 }}>🌙</span>}
 
-        {/* Nubes: derivan despacio; con reducir-movimiento se quedan quietas y visibles */}
-        {Array.from({ length: cl.nubes }, (_, i) => (
+        {/* Nubes: derivan despacio (con panorama, el cielo despejado ya trae las suyas y solo se dibujan las del tiempo cubierto); con reducir-movimiento se quedan quietas y visibles */}
+        {Array.from({ length: fondo && !cl.gris ? 0 : cl.nubes }, (_, i) => (
           <span key={i} aria-hidden style={{
             position: "absolute", left: `${10 + i * 28}%`, top: `${8 + (i % 2) * 12}%`, width: 96, height: 44,
             opacity: noche ? 0.35 : cl.gris ? 0.9 : 0.8,
@@ -282,8 +286,21 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
           }} />
         ))}
 
-        {/* Agua: ondas en la superficie */}
-        {agua && [0, 1, 2].map(i => (
+        {/* Panorama de la especie: suelo/agua real, fundido por arriba con el cielo dinámico */}
+        {fondo && (
+          <div aria-hidden style={{
+            position: "absolute", inset: 0, pointerEvents: "none",
+            backgroundImage: `url(${spriteUrl(fondo.src, fondo.v)})`, backgroundSize: "cover", backgroundPosition: "center bottom",
+            WebkitMaskImage: `linear-gradient(to bottom, transparent ${fondo.fade[0]}px, #000 ${fondo.fade[1]}px)`,
+            maskImage: `linear-gradient(to bottom, transparent ${fondo.fade[0]}px, #000 ${fondo.fade[1]}px)`,
+          }} />
+        )}
+
+        {/* Visitantes: mariposas y pájaros (Broot), gaviotas (Nix). Solo de día y con buen tiempo. */}
+        <VidaAmbiente especie={especie} ancho={ancho} alto={ALTO} activo={!!fondo && permitido({ fase: f.id, clima: cl, visible, reducir })} />
+
+        {/* Agua: ondas en la superficie (solo sin panorama: el panorama ya trae las suyas) */}
+        {agua && !fondo && [0, 1, 2].map(i => (
           <span key={i} aria-hidden style={{
             position: "absolute", left: `${8 + i * 31}%`, top: sueloPx + 14 + i * 22, width: 60, height: 2, borderRadius: 2,
             background: "#fff", animation: `mpOnda ${3 + i}s ease-in-out ${i * 0.8}s infinite`, opacity: 0.2,
@@ -321,7 +338,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
                   position: "absolute",
                   left: Math.round((cuerpo.x0 - 0.05) * tam), width: Math.round((cuerpo.x1 - cuerpo.x0 + 0.1) * tam),
                   top: Math.round((cuerpo.y0 + (cuerpo.y1 - cuerpo.y0) * 0.55) * tam), bottom: 0,
-                  background: `linear-gradient(180deg, ${pal.suelo}55 0%, ${pal.suelo}dd 45%, ${pal.suelo} 100%)`,
+                  background: fondo ? "linear-gradient(180deg, rgba(40,150,205,0.16) 0%, rgba(30,120,185,0.34) 100%)" : `linear-gradient(180deg, ${pal.suelo}55 0%, ${pal.suelo}dd 45%, ${pal.suelo} 100%)`,
                   borderTop: "2px solid rgba(255,255,255,0.35)", borderRadius: "40% 40% 0 0 / 12px 12px 0 0",
                 }} />
               )}
@@ -354,7 +371,9 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
         {cl.niebla && <div aria-hidden style={{ position: "absolute", inset: 0, background: "rgba(225,228,236,0.38)", pointerEvents: "none" }} />}
         {cl.tormenta && <div aria-hidden style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0, animation: "mpRayo 9s linear infinite", pointerEvents: "none" }} />}
         {/* La noche también oscurece a la mascota: está en la misma luz */}
-        {(noche || f.id === "crepusculo") && <div aria-hidden style={{ position: "absolute", inset: 0, background: "#070a24", opacity: noche ? 0.28 : 0.14, pointerEvents: "none" }} />}
+        {(noche || f.id === "crepusculo") && <div aria-hidden style={{ position: "absolute", inset: 0, background: "#070a24", opacity: noche ? (fondo ? 0.55 : 0.28) : (fondo ? 0.26 : 0.14), pointerEvents: "none", transition: "opacity 1.5s ease" }} />}
+        {/* Cielo cubierto / tormenta: el panorama es de día despejado, se apaga con un velo gris */}
+        {fondo && cl.gris && !noche && <div aria-hidden style={{ position: "absolute", inset: 0, background: cl.tormenta ? "rgba(40,48,66,0.5)" : "rgba(96,108,124,0.34)", pointerEvents: "none" }} />}
 
         {/* Procedencia del cielo: dónde y qué tiempo, o que no hay datos */}
         <span style={{

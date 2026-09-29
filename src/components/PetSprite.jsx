@@ -16,7 +16,12 @@ import { spriteUrl } from "../lib/petSprites.js";
 export default function PetSprite({ anim, size = 112, onFin, style, frame = null }) {
   if (!anim) return null;
   const n = Math.max(1, anim.frames);
-  const dur = n / Math.max(1, anim.fps || 8);
+  // `bucle` [primero, último]: solo esa parte se repite (dormir sin volver a
+  // despertarse a cada vuelta). La tira sigue entera.
+  const ini = Array.isArray(anim.bucle) ? Math.max(0, Math.min(n - 1, anim.bucle[0])) : 0;
+  const fin = Array.isArray(anim.bucle) ? Math.max(ini, Math.min(n - 1, anim.bucle[1])) : n - 1;
+  const nb = fin - ini + 1;
+  const dur = nb / Math.max(1, anim.fps || 8);
   const bucle = anim.loop !== false && !onFin;
   return (
     <div style={{ width: size, height: size, overflow: "hidden", position: "relative", ...style }}>
@@ -29,9 +34,9 @@ export default function PetSprite({ anim, size = 112, onFin, style, frame = null
         onAnimationEnd={onFin}
         style={{
           display: "block", height: size, width: size * n, maxWidth: "none",
-          "--mp-tx": `${-size * (n - 1)}px`,
-          transform: frame != null ? `translateX(${-size * Math.min(frame, n - 1)}px)` : undefined,
-          animation: frame == null && n > 1 ? `mpSprite ${dur}s steps(${n}, jump-none) ${bucle ? "infinite" : "1 forwards"}` : undefined,
+          "--mp-tx0": `${-size * ini}px`, "--mp-tx": `${-size * fin}px`,
+          transform: frame != null ? `translateX(${-size * Math.min(frame, n - 1)}px)` : nb === 1 ? `translateX(${-size * ini}px)` : undefined,
+          animation: frame == null && nb > 1 ? `mpSprite ${dur}s steps(${nb}, jump-none) ${bucle ? "infinite" : "1 forwards"}` : undefined,
           pointerEvents: "none",
         }}
       />

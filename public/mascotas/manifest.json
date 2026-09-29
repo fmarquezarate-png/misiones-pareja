@@ -43,7 +43,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "Broot_JrStates.png",
-              "v": "2a87ec70"
+              "v": "e6c7bb13",
+              "bucle": [
+                4,
+                17
+              ]
             },
             "entrenar": {
               "src": "broot/jr/entrenar.webp",
@@ -51,7 +55,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "Broot_JrStates.png",
-              "v": "817bf766"
+              "v": "de9414be"
             },
             "feliz": {
               "src": "broot/jr/feliz.webp",
@@ -59,7 +63,7 @@
               "fps": 8,
               "loop": true,
               "sourceSheet": "Broot_JrStates.png",
-              "v": "9602cede"
+              "v": "fb2a8df5"
             },
             "triste": {
               "src": "broot/jr/triste.webp",
@@ -121,7 +125,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "Broot_ProStates.png",
-              "v": "05041ccd"
+              "v": "05041ccd",
+              "bucle": [
+                4,
+                19
+              ]
             },
             "entrenar": {
               "src": "broot/pro/entrenar.webp",
@@ -199,7 +207,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "Broot_PrimeStates.png",
-              "v": "b650838f"
+              "v": "1c3f800b",
+              "bucle": [
+                4,
+                17
+              ]
             },
             "entrenar": {
               "src": "broot/prime/entrenar.webp",
@@ -277,7 +289,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "BRoot_UPFStates.png",
-              "v": "3a010348"
+              "v": "8aee3e6b",
+              "bucle": [
+                4,
+                19
+              ]
             },
             "entrenar": {
               "src": "broot/upf/entrenar.webp",
@@ -293,7 +309,7 @@
               "fps": 8,
               "loop": true,
               "sourceSheet": "BRoot_UPFStates.png",
-              "v": "9fc0442d"
+              "v": "ec0d1d19"
             },
             "triste": {
               "src": "broot/upf/triste.webp",
@@ -301,7 +317,7 @@
               "fps": 6,
               "loop": true,
               "sourceSheet": "BRoot_UPFStates.png",
-              "v": "a855c209"
+              "v": "a0116070"
             },
             "caminar_derecha": {
               "src": "broot/upf/caminar_derecha.webp",
@@ -382,7 +398,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixEgg_NixJr.png",
-              "v": "ef1e399e"
+              "v": "dd9e7bb7"
             },
             "caminar_izquierda": {
               "src": "nix/jr/caminar_izquierda.webp",
@@ -398,7 +414,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixEgg_NixJr.png",
-              "v": "1c2ef028"
+              "v": "c4eb37f6"
             },
             "caminar_atras": {
               "src": "nix/jr/caminar_atras.webp",
@@ -422,7 +438,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixJr_HappySad.png",
-              "v": "b0df4706"
+              "v": "b79be477"
             },
             "celebracion": {
               "src": "nix/jr/celebracion.webp",
@@ -438,7 +454,7 @@
               "fps": 6,
               "loop": true,
               "sourceSheet": "NixJr_HappySad.png",
-              "v": "72643c39"
+              "v": "b727f390"
             },
             "llorar": {
               "src": "nix/jr/llorar.webp",
@@ -446,7 +462,7 @@
               "fps": 8,
               "loop": true,
               "sourceSheet": "NixJr_HappySad.png",
-              "v": "2be66fe6"
+              "v": "94290fcf"
             },
             "cansado": {
               "src": "nix/jr/cansado.webp",
@@ -462,7 +478,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "NixJr_SleepTrain.png",
-              "v": "5f4e6f67"
+              "v": "5f4e6f67",
+              "bucle": [
+                7,
+                15
+              ]
             },
             "entrenar": {
               "src": "nix/jr/entrenar.webp",
@@ -470,7 +490,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixJr_SleepTrain.png",
-              "v": "c6ddf234"
+              "v": "66be039a"
             }
           },
           "escala": 1.0,
@@ -478,7 +498,7 @@
             "x0": 0.164,
             "y0": 0.312,
             "x1": 0.875,
-            "y1": 0.891
+            "y1": 0.883
           },
           "portraitV": "bb411c19",
           "cuerpoPx": 79.3
@@ -492,7 +512,7 @@
               "fps": 8,
               "loop": true,
               "sourceSheet": "NixPro_HappySad.png",
-              "v": "3c197102"
+              "v": "85451541"
             },
             "triste": {
               "src": "nix/pro/triste.webp",
@@ -500,7 +520,7 @@
               "fps": 6,
               "loop": true,
               "sourceSheet": "NixPro_HappySad.png",
-              "v": "1c5ad113"
+              "v": "9693c645"
             },
             "dormir": {
               "src": "nix/pro/dormir.webp",
@@ -508,7 +528,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "NixPro_SleepTrain.png",
-              "v": "efc6d2a6"
+              "v": "5557a00d",
+              "bucle": [
+                3,
+                15
+              ]
             },
             "entrenar": {
               "src": "nix/pro/entrenar.webp",
@@ -516,7 +540,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPro_SleepTrain.png",
-              "v": "d8e594d2"
+              "v": "0e1f76db"
             },
             "caminar_derecha": {
               "src": "nix/pro/caminar_derecha.webp",
@@ -532,7 +556,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPro_Walktrhough.png",
-              "v": "5f594113"
+              "v": "2ef950ac"
             },
             "caminar_atras": {
               "src": "nix/pro/caminar_atras.webp",
@@ -548,7 +572,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPro_Walktrhough.png",
-              "v": "697ea1fe"
+              "v": "6957db46"
             }
           },
           "escala": 1.093,
@@ -570,7 +594,7 @@
               "fps": 8,
               "loop": true,
               "sourceSheet": "NixPrime_HappySad.png",
-              "v": "81084e50"
+              "v": "3b76e319"
             },
             "triste": {
               "src": "nix/prime/triste.webp",
@@ -578,7 +602,7 @@
               "fps": 6,
               "loop": true,
               "sourceSheet": "NixPrime_HappySad.png",
-              "v": "d7ac14f1"
+              "v": "c7e31367"
             },
             "dormir": {
               "src": "nix/prime/dormir.webp",
@@ -586,7 +610,11 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "NixPrime_SleepTrain.png",
-              "v": "0b9fc246"
+              "v": "bdb6e58c",
+              "bucle": [
+                3,
+                23
+              ]
             },
             "entrenar": {
               "src": "nix/prime/entrenar.webp",
@@ -594,7 +622,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPrime_SleepTrain.png",
-              "v": "9357e899"
+              "v": "5b9d463f"
             },
             "caminar_derecha": {
               "src": "nix/prime/caminar_derecha.webp",
@@ -602,7 +630,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPrime_Walktrhough.png",
-              "v": "bf7886b0"
+              "v": "1d2dd63e"
             },
             "caminar_izquierda": {
               "src": "nix/prime/caminar_izquierda.webp",
@@ -610,7 +638,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPrime_Walktrhough.png",
-              "v": "18ad5d9f"
+              "v": "858d9e3f"
             },
             "caminar_atras": {
               "src": "nix/prime/caminar_atras.webp",
@@ -618,7 +646,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPrime_Walktrhough.png",
-              "v": "789d2416"
+              "v": "81daa3a6"
             },
             "caminar_frente": {
               "src": "nix/prime/caminar_frente.webp",
@@ -626,10 +654,10 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NixPrime_Walktrhough.png",
-              "v": "0dee145c"
+              "v": "16da5d6a"
             }
           },
-          "escala": 1.438,
+          "escala": 1.442,
           "cuerpo": {
             "x0": 0.188,
             "y0": 0.484,
@@ -637,7 +665,7 @@
             "y1": 0.945
           },
           "portraitV": "c83a4e29",
-          "cuerpoPx": 71.7
+          "cuerpoPx": 71.5
         },
         "upf": {
           "portrait": "nix/upf/retrato.webp",
@@ -648,7 +676,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "ee564279"
+              "v": "0a8c3208"
             },
             "caminar_izquierda": {
               "src": "nix/upf/caminar_izquierda.webp",
@@ -656,7 +684,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "204985d2"
+              "v": "a3abcaa1"
             },
             "caminar_atras": {
               "src": "nix/upf/caminar_atras.webp",
@@ -664,7 +692,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "536ee8b2"
+              "v": "e1cf9a9f"
             },
             "caminar_frente": {
               "src": "nix/upf/caminar_frente.webp",
@@ -672,7 +700,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "d17e64c7"
+              "v": "be062fd9"
             },
             "dormir": {
               "src": "nix/upf/dormir.webp",
@@ -680,7 +708,7 @@
               "fps": 5,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "29dde279"
+              "v": "edc91e81"
             },
             "entrenar": {
               "src": "nix/upf/entrenar.webp",
@@ -688,7 +716,7 @@
               "fps": 10,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "e39a20a9"
+              "v": "20c3f620"
             },
             "feliz": {
               "src": "nix/upf/feliz.webp",
@@ -696,7 +724,7 @@
               "fps": 8,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "57f5e489"
+              "v": "0b44872a"
             },
             "triste": {
               "src": "nix/upf/triste.webp",
@@ -704,18 +732,18 @@
               "fps": 6,
               "loop": true,
               "sourceSheet": "NIX_UPF_ALL.png",
-              "v": "51a82809"
+              "v": "2384399d"
             }
           },
-          "escala": 1.532,
+          "escala": 1.534,
           "cuerpo": {
             "x0": 0.07,
-            "y0": 0.523,
+            "y0": 0.531,
             "x1": 0.938,
             "y1": 0.961
           },
           "portraitV": "91a294fe",
-          "cuerpoPx": 75.1
+          "cuerpoPx": 75.0
         }
       }
     }

@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.1.0] — 2026-09-29 · Hábitats con fondo y fauna; sprites de Nix revisados; historial 2021–2024 cargado
+
+**Historial** — Diagnóstico con la base real: `health_daily` empezaba el 2025-01-01 (una sola carga de 7.788 filas el 28/09); el archivo de 5 años nunca se había importado. Se cargaron los datos previos a 2025 directamente en Supabase (pasos, distancia no; sueño, hora de despertar/acostarse, pulso en reposo, energía activa, peso, altura, IMC y 38 entrenos), verificando por cada métrica recuento y suma contra el archivo (coinciden exactamente). No se cargaron las métricas que la app no muestra (pasos de marcha, audio, UV, pisos, basal, pulso min/max).
+
+**Sprites (Nix y Broot)** — Auditoría numérica de 39 animaciones de Nix (jitter, costura del bucle, halos, restos) y revisión visual: (1) restos del fondo blanco conectados al exterior (5–8 % de los píxeles en Nix UPF, manchas blancas sobre el agua) → `limpiar.py` los quita, idempotente y con umbral de ruido; (2) `dormir` contaba una historia y en bucle se acostaba y despertaba sin parar → `bucle: [a, b]` en el manifest (Nix Jr 7–15, Pro 3–15, Prime 3–23; Broot 4–17/19) y `PetSprite` repite solo ese tramo, sin recortar la tira; (3) rayas de 1–2 px en los ciclos de caminar de Broot Jr.
+
+**Hábitats** — Fondos panorámicos por especie (mar con arrecife para Nix, prado con montañas para Broot) con el cielo dinámico detrás (sol real, estrellas, velo gris y lluvia con mal tiempo, oscurecido de noche) y horizonte propio. Fauna ambiental recortada de las hojas de entorno: mariposas, abeja y pájaros (Broot), gaviotas (Nix); de día y con buen tiempo, máximo dos a la vez, solo `transform`, timers propios. Línea de flotación de Nix translúcida sobre el fondo real. Las nubes dibujadas se ocultan bajo el panorama con cielo despejado.
+
+**Pruebas** — 838 (+11): rangos de bucle, fondos, fauna (archivos, orientación, bandas de vuelo, no repetir).
+
+---
+
 ## [6.0.0] — 2026-09-29 · La mascota, revisada de arriba abajo
 
 Auditoría completa de la mascota (62 hallazgos) y hito v6.
