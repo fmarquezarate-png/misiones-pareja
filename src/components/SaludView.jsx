@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
-import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato, sumarDias } from "../lib/pet.js";
+import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
 import { estadoDeDatos } from "../lib/petEstado.js";
 import { entrenosDelCalendario, posiblesEntrenos, deportesHabituales, EMOJI_DEPORTE } from "../lib/deporteCalendario.js";
@@ -65,9 +65,13 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   // racha). El servidor pagina, así que no hay tope de filas.
   const nacimientoMin = useMemo(() => Object.values(pets).map(p => p?.nacimiento).filter(Boolean).sort()[0] || null, [pets]);
   const dias = useMemo(() => {
-    if (!nacimientoMin) return 120;
+    // Todo el año en curso + 35 días (la línea base del deporte mira 35 días atrás),
+    // para poder preguntar «¿hiciste deporte?» por cualquier día de este año.
+    const ahora = new Date();
+    const desdeEnero = Math.round((ahora - new Date(ahora.getFullYear(), 0, 1)) / 864e5) + 35;
+    if (!nacimientoMin) return Math.max(120, desdeEnero);
     const desde = Math.max(0, Math.round((Date.now() - new Date(nacimientoMin + "T00:00:00").getTime()) / 864e5)) + 14;
-    return Math.min(1900, Math.max(120, desde));
+    return Math.min(1900, Math.max(120, desde, desdeEnero));
   }, [nacimientoMin]);
   const diasRef = useRef(dias);
   diasRef.current = dias;
@@ -130,7 +134,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   // propia salud (apuntar a nombre de la pareja no es cosa de esta pantalla).
   const [descartadosLocal, setDescartadosLocal] = useState([]);
   const descartados = useMemo(() => [...(pets[sessionUserId]?.descartesDeporte || []), ...descartadosLocal], [pets, sessionUserId, descartadosLocal]);
-  const posibles = useMemo(() => (quien === "yo" ? posiblesEntrenos({ filas, weeks, persona, hoy: hoyCal, descartados }) : []),
+  const posibles = useMemo(() => (quien === "yo" ? posiblesEntrenos({ filas, weeks, persona, hoy: hoyCal, descartados, dias: 366 }) : []),
     [quien, filas, weeks, persona, hoyCal, descartados]);
   const opcionesDeporte = useMemo(() => deportesHabituales(weeks, persona, hoyCal), [weeks, persona, hoyCal]);
   const descartar = dia => {
@@ -439,14 +443,14 @@ function Conexion({ p, onAbrir }) {
 // Un día con el pulso muy alto y nada apuntado (deporteCalendario › posiblesEntrenos).
 // Lo reciente (7 días) se pregunta arriba; lo anterior, plegado. Cada respuesta
 // quita el día de la lista: apuntarlo crea el evento, «no» lo descarta para siempre.
-const DIAS_PREGUNTA = 60;
+// Se pregunta uno a uno por TODO el año en curso (Fran, 30/09/2026: «ampliemos a
+// todo este año»); lo de años anteriores cuenta como detectado en la historia.
 const horaDe = seg => { const d = new Date(seg * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 function PreguntaDeporte({ posibles, opciones, hoy, onApuntar, onDescartar }) {
   const [verMas, setVerMas] = useState(false);
-  // Los últimos 2 meses se preguntan uno a uno (así se afina la regla con tus
-  // respuestas); lo anterior queda plegado.
-  const recientes = posibles.filter(p => p.dia >= sumarDias(hoy, -DIAS_PREGUNTA));
-  const antiguos = posibles.filter(p => p.dia < sumarDias(hoy, -DIAS_PREGUNTA));
+  const enero = `${hoy.slice(0, 4)}-01-01`;
+  const recientes = posibles.filter(p => p.dia >= enero);
+  const antiguos = posibles.filter(p => p.dia < enero);
   const lista = verMas ? posibles : recientes;
   const boton = { minHeight: 44, padding: "0 12px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, border: "1px solid var(--t-card-border,rgba(167,139,250,0.3))", background: "transparent", color: "var(--t-text,#f0e8ff)" };
   const Fila = ({ p, grande }) => (
@@ -479,7 +483,7 @@ function PreguntaDeporte({ posibles, opciones, hoy, onApuntar, onDescartar }) {
     <div style={{ ...card, border: "1px solid rgba(251,191,36,0.35)" }}>
       <div style={{ ...titulo, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>💓</span> ¿Hiciste deporte?</div>
       <div style={{ ...dim, marginBottom: 4 }}>Tu reloj vio el pulso mucho más alto de lo normal y no hay nada apuntado. Si fue deporte, apúntalo y contará como entreno.</div>
-      {recientes.length > 0 && <div style={{ ...dim, marginBottom: 4 }}>{recientes.length} {recientes.length === 1 ? "día" : "días"} en los últimos 2 meses.</div>}
+      {recientes.length > 0 && <div style={{ ...dim, marginBottom: 4 }}>{recientes.length} {recientes.length === 1 ? "día" : "días"} este año, del más reciente al más antiguo.</div>}
       {lista.slice(0, verMas ? 60 : 3).map((p, i) => <Fila key={p.dia} p={p} grande={i === 0 && !verMas} />)}
       {(lista.length > 3 || antiguos.length > 0) && (
         <button onClick={() => setVerMas(v => !v)} style={{ ...boton, width: "100%", marginTop: 8, color: "var(--t-accent,#c4b8ff)" }}>

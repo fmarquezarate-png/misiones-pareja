@@ -7,6 +7,12 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.4.2] — 2026-09-30 · «¿Hiciste deporte?» para todo el año
+
+Pedido de Fran: preguntar por todo 2026, no solo los últimos 60 días. `SaludView` carga los datos desde el 1 de enero + 35 días (la línea base del deporte mira 35 días atrás) y `posiblesEntrenos` busca en 366 días; se pregunta uno a uno por cualquier día del año en curso (con los datos reales: 35 días), del más reciente al más antiguo. Lo de años anteriores sigue contando como «detectado» en la historia de la mascota, sin preguntar.
+
+---
+
 ## [6.4.1] — 2026-09-30 · El deporte del calendario no salía (persona desconocida) + recalibración con 13 partidos
 
 **Causa** (Fran: «sigo viendo la pantalla de Salud igual, último entreno 24 sept»): `sessionPersonId` se calculaba solo comparando `couple_members.person_name` («Francisco») con `settings.person1` («Morsh ⚡️») → `null` → `entrenosDelCalendario` sin persona devolvía `[]` sin avisar. En el arnés de pruebas los nombres coincidían, por eso no se vio. Reproducido: antes «Interior Ejecutar · jue 24 sep»; tras elegir, «Padel Masc Moli · ayer».
