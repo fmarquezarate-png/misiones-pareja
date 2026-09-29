@@ -64,6 +64,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const [pos, setPos] = useState({ x: 0.5, y: 0.55 });
   const posRef = useRef(pos);
   const dirRef = useRef(1);
+  const [mira, setMira] = useState(1);        // hacia dónde nada (para la estela de agua)
   const moverA = useCallback(p => { posRef.current = p; setPos(p); }, []);
   const [viaje, setViaje] = useState(0);
   const [animId, setAnimId] = useState(null);
@@ -194,6 +195,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
       const plan = planificarPaseo(posRef.current, Math.random, utilRef.current, anims, dirRef.current, marcha, energiaRef.current);
       dirRef.current = plan.dir;
       setAnimId(plan.anim);
+      if (plan.destino.x !== posRef.current.x) setMira(plan.dir);
       setQuieta(false);
       setViaje(plan.ms);
       moverA(plan.destino);
@@ -347,6 +349,37 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
               )}
             </div>
           </div>
+          {/* El agua de Nix: una capa desde el pecho hacia abajo que la acompaña. Va FUERA del
+              vaivén de Nix (él sube y baja; el agua queda a nivel), con dos crestas de ola que
+              corren a distinta velocidad y, al nadar, una estela detrás. Solo transform/opacity. */}
+          {agua && fondo && !esHuevo && (() => {
+            const pecho = Math.round((cuerpo.y0 + (cuerpo.y1 - cuerpo.y0) * 0.5) * tam);
+            const ancho2 = Math.round(cuerpoAncho * 1.35), izq = Math.round(centroX - ancho2 / 2);
+            const alto2 = Math.round(pieY + 8 - pecho);
+            const nada = viaje > 0 && !reducir;
+            const ola = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='10'%3E%3Cpath d='M0 6 Q7.5 1 15 6 T30 6 T45 6 T60 6' fill='none' stroke='white' stroke-width='1.2'/%3E%3C/svg%3E\")";
+            const orla = { position: "absolute", left: 0, width: ancho2 + 60, height: 10, backgroundRepeat: "repeat-x", backgroundSize: "60px 10px", backgroundImage: ola };
+            return (
+              <>
+                {nada && (
+                  <div aria-hidden style={{ position: "absolute", top: pecho + 3, height: alto2 - 6, width: 46, pointerEvents: "none",
+                    left: mira > 0 ? izq - 40 : izq + ancho2 - 6, transformOrigin: mira > 0 ? "100% 50%" : "0% 50%",
+                    background: `linear-gradient(${mira > 0 ? "to left" : "to right"}, rgba(190,235,250,0.42), rgba(190,235,250,0))`,
+                    borderRadius: 30, animation: "mpEstela 0.7s ease-in-out infinite alternate" }} />
+                )}
+                <div aria-hidden style={{
+                  position: "absolute", left: izq, top: pecho, width: ancho2, height: alto2, overflow: "hidden", pointerEvents: "none",
+                  borderRadius: "0 0 50% 50% / 0 0 34% 34%",
+                  background: "linear-gradient(180deg, rgba(150,225,245,0.40) 0%, rgba(50,150,205,0.48) 55%, rgba(25,110,175,0.42) 100%)",
+                  WebkitMaskImage: "linear-gradient(to right, transparent 0, #000 16%, #000 84%, transparent 100%)",
+                  maskImage: "linear-gradient(to right, transparent 0, #000 16%, #000 84%, transparent 100%)",
+                }}>
+                  <div style={{ ...orla, top: -3, opacity: 0.6, animation: reducir ? undefined : `mpOlaX ${nada ? 0.9 : 2.6}s linear infinite` }} />
+                  <div style={{ ...orla, top: 3, opacity: 0.28, backgroundSize: "30px 8px", animation: reducir ? undefined : `mpOlaX ${nada ? 1.3 : 3.8}s linear infinite reverse` }} />
+                </div>
+              </>
+            );
+          })()}
           {/* Poca energía tras dormir poco: un zzz suave sobre la cabeza (transform/opacity). */}
           {modo === "libre" && !esHuevo && estado?.sueno?.nivel === "corta" && !reducir && (
             <span aria-hidden style={{ position: "absolute", left: centroX + cuerpoAncho * 0.25, top: cuerpo.y0 * tam - 6, fontSize: 15, fontWeight: 700, color: "#fff", pointerEvents: "none", animation: "mpZzz 3.4s ease-in-out infinite" }}>💤</span>

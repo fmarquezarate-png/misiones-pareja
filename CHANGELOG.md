@@ -7,6 +7,12 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.2.1] — 2026-09-29 · Nix con su capa de agua
+
+Capa translúcida del pecho hacia abajo, fuera del vaivén de Nix (él sube y baja, el agua queda a nivel), con dos crestas de ola SVG que corren a distinta velocidad (más rápida al nadar; tiles de 60/30 px para bucle sin salto) y una estela detrás según la dirección. Solo `transform`/`opacity`; quieta con «reducir movimiento». Sustituye al rectángulo eliminado en 6.2.0.
+
+---
+
 ## [6.2.0] — 2026-09-29 · Lluvia con sprites, hábitat sin velo oscuro, Nix sin rectángulo
 
 - **Causa del ambiente oscuro**: con mal tiempo se pintaba un velo gris (`rgba(96,108,124,.34)`, `.5` en tormenta) sobre TODA la escena, encima de la mascota. Ahora: `filter: saturate/brightness` solo sobre el panorama y un degradado que oscurece únicamente el cielo (`velCielo`, transparente del todo por debajo del 78 % de la altura). La mascota no se toca.
