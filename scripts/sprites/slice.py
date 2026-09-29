@@ -622,6 +622,13 @@ def main():
     if not args.no_write:
         with open(manifest_path, "w") as fh:
             json.dump(manifest, fh, indent=2, ensure_ascii=False)
+        # Posproceso obligatorio (antes se hacía a mano y regenerar los sprites
+        # perdía `escala` y `cuerpo`): 1) quitar líneas sueltas del recorte,
+        # 2) escala, caja del cuerpo y hash de contenido en el manifest.
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import limpiar, escala
+        limpiar.limpiar_todo(args.out)
+        escala.postprocesar(args.out)
 
 
 NOTES = [

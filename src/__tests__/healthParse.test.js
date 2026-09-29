@@ -5,7 +5,8 @@
 // el importador y que ningún ejemplo de la documentación mostraba.
 import { describe, it, expect } from "vitest";
 import {
-  aplanar, limpiar, aplanarEntrenos, diaLocal, instante, aKcal, NUNCA,
+  aplanar, aplanarConAvisos, limpiar, aplanarEntrenos, diaLocal, instante, aKcal, NUNCA,
+  esIntimo, INTIMO_RE, sanearPayload, sinRecientes, CAMPOS_ENTRENO,
 } from "../../supabase/functions/health-ingest/parse.js";
 
 const metrica = (name, units, data) => ({ name, units, data });
@@ -190,5 +191,174 @@ describe("entrenos", () => {
   });
   it("el mismo entreno reenviado no se duplica", () => {
     expect(aplanarEntrenos([real, { ...real }])).toHaveLength(1);
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auditoría v6 (29/09/2026): cada bloque fija un hallazgo confirmado con el
+// archivo real de Fran.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("F37 · el crudo se guarda saneado", () => {
+  const envio = {
+    data: {
+      metrics: [
+        { name: "sexual_activity", units: "count", data: [{ date: "2022-05-07 00:00:00 +0200", Unspecified: 1 }] },
+        { name: "menstrual_flow", units: "count", data: [{ date: "2022-05-07 00:00:00 +0200", qty: 1 }] },
+        { name: "step_count", units: "count", data: [{ date: "2026-09-01 00:00:00 +0200", qty: 9000 }] },
+      ],
+      workouts: [{
+        name: "Correr", start: "2026-09-24 20:40:55 +0200", end: "2026-09-24 21:21:21 +0200", duration: 2426,
+        route: [{ latitude: 41.39, longitude: 2.17 }], heartRateData: Array(3000).fill({ qty: 150 }),
+        location: "Interior", metadata: { HKWeatherTemperature: 21 }, source: { name: "Huawei" },
+      }],
+      cycleTracking: [{ date: "2026-09-01", flow: "light" }],
+    },
+  };
+  const s = sanearPayload(envio);
+  it("sin actividad sexual ni ciclo", () => {
+    expect(s.data.metrics.map(m => m.name)).toEqual(["step_count"]);
+    expect(s.data.cycleTracking).toBeUndefined();
+    expect(JSON.stringify(s)).not.toMatch(/sexual|menstru|cycle/i);
+  });
+  it("sin ruta GPS, pulso por segundo, ubicación ni metadatos", () => {
+    const w = s.data.workouts[0];
+    for (const k of ["route", "heartRateData", "location", "metadata"]) expect(w[k]).toBeUndefined();
+    expect(w.duration).toBe(2426);
+  });
+  it("y pesa mucho menos", () => {
+    expect(JSON.stringify(s).length).toBeLessThan(JSON.stringify(envio).length / 4);
+  });
+  it("no rompe con basura", () => {
+    expect(sanearPayload(null)).toEqual({ data: {} });
+    expect(sanearPayload({ data: { metrics: "no" } }).data.metrics).toEqual([]);
+  });
+  // Health Auto Export añade tipos nuevos: la lista cerrada nunca los tendrá todos.
+  it("lo íntimo se detecta por patrón, no solo por lista", () => {
+    for (const n of ["menstrual_flow", "contraceptive", "pregnancy_test_result", "intermenstrual_bleeding", "sexual_activity"]) {
+      expect(esIntimo(n), n).toBe(true);
+    }
+    for (const n of ["step_count", "heart_rate", "sleep_analysis", "vo2_max", "walking_speed"]) expect(esIntimo(n), n).toBe(false);
+    expect(INTIMO_RE.test("cycle_tracking")).toBe(true);
+  });
+});
+
+describe("F44 · una noche por día: la principal", () => {
+  const siesta = { totalSleep: 1, sleepStart: "2026-09-20 15:00:00 +0200", sleepEnd: "2026-09-20 16:00:00 +0200", source: "Zepp Life" };
+  const noche = { totalSleep: 7, sleepStart: "2026-09-19 23:40:00 +0200", sleepEnd: "2026-09-20 07:10:00 +0200", source: "Huawei" };
+  const { filas, avisos } = aplanarConAvisos([metrica("sleep_analysis", "hr", [siesta, noche])]);
+  it("la hora de despertar es la de la noche, no el promedio con la siesta", () => {
+    expect(buscar(filas, "wake_min")).toHaveLength(1);
+    expect(buscar(filas, "wake_min")[0].value).toBe(7 * 60 + 10);
+    expect(buscar(filas, "bed_min")[0].value).toBe(-20);
+  });
+  it("el sueño del día es el de la noche principal", () => {
+    expect(buscar(filas, "sleep_asleep")).toHaveLength(1);
+    expect(buscar(filas, "sleep_asleep")[0].value).toBe(7);
+    expect(avisos.sueno_secundario).toBe(1);
+  });
+  it("da igual el orden de llegada", () => {
+    const al = aplanarConAvisos([metrica("sleep_analysis", "hr", [noche, siesta])]).filas;
+    expect(buscar(al, "wake_min")[0].value).toBe(7 * 60 + 10);
+  });
+  it("dos fuentes de la misma noche no se suman", () => {
+    const dup = aplanarConAvisos([metrica("sleep_analysis", "hr", [noche, { ...noche, totalSleep: 6.8, source: "Mi Fitness" }])]).filas;
+    expect(buscar(dup, "sleep_asleep")[0].value).toBe(7);
+  });
+});
+
+describe("F45 · nadie duerme más de lo que dura su noche", () => {
+  const registro = { totalSleep: 9, sleepStart: "2026-09-19 23:00:00 +0200", sleepEnd: "2026-09-20 05:00:00 +0200" };
+  it("el total se recorta al intervalo real y se avisa", () => {
+    const { filas, avisos } = aplanarConAvisos([metrica("sleep_analysis", "hr", [registro])]);
+    expect(buscar(filas, "sleep_asleep")[0].value).toBeCloseTo(6);
+    expect(avisos.sueno_recortado_al_intervalo).toBe(1);
+  });
+  it("una diferencia de minutos (redondeo) no se toca", () => {
+    const { filas, avisos } = aplanarConAvisos([metrica("sleep_analysis", "hr", [{ ...registro, totalSleep: 6.1 }])]);
+    expect(buscar(filas, "sleep_asleep")[0].value).toBe(6.1);
+    expect(avisos.sueno_recortado_al_intervalo).toBeUndefined();
+  });
+  it("las fases también se recortan", () => {
+    const { filas } = aplanarConAvisos([metrica("sleep_analysis", "hr", [{ ...registro, totalSleep: 6, deep: 8 }])]);
+    expect(buscar(filas, "sleep_deep")[0].value).toBeCloseTo(6);
+  });
+  it("en minutos se compara ya en horas", () => {
+    const { filas } = aplanarConAvisos([metrica("sleep_analysis", "min", [{ ...registro, totalSleep: 540 }])]);
+    expect(buscar(filas, "sleep_asleep")[0].value).toBeCloseTo(6);
+  });
+});
+
+describe("F48 · la procedencia del entreno", () => {
+  it("source llega como { name, identifier }: se guarda el nombre", () => {
+    const w = aplanarEntrenos([{ name: "Correr", start: "2026-09-24 20:40:55 +0200", end: "2026-09-24 21:21:21 +0200", source: { name: "Salud de Huawei", identifier: "com.huawei" } }])[0];
+    expect(w.source).toBe("Salud de Huawei");
+    expect(w.source).not.toContain("[object");
+  });
+  it("y sigue valiendo un texto o nada", () => {
+    expect(aplanarEntrenos([{ name: "x", start: "2026-09-24 20:40:55 +0200", source: "iPhone" }])[0].source).toBe("iPhone");
+    expect(aplanarEntrenos([{ name: "x", start: "2026-09-24 20:40:55 +0200" }])[0].source).toBeNull();
+  });
+});
+
+describe("F59 · nada se descarta en silencio", () => {
+  it("cuenta y clasifica lo que ignora", () => {
+    const { filas, avisos } = aplanarConAvisos([
+      metrica("step_count", "count", [
+        { date: "2026-09-01 00:00:00 +0200", qty: 9000 },
+        { qty: 5 },                                         // sin fecha
+        { date: "2026-09-02 00:00:00 +0200", qty: "mucho" }, // valor no numérico
+        { date: "2026-09-03 00:00:00 +0200" },               // sin qty ni Avg
+      ]),
+    ]);
+    expect(filas).toHaveLength(1);
+    expect(avisos).toMatchObject({ sin_fecha: 1, sin_valor: 1, forma_desconocida: 1 });
+  });
+  it("una fecha imposible se descarta ella sola, no envenena la tanda", () => {
+    expect(diaLocal("2026-02-31 00:00:00 +0100")).toBeNull();
+    expect(diaLocal("2026-13-01")).toBeNull();
+    expect(diaLocal("2026-02-28 10:00:00 +0100")).toBe("2026-02-28");
+    const { filas, avisos } = aplanarConAvisos([metrica("step_count", "count", [
+      { date: "2026-02-31 00:00:00 +0100", qty: 100 }, { date: "2026-02-27 00:00:00 +0100", qty: 8000 },
+    ])]);
+    expect(filas).toHaveLength(1);
+    expect(avisos.fecha_imposible).toBe(1);
+  });
+  it("fechas del futuro o de antes del 2000 se rechazan (con 'hoy')", () => {
+    const { filas, avisos } = aplanarConAvisos([metrica("step_count", "count", [
+      { date: "2026-12-25 00:00:00 +0100", qty: 100 }, { date: "1999-01-01 00:00:00 +0100", qty: 100 }, { date: "2026-09-28 00:00:00 +0200", qty: 100 },
+    ])], { hoy: "2026-09-28" });
+    expect(filas).toHaveLength(1);
+    expect(avisos).toMatchObject({ fecha_futura: 1, fecha_imposible: 1 });
+  });
+  it("una métrica mal formada no tira las demás", () => {
+    const { filas, avisos } = aplanarConAvisos([
+      { name: "raro", units: "x", data: 5 },
+      metrica("step_count", "count", [{ date: "2026-09-01 00:00:00 +0200", qty: 9000 }]),
+    ]);
+    expect(filas).toHaveLength(1);
+    expect(avisos.metrica_malformada).toBe(1);
+  });
+  it("un nombre de métrica absurdo no llega a la base de datos", () => {
+    const { filas } = aplanarConAvisos([metrica("x".repeat(200), "u", [{ date: "2026-09-01 00:00:00 +0200", qty: 1 }])]);
+    expect(filas).toEqual([]);
+  });
+  it("aplanar() sigue devolviendo solo las filas", () => {
+    expect(Array.isArray(aplanar([metrica("step_count", "count", [{ date: "2026-09-01 00:00:00 +0200", qty: 9000 }])]))).toBe(true);
+  });
+});
+
+describe("F56 · los días recientes son de la automatización", () => {
+  it("sinRecientes quita desde el corte", () => {
+    const f = [{ day: "2026-09-25" }, { day: "2026-09-26" }, { day: "2026-09-27" }, { day: "2026-09-28" }];
+    expect(sinRecientes(f, "2026-09-26").map(x => x.day)).toEqual(["2026-09-25"]);
+  });
+});
+
+describe("CAMPOS_ENTRENO", () => {
+  it("son los que el importador usa (y ninguno pesado)", () => {
+    for (const k of ["route", "heartRateData", "location", "metadata"]) expect(CAMPOS_ENTRENO).not.toContain(k);
+    expect(CAMPOS_ENTRENO).toContain("start");
   });
 });

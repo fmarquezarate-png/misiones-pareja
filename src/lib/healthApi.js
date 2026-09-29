@@ -221,6 +221,8 @@ function traducir(codigo) {
     token_invalido: "Sesión no válida. Cierra y vuelve a abrir la app.",
     sin_pareja: "Tu cuenta no está vinculada a una pareja.",
     json_invalido: "El archivo está dañado.",
+    error_guardando: "El servidor no pudo guardar este trozo. Vuelve a intentarlo en un momento.",
+    demasiadas_peticiones: "Demasiados envíos seguidos. Espera unos minutos y reintenta.",
   })[codigo] || "No se pudo guardar este trozo.";
 }
 

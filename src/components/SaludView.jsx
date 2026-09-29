@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
 import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
-import { retrato, nombreEspecie } from "../lib/petSprites.js";
+import { urlRetrato, nombreEspecie } from "../lib/petSprites.js";
 import { humanDate } from "../lib/dateLabel.js";
 import { MODO_PRUEBAS } from "../lib/petConfig.js";
 import Habitat from "./Habitat.jsx";
@@ -213,8 +213,8 @@ function Adoptar({ manifest, onAdoptar }) {
             border: `1.5px solid ${especie === e ? "var(--t-accent,#a78bfa)" : "var(--t-card-border,rgba(167,139,250,0.2))"}`,
           }}>
             <div style={{ display: "flex", justifyContent: "center", gap: 4 }}>
-              {["huevo", "jr", "upf"].map(et => retrato(manifest, e, et) && (
-                <img key={et} src={`/mascotas/${retrato(manifest, e, et)}`} alt="" draggable={false} style={{ width: et === "upf" ? 56 : 40, height: et === "upf" ? 56 : 40, alignSelf: "flex-end" }} />
+              {["huevo", "jr", "upf"].map(et => urlRetrato(manifest, e, et) && (
+                <img key={et} src={urlRetrato(manifest, e, et)} alt="" draggable={false} style={{ width: et === "upf" ? 56 : 40, height: et === "upf" ? 56 : 40, alignSelf: "flex-end" }} />
               ))}
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--t-text,#f0e8ff)", marginTop: 6 }}>{nombreEspecie(manifest, e)}</div>

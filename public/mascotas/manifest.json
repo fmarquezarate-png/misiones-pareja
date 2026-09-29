@@ -12,14 +12,16 @@
               "frames": 8,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "Egg_All.png"
+              "sourceSheet": "Egg_All.png",
+              "v": "8ddaf6f6"
             },
             "eclosion": {
               "src": "broot/huevo/eclosion.webp",
               "frames": 8,
               "fps": 8,
               "loop": false,
-              "sourceSheet": "Egg_All.png"
+              "sourceSheet": "Egg_All.png",
+              "v": "a2847270"
             }
           },
           "escala": 0.783,
@@ -28,7 +30,9 @@
             "y0": 0.289,
             "x1": 0.797,
             "y1": 0.945
-          }
+          },
+          "portraitV": "c9a6d47b",
+          "cuerpoPx": 79.4
         },
         "jr": {
           "portrait": "broot/jr/retrato.webp",
@@ -38,65 +42,75 @@
               "frames": 18,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "Broot_JrStates.png"
+              "sourceSheet": "Broot_JrStates.png",
+              "v": "2a87ec70"
             },
             "entrenar": {
               "src": "broot/jr/entrenar.webp",
               "frames": 26,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_JrStates.png"
+              "sourceSheet": "Broot_JrStates.png",
+              "v": "817bf766"
             },
             "feliz": {
               "src": "broot/jr/feliz.webp",
               "frames": 20,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "Broot_JrStates.png"
+              "sourceSheet": "Broot_JrStates.png",
+              "v": "9602cede"
             },
             "triste": {
               "src": "broot/jr/triste.webp",
               "frames": 20,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "Broot_JrStates.png"
+              "sourceSheet": "Broot_JrStates.png",
+              "v": "8945dc0b"
             },
             "caminar_derecha": {
               "src": "broot/jr/caminar_derecha.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_JrWalk.png"
+              "sourceSheet": "Broot_JrWalk.png",
+              "v": "3beec69f"
             },
             "caminar_izquierda": {
               "src": "broot/jr/caminar_izquierda.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_JrWalk.png"
+              "sourceSheet": "Broot_JrWalk.png",
+              "v": "32aa2a23"
             },
             "caminar_frente": {
               "src": "broot/jr/caminar_frente.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_JrWalk.png"
+              "sourceSheet": "Broot_JrWalk.png",
+              "v": "4a18804b"
             },
             "caminar_atras": {
               "src": "broot/jr/caminar_atras.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_JrWalk.png"
+              "sourceSheet": "Broot_JrWalk.png",
+              "v": "2fa48928"
             }
           },
           "escala": 1.0,
           "cuerpo": {
             "x0": 0.289,
-            "y0": 0.398,
-            "x1": 0.812,
+            "y0": 0.406,
+            "x1": 0.727,
             "y1": 0.938
-          }
+          },
+          "portraitV": "0f47bea8",
+          "cuerpoPx": 69.1
         },
         "pro": {
           "portrait": "broot/pro/retrato.webp",
@@ -106,56 +120,64 @@
               "frames": 20,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "Broot_ProStates.png"
+              "sourceSheet": "Broot_ProStates.png",
+              "v": "05041ccd"
             },
             "entrenar": {
               "src": "broot/pro/entrenar.webp",
               "frames": 24,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_ProStates.png"
+              "sourceSheet": "Broot_ProStates.png",
+              "v": "61b5ea50"
             },
             "feliz": {
               "src": "broot/pro/feliz.webp",
               "frames": 20,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "Broot_ProStates.png"
+              "sourceSheet": "Broot_ProStates.png",
+              "v": "6d2b7465"
             },
             "triste": {
               "src": "broot/pro/triste.webp",
               "frames": 20,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "Broot_ProStates.png"
+              "sourceSheet": "Broot_ProStates.png",
+              "v": "a00dee7f"
             },
             "caminar_derecha": {
               "src": "broot/pro/caminar_derecha.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_ProWalk.png"
+              "sourceSheet": "Broot_ProWalk.png",
+              "v": "80de52ae"
             },
             "caminar_izquierda": {
               "src": "broot/pro/caminar_izquierda.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_ProWalk.png"
+              "sourceSheet": "Broot_ProWalk.png",
+              "v": "0c6a029e"
             },
             "caminar_frente": {
               "src": "broot/pro/caminar_frente.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_ProWalk.png"
+              "sourceSheet": "Broot_ProWalk.png",
+              "v": "95155bed"
             },
             "caminar_atras": {
               "src": "broot/pro/caminar_atras.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_ProWalk.png"
+              "sourceSheet": "Broot_ProWalk.png",
+              "v": "861587f0"
             }
           },
           "escala": 0.915,
@@ -164,7 +186,9 @@
             "y0": 0.383,
             "x1": 0.844,
             "y1": 0.938
-          }
+          },
+          "portraitV": "a9ace756",
+          "cuerpoPx": 86.9
         },
         "prime": {
           "portrait": "broot/prime/retrato.webp",
@@ -174,56 +198,64 @@
               "frames": 18,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "Broot_PrimeStates.png"
+              "sourceSheet": "Broot_PrimeStates.png",
+              "v": "b650838f"
             },
             "entrenar": {
               "src": "broot/prime/entrenar.webp",
               "frames": 25,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_PrimeStates.png"
+              "sourceSheet": "Broot_PrimeStates.png",
+              "v": "b5fdae8a"
             },
             "feliz": {
               "src": "broot/prime/feliz.webp",
               "frames": 20,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "Broot_PrimeStates.png"
+              "sourceSheet": "Broot_PrimeStates.png",
+              "v": "82bddf12"
             },
             "triste": {
               "src": "broot/prime/triste.webp",
               "frames": 20,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "Broot_PrimeStates.png"
+              "sourceSheet": "Broot_PrimeStates.png",
+              "v": "28f1726f"
             },
             "caminar_derecha": {
               "src": "broot/prime/caminar_derecha.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_PrimeWalk.png"
+              "sourceSheet": "Broot_PrimeWalk.png",
+              "v": "d46c6631"
             },
             "caminar_izquierda": {
               "src": "broot/prime/caminar_izquierda.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_PrimeWalk.png"
+              "sourceSheet": "Broot_PrimeWalk.png",
+              "v": "24c5452e"
             },
             "caminar_frente": {
               "src": "broot/prime/caminar_frente.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_PrimeWalk.png"
+              "sourceSheet": "Broot_PrimeWalk.png",
+              "v": "c99077a5"
             },
             "caminar_atras": {
               "src": "broot/prime/caminar_atras.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_PrimeWalk.png"
+              "sourceSheet": "Broot_PrimeWalk.png",
+              "v": "4be56c2a"
             }
           },
           "escala": 1.129,
@@ -232,7 +264,9 @@
             "y0": 0.453,
             "x1": 0.789,
             "y1": 0.953
-          }
+          },
+          "portraitV": "ecec64bf",
+          "cuerpoPx": 79.5
         },
         "upf": {
           "portrait": "broot/upf/retrato.webp",
@@ -242,56 +276,64 @@
               "frames": 20,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "BRoot_UPFStates.png"
+              "sourceSheet": "BRoot_UPFStates.png",
+              "v": "3a010348"
             },
             "entrenar": {
               "src": "broot/upf/entrenar.webp",
               "frames": 24,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "BRoot_UPFStates.png"
+              "sourceSheet": "BRoot_UPFStates.png",
+              "v": "26d8c0e5"
             },
             "feliz": {
               "src": "broot/upf/feliz.webp",
               "frames": 20,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "BRoot_UPFStates.png"
+              "sourceSheet": "BRoot_UPFStates.png",
+              "v": "9fc0442d"
             },
             "triste": {
               "src": "broot/upf/triste.webp",
               "frames": 20,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "BRoot_UPFStates.png"
+              "sourceSheet": "BRoot_UPFStates.png",
+              "v": "a855c209"
             },
             "caminar_derecha": {
               "src": "broot/upf/caminar_derecha.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_UPFWalk.png"
+              "sourceSheet": "Broot_UPFWalk.png",
+              "v": "f1db7b13"
             },
             "caminar_izquierda": {
               "src": "broot/upf/caminar_izquierda.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_UPFWalk.png"
+              "sourceSheet": "Broot_UPFWalk.png",
+              "v": "8f9e8a06"
             },
             "caminar_frente": {
               "src": "broot/upf/caminar_frente.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_UPFWalk.png"
+              "sourceSheet": "Broot_UPFWalk.png",
+              "v": "ca4dce76"
             },
             "caminar_atras": {
               "src": "broot/upf/caminar_atras.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "Broot_UPFWalk.png"
+              "sourceSheet": "Broot_UPFWalk.png",
+              "v": "0aad81d2"
             }
           },
           "escala": 1.206,
@@ -300,7 +342,9 @@
             "y0": 0.328,
             "x1": 0.836,
             "y1": 0.953
-          }
+          },
+          "portraitV": "832d6c30",
+          "cuerpoPx": 83.1
         }
       }
     },
@@ -315,7 +359,8 @@
               "frames": 8,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "NixEgg_NixJr.png"
+              "sourceSheet": "NixEgg_NixJr.png",
+              "v": "3b3ef59a"
             }
           },
           "escala": 0.775,
@@ -324,7 +369,9 @@
             "y0": 0.188,
             "x1": 0.812,
             "y1": 0.961
-          }
+          },
+          "portraitV": "b13744b5",
+          "cuerpoPx": 92.2
         },
         "jr": {
           "portrait": "nix/jr/retrato.webp",
@@ -334,84 +381,96 @@
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixEgg_NixJr.png"
+              "sourceSheet": "NixEgg_NixJr.png",
+              "v": "ef1e399e"
             },
             "caminar_izquierda": {
               "src": "nix/jr/caminar_izquierda.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixEgg_NixJr.png"
+              "sourceSheet": "NixEgg_NixJr.png",
+              "v": "32b8d45f"
             },
             "caminar_frente": {
               "src": "nix/jr/caminar_frente.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixEgg_NixJr.png"
+              "sourceSheet": "NixEgg_NixJr.png",
+              "v": "1c2ef028"
             },
             "caminar_atras": {
               "src": "nix/jr/caminar_atras.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixEgg_NixJr.png"
+              "sourceSheet": "NixEgg_NixJr.png",
+              "v": "f5c223ea"
             },
             "feliz": {
               "src": "nix/jr/feliz.webp",
               "frames": 8,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "NixJr_HappySad.png"
+              "sourceSheet": "NixJr_HappySad.png",
+              "v": "ac3a45b5"
             },
             "alegria": {
               "src": "nix/jr/alegria.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixJr_HappySad.png"
+              "sourceSheet": "NixJr_HappySad.png",
+              "v": "b0df4706"
             },
             "celebracion": {
               "src": "nix/jr/celebracion.webp",
               "frames": 8,
               "fps": 10,
               "loop": false,
-              "sourceSheet": "NixJr_HappySad.png"
+              "sourceSheet": "NixJr_HappySad.png",
+              "v": "4570c9bd"
             },
             "triste": {
               "src": "nix/jr/triste.webp",
               "frames": 8,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "NixJr_HappySad.png"
+              "sourceSheet": "NixJr_HappySad.png",
+              "v": "72643c39"
             },
             "llorar": {
               "src": "nix/jr/llorar.webp",
               "frames": 8,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "NixJr_HappySad.png"
+              "sourceSheet": "NixJr_HappySad.png",
+              "v": "2be66fe6"
             },
             "cansado": {
               "src": "nix/jr/cansado.webp",
               "frames": 8,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "NixJr_HappySad.png"
+              "sourceSheet": "NixJr_HappySad.png",
+              "v": "d4321cb5"
             },
             "dormir": {
               "src": "nix/jr/dormir.webp",
               "frames": 20,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "NixJr_SleepTrain.png"
+              "sourceSheet": "NixJr_SleepTrain.png",
+              "v": "5f4e6f67"
             },
             "entrenar": {
               "src": "nix/jr/entrenar.webp",
               "frames": 24,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixJr_SleepTrain.png"
+              "sourceSheet": "NixJr_SleepTrain.png",
+              "v": "c6ddf234"
             }
           },
           "escala": 1.0,
@@ -420,7 +479,9 @@
             "y0": 0.312,
             "x1": 0.875,
             "y1": 0.891
-          }
+          },
+          "portraitV": "bb411c19",
+          "cuerpoPx": 79.3
         },
         "pro": {
           "portrait": "nix/pro/retrato.webp",
@@ -430,56 +491,64 @@
               "frames": 20,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "NixPro_HappySad.png"
+              "sourceSheet": "NixPro_HappySad.png",
+              "v": "3c197102"
             },
             "triste": {
               "src": "nix/pro/triste.webp",
               "frames": 20,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "NixPro_HappySad.png"
+              "sourceSheet": "NixPro_HappySad.png",
+              "v": "1c5ad113"
             },
             "dormir": {
               "src": "nix/pro/dormir.webp",
               "frames": 20,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "NixPro_SleepTrain.png"
+              "sourceSheet": "NixPro_SleepTrain.png",
+              "v": "efc6d2a6"
             },
             "entrenar": {
               "src": "nix/pro/entrenar.webp",
               "frames": 24,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPro_SleepTrain.png"
+              "sourceSheet": "NixPro_SleepTrain.png",
+              "v": "d8e594d2"
             },
             "caminar_derecha": {
               "src": "nix/pro/caminar_derecha.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPro_Walktrhough.png"
+              "sourceSheet": "NixPro_Walktrhough.png",
+              "v": "202a8553"
             },
             "caminar_izquierda": {
               "src": "nix/pro/caminar_izquierda.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPro_Walktrhough.png"
+              "sourceSheet": "NixPro_Walktrhough.png",
+              "v": "5f594113"
             },
             "caminar_atras": {
               "src": "nix/pro/caminar_atras.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPro_Walktrhough.png"
+              "sourceSheet": "NixPro_Walktrhough.png",
+              "v": "a981e596"
             },
             "caminar_frente": {
               "src": "nix/pro/caminar_frente.webp",
               "frames": 6,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPro_Walktrhough.png"
+              "sourceSheet": "NixPro_Walktrhough.png",
+              "v": "697ea1fe"
             }
           },
           "escala": 1.093,
@@ -488,7 +557,9 @@
             "y0": 0.469,
             "x1": 0.93,
             "y1": 0.938
-          }
+          },
+          "portraitV": "3b207cc8",
+          "cuerpoPx": 83.5
         },
         "prime": {
           "portrait": "nix/prime/retrato.webp",
@@ -498,56 +569,64 @@
               "frames": 20,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "NixPrime_HappySad.png"
+              "sourceSheet": "NixPrime_HappySad.png",
+              "v": "81084e50"
             },
             "triste": {
               "src": "nix/prime/triste.webp",
               "frames": 20,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "NixPrime_HappySad.png"
+              "sourceSheet": "NixPrime_HappySad.png",
+              "v": "d7ac14f1"
             },
             "dormir": {
               "src": "nix/prime/dormir.webp",
               "frames": 24,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "NixPrime_SleepTrain.png"
+              "sourceSheet": "NixPrime_SleepTrain.png",
+              "v": "0b9fc246"
             },
             "entrenar": {
               "src": "nix/prime/entrenar.webp",
               "frames": 26,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPrime_SleepTrain.png"
+              "sourceSheet": "NixPrime_SleepTrain.png",
+              "v": "9357e899"
             },
             "caminar_derecha": {
               "src": "nix/prime/caminar_derecha.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPrime_Walktrhough.png"
+              "sourceSheet": "NixPrime_Walktrhough.png",
+              "v": "bf7886b0"
             },
             "caminar_izquierda": {
               "src": "nix/prime/caminar_izquierda.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPrime_Walktrhough.png"
+              "sourceSheet": "NixPrime_Walktrhough.png",
+              "v": "18ad5d9f"
             },
             "caminar_atras": {
               "src": "nix/prime/caminar_atras.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPrime_Walktrhough.png"
+              "sourceSheet": "NixPrime_Walktrhough.png",
+              "v": "789d2416"
             },
             "caminar_frente": {
               "src": "nix/prime/caminar_frente.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NixPrime_Walktrhough.png"
+              "sourceSheet": "NixPrime_Walktrhough.png",
+              "v": "0dee145c"
             }
           },
           "escala": 1.438,
@@ -556,7 +635,9 @@
             "y0": 0.484,
             "x1": 0.812,
             "y1": 0.945
-          }
+          },
+          "portraitV": "c83a4e29",
+          "cuerpoPx": 71.7
         },
         "upf": {
           "portrait": "nix/upf/retrato.webp",
@@ -566,56 +647,64 @@
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "ee564279"
             },
             "caminar_izquierda": {
               "src": "nix/upf/caminar_izquierda.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "204985d2"
             },
             "caminar_atras": {
               "src": "nix/upf/caminar_atras.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "536ee8b2"
             },
             "caminar_frente": {
               "src": "nix/upf/caminar_frente.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "d17e64c7"
             },
             "dormir": {
               "src": "nix/upf/dormir.webp",
               "frames": 8,
               "fps": 5,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "29dde279"
             },
             "entrenar": {
               "src": "nix/upf/entrenar.webp",
               "frames": 8,
               "fps": 10,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "e39a20a9"
             },
             "feliz": {
               "src": "nix/upf/feliz.webp",
               "frames": 8,
               "fps": 8,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "57f5e489"
             },
             "triste": {
               "src": "nix/upf/triste.webp",
               "frames": 8,
               "fps": 6,
               "loop": true,
-              "sourceSheet": "NIX_UPF_ALL.png"
+              "sourceSheet": "NIX_UPF_ALL.png",
+              "v": "51a82809"
             }
           },
           "escala": 1.532,
@@ -624,7 +713,9 @@
             "y0": 0.523,
             "x1": 0.938,
             "y1": 0.961
-          }
+          },
+          "portraitV": "91a294fe",
+          "cuerpoPx": 75.1
         }
       }
     }

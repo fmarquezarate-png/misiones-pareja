@@ -1,3 +1,4 @@
+import { spriteUrl } from "../lib/petSprites.js";
 // Un sprite animado de la mascota a partir de su tira (manifest.json).
 //
 // La tira es una imagen con todos los fotogramas en fila. Se enseña a través
@@ -22,7 +23,7 @@ export default function PetSprite({ anim, size = 112, onFin, style, frame = null
       <img
         // La `key` reinicia la animación al cambiar de tira.
         key={anim.src}
-        src={`/mascotas/${anim.src}`}
+        src={spriteUrl(anim.src, anim.v)}
         alt=""
         draggable={false}
         onAnimationEnd={onFin}

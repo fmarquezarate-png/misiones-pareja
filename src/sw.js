@@ -63,8 +63,11 @@ registerRoute(
 
 // Sprites de las mascotas (public/mascotas): se cachean al verlos, no se
 // precargan — son ~2,4 MB y la mayoría de etapas no se ve nunca a la vez.
-// CacheFirst: una vez vista, la mascota se ve también SIN conexión. El
-// manifest va con StaleWhileRevalidate para que un sprite regenerado llegue.
+// CacheFirst: una vez vista, la mascota se ve también SIN conexión. Cada URL
+// lleva ?v=<hash de contenido> (manifest.json, src/lib/petSprites.js#spriteUrl):
+// un sprite regenerado es una URL NUEVA y llega a la PWA instalada; sin eso
+// CacheFirst lo habría servido del caché para siempre. El manifest va con
+// StaleWhileRevalidate para que los hashes nuevos se conozcan.
 registerRoute(
   ({ url }) => url.pathname.startsWith('/mascotas/') && url.pathname.endsWith('.webp'),
   new CacheFirst({

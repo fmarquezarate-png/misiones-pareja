@@ -6,14 +6,16 @@
 
 import { useMemo, useState } from "react";
 import { simular, lineaTemporal, ETAPAS } from "../lib/pet.js";
-import { retrato, nombreEspecie } from "../lib/petSprites.js";
+import { urlRetrato, nombreEspecie } from "../lib/petSprites.js";
 
 const MESES = ["E", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 const MESES_LARGO = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+// La racha del MES (hábitos), no el ánimo de la mascota: «triste» solo existe por
+// falta de cariño. Los colores no usan el verde/rojo de estado a propósito.
 const FONDO = {
-  feliz: "rgba(52,211,153,0.30)",
-  normal: "rgba(167,139,250,0.16)",
-  triste: "rgba(96,165,250,0.30)",
+  buena: "rgba(52,211,153,0.30)",
+  regular: "rgba(167,139,250,0.16)",
+  floja: "rgba(96,165,250,0.30)",
   "sin datos": "transparent",
 };
 const dim = { fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", lineHeight: 1.5 };
@@ -36,7 +38,7 @@ export default function VidaMascota({ filas, entrenos, manifest, especieInicial 
   }
   const detalle = sel && meses.find(m => m.mes === sel);
   const nombreEtapa = id => ETAPAS.find(e => e.id === id)?.nombre || id;
-  const src = etapa => { const r = retrato(manifest, especie, etapa); return r ? `/mascotas/${r}` : null; };
+  const src = etapa => urlRetrato(manifest, especie, etapa);
 
   return (
     <div>
@@ -56,7 +58,7 @@ export default function VidaMascota({ filas, entrenos, manifest, especieInicial 
             border: `1px solid ${especie === e ? "rgba(167,139,250,0.5)" : "var(--t-card-border,rgba(167,139,250,0.2))"}`,
           }}>
             {/* El icono de CADA botón es su especie, no la seleccionada. */}
-            <img src={retrato(manifest, e, "jr") ? `/mascotas/${retrato(manifest, e, "jr")}` : ""} alt="" draggable={false} style={{ width: 20, height: 20 }} />
+            <img src={urlRetrato(manifest, e, "jr") || ""} alt="" draggable={false} style={{ width: 20, height: 20 }} />
             Con {nombreEspecie(manifest, e)}
           </button>
         ))}
@@ -77,12 +79,12 @@ export default function VidaMascota({ filas, entrenos, manifest, especieInicial 
             const baja = m.eventos.some(e => e.tipo === "desevoluciona");
             return (
               <button key={i} onClick={() => setSel(sel === m.mes ? null : m.mes)}
-                aria-label={`${MESES_LARGO[i]} ${año}: ${nombreEtapa(m.etapa)}, ${m.animo}`}
+                aria-label={`${MESES_LARGO[i]} ${año}: ${nombreEtapa(m.etapa)}, racha ${m.racha}`}
                 style={{
                   position: "relative", aspectRatio: "1", padding: 0, cursor: "pointer", borderRadius: 6,
-                  background: FONDO[m.animo],
+                  background: FONDO[m.racha],
                   border: sel === m.mes ? "1.5px solid var(--t-accent,#c4b8ff)"
-                    : m.animo === "sin datos" ? "1px dashed rgba(167,139,250,0.25)" : "1px solid transparent",
+                    : m.racha === "sin datos" ? "1px dashed rgba(167,139,250,0.25)" : "1px solid transparent",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                 {src(m.etapa) && <img src={src(m.etapa)} alt="" draggable={false} loading="lazy" style={{ width: "86%", height: "86%", objectFit: "contain" }} />}
@@ -98,7 +100,7 @@ export default function VidaMascota({ filas, entrenos, manifest, especieInicial 
       ))}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-        {["feliz", "normal", "triste", "sin datos"].map(a => (
+        {["buena", "regular", "floja", "sin datos"].map(a => (
           <span key={a} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "var(--t-text-dim,#8f84ad)" }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: FONDO[a], border: a === "sin datos" ? "1px dashed rgba(167,139,250,0.4)" : "none" }} />
             {a}
@@ -115,7 +117,7 @@ export default function VidaMascota({ filas, entrenos, manifest, especieInicial 
           </div>
           <div style={dim}>
             {detalle.media == null ? "Sin datos este mes."
-              : `Un mes ${detalle.animo}: cumplió de media el ${Math.round(detalle.media * 100)} % de las metas diarias, con datos ${detalle.diasConDatos} días.`}
+              : `Un mes de racha ${detalle.racha}: cumplió de media el ${Math.round(detalle.media * 100)} % de las metas diarias, con datos ${detalle.diasConDatos} días.`}
             {detalle.eventos.map((e, k) => (
               <span key={k}><br />{e.tipo === "evoluciona" ? "▲ Evolucionó" : "▼ Retrocedió"} a {nombreEtapa(e.a)} el {e.dia.split("-").reverse().join("/")}.</span>
             ))}

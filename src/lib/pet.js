@@ -20,13 +20,16 @@
 
 // ── Etapas ──────────────────────────────────────────────────────────────────
 // Umbrales de "vitalidad" (xp). Un día perfecto da +10, así que:
-//   huevo → jr   ~ 1 semana buena       (60)
+//   huevo → jr   ~ 2-4 semanas          (30)
 //   jr → pro     ~ 1 mes                (300)
 //   pro → prime  ~ 3 meses              (900)
 //   prime → upf  ~ 6-7 meses            (2000)
+// Huevo → Jr: con el umbral anterior (60) la eclosión tardaba una MEDIANA de 38
+// días (p75 78, máx 131) sobre los datos reales de Fran: semanas con la mascota
+// inmóvil dentro de un huevo. Con 30: mediana ~15 días, p75 ~31, máx ~67.
 export const ETAPAS = [
   { id: "huevo", nombre: "Huevo", desde: 0 },
-  { id: "jr",    nombre: "Jr",    desde: 60 },
+  { id: "jr",    nombre: "Jr",    desde: 30 },
   { id: "pro",   nombre: "Pro",   desde: 300 },
   { id: "prime", nombre: "Prime", desde: 900 },
   { id: "upf",   nombre: "UPF",   desde: 2000 },
@@ -105,6 +108,25 @@ export function isoDia(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-
 function aFecha(dia) { const [y, m, d] = dia.split("-").map(Number); return new Date(y, m - 1, d); }
 export function sumarDias(dia, n) { const f = aFecha(dia); f.setDate(f.getDate() + n); return isoDia(f); }
 
+/**
+ * Día y hora LOCALES de un instante ISO (p. ej. el `start_at timestamptz` de un
+ * entreno, que Supabase devuelve en UTC). Cortar el texto en 10 caracteres daba el
+ * día UTC: un entreno a las 00:30 en España caía en el día anterior (~5 % de los
+ * entrenos de Fran) y la hora se enseñaba 1-2 h desfasada.
+ * Un texto de solo fecha ("2026-09-24") no tiene hora ni huso: se respeta tal cual.
+ */
+export function diaLocalDe(iso) {
+  if (typeof iso !== "string" || iso.length < 10) return null;
+  if (iso.length === 10) return iso;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : isoDia(d);
+}
+export function horaLocalDe(iso) {
+  if (typeof iso !== "string" || iso.length <= 10) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // Lunes de la semana del día (semanas de lunes a domingo, como el resto de la app).
 export function lunesDe(dia) {
   const f = aFecha(dia);
@@ -147,7 +169,7 @@ export function indexar(filas = [], entrenos = []) {
     porDia.get(f.day)[f.metric] = normalizar(f.metric, f.value, f.unit);
   }
   for (const w of entrenos) {
-    const dia = typeof w?.start_at === "string" ? w.start_at.slice(0, 10) : null;
+    const dia = diaLocalDe(w?.start_at);
     if (!dia) continue;
     if (!porDia.has(dia)) porDia.set(dia, {});
     const d = porDia.get(dia);
@@ -158,19 +180,21 @@ export function indexar(filas = [], entrenos = []) {
 }
 
 function valorDe(datosDia, tipo) {
+  return valorConOrigen(datosDia, tipo).valor;
+}
+
+// Devuelve también de DÓNDE sale el valor: el ejercicio puede derivarse de los
+// minutos de los entrenos (relojes sin `apple_exercise_time`, como el Huawei de
+// Fran) y esa medida no se comporta como las demás.
+function valorConOrigen(datosDia, tipo) {
   const m = METRICAS[tipo];
-  if (!m || !datosDia) return null;
+  if (!m || !datosDia) return { valor: null, derivado: false };
   for (const clave of [m.metric, ...(m.alias || [])]) {
     const v = datosDia[clave];
-    if (Number.isFinite(v)) return v;
+    if (Number.isFinite(v)) return { valor: v, derivado: false };
   }
-  // Los "minutos de ejercicio" son un invento del Apple Watch: con otros
-  // relojes (el de Fran es Huawei) esa métrica no existe. Entonces el
-  // ejercicio del día son los minutos de los ENTRENOS registrados. Sin
-  // entreno ni minutos, no hay dato — un día de descanso no se puede
-  // distinguir de uno sin registrar, así que no se castiga.
-  if (tipo === "ejercicio" && Number.isFinite(datosDia.__workout_min)) return datosDia.__workout_min;
-  return null;
+  if (tipo === "ejercicio" && Number.isFinite(datosDia.__workout_min)) return { valor: datosDia.__workout_min, derivado: true };
+  return { valor: null, derivado: false };
 }
 
 // ── Evaluar un día ──────────────────────────────────────────────────────────
@@ -183,36 +207,74 @@ export function evaluarDia(dia, porDia, metas = METAS_POR_DEFECTO) {
   const datos = porDia.get(dia);
   const diarias = metas.filter(m => m.periodo === "dia");
   const res = diarias.map(m => {
-    const valor = valorDe(datos, m.tipo);
-    return { id: m.id, tipo: m.tipo, objetivo: m.objetivo, valor, cumplida: valor != null && valor >= m.objetivo };
+    const { valor, derivado } = valorConOrigen(datos, m.tipo);
+    const cumplida = valor != null && valor >= m.objetivo;
+    // Ejercicio derivado de entrenos = BONUS: si se cumple, suma; si no llega,
+    // no cuenta. Sin esto castigaba un paseo corto pero NO descansar (sin
+    // entreno era "sin dato"): solo existía en el 4-7 % de los días, y el
+    // resultado era que hacer algo poco valía menos que no hacer nada.
+    const bonus = derivado && !cumplida;
+    return { id: m.id, tipo: m.tipo, objetivo: m.objetivo, valor, cumplida, derivado, cuenta: valor != null && !bonus };
   });
-  const conDato = res.filter(r => r.valor != null);
+  const medibles = res.filter(r => r.cuenta);
   // Un día sin datos no es un día malo: es un día que no sabemos cómo fue.
-  const puntuacion = conDato.length ? conDato.filter(r => r.cumplida).length / conDato.length : null;
-  return { dia, puntuacion, metas: res };
+  const puntuacion = medibles.length ? medibles.filter(r => r.cumplida).length / medibles.length : null;
+  return {
+    dia, puntuacion, metas: res,
+    medibles: medibles.length,                                   // metas con dato que puntúan
+    cobertura: diarias.length ? medibles.length / diarias.length : 0,
+  };
 }
 
 // ── Evaluar una semana ──────────────────────────────────────────────────────
-export function evaluarSemana(lunes, porDia, metas = METAS_POR_DEFECTO, hastaDia = null) {
+// Días con dato que hacen falta para LIQUIDAR una semana cerrada. Con menos, la
+// semana es neutra: que el móvil no sincronizara 4 días no es una semana fallada
+// (regla del proyecto: un fallo de sincronización jamás penaliza). Los totales
+// (suma) necesitan más días que las medias.
+export const MIN_DIAS_SEMANA = { sum: 5, avg: 3 };
+
+/**
+ * @param {string} lunes
+ * @param {Map} porDia
+ * @param {Array} metas
+ * @param {string|null} hastaDia  semana EN CURSO hasta este día (progreso, sin liquidar)
+ * @param {string|null} desdeDia  primer día que cuenta (el nacimiento de la mascota:
+ *        los días anteriores a que existiera no puntúan)
+ */
+export function evaluarSemana(lunes, porDia, metas = METAS_POR_DEFECTO, hastaDia = null, desdeDia = null) {
   const semanales = metas.filter(m => m.periodo === "semana");
   const dias = Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i))
-    .filter(d => !hastaDia || d <= hastaDia);
+    .filter(d => (!hastaDia || d <= hastaDia) && (!desdeDia || d >= desdeDia));
+  const cerrada = !hastaDia;
   return semanales.map(m => {
     const vals = dias.map(d => valorDe(porDia.get(d), m.tipo)).filter(v => v != null);
-    if (!vals.length) return { id: m.id, tipo: m.tipo, objetivo: m.objetivo, valor: null, cumplida: false, sinDatos: true };
-    const valor = METRICAS[m.tipo]?.agg === "avg"
-      ? vals.reduce((a, b) => a + b, 0) / vals.length
-      : vals.reduce((a, b) => a + b, 0);
-    return { id: m.id, tipo: m.tipo, objetivo: m.objetivo, valor, cumplida: valor >= m.objetivo, sinDatos: false };
+    const agg = METRICAS[m.tipo]?.agg === "avg" ? "avg" : "sum";
+    const base = { id: m.id, tipo: m.tipo, objetivo: m.objetivo, diasConDato: vals.length };
+    if (!vals.length || (cerrada && vals.length < MIN_DIAS_SEMANA[agg])) {
+      return { ...base, valor: vals.length ? valor(vals, agg) : null, cumplida: false, sinDatos: true };
+    }
+    const v = valor(vals, agg);
+    // Semana cerrada con algún día sin dato: el objetivo se prorratea por los
+    // días que sí hay (5 de 7 días → 5/7 del objetivo), no se exige el total.
+    const objetivo = cerrada && agg === "sum" ? m.objetivo * Math.min(1, vals.length / 7) : m.objetivo;
+    return { ...base, valor: v, cumplida: v >= objetivo, sinDatos: false };
   });
 }
+const valor = (vals, agg) => (agg === "avg" ? vals.reduce((a, b) => a + b, 0) / vals.length : vals.reduce((a, b) => a + b, 0));
 
-export function puntosDelDia(puntuacion, P = PUNTOS) {
+export function puntosDelDia(puntuacion, P = PUNTOS, medibles = 2) {
   if (puntuacion == null) return 0;                 // neutro: sin datos
-  if (puntuacion >= 1) return P.diaPerfecto;
-  if (puntuacion >= 0.5) return P.diaBueno;
-  if (puntuacion > 0) return P.diaFlojo;
-  return P.diaMalo;
+  let pts;
+  if (puntuacion >= 1) pts = P.diaPerfecto;
+  else if (puntuacion >= 0.5) pts = P.diaBueno;
+  else if (puntuacion > 0) pts = P.diaFlojo;
+  else pts = P.diaMalo;
+  // Con UNA sola meta medible (p. ej. solo llegó el sueño), «cumplirla todas»
+  // es un 100 % de un dato: no puede valer un día perfecto entero. Y un fallo
+  // con un solo dato pesa la mitad. Medido con el historial real: sin esto un
+  // único dato daba +10 o −6 con la misma fuerza que cuatro.
+  if (medibles <= 1) pts = pts > 0 ? Math.round(pts * 0.6) : Math.round(pts * 0.5);
+  return pts;
 }
 
 export function etapaPorXp(xp) {
@@ -271,11 +333,11 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
   // Días CERRADOS: de nacimiento a ayer. Hoy aún está en juego y no se castiga.
   for (let dia = nacimiento; dia < hoy; dia = sumarDias(dia, 1)) {
     const ev = evaluarDia(dia, porDia, metas);
-    xp = acotar(xp + puntosDelDia(ev.puntuacion, P));
+    xp = acotar(xp + puntosDelDia(ev.puntuacion, P, ev.medibles));
 
     // El domingo cierra la semana: se liquidan las metas semanales.
     if (aFecha(dia).getDay() === 0) {
-      for (const s of evaluarSemana(lunesDe(dia), porDia, metas)) {
+      for (const s of evaluarSemana(lunesDe(dia), porDia, metas, null, nacimiento)) {
         if (s.sinDatos) continue;   // semana sin datos: neutra
         xp = acotar(xp + (s.cumplida ? P.semanaCumplida : P.semanaFallada));
       }
@@ -284,11 +346,21 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
     historial.push({ dia, puntuacion: ev.puntuacion, xp, etapa: ETAPAS[etapa].id });
   }
 
-  // Hoy: SOLO suma. Si ya cumpliste, lo ves reflejado ya; si aún no, no resta.
+  // Hoy: SOLO suma, y solo lo YA LOGRADO. La puntuación normal de un día
+  // (cumplidas / con dato) no es monótona mientras el día está en curso: por la
+  // mañana llega el sueño (1/1 = perfecto, +10), después los pasos suben o no, y
+  // la fracción baja — la mascota evolucionaba a las 8:00 y desevolucionaba a
+  // las 11:00. Para hoy se cuenta lo cumplido sobre TODAS las metas diarias:
+  // solo puede crecer a lo largo del día (los pasos no bajan).
   const evHoy = evaluarDia(hoy, porDia, metas);
-  const extra = Math.max(0, puntosDelDia(evHoy.puntuacion, P));
+  const diariasHoy = evHoy.metas.length;
+  const cumplidasHoy = evHoy.metas.filter(m => m.cumplida).length;
+  const puntuacionHoy = diariasHoy && evHoy.medibles ? cumplidasHoy / diariasHoy : null;
+  const extra = Math.max(0, puntosDelDia(puntuacionHoy, P, evHoy.medibles));
+  const etapaAyer = etapa;
   xp = acotar(xp + extra);
-  cambiar(hoy, siguienteEtapa(etapa, xp));
+  // Nunca por debajo de la etapa con la que se cerró ayer.
+  cambiar(hoy, Math.max(etapaAyer, siguienteEtapa(etapa, xp)));
 
   const sig = ETAPAS[etapa + 1];
   const base = ETAPAS[etapa].desde;
@@ -298,7 +370,7 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, filas = [], ent
     xp, etapa, etapaId: ETAPAS[etapa].id, nacida: etapa > 0, progreso,
     eventos, historial,
     hoy: evHoy,
-    semana: evaluarSemana(lunesDe(hoy), porDia, metas, hoy),
+    semana: evaluarSemana(lunesDe(hoy), porDia, metas, hoy, nacimiento),
     datosHoy: porDia.get(hoy) || {},
   };
 }
@@ -385,8 +457,52 @@ export function lineaTemporal(sim) {
       ...m,
       diasConDatos: puntuaciones.length,
       media,
-      // Sin datos no hay ánimo: se dice, no se inventa.
-      animo: media == null ? "sin datos" : media >= 0.67 ? "feliz" : media >= 0.34 ? "normal" : "triste",
+      // Sin datos no hay valoración: se dice, no se inventa. Y NO se llama «triste»:
+      // la regla acordada es que la mascota solo está triste por falta de cariño;
+      // los hábitos se ven en su FORMA. Este es un adjetivo del MES, no de su ánimo.
+      racha: media == null ? "sin datos" : media >= 0.67 ? "buena" : media >= 0.34 ? "regular" : "floja",
     };
   });
+}
+
+
+// ── Metas iniciales calibradas con los hábitos REALES ───────────────────────
+// Las metas por defecto (8.000 pasos, 3.500 kcal/semana) salieron de una cifra
+// redonda, no de la persona: con los datos reales de Fran, 8.000 pasos estaba
+// bien (percentil 62) pero 3.500 kcal/semana era el percentil ~92 — una meta que
+// casi nunca se cumplía, con una penalización que anulaba el progreso diario.
+// Al adoptar (o al pulsar «recalcular» en el editor), las metas de pasos y de
+// energía semanal se ajustan a los últimos 56 días cerrados de la persona; el
+// sueño (7 h) y el ejercicio (30 min) son recomendaciones, no percentiles.
+// Con menos de 21 días de datos se dejan las de por defecto.
+const percentil = (xs, p) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(p * (s.length - 1))]; };
+const redondeaA = (x, paso) => Math.round(x / paso) * paso;
+const acota = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+
+export function calibrarMetas(filas = [], hoy = isoDia(new Date()), { dias = 56, minDias = 21 } = {}) {
+  const metas = METAS_POR_DEFECTO.map(m => ({ ...m }));
+  const desde = sumarDias(hoy, -dias);
+  const idx = indexar(filas.filter(f => f.day >= desde && f.day < hoy));
+  const dia = [...idx.entries()];
+  const pasos = dia.map(([, v]) => valorDe(v, "pasos")).filter(x => x != null);
+  const calibrada = { pasos: false, kcal: false };
+  if (pasos.length >= minDias) {
+    metas.find(m => m.tipo === "pasos").objetivo = acota(redondeaA(percentil(pasos, 0.6), 500), 4000, 12000);
+    calibrada.pasos = true;
+  }
+  // Energía semanal: suma de las semanas con al menos 5 días con dato.
+  const semanas = new Map();
+  for (const [d, v] of dia) {
+    const x = valorDe(v, "kcal");
+    if (x == null) continue;
+    const l = lunesDe(d);
+    if (!semanas.has(l)) semanas.set(l, []);
+    semanas.get(l).push(x);
+  }
+  const sumas = [...semanas.values()].filter(v => v.length >= 5).map(v => v.reduce((a, b) => a + b, 0) * (7 / v.length));
+  if (sumas.length >= 3) {
+    metas.find(m => m.tipo === "kcal").objetivo = acota(redondeaA(percentil(sumas, 0.6), 100), 1500, 6000);
+    calibrada.kcal = true;
+  }
+  return { metas, calibrada };
 }
