@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.5.0] — 2026-09-30 · Detección de deporte con la regla de Fran + vinculación automática a metas
+
+**Regla** (Fran): «Padel/Pádel», «Futbol/Fútbol», «Pichanga», «Gym», «Americana» o 🎾/🏸 en el evento = deporte. `detectarDeporte`: 🎾 sin título reconocible → pádel; «liga masc/mixta», «pichanga» añadidos; exclusiones ampliadas (`montar`, `organiz`…). Falso positivo encontrado al simular sobre el calendario real: «Encontrar portallaves decente **funcional**» → se quita «funcional» del gimnasio (test).
+
+**Metas** (`vincularDeporteAMetas`, `metaDeporteDe`): deporte de una persona → su meta activa de deporte («Gym/Deporte»); de los dos → la de pareja («Hacer deporte juntos»). Solo rellena misiones SIN meta (nunca pisa una elegida a mano); pura e idempotente (sin cambios devuelve el mismo objeto → no provoca guardado). Se aplica: (1) en la carga, como migración (arreglo masivo: 31 eventos en la simulación sobre el blob real), (2) al crear un evento (`addMission`), (3) al apuntar desde «¿Hiciste deporte?». Ana no tiene meta de deporte reconocible («VOLVER A MI FÍSICO…»), así que lo suyo no se vincula.
+
+**Efecto en Salud** (datos reales): 56 deportes contados en 2026 (antes ~40); preguntas «¿Hiciste deporte?» este año: 35 → 27 (8 estaban apuntadas con otro nombre).
+
+---
+
 ## [6.4.2] — 2026-09-30 · «¿Hiciste deporte?» para todo el año
 
 Pedido de Fran: preguntar por todo 2026, no solo los últimos 60 días. `SaludView` carga los datos desde el 1 de enero + 35 días (la línea base del deporte mira 35 días atrás) y `posiblesEntrenos` busca en 366 días; se pregunta uno a uno por cualquier día del año en curso (con los datos reales: 35 días), del más reciente al más antiguo. Lo de años anteriores sigue contando como «detectado» en la historia de la mascota, sin preguntar.

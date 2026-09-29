@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectarDeporte, eventosDeporte, evaluarDia, entrenosDelCalendario, lineaBase, indexarDias, UMBRAL, KCAL_POR_PASO, posiblesEntrenos, deportesHabituales } from "../lib/deporteCalendario.js";
+import { detectarDeporte, eventosDeporte, evaluarDia, entrenosDelCalendario, lineaBase, indexarDias, UMBRAL, KCAL_POR_PASO, posiblesEntrenos, deportesHabituales, vincularDeporteAMetas } from "../lib/deporteCalendario.js";
 import { ventanaPico, PICO_UMBRAL } from "../../supabase/functions/health-ingest/parse.js";
 import { sumarDias, indexar } from "../lib/pet.js";
 
@@ -212,5 +212,51 @@ describe("deportesHabituales", () => {
   it("el más apuntado primero", () => {
     const w = { a: { missions: [m("Gym", { date: "2026-09-01" }), m("Padel", { date: "2026-09-02" }), m("Padel", { date: "2026-09-03" })] } };
     expect(deportesHabituales(w, "person1", "2026-09-29")[0].id).toBe("padel");
+  });
+});
+
+describe("regla de Fran: títulos reales que antes se escapaban", () => {
+  it("ligas, «ft», semis con 🎾, pichanga y fútbol son deporte", () => {
+    for (const [t, e, id] of [
+      ["Liga Masc Moli", "🎾", "padel"], ["Liga Mixta Moli", "🎾", "padel"], ["Master Masculi Semis", "🎾", "padel"],
+      ["Mascu ft Gonza + Rorro", "🎾", "padel"], ["Mixto ft Gonza", "🎾", "padel"], ["Pádel", "🎾", "padel"],
+      ["Pichanga", "⚽", "futbol"], ["Fútbol", "⚽", "futbol"], ["Gym", "🏋️", "gym"], ["Americana Padel OPmobility", "🏸", "padel"],
+    ]) expect(detectarDeporte(m(t, { emoji: e }))?.id, t).toBe(id);
+  });
+  it("los recados con 🎾 NO son deporte", () => {
+    for (const t of ["Comprar patines y bambas correr banana!", "Montar partidito próxima semana", "Coordinar Partido Master Mixto"]) expect(detectarDeporte(m(t, { emoji: "🎾" })), t).toBeNull();
+    // Caso real encontrado en la simulación sobre el calendario: «funcional» no es gimnasio.
+    expect(detectarDeporte(m("Encontrar portallaves decente funcional", { emoji: "🔑" }))).toBeNull();
+  });
+});
+
+describe("vincularDeporteAMetas", () => {
+  const goals = [
+    { id: "vjcvg0a", title: "Gym/Deporte", who: "person1", active: true },
+    { id: "sg2", title: "Hacer deporte juntos", who: "together", active: true },
+    { id: "mlpgk41", title: "VOLVER A MI FISICO Y ESTADO MENTAL", who: "person2", active: true },
+    { id: "sg1", title: "Cenar juntos fuera de casa", who: "together", active: true },
+  ];
+  const data = () => ({ goals, weeks: { "2026-W28": { missions: [
+    m("Liga Masc Moli", { emoji: "🎾" }),
+    m("Mixto ft Gonza", { emoji: "🎾", who: "together" }),
+    m("Pichanga", { emoji: "⚽", goalId: "otra" }),
+    m("Entreno box", { who: "person2" }),
+    m("Comprar patines", { emoji: "🎾", who: "together" }),
+    m("Cena con amigos", { who: "together" }),
+  ] } } });
+  it("lo tuyo a tu meta, lo de los dos a la de los dos; nunca pisa una meta puesta a mano", () => {
+    const { data: d, vinculadas } = vincularDeporteAMetas(data());
+    const g = Object.fromEntries(d.weeks["2026-W28"].missions.map(x => [x.title, x.goalId ?? null]));
+    expect(g).toEqual({ "Liga Masc Moli": "vjcvg0a", "Mixto ft Gonza": "sg2", "Pichanga": "otra", "Entreno box": null, "Comprar patines": null, "Cena con amigos": null });
+    expect(vinculadas).toBe(2);
+  });
+  it("sin nada que vincular devuelve el MISMO objeto (no provoca un guardado)", () => {
+    const d = vincularDeporteAMetas(data()).data;
+    expect(vincularDeporteAMetas(d).data).toBe(d);
+  });
+  it("sin metas de deporte no toca nada", () => {
+    const d = { goals: [], weeks: data().weeks };
+    expect(vincularDeporteAMetas(d)).toEqual({ data: d, vinculadas: 0 });
   });
 });

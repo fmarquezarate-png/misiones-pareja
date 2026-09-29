@@ -8,6 +8,7 @@ import PlanningRitual from "./components/PlanningRitual.jsx";
 import { upcomingDates } from "./lib/importantDates.js";
 import { makeLoveNote } from "./lib/loveNote.js";
 import { parseLocalDate } from "./lib/dateLabel.js";
+import { detectarDeporte, metaDeporteDe, vincularDeporteAMetas } from "./lib/deporteCalendario.js";
 import { normalizePin } from "./lib/corkboard.js";
 import LoveNote from "./components/LoveNote.jsx";
 import HomeHighlight from "./components/HomeHighlight.jsx";
@@ -632,6 +633,9 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
         // Migraciones puras de forma del blob (birthdays, loveNote→loveNotes).
         { const mig = migrateBlob(base); base = mig.data; if (mig.changed) didMigrate = true; }
+        // Deporte → su meta («Gym/Deporte» / «Hacer deporte juntos»). Rellena solo lo
+        // que no tiene meta; idempotente (sin cambios no hay guardado).
+        { const v = vincularDeporteAMetas(base); if (v.vinculadas) { base = v.data; didMigrate = true; track("deporte_vinculado_a_meta", { n: v.vinculadas }); } }
 
         // Aviso NO bloqueante (decisión de diseño v4.25.0): si el remoto trae
         // muchas menos misiones que la copia local previa, avisar — pero no
@@ -1707,6 +1711,8 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const endTime   = hasEnd ? (newM.endTime || "23:59") : null;
     const isEv = newM.type === "event";
     const mission = { id:uid(), emoji:newM.emoji, title:newM.title.trim(), status:newM.status, date:newM.date||null, time:startTime, endDate:newM.endDate||null, endTime, createdAt:Date.now(), completedAt:null, carriedFrom:null, carriedFromWeek:null, categories:newM.categories||[], who:newM.who, duration:newM.duration||null, goalId:newM.goalId||null, type:newM.type||"task", reminder:(newM.reminder && newM.reminder !== "none") ? newM.reminder : null, seriesPattern:newM.seriesPattern||null, seriesId:sid, seriesEndDate:newM.seriesEndDate||null, seriesStartWeek:sid?data.currentWeekNumber:null, seriesStartYear:sid?data.currentYear:null };
+    // Deporte sin meta elegida → a su meta de deporte (tuya o de los dos).
+    if (!mission.goalId && detectarDeporte(mission)) { const g = metaDeporteDe(data.goals, mission.who || "together"); if (g) mission.goalId = g.id; }
     // Evento DIARIO: el carry-over solo rellena semanas FUTURAS, así que aquí
     // creamos también los días restantes de la semana actual (desde la fecha
     // elegida hasta el domingo), acotado por seriesEndDate. Single-day cada uno.
@@ -1867,7 +1873,7 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     const key = isoWeekKey(week, year);
     const mission = { id: uid(), emoji: emoji || "🏅", title, status: "DONE", date, time: time || null, endDate: null, endTime: null,
       createdAt: Date.now(), completedAt: Date.now(), carriedFrom: null, carriedFromWeek: null, categories: [], who: who || "together",
-      duration: duration || null, goalId: null, type: "event", reminder: null, seriesPattern: null, seriesId: null, seriesEndDate: null };
+      duration: duration || null, goalId: metaDeporteDe(data.goals, who || "together")?.id ?? null, type: "event", reminder: null, seriesPattern: null, seriesId: null, seriesEndDate: null };
     update(d => mergeMissionsInto(d, key, [mission], { wn: week, yr: year }));
     insertNormalizedMission(coupleId, key, week, year, mission).catch(e => console.error("[dual_write] deporte:", e));
     track("deporte_apuntado_desde_salud", { deporte: title });

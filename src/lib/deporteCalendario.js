@@ -24,18 +24,23 @@
 
 import { esSinDato, normalizar, sumarDias } from "./pet.js";
 
+// Regla de Fran (30/09/2026): «Padel», «Pádel», «Futbol», «Pichanga», «Gym»,
+// «Americana» en el título, o el emoji 🎾, es deporte. Así entran también los
+// nombres de liga que escribe a su manera («Liga Masc Moli», «Master Masculi
+// Semis», «Mixto ft Gonza»), que antes se escapaban.
 export const DEPORTES = [
-  { id: "padel",  nombre: "Pádel",      emoji: /🎾|🏸/u, re: /p[aá]del|americana|torneo de p[aá]del|\bpartido (vs|con)\b/i, min: 75, tasa: 379, tasaSinPasos: 542, sesionTipica: 707, pideEmoji: /\bpartido\b/i },
-  { id: "gym",    nombre: "Gimnasio",   emoji: /🏋/u,     re: /\bgym\b|gimnasio|crossfit|\bbox\b|\bentreno\b|pesas|funcional/i, min: 60, tasa: 300, tasaSinPasos: 360 },
+  { id: "padel",  nombre: "Pádel",      emoji: /🎾|🏸/u, re: /p[aá]del|americana|torneo de p[aá]del|\bpartido (vs|con)\b|\bliga (masc|mixta|mixto|fem)/i, min: 75, tasa: 379, tasaSinPasos: 542, sesionTipica: 707, pideEmoji: /\bpartido\b/i },
+  { id: "gym",    nombre: "Gimnasio",   emoji: /🏋/u,     re: /\bgym\b|gimnasio|crossfit|\bbox\b|\bentreno\b|pesas/i, min: 60, tasa: 300, tasaSinPasos: 360 },
   { id: "correr", nombre: "Correr",     emoji: /🏃/u,     re: /correr|running|\bcarrera\b|trail/i, min: 45, tasa: 600, tasaSinPasos: 700 },
-  { id: "futbol", nombre: "Fútbol",     emoji: null,       re: /\bf[uú]tbol\b|futsal|pachanga/i, min: 60, tasa: 480, tasaSinPasos: 600 },
+  { id: "futbol", nombre: "Fútbol",     emoji: null,       re: /\bf[uú]tbol\b|futsal|pachanga|pichanga/i, min: 60, tasa: 480, tasaSinPasos: 600 },
   { id: "bici",   nombre: "Bici",       emoji: /🚴/u,     re: /\bbici\b|ciclismo|spinning/i, min: 60, tasa: 450, tasaSinPasos: 500 },
   { id: "nadar",  nombre: "Natación",   emoji: /🏊/u,     re: /nataci[oó]n|\bnadar\b|piscina/i, min: 45, tasa: 450, tasaSinPasos: 500 },
   { id: "yoga",   nombre: "Yoga",       emoji: /🧘/u,     re: /\byoga\b|pilates|estiramientos/i, min: 60, tasa: 150, tasaSinPasos: 180 },
 ];
 // Títulos que MENCIONAN un deporte sin serlo (medido en el calendario real:
-// «Cumple mini Luca Box», «Comidita CROSSFITEROS», «Cotizar zapatillas de pádel»…).
-const NO_DEPORTE = /cumple|comid|\bcena\b|playita|cotiz|compr|coordin|verific|zapas|zapatill|reserv|\bpagar\b|ver (el )?partido|inscrib|\bpala\b/i;
+// «Cumple mini Luca Box», «Comidita CROSSFITEROS», «Cotizar zapatillas de pádel»,
+// «Comprar patines… 🎾», «Montar partidito próxima semana 🎾»…).
+const NO_DEPORTE = /cumple|comid|\bcena\b|playita|cotiz|compr|coordin|verific|zapas|zapatill|reserv|\bpagar\b|ver (el )?partido|inscrib|\bpala\b|\bmontar\b|organiz|\bvolver a mi f/i;
 
 export const UMBRAL = { pulso: 160, kcal: 250, pasos: 2500 };
 export const KCAL_POR_PASO = 0.045;
@@ -46,6 +51,9 @@ export function detectarDeporte(m) {
   const t = String(m?.title || "");
   if (!t || m?.crest || NO_DEPORTE.test(t)) return null;      // crest = partido de Mi Equipo (se ve, no se juega)
   const e = String(m?.emoji || "");
+  // 🎾/🏸 sin título reconocible (p. ej. «Master Masculi Semis», «Mascu ft Gonza»): pádel.
+  const porEmoji = /🎾|🏸/u.test(e) && !DEPORTES.some(d => d.re.test(t)) ? DEPORTES[0] : null;
+  if (porEmoji) return porEmoji;
   for (const d of DEPORTES) {
     if (!d.re.test(t)) continue;
     if (d.pideEmoji && d.pideEmoji.test(t) && !/p[aá]del|americana/i.test(t) && !(d.emoji && d.emoji.test(e))) continue;
@@ -280,3 +288,39 @@ export function deportesHabituales(weeks, persona, hoy) {
 }
 
 export const EMOJI_DEPORTE = { padel: "🎾", gym: "🏋️", correr: "🏃", futbol: "⚽", bici: "🚴", nadar: "🏊", yoga: "🧘" };
+
+// ── Metas de deporte ────────────────────────────────────────────────────────
+// Todo deporte cuenta en su meta (Fran, 30/09/2026): lo que hace una persona en
+// SU meta de deporte («Gym/Deporte»), lo que hacéis juntos en la de los dos
+// («Hacer deporte juntos»). Solo se rellena lo que no tiene meta: nunca se pisa
+// una meta elegida a mano.
+const META_DEPORTE = /deporte|\bgym\b|gimnasio|entren|ejercicio/i;
+
+/** La meta de deporte activa de esa persona («person1»/«person2»/«together»), o null. */
+export function metaDeporteDe(goals = [], who) {
+  return (goals || []).find(g => g && g.active !== false && (g.who || "together") === who && META_DEPORTE.test(String(g.title || ""))) || null;
+}
+
+/**
+ * Vincula a su meta de deporte las misiones de deporte que no tienen meta. Pura.
+ * @returns {{ data, vinculadas: number }}
+ */
+export function vincularDeporteAMetas(data) {
+  const goals = data?.goals || [];
+  const metas = { person1: metaDeporteDe(goals, "person1"), person2: metaDeporteDe(goals, "person2"), together: metaDeporteDe(goals, "together") };
+  if (!metas.person1 && !metas.person2 && !metas.together) return { data, vinculadas: 0 };
+  let vinculadas = 0;
+  const weeks = {};
+  for (const [k, w] of Object.entries(data.weeks || {})) {
+    let cambio = false;
+    const missions = (w?.missions || []).map(m => {
+      if (!m || m.goalId || !detectarDeporte(m)) return m;
+      const meta = metas[m.who || "together"];
+      if (!meta) return m;
+      cambio = true; vinculadas++;
+      return { ...m, goalId: meta.id };
+    });
+    weeks[k] = cambio ? { ...w, missions } : w;
+  }
+  return vinculadas ? { data: { ...data, weeks }, vinculadas } : { data, vinculadas: 0 };
+}
