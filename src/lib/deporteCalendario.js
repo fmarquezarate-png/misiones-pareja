@@ -9,9 +9,9 @@
 //   · Señales de que el partido se jugó ese día, frente a la mediana de los 35 días
 //     anteriores sin deporte apuntado:
 //       pulso máximo ≥ 160 · energía activa +250 kcal · pasos +2.500
-//     Dos o más → «confirmado» (30 de 39). Una → «probable». Ninguna, llevando el
-//     reloj (hay pulso ese día) → «no coincide»: no se cuenta. Sin pulso en todo el
-//     día → «sin reloj»: se cuenta con una estimación.
+//     Dos o más → «confirmado» (30 de 39). Una → «probable». Ninguna → «no coincide»
+//     o «sin datos del reloj». TODO lo apuntado cuenta: el calendario manda (la app de
+//     Huawei registró partidos que Apple Salud nunca recibió); el reloj solo afina las kcal.
 //   · Calorías del partido: 0,045 × pasos extra + 379 × horas de juego (error mediano
 //     12 %; «kcal por hora» a secas: 21 %). Si el día está confirmado se usa lo que
 //     el reloj MIDIÓ de más, acotado a ±50 % de esa estimación (así un día con más
@@ -25,7 +25,7 @@
 import { esSinDato, normalizar, sumarDias } from "./pet.js";
 
 export const DEPORTES = [
-  { id: "padel",  nombre: "Pádel",      emoji: /🎾|🏸/u, re: /p[aá]del|americana|torneo de p[aá]del|\bpartido (vs|con)\b/i, min: 75, tasa: 379, tasaSinPasos: 542, pideEmoji: /\bpartido\b/i },
+  { id: "padel",  nombre: "Pádel",      emoji: /🎾|🏸/u, re: /p[aá]del|americana|torneo de p[aá]del|\bpartido (vs|con)\b/i, min: 75, tasa: 379, tasaSinPasos: 542, sesionTipica: 707, pideEmoji: /\bpartido\b/i },
   { id: "gym",    nombre: "Gimnasio",   emoji: /🏋/u,     re: /\bgym\b|gimnasio|crossfit|\bbox\b|\bentreno\b|pesas|funcional/i, min: 60, tasa: 300, tasaSinPasos: 360 },
   { id: "correr", nombre: "Correr",     emoji: /🏃/u,     re: /correr|running|\bcarrera\b|trail/i, min: 45, tasa: 600, tasaSinPasos: 700 },
   { id: "futbol", nombre: "Fútbol",     emoji: null,       re: /\bf[uú]tbol\b|futsal|pachanga/i, min: 60, tasa: 480, tasaSinPasos: 600 },
@@ -149,17 +149,28 @@ export function evaluarDia(evs, o = {}, base = {}) {
   return evs.map(e => {
     const dep = DEPORTES.find(d => d.id === e.deporte);
     const parte = e.minutos / minTot, h = e.minutos / 60;
+    // Partido TÍPICO: media real de las sesiones del reloj (Huawei, 2026: 64
+    // partidos, 51.905 kcal totales, 81 min → 707 kcal ACTIVAS). Si el deporte no
+    // tiene sesión típica medida, su tasa por hora.
+    const tipica = dep.sesionTipica ?? dep.tasaSinPasos * h;
     const estimada = KCAL_POR_PASO * Math.max(0, dP ?? 0) * parte + dep.tasa * h;
     let kcal, kcalMedidas = null;
     if (nivel === "confirmado" && dK != null) {
+      // Lo que midió el reloj ese día (acotado a ±50 % de la fórmula) promediado con
+      // el partido típico: el día puede traer más cosas que el partido (06/09: +58 %
+      // midiendo solo el día). Contra 13 sesiones reales: 9 % de error mediano.
       kcalMedidas = Math.round(dK * parte);
-      kcal = Math.min(estimada * 1.5, Math.max(estimada * 0.5, kcalMedidas));
-    } else if (nivel === "probable") kcal = estimada;
-    else if (nivel === "sin_reloj") kcal = dep.tasaSinPasos * h;
-    else kcal = 0;
+      const medido = Math.min(estimada * 1.5, Math.max(estimada * 0.5, kcalMedidas));
+      kcal = (medido + tipica) / 2;
+    } else {
+      // Probable, sin datos o «no coincide»: el partido típico. El calendario MANDA:
+      // Apple Salud a veces no recibe nada del reloj (04/08, 22/06, 27/09 — la app de
+      // Huawei SÍ registró esos partidos).
+      kcal = tipica;
+    }
     return {
       ...e, nivel, señales, picoEnHora, kcalMedidas,
-      kcal: Math.round(kcal), cuenta: nivel !== "no_coincide",
+      kcal: Math.round(kcal), cuenta: true,
       delta: { kcal: dK == null ? null : Math.round(dK), pasos: dP == null ? null : Math.round(dP) }, pulsoMax: o.pulsoMax ?? null,
     };
   });
@@ -212,7 +223,7 @@ export const TEXTO_NIVEL = {
   confirmado: "confirmado por tu reloj",
   probable: "probable (una señal del reloj)",
   sin_reloj: "sin datos del reloj ese día · estimado",
-  no_coincide: "el reloj no lo vio",
+  no_coincide: "Apple Salud no lo reflejó · estimado",
 };
 
 // ── Anomalías de pulso: «¿hiciste deporte?» ─────────────────────────────────

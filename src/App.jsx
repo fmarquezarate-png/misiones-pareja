@@ -1641,7 +1641,14 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
 
   const p1 = data.settings?.person1 || "Persona 1";
   const p2 = data.settings?.person2 || "Persona 2";
-  const sessionPersonId = personName === p1 ? "person1" : personName === p2 ? "person2" : null;
+  // Quién es quién en el calendario. Antes SOLO por nombre: el de la cuenta
+  // («Francisco») casi nunca coincide con el apodo del calendario («Morsh ⚡️»), y
+  // quedaba null en silencio (30/09/2026: el deporte del calendario no salía en
+  // Salud). Ahora manda lo que la persona eligió una vez (settings.personaDeUsuario,
+  // compartido entre dispositivos); el nombre queda como respaldo.
+  const personaElegida = data.settings?.personaDeUsuario?.[sessionUserId];
+  const sessionPersonId = personaElegida === "person1" || personaElegida === "person2" ? personaElegida
+    : personName === p1 ? "person1" : personName === p2 ? "person2" : null;
   const colors = { ...DEFAULT_COLORS, ...(data.settings?.colors||{}) };
   const _uprefs = getUserPrefs(sessionUserId);
   const themeId = localThemeId || _uprefs.themeId || data.settings?.themeId || "violet";
@@ -1848,6 +1855,11 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
   // «¿Hiciste deporte?» (Salud): apunta en el calendario, en SU semana, un evento
   // ya hecho en un día pasado. Mismo camino que los partidos de Mi Equipo: reducer
   // puro (mergeMissionsInto) + dual-write fuera del reducer.
+  const elegirPersona = pid => {
+    if (!sessionUserId || (pid !== "person1" && pid !== "person2")) return;
+    update(d => ({ ...d, settings: { ...d.settings, personaDeUsuario: { ...(d.settings?.personaDeUsuario || {}), [sessionUserId]: pid } } }));
+  };
+
   const apuntarDeporte = ({ date, time, duration, title, emoji, who }) => {
     const dd = parseLocalDate(date);
     if (!dd || !title) return;
@@ -2653,6 +2665,8 @@ ${sorted.map(m=>{
           weeks={data.weeks}
           sessionPersonId={sessionPersonId}
           onApuntarDeporte={apuntarDeporte}
+          nombresCalendario={{ person1: p1, person2: p2 }}
+          onElegirPersona={elegirPersona}
           pets={data.settings?.pets || {}}
           // `parche` se FUSIONA sobre la mascota que hay en el estado fresco (dentro del
           // reducer): con `[uid]: pet` se guardaba una copia entera capturada antes,

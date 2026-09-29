@@ -7,6 +7,20 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.4.1] — 2026-09-30 · El deporte del calendario no salía (persona desconocida) + recalibración con 13 partidos
+
+**Causa** (Fran: «sigo viendo la pantalla de Salud igual, último entreno 24 sept»): `sessionPersonId` se calculaba solo comparando `couple_members.person_name` («Francisco») con `settings.person1` («Morsh ⚡️») → `null` → `entrenosDelCalendario` sin persona devolvía `[]` sin avisar. En el arnés de pruebas los nombres coincidían, por eso no se vio. Reproducido: antes «Interior Ejecutar · jue 24 sep»; tras elegir, «Padel Masc Moli · ayer».
+
+**Arreglo**: `settings.personaDeUsuario[uid]` (se elige una vez en Salud: «Soy Morsh ⚡️ / Soy Banana 🍌»; compartido entre dispositivos); el nombre queda de respaldo. Efecto colateral bueno: cualquier otra parte que dependía de `sessionPersonId` (y caía a `"person1"` para los dos) usa ahora la persona correcta.
+
+**El calendario manda**: todo deporte apuntado y hecho cuenta como entreno. El reloj solo afina las kcal. Motivo: la app de Huawei registró partidos (22/06, 04/08, 27/09) de los que Apple Salud no recibió nada o casi nada.
+
+**Recalibración con 13 sesiones reales** (junio + agosto + septiembre): confirmado → media entre lo medido (acotado) y el partido típico (707 kcal activas: media real Huawei 2026, 64 partidos, 51.905 kcal, 81 min); resto → partido típico. Error mediano **9 %** y ningún partido a 0 (antes el 22/06 contaba 0). Test fijo con las 13 sesiones.
+
+**«¿Hiciste deporte?»**: pregunta uno a uno por los últimos **60 días** (antes 7), para ir afinando con tus respuestas.
+
+---
+
 ## [6.4.0] — 2026-09-30 · «¿Hiciste deporte?», calibración con el reloj, bolos medidos
 
 **Calibración contra sesiones reales** (captura de la app de Huawei: 7 partidos con kcal totales, duración y pulso medio; activas = total − basal de la duración): error mediano **9 %** en los 4 confirmados (+6, +5, −11, +24 %). Hallazgo: el 04/08 y el 27/09 la app decía «sin reloj» y el reloj SÍ los registró — falló la sincronización Huawei → Apple Salud (ni pulso ni energía ese día). Etiqueta cambiada a «sin datos del reloj ese día». Las 4 sesiones quedan como test fijo (`deporteCalendario.test.js`) para que ningún cambio de fórmula empeore sin avisar. Las kcal de Huawei siguen la fórmula de Keytel (pulso medio × duración) ÷ 1,48 de forma casi exacta, pero el pulso medio de la sesión no llega a Apple Salud.

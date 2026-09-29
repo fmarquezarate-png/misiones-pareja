@@ -47,7 +47,7 @@ function haceCuanto(iso) {
   return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`;
 }
 
-export default function SaludView({ sessionUserId, coupleId, personName, partnerName, weeks = {}, sessionPersonId = null, onApuntarDeporte, pets = {}, onGuardarMascota }) {
+export default function SaludView({ sessionUserId, coupleId, personName, partnerName, weeks = {}, sessionPersonId = null, onApuntarDeporte, nombresCalendario = null, onElegirPersona, pets = {}, onGuardarMascota }) {
   const [estado, setEstado] = useState("cargando");   // cargando | listo — solo la PRIMERA carga bloquea la pantalla
   const [actualizando, setActualizando] = useState(false);
   const [datos, setDatos] = useState({ filas: [], entrenos: [], error: null });
@@ -176,6 +176,22 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
             onCambiarEspecie={quien === "yo" ? e => onGuardarMascota?.(sessionUserId, { especie: e }) : null} />
         : quien === "yo" ? <Adoptar manifest={manifest} onAdoptar={p => onGuardarMascota?.(sessionUserId, p)} />
         : <div style={card}><div style={dim}>{nombre} todavía no ha elegido su mascota.</div></div>}
+
+      {/* Sin saber quién eres en el calendario, el deporte apuntado no se puede contar: se pregunta una vez. */}
+      {!sessionPersonId && onElegirPersona && nombresCalendario && quien === "yo" && (
+        <div style={{ ...card, border: "1px solid rgba(251,191,36,0.35)" }}>
+          <div style={{ ...titulo, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>📅</span> ¿Quién eres tú en el calendario?</div>
+          <div style={{ ...dim, marginBottom: 8 }}>Para contar como entreno el deporte que apuntas (pádel, gym…), la app necesita saber cuál de los dos eres. Solo se pregunta una vez.</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {["person1", "person2"].map(pid => (
+              <button key={pid} onClick={() => onElegirPersona(pid)} style={{ minHeight: 44, padding: "0 16px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700,
+                color: "var(--t-text,#f0e8ff)", background: "transparent", border: "1px solid var(--t-card-border,rgba(167,139,250,0.35))" }}>
+                Soy {nombresCalendario[pid]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* «¿Hiciste deporte?» */}
       {posibles.length > 0 && onApuntarDeporte && (
@@ -423,11 +439,14 @@ function Conexion({ p, onAbrir }) {
 // Un día con el pulso muy alto y nada apuntado (deporteCalendario › posiblesEntrenos).
 // Lo reciente (7 días) se pregunta arriba; lo anterior, plegado. Cada respuesta
 // quita el día de la lista: apuntarlo crea el evento, «no» lo descarta para siempre.
+const DIAS_PREGUNTA = 60;
 const horaDe = seg => { const d = new Date(seg * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 function PreguntaDeporte({ posibles, opciones, hoy, onApuntar, onDescartar }) {
   const [verMas, setVerMas] = useState(false);
-  const recientes = posibles.filter(p => p.dia >= sumarDias(hoy, -7));
-  const antiguos = posibles.filter(p => p.dia < sumarDias(hoy, -7));
+  // Los últimos 2 meses se preguntan uno a uno (así se afina la regla con tus
+  // respuestas); lo anterior queda plegado.
+  const recientes = posibles.filter(p => p.dia >= sumarDias(hoy, -DIAS_PREGUNTA));
+  const antiguos = posibles.filter(p => p.dia < sumarDias(hoy, -DIAS_PREGUNTA));
   const lista = verMas ? posibles : recientes;
   const boton = { minHeight: 44, padding: "0 12px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, border: "1px solid var(--t-card-border,rgba(167,139,250,0.3))", background: "transparent", color: "var(--t-text,#f0e8ff)" };
   const Fila = ({ p, grande }) => (
@@ -460,11 +479,11 @@ function PreguntaDeporte({ posibles, opciones, hoy, onApuntar, onDescartar }) {
     <div style={{ ...card, border: "1px solid rgba(251,191,36,0.35)" }}>
       <div style={{ ...titulo, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>💓</span> ¿Hiciste deporte?</div>
       <div style={{ ...dim, marginBottom: 4 }}>Tu reloj vio el pulso mucho más alto de lo normal y no hay nada apuntado. Si fue deporte, apúntalo y contará como entreno.</div>
-      {lista.length ? lista.slice(0, verMas ? 30 : 3).map((p, i) => <Fila key={p.dia} p={p} grande={i === 0 && !verMas} />)
-        : null}
-      {antiguos.length > 0 && (
+      {recientes.length > 0 && <div style={{ ...dim, marginBottom: 4 }}>{recientes.length} {recientes.length === 1 ? "día" : "días"} en los últimos 2 meses.</div>}
+      {lista.slice(0, verMas ? 60 : 3).map((p, i) => <Fila key={p.dia} p={p} grande={i === 0 && !verMas} />)}
+      {(lista.length > 3 || antiguos.length > 0) && (
         <button onClick={() => setVerMas(v => !v)} style={{ ...boton, width: "100%", marginTop: 8, color: "var(--t-accent,#c4b8ff)" }}>
-          {verMas ? "Ver solo esta semana" : `Ver ${antiguos.length} ${antiguos.length === 1 ? "día anterior" : "días anteriores"}`}
+          {verMas ? "Ver menos" : `Ver ${posibles.length - Math.min(3, lista.length)} más`}
         </button>
       )}
     </div>

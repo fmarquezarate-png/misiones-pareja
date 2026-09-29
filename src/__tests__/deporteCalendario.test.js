@@ -66,34 +66,35 @@ describe("evaluarDia: cuándo el reloj confirma el partido", () => {
     const dias = indexarDias(filas);
     return evaluarDia([evPadel], dias.get("2026-09-29"), lineaBase("2026-09-29", dias, new Set(["2026-09-29"])))[0];
   };
-  it("pulso, energía y pasos altos → confirmado, con las kcal MEDIDAS", () => {
+  const T = 707;   // partido típico (media real de Huawei 2026)
+  it("pulso, energía y pasos altos → confirmado: media entre lo MEDIDO y el partido típico", () => {
     const e = evalua({ step_count: 13000, active_energy: 1000, heart_rate_max: 190 });
     expect(e.nivel).toBe("confirmado");
     expect(e.kcalMedidas).toBe(700);
-    expect(e.kcal).toBe(700);
+    expect(e.kcal).toBe(Math.round((700 + T) / 2));
     expect(e.cuenta).toBe(true);
   });
   it("lo medido se acota a ±50 % de la fórmula (un día con más cosas no se atribuye entero al partido)", () => {
     const e = evalua({ step_count: 13000, active_energy: 3000, heart_rate_max: 190 });
     const formula = KCAL_POR_PASO * 6000 + 379 * 1.25;
-    expect(e.kcal).toBe(Math.round(formula * 1.5));
+    expect(e.kcal).toBe(Math.round((formula * 1.5 + T) / 2));
   });
-  it("una sola señal → probable, con la fórmula", () => {
+  it("una sola señal → probable, con el partido típico", () => {
     const e = evalua({ step_count: 7100, active_energy: 320, heart_rate_max: 185 });
     expect(e.nivel).toBe("probable");
-    expect(e.kcal).toBe(Math.round(KCAL_POR_PASO * 100 + 379 * 1.25));
+    expect(e.kcal).toBe(T);
   });
-  it("llevando el reloj y sin ninguna señal → no coincide, no cuenta", () => {
+  it("el reloj no lo reflejó → IGUAL cuenta (el calendario manda), con el partido típico", () => {
     const e = evalua({ step_count: 6900, active_energy: 280, heart_rate_max: 111 });
     expect(e.nivel).toBe("no_coincide");
-    expect(e.cuenta).toBe(false);
-    expect(e.kcal).toBe(0);
+    expect(e.cuenta).toBe(true);
+    expect(e.kcal).toBe(T);
   });
-  it("sin pulso en todo el día (sin reloj) → cuenta, con una estimación", () => {
+  it("sin datos del reloj ese día → cuenta, con el partido típico", () => {
     const e = evalua({ step_count: 5000, active_energy: 200 });
     expect(e.nivel).toBe("sin_reloj");
     expect(e.cuenta).toBe(true);
-    expect(e.kcal).toBe(Math.round(542 * 1.25));
+    expect(e.kcal).toBe(T);
   });
   it("los umbrales son los ajustados con el historial", () => {
     expect(UMBRAL).toEqual({ pulso: 160, kcal: 250, pasos: 2500 });
@@ -153,25 +154,26 @@ describe("ventanaPico (servidor): en qué franja subió el pulso", () => {
   });
 });
 
-// Referencia REAL: sesiones de la app de Huawei (captura de Fran, 30/09/2026), en
-// kcal ACTIVAS (total − basal de la duración). Si alguien toca la fórmula, esto
-// dice si acierta más o menos que hoy (9 % de error mediano en los confirmados).
-describe("calibración contra el reloj (sesiones reales de pádel)", () => {
+// Referencia REAL: 13 partidos de la app de Huawei (capturas de Fran, 30/09/2026),
+// en kcal ACTIVAS (total − 77 kcal/h de basal). Día a día: lo que Apple Salud
+// recibió (Δ sobre el día normal) y lo que midió el reloj en la sesión. Si alguien
+// toca la fórmula, esto dice si acierta más o menos (hoy: 9 % de error mediano).
+describe("calibración contra el reloj (13 partidos reales de pádel)", () => {
   const base = { pasos: 7000, kcal: 300 };
   const casos = [
-    // [Δkcal del día, Δpasos, pulso máx, kcal activas según Huawei]
-    [1157, 6534, 195, 1083],
-    [965, 5547, 191, 922],
-    [530, 3467, 191, 598],
-    [822, 7461, 185, 662],
+    // [Δkcal del día, Δpasos, pulso máx (null = sin datos), kcal activas según Huawei]
+    [708, 4793, 169, 447], [799, 2993, 191, 844], [554, 1641, 192, 612], [639, 7913, 193, 458],
+    [-66, -2174, 111, 660], [472, 3945, 183, 566], [655, 4335, 184, 644], [-1, -346, null, 442],
+    [822, 7461, 185, 664], [530, 3467, 191, 599], [965, 5547, 191, 924], [-26, 1628, null, 674], [1157, 6534, 195, 1083],
   ];
-  it("error mediano ≤ 12 % en los partidos confirmados", () => {
+  it("error mediano ≤ 10 % y ningún partido a 0 kcal", () => {
     const errores = casos.map(([dk, dp, hx, real]) => {
-      const e = evaluarDia([evPadel], { kcal: base.kcal + dk, pasos: base.pasos + dp, pulsoMax: hx }, base)[0];
-      expect(e.nivel).toBe("confirmado");
+      const e = evaluarDia([evPadel], { kcal: base.kcal + dk, pasos: base.pasos + dp, pulsoMax: hx ?? undefined }, base)[0];
+      expect(e.cuenta).toBe(true);
+      expect(e.kcal).toBeGreaterThan(0);
       return Math.abs(e.kcal - real) / real;
     }).sort((a, b) => a - b);
-    expect((errores[1] + errores[2]) / 2).toBeLessThanOrEqual(0.12);
+    expect(errores[6]).toBeLessThanOrEqual(0.10);
   });
 });
 
