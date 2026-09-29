@@ -1845,6 +1845,23 @@ function CoupleMissions({ coupleId, personName, onSignOut, sessionUserId }) {
     if (total) pushToast({ kind: "success", text: `⚽ ${total} ${total === 1 ? "partido añadido" : "partidos al día"}` });
   };
 
+  // «¿Hiciste deporte?» (Salud): apunta en el calendario, en SU semana, un evento
+  // ya hecho en un día pasado. Mismo camino que los partidos de Mi Equipo: reducer
+  // puro (mergeMissionsInto) + dual-write fuera del reducer.
+  const apuntarDeporte = ({ date, time, duration, title, emoji, who }) => {
+    const dd = parseLocalDate(date);
+    if (!dd || !title) return;
+    const { week, year } = getWeekAndYear(dd);
+    const key = isoWeekKey(week, year);
+    const mission = { id: uid(), emoji: emoji || "🏅", title, status: "DONE", date, time: time || null, endDate: null, endTime: null,
+      createdAt: Date.now(), completedAt: Date.now(), carriedFrom: null, carriedFromWeek: null, categories: [], who: who || "together",
+      duration: duration || null, goalId: null, type: "event", reminder: null, seriesPattern: null, seriesId: null, seriesEndDate: null };
+    update(d => mergeMissionsInto(d, key, [mission], { wn: week, yr: year }));
+    insertNormalizedMission(coupleId, key, week, year, mission).catch(e => console.error("[dual_write] deporte:", e));
+    track("deporte_apuntado_desde_salud", { deporte: title });
+    pushToast({ kind: "success", text: `${mission.emoji} ${title} apuntado en tu calendario` });
+  };
+
   const patchAllFutureSeries = (seriesId, fromWkey, patch) => {
     update(d => {
       const newWeeks = { ...d.weeks };
@@ -2635,6 +2652,7 @@ ${sorted.map(m=>{
           partnerName={p1===personName ? p2 : p1}
           weeks={data.weeks}
           sessionPersonId={sessionPersonId}
+          onApuntarDeporte={apuntarDeporte}
           pets={data.settings?.pets || {}}
           // `parche` se FUSIONA sobre la mascota que hay en el estado fresco (dentro del
           // reducer): con `[uid]: pet` se guardaba una copia entera capturada antes,

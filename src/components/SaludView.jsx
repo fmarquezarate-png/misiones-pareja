@@ -12,10 +12,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
-import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
+import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato, sumarDias } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
 import { estadoDeDatos } from "../lib/petEstado.js";
-import { entrenosDelCalendario } from "../lib/deporteCalendario.js";
+import { entrenosDelCalendario, posiblesEntrenos, deportesHabituales, EMOJI_DEPORTE } from "../lib/deporteCalendario.js";
 import { urlRetrato, nombreEspecie, cargarManifest } from "../lib/petSprites.js";
 import { humanDate } from "../lib/dateLabel.js";
 import { modoPruebas, fijarModoPruebas } from "../lib/petConfig.js";
@@ -47,7 +47,7 @@ function haceCuanto(iso) {
   return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`;
 }
 
-export default function SaludView({ sessionUserId, coupleId, personName, partnerName, weeks = {}, sessionPersonId = null, pets = {}, onGuardarMascota }) {
+export default function SaludView({ sessionUserId, coupleId, personName, partnerName, weeks = {}, sessionPersonId = null, onApuntarDeporte, pets = {}, onGuardarMascota }) {
   const [estado, setEstado] = useState("cargando");   // cargando | listo — solo la PRIMERA carga bloquea la pantalla
   const [actualizando, setActualizando] = useState(false);
   const [datos, setDatos] = useState({ filas: [], entrenos: [], error: null });
@@ -126,14 +126,31 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   const calendario = useMemo(() => entrenosDelCalendario({ weeks, persona, filas, entrenos: entrenosReloj, hoy: hoyCal }),
     [weeks, persona, filas, entrenosReloj, hoyCal]);
   const entrenos = useMemo(() => [...entrenosReloj, ...calendario.entrenos], [entrenosReloj, calendario]);
+  // «¿Hiciste deporte?»: pulso anómalo sin nada apuntado. Solo para quien mira su
+  // propia salud (apuntar a nombre de la pareja no es cosa de esta pantalla).
+  const [descartadosLocal, setDescartadosLocal] = useState([]);
+  const descartados = useMemo(() => [...(pets[sessionUserId]?.descartesDeporte || []), ...descartadosLocal], [pets, sessionUserId, descartadosLocal]);
+  const posibles = useMemo(() => (quien === "yo" ? posiblesEntrenos({ filas, weeks, persona, hoy: hoyCal, descartados }) : []),
+    [quien, filas, weeks, persona, hoyCal, descartados]);
+  const opcionesDeporte = useMemo(() => deportesHabituales(weeks, persona, hoyCal), [weeks, persona, hoyCal]);
+  const descartar = dia => {
+    setDescartadosLocal(d => [...d, dia]);
+    if (pets[sessionUserId]) onGuardarMascota?.(sessionUserId, { descartesDeporte: [...(pets[sessionUserId].descartesDeporte || []), dia].slice(-400) });
+  };
+
   // La historia larga (años) también come del calendario; memorizada: VidaMascota
   // re-simula todo el historial cada vez que cambian sus entrenos.
+  // Y los años en los que no se apuntaba nada: los días de pulso anómalo cuentan
+  // como deporte DETECTADO (no se pregunta uno a uno por ~150 días de 2022–2025).
   const historiaEntrenos = useMemo(() => {
-    if (!historia || historia === "cargando" || historia.error) return [];
+    if (!historia || historia === "cargando" || historia.error) return { lista: [], detectados: 0 };
     const reloj = historia.entrenos.filter(w => w.user_id === uid);
     const f = historia.filas.filter(x => x.user_id === uid);
-    return [...reloj, ...entrenosDelCalendario({ weeks, persona, filas: f, entrenos: reloj, hoy: hoyCal }).entrenos];
-  }, [historia, uid, weeks, persona, hoyCal]);
+    const cal = entrenosDelCalendario({ weeks, persona, filas: f, entrenos: reloj, hoy: hoyCal }).entrenos;
+    const detectados = posiblesEntrenos({ filas: f, weeks, persona, hoy: hoyCal, descartados, dias: 100000 })
+      .map(p => ({ start_at: p.dia, minutes: 60, name: "Deporte (detectado por el pulso)", source: "pulso" }));
+    return { lista: [...reloj, ...cal, ...detectados], detectados: detectados.length };
+  }, [historia, uid, weeks, persona, hoyCal, descartados]);
   const pet = uid ? pets[uid] : null;
   const hoy = isoDia(new Date());
 
@@ -159,6 +176,13 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
             onCambiarEspecie={quien === "yo" ? e => onGuardarMascota?.(sessionUserId, { especie: e }) : null} />
         : quien === "yo" ? <Adoptar manifest={manifest} onAdoptar={p => onGuardarMascota?.(sessionUserId, p)} />
         : <div style={card}><div style={dim}>{nombre} todavía no ha elegido su mascota.</div></div>}
+
+      {/* «¿Hiciste deporte?» */}
+      {posibles.length > 0 && onApuntarDeporte && (
+        <PreguntaDeporte posibles={posibles} opciones={opcionesDeporte} hoy={hoy}
+          onApuntar={(p, dep) => onApuntarDeporte({ date: p.dia, time: p.horaSugerida, duration: dep.min, title: dep.nombre, emoji: EMOJI_DEPORTE[dep.id], who: sessionPersonId })}
+          onDescartar={p => descartar(p.dia)} />
+      )}
 
       {/* 2. El panel */}
       {filas.length || entrenos.length
@@ -194,7 +218,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
           </>
         ) : historia === "cargando" ? <div style={dim}>Cargando todo el historial…</div>
           : historia.error ? <div style={dim}>No se pudo cargar el historial.</div>
-          : <VidaMascota filas={historia.filas.filter(f => f.user_id === uid)} entrenos={historiaEntrenos} manifest={manifest} especieInicial={pet?.especie} />}
+          : <VidaMascota filas={historia.filas.filter(f => f.user_id === uid)} entrenos={historiaEntrenos.lista} detectados={historiaEntrenos.detectados} manifest={manifest} especieInicial={pet?.especie} />}
       </div>
 
       {/* 4. Lo técnico, plegado */}
@@ -391,6 +415,58 @@ function Conexion({ p, onAbrir }) {
       <div style={{ ...dim, marginTop: 10, padding: "8px 10px", borderRadius: 10, background: "rgba(167,139,250,0.08)" }}>
         <b>¿Y el estrés?</b> Apple Salud no tiene una medida de «estrés» propia: la que da tu reloj se queda en su app (Huawei Health, Zepp…). Lo más parecido que sí pasa a Salud es la <b>variabilidad cardiaca</b> (HRV){resumen.has("heart_rate_variability") ? ", que ya te está llegando" : ", que ahora mismo no llega"} y los <b>minutos de mindfulness</b>{resumen.has("mindful_minutes") ? ", que también llegan" : ""}. Para saber si un dato de tu reloj llega a Salud: abre la app Salud del iPhone → Explorar → busca la medida; si no está ahí, no puede llegar aquí.
       </div>
+    </div>
+  );
+}
+
+// ── «¿Hiciste deporte?» ─────────────────────────────────────────────────────
+// Un día con el pulso muy alto y nada apuntado (deporteCalendario › posiblesEntrenos).
+// Lo reciente (7 días) se pregunta arriba; lo anterior, plegado. Cada respuesta
+// quita el día de la lista: apuntarlo crea el evento, «no» lo descarta para siempre.
+const horaDe = seg => { const d = new Date(seg * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+function PreguntaDeporte({ posibles, opciones, hoy, onApuntar, onDescartar }) {
+  const [verMas, setVerMas] = useState(false);
+  const recientes = posibles.filter(p => p.dia >= sumarDias(hoy, -7));
+  const antiguos = posibles.filter(p => p.dia < sumarDias(hoy, -7));
+  const lista = verMas ? posibles : recientes;
+  const boton = { minHeight: 44, padding: "0 12px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, border: "1px solid var(--t-card-border,rgba(167,139,250,0.3))", background: "transparent", color: "var(--t-text,#f0e8ff)" };
+  const Fila = ({ p, grande }) => (
+    <div style={{ padding: "8px 0", borderTop: grande ? "none" : "1px solid rgba(167,139,250,0.08)" }}>
+      <div style={{ fontSize: grande ? 14 : 12.5, color: "var(--t-text,#f0e8ff)", fontWeight: grande ? 600 : 500 }}>
+        {humanDate(p.dia)}: tu pulso llegó a <b>{p.pulsoMax} lpm</b>
+        {p.pico?.desde != null && p.pico.hasta - p.pico.desde <= 6 * 3600 ? <> entre las {horaDe(p.pico.desde)} y las {horaDe(p.pico.hasta)}</> : null}
+        {p.delta.pasos > 1000 ? <>, con +{Math.round(p.delta.pasos).toLocaleString("es-ES")} pasos</> : null}.
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+        {opciones.map(dep => (
+          <button key={dep.id} onClick={() => onApuntar(p, dep)} style={boton} aria-label={`Apuntar ${dep.nombre} el ${humanDate(p.dia)}`}>
+            <span aria-hidden>{EMOJI_DEPORTE[dep.id]}</span> {dep.nombre}
+          </button>
+        ))}
+        <button onClick={() => onDescartar(p)} style={{ ...boton, color: "var(--t-text-muted,#b9b0d0)" }}>No hice deporte</button>
+      </div>
+    </div>
+  );
+  if (!lista.length && !antiguos.length) return null;
+  // Nada de esta semana: no se interrumpe con una tarjeta; una línea para revisar lo anterior.
+  if (!recientes.length && !verMas) {
+    return (
+      <button onClick={() => setVerMas(true)} style={{ ...boton, width: "100%", marginBottom: 10, textAlign: "left", color: "var(--t-accent,#c4b8ff)", background: "var(--t-card,#1d1733)" }}>
+        <span aria-hidden>💓</span> {antiguos.length} {antiguos.length === 1 ? "día" : "días"} con el pulso muy alto y nada apuntado · revisar
+      </button>
+    );
+  }
+  return (
+    <div style={{ ...card, border: "1px solid rgba(251,191,36,0.35)" }}>
+      <div style={{ ...titulo, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>💓</span> ¿Hiciste deporte?</div>
+      <div style={{ ...dim, marginBottom: 4 }}>Tu reloj vio el pulso mucho más alto de lo normal y no hay nada apuntado. Si fue deporte, apúntalo y contará como entreno.</div>
+      {lista.length ? lista.slice(0, verMas ? 30 : 3).map((p, i) => <Fila key={p.dia} p={p} grande={i === 0 && !verMas} />)
+        : null}
+      {antiguos.length > 0 && (
+        <button onClick={() => setVerMas(v => !v)} style={{ ...boton, width: "100%", marginTop: 8, color: "var(--t-accent,#c4b8ff)" }}>
+          {verMas ? "Ver solo esta semana" : `Ver ${antiguos.length} ${antiguos.length === 1 ? "día anterior" : "días anteriores"}`}
+        </button>
+      )}
     </div>
   );
 }

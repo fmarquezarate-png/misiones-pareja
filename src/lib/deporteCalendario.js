@@ -140,8 +140,10 @@ export function evaluarDia(evs, o = {}, base = {}) {
   };
   const n = señales.pulso + señales.kcal + señales.pasos;
   // Sin ninguna señal: si el reloj tomó pulso ese día lo llevabas puesto y no vio
-  // el partido; si no hay pulso, no lo llevabas (los pasos y la energía pueden
-  // venir solo del móvil, que se queda en la bolsa).
+  // el partido. Si no hay pulso en todo el día, Apple Salud no recibió nada del
+  // reloj: la app de Huawei sí registró esos partidos (captura del 30/09: 04/08 y
+  // 27/09), fue la SINCRONIZACIÓN la que falló. Los pasos y la energía de ese día
+  // vienen solo del móvil, así que no sirven para medir el partido.
   const nivel = n >= 2 ? "confirmado" : n === 1 ? "probable" : hayPulso ? "no_coincide" : "sin_reloj";
 
   return evs.map(e => {
@@ -209,6 +211,61 @@ export function entrenosDelCalendario({ weeks, persona, filas = [], entrenos = [
 export const TEXTO_NIVEL = {
   confirmado: "confirmado por tu reloj",
   probable: "probable (una señal del reloj)",
-  sin_reloj: "sin reloj · calorías estimadas",
+  sin_reloj: "sin datos del reloj ese día · estimado",
   no_coincide: "el reloj no lo vio",
 };
+
+// ── Anomalías de pulso: «¿hiciste deporte?» ─────────────────────────────────
+// Días con el pulso muy por encima de lo normal y NADA de deporte apuntado.
+// Regla elegida entre tres con el historial real (2022–2026):
+//   pulso máx ≥ 175, o ≥ 160 con +150 kcal o +1.500 pasos sobre el día normal.
+//   · caza 33 de los 37 días de deporte que SÍ estaban apuntados (sensibilidad),
+//   · detecta el tenis del 10/08/2026 que no estaba en el calendario (170 lpm),
+//   · ~30–47 avisos por año en el pasado: más o menos uno por semana, el ritmo
+//     real de deporte. «Pulso ≥ 160» a secas avisaba hasta 61 veces al año.
+// Medido también (30/09/2026): los bolos NO dan señal (pulso 100–141, menos pasos
+// y energía que un día normal), así que no se preguntan ni se cuentan.
+export const ANOMALIA = { pulsoSolo: 175, pulso: 160, kcal: 150, pasos: 1500 };
+
+/**
+ * @param {{ filas, weeks, persona, hoy, descartados?: string[], dias?: number }} p
+ * @returns {Array<{ dia, pulsoMax, delta:{kcal,pasos}, pico:{desde,hasta}|null, horaSugerida:string|null }>}  lo más reciente primero
+ */
+export function posiblesEntrenos({ filas = [], weeks, persona, hoy, descartados = [], dias = 120 }) {
+  if (!persona) return [];
+  const idx = indexarDias(filas);
+  const apuntados = new Set(eventosDeporte(weeks, persona, hoy).map(e => e.dia));
+  // Cualquier cosa apuntada con hora ese día que YA explique el pico (p. ej. bolos,
+  // una boda bailando): si la persona la marcó hecha, no se pregunta.
+  const descartes = new Set(descartados);
+  const desde = sumarDias(hoy, -dias);
+  const out = [];
+  for (const [dia, o] of idx) {
+    if (dia < desde || dia > hoy || apuntados.has(dia) || descartes.has(dia) || !Number.isFinite(o.pulsoMax)) continue;
+    const b = lineaBase(dia, idx, apuntados);
+    const dK = Number.isFinite(o.kcal) && Number.isFinite(b.kcal) ? o.kcal - b.kcal : null;
+    const dP = Number.isFinite(o.pasos) && Number.isFinite(b.pasos) ? o.pasos - b.pasos : null;
+    const salta = o.pulsoMax >= ANOMALIA.pulsoSolo || (o.pulsoMax >= ANOMALIA.pulso && ((dK ?? 0) >= ANOMALIA.kcal || (dP ?? 0) >= ANOMALIA.pasos));
+    if (!salta) continue;
+    const pico = Number.isFinite(o.picoHasta) ? { desde: Number.isFinite(o.picoDesde) ? o.picoDesde : null, hasta: o.picoHasta } : null;
+    // Hora sugerida: el pico fue DESPUÉS del envío anterior → esa hora, redondeada al
+    // cuarto siguiente. Solo si la franja es razonable (≤ 5 h) y cae en ese día.
+    let horaSugerida = null;
+    if (pico?.desde != null && pico.hasta - pico.desde <= 5 * 3600) {
+      const t = new Date(pico.desde * 1000);
+      const diaT = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+      if (diaT === dia) { const m = Math.min(23 * 60 + 45, Math.ceil((t.getHours() * 60 + t.getMinutes()) / 15) * 15); horaSugerida = hhmmDe(m); }
+    }
+    out.push({ dia, pulsoMax: Math.round(o.pulsoMax), delta: { kcal: dK == null ? null : Math.round(dK), pasos: dP == null ? null : Math.round(dP) }, pico, horaSugerida });
+  }
+  return out.sort((a, b) => (a.dia < b.dia ? 1 : -1));
+}
+
+/** Deportes para las opciones de «¿qué hiciste?», el más habitual primero. */
+export function deportesHabituales(weeks, persona, hoy) {
+  const n = {};
+  for (const e of eventosDeporte(weeks, persona, hoy)) n[e.deporte] = (n[e.deporte] || 0) + 1;
+  return [...DEPORTES].sort((a, b) => (n[b.id] || 0) - (n[a.id] || 0)).slice(0, 4);
+}
+
+export const EMOJI_DEPORTE = { padel: "🎾", gym: "🏋️", correr: "🏃", futbol: "⚽", bici: "🚴", nadar: "🏊", yoga: "🧘" };

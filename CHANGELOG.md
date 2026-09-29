@@ -7,6 +7,18 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.4.0] — 2026-09-30 · «¿Hiciste deporte?», calibración con el reloj, bolos medidos
+
+**Calibración contra sesiones reales** (captura de la app de Huawei: 7 partidos con kcal totales, duración y pulso medio; activas = total − basal de la duración): error mediano **9 %** en los 4 confirmados (+6, +5, −11, +24 %). Hallazgo: el 04/08 y el 27/09 la app decía «sin reloj» y el reloj SÍ los registró — falló la sincronización Huawei → Apple Salud (ni pulso ni energía ese día). Etiqueta cambiada a «sin datos del reloj ese día». Las 4 sesiones quedan como test fijo (`deporteCalendario.test.js`) para que ningún cambio de fórmula empeore sin avisar. Las kcal de Huawei siguen la fórmula de Keytel (pulso medio × duración) ÷ 1,48 de forma casi exacta, pero el pulso medio de la sesión no llega a Apple Salud.
+
+**Bolos** (9 noches de liga, mar–sep): pulso máx 100–141 (día normal: mediana 122), pasos −1.200 a −5.700 y energía por debajo de lo normal. No es ejercicio: no se cuenta ni se pregunta.
+
+**«¿Hiciste deporte?»** (`posiblesEntrenos`): pulso máx ≥ 175, o ≥ 160 con +150 kcal o +1.500 pasos, sin deporte apuntado ese día. Elegida entre tres reglas con el historial: caza 33/37 días de deporte apuntados, detecta el tenis no apuntado del 10/08 y avisaría ~30–47 veces/año (≥ 160 a secas: hasta 61). Tarjeta en Salud para los últimos 7 días (una línea discreta para lo anterior); opciones = tus deportes más habituales; apuntar crea un evento HECHO en la semana de ese día (`apuntarDeporte` en App: `mergeMissionsInto` + dual-write) con la hora sugerida por la franja del pico; «No hice deporte» se guarda en la mascota (`descartesDeporte`).
+
+**Historia**: «La vida de tu mascota» cuenta como deporte detectado los días de pulso anómalo sin apuntar (145 en 2022–2025) y lo dice en pantalla.
+
+---
+
 ## [6.3.0] — 2026-09-30 · El deporte del calendario cuenta como entreno (regla ajustada con el historial)
 
 **Problema** (Fran): Huawei → Apple Salud no guarda el pádel como entreno, aunque sí cuenta sus calorías; los partidos están apuntados en el calendario de la app con su hora.

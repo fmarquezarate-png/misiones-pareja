@@ -20,7 +20,7 @@ const FONDO = {
 };
 const dim = { fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", lineHeight: 1.5 };
 
-export default function VidaMascota({ filas, entrenos, manifest, especieInicial }) {
+export default function VidaMascota({ filas, entrenos, manifest, especieInicial, detectados = 0 }) {
   const [especie, setEspecie] = useState(especieInicial || "broot");
   const [sel, setSel] = useState(null);
 
@@ -46,6 +46,7 @@ export default function VidaMascota({ filas, entrenos, manifest, especieInicial 
         Tu mascota nace el día que la adoptes. Esto es <b>cómo habría sido</b> si hubiera nacido el{" "}
         {primerDia.split("-").reverse().join("/")}, alimentándose de tus hábitos reales. Hoy estaría en{" "}
         <b style={{ color: "var(--t-accent,#c4b8ff)" }}>{nombreEtapa(sim.etapaId)}</b>.
+        {detectados > 0 && <> Incluye {detectados} días en los que tu pulso delató deporte que no estaba apuntado.</>}
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>

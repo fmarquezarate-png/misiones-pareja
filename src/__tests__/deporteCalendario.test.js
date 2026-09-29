@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectarDeporte, eventosDeporte, evaluarDia, entrenosDelCalendario, lineaBase, indexarDias, UMBRAL, KCAL_POR_PASO } from "../lib/deporteCalendario.js";
+import { detectarDeporte, eventosDeporte, evaluarDia, entrenosDelCalendario, lineaBase, indexarDias, UMBRAL, KCAL_POR_PASO, posiblesEntrenos, deportesHabituales } from "../lib/deporteCalendario.js";
 import { ventanaPico, PICO_UMBRAL } from "../../supabase/functions/health-ingest/parse.js";
 import { sumarDias, indexar } from "../lib/pet.js";
 
@@ -150,5 +150,65 @@ describe("ventanaPico (servidor): en qué franja subió el pulso", () => {
   });
   it("primer envío del día: se sabe el final, no el principio", () => {
     expect(ventanaPico(null, 180, ahora)).toEqual({ desde: null, hasta: ahora });
+  });
+});
+
+// Referencia REAL: sesiones de la app de Huawei (captura de Fran, 30/09/2026), en
+// kcal ACTIVAS (total − basal de la duración). Si alguien toca la fórmula, esto
+// dice si acierta más o menos que hoy (9 % de error mediano en los confirmados).
+describe("calibración contra el reloj (sesiones reales de pádel)", () => {
+  const base = { pasos: 7000, kcal: 300 };
+  const casos = [
+    // [Δkcal del día, Δpasos, pulso máx, kcal activas según Huawei]
+    [1157, 6534, 195, 1083],
+    [965, 5547, 191, 922],
+    [530, 3467, 191, 598],
+    [822, 7461, 185, 662],
+  ];
+  it("error mediano ≤ 12 % en los partidos confirmados", () => {
+    const errores = casos.map(([dk, dp, hx, real]) => {
+      const e = evaluarDia([evPadel], { kcal: base.kcal + dk, pasos: base.pasos + dp, pulsoMax: hx }, base)[0];
+      expect(e.nivel).toBe("confirmado");
+      return Math.abs(e.kcal - real) / real;
+    }).sort((a, b) => a - b);
+    expect((errores[1] + errores[2]) / 2).toBeLessThanOrEqual(0.12);
+  });
+});
+
+describe("posiblesEntrenos: «¿hiciste deporte?»", () => {
+  const dia = "2026-08-10";
+  const filasCon = extra => historial(dia, extra);
+  const weeks = { a: { missions: [] } };
+  it("el tenis del 10/08 (170 lpm, +230 kcal, sin apuntar) se pregunta", () => {
+    const r = posiblesEntrenos({ filas: filasCon({ step_count: 4842, active_energy: 485, heart_rate_max: 170 }), weeks, persona: "person1", hoy: "2026-08-12" });
+    expect(r.map(x => x.dia)).toEqual([dia]);
+    expect(r[0].pulsoMax).toBe(170);
+  });
+  it("un pulso de 165 sin nada más, no (evita avisos de más)", () => {
+    expect(posiblesEntrenos({ filas: filasCon({ step_count: 7000, active_energy: 300, heart_rate_max: 165 }), weeks, persona: "person1", hoy: "2026-08-12" })).toEqual([]);
+  });
+  it("≥ 175 se pregunta aunque no haya más señales", () => {
+    expect(posiblesEntrenos({ filas: filasCon({ step_count: 7000, active_energy: 300, heart_rate_max: 180 }), weeks, persona: "person1", hoy: "2026-08-12" })).toHaveLength(1);
+  });
+  it("si ya está apuntado, o dijiste que no, no se vuelve a preguntar", () => {
+    const f = filasCon({ step_count: 4842, active_energy: 485, heart_rate_max: 170 });
+    const conPadel = { a: { missions: [m("Padel", { date: dia })] } };
+    expect(posiblesEntrenos({ filas: f, weeks: conPadel, persona: "person1", hoy: "2026-08-12" })).toEqual([]);
+    expect(posiblesEntrenos({ filas: f, weeks, persona: "person1", hoy: "2026-08-12", descartados: [dia] })).toEqual([]);
+  });
+  it("con la franja del pico, sugiere la hora (cuarto siguiente al envío anterior)", () => {
+    const seg = (h, mi) => Math.floor(new Date(2026, 7, 10, h, mi).getTime() / 1000);
+    const r = posiblesEntrenos({ filas: filasCon({ step_count: 9000, active_energy: 700, heart_rate_max: 185, hr_pico_desde: seg(20, 10), hr_pico_hasta: seg(23, 41) }), weeks, persona: "person1", hoy: "2026-08-12" });
+    expect(r[0].horaSugerida).toBe("20:15");
+  });
+  it("sin saber quién mira, nada", () => {
+    expect(posiblesEntrenos({ filas: filasCon({ heart_rate_max: 190 }), weeks, persona: null, hoy: "2026-08-12" })).toEqual([]);
+  });
+});
+
+describe("deportesHabituales", () => {
+  it("el más apuntado primero", () => {
+    const w = { a: { missions: [m("Gym", { date: "2026-09-01" }), m("Padel", { date: "2026-09-02" }), m("Padel", { date: "2026-09-03" })] } };
+    expect(deportesHabituales(w, "person1", "2026-09-29")[0].id).toBe("padel");
   });
 });
