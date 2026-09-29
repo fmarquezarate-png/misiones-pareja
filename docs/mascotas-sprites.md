@@ -49,3 +49,5 @@ que el manifest no conoce, o si vuelve a aparecer una línea suelta en un fotogr
 - **Fondos** (`public/mascotas/fondos/{nix,broot}.webp`, registro `FONDOS` en `petSprites.js`): panorama por especie; el cielo dinámico (sol real, estrellas, tiempo) va detrás, fundido por el borde superior. Al cambiar un archivo, subir su `v`.
 - **Fauna** (`public/mascotas/fauna/*.webp`, registro `FAUNA` en `petAmbiente.js`): mariposas, abeja y pájaros (Broot), gaviotas (Nix), recortados de las hojas de entorno. Cruzan de día y con buen tiempo, máximo dos a la vez.
 - Las hojas originales de entorno (pájaros, peces, cangrejos, árboles, flores, lluvia…) traen más piezas sin usar: cangrejos y peces del mar, arbustos, setas y árboles del prado. Siguiente paso posible.
+
+- **Clima** (`public/mascotas/clima/`, `petClima.js`): nubes de lluvia, ondas, charcos, burbujas y salpicaduras recortadas de las hojas de entorno. El cielo cubierto NUNCA oscurece toda la escena: filtro solo al panorama + velo solo en el cielo.

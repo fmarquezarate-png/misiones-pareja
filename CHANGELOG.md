@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.2.0] — 2026-09-29 · Lluvia con sprites, hábitat sin velo oscuro, Nix sin rectángulo
+
+- **Causa del ambiente oscuro**: con mal tiempo se pintaba un velo gris (`rgba(96,108,124,.34)`, `.5` en tormenta) sobre TODA la escena, encima de la mascota. Ahora: `filter: saturate/brightness` solo sobre el panorama y un degradado que oscurece únicamente el cielo (`velCielo`, transparente del todo por debajo del 78 % de la altura). La mascota no se toca.
+- **Lluvia** (`petClima.js` + `Lluvia.jsx`): gotas en dos capas (52 / 90 / 120 según llovizna, lluvia fuerte, tormenta), con `delay` negativo (ya cayendo al montar), ondas al caer en el agua (Nix) o charcos en el prado (Broot) y nubes de tormenta recortadas de las hojas de entorno. Solo `transform`/`opacity`; con «reducir movimiento» sin gotas. Sustituye al degradado diagonal repetido. La nieve conserva el efecto anterior.
+- **Nix**: se elimina la «línea de flotación» (el rectángulo azul translúcido que llevaba delante; con el fondo submarino real sobraba). Burbujas que suben desde su cabeza y salpicadura al acariciarla. Se quitan las nubes dibujadas con CSS bajo el panorama.
+- Assets nuevos en `public/mascotas/clima/` (11 webp, 68 KB): nubes de lluvia, ondas, charcos, burbujas, salpicaduras.
+
+---
+
 ## [6.1.1] — 2026-09-29 · Cualquier métrica abre su historial; «qué llega y qué no»; Misi orienta
 
 - **Datos y conexión**: cada métrica que llega es un botón que abre el detalle completo (`defGenerica`): vista «Todo», extremos y preguntas a Misi para TODAS, no solo las cuatro del panel. Cada fila indica días con dato y desde cuándo.

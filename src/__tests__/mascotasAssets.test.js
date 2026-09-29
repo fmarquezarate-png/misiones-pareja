@@ -76,7 +76,7 @@ describe("archivos WebP reales", () => {
   }
   it("no hay archivos en disco que el manifest no conozca", () => {
     // fondos/ y fauna/ no son sprites del manifest: los comprueban FONDOS y petAmbiente.
-    const enDisco = archivosWebP(RAIZ).map(p => relative(RAIZ, p).split("\\").join("/")).filter(f => !/^(fondos|fauna)\//.test(f));
+    const enDisco = archivosWebP(RAIZ).map(p => relative(RAIZ, p).split("\\").join("/")).filter(f => !/^(fondos|fauna|clima)\//.test(f));
     expect(enDisco.filter(f => !referenciados.has(f))).toEqual([]);
   });
   it("ningún archivo de documentación se publica dentro de public/mascotas", () => {

@@ -20,6 +20,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PetSprite from "./PetSprite.jsx";
 import VidaAmbiente from "./VidaAmbiente.jsx";
 import { permitido } from "../lib/petAmbiente.js";
+import Lluvia from "./Lluvia.jsx";
+import { filtroCubierto, velCielo } from "../lib/petClima.js";
 import { elegirAnimacion, precargarEtapa, fondoDe, spriteUrl } from "../lib/petSprites.js";
 import { decidirModo, planificarPaseo, animCaricia, marchaDe, elegirSprite } from "../lib/petBehavior.js";
 import { sol, fase as faseDe, clima as climaDe, paleta, discoSol } from "../lib/cielo.js";
@@ -271,7 +273,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
         {noche && !cl.gris && <span aria-hidden style={{ position: "absolute", top: 16, right: 22, fontSize: 22 }}>🌙</span>}
 
         {/* Nubes: derivan despacio (con panorama, el cielo despejado ya trae las suyas y solo se dibujan las del tiempo cubierto); con reducir-movimiento se quedan quietas y visibles */}
-        {Array.from({ length: fondo && !cl.gris ? 0 : cl.nubes }, (_, i) => (
+        {Array.from({ length: fondo ? 0 : cl.nubes }, (_, i) => (
           <span key={i} aria-hidden style={{
             position: "absolute", left: `${10 + i * 28}%`, top: `${8 + (i % 2) * 12}%`, width: 96, height: 44,
             opacity: noche ? 0.35 : cl.gris ? 0.9 : 0.8,
@@ -293,6 +295,8 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
             backgroundImage: `url(${spriteUrl(fondo.src, fondo.v)})`, backgroundSize: "cover", backgroundPosition: "center bottom",
             WebkitMaskImage: `linear-gradient(to bottom, transparent ${fondo.fade[0]}px, #000 ${fondo.fade[1]}px)`,
             maskImage: `linear-gradient(to bottom, transparent ${fondo.fade[0]}px, #000 ${fondo.fade[1]}px)`,
+            filter: cl.gris && !noche ? filtroCubierto({ tormenta: cl.tormenta, lluvia: cl.lluvia }) : undefined,
+            transition: "filter 1.5s ease",
           }} />
         )}
 
@@ -329,18 +333,17 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
             <div key={caricia?.t || "quieta"} style={{ position: "relative", animation: caricia && !reducir ? (esHuevo ? "mpWiggle 0.5s ease 2" : "mpHop 0.55s ease-out 2") : undefined }}>
               <PetSprite anim={anim} size={tam} frame={congelado ? 0 : null}
                 onFin={caricia ? () => setCaricia(null) : undefined} />
-              {/* Medio cuerpo bajo el agua: la línea de flotación y el agua por delante */}
-              {/* Línea de flotación ajustada al CUERPO de cada etapa (manifest
-                  `cuerpo`): en Prime y UPF el cuerpo va más abajo y es más
-                  estrecho que el lienzo, y una línea fija no le cuadraba. */}
-              {agua && (
-                <span aria-hidden style={{
-                  position: "absolute",
-                  left: Math.round((cuerpo.x0 - 0.05) * tam), width: Math.round((cuerpo.x1 - cuerpo.x0 + 0.1) * tam),
-                  top: Math.round((cuerpo.y0 + (cuerpo.y1 - cuerpo.y0) * 0.55) * tam), bottom: 0,
-                  background: fondo ? "linear-gradient(180deg, rgba(40,150,205,0.16) 0%, rgba(30,120,185,0.34) 100%)" : `linear-gradient(180deg, ${pal.suelo}55 0%, ${pal.suelo}dd 45%, ${pal.suelo} 100%)`,
-                  borderTop: "2px solid rgba(255,255,255,0.35)", borderRadius: "40% 40% 0 0 / 12px 12px 0 0",
-                }} />
+              {/* Nix nadando: burbujas que suben desde su cabeza (sprites de la hoja de agua). Con el
+                  panorama submarino ya no hace falta la «línea de flotación» dibujada. */}
+              {agua && fondo && !esHuevo && !reducir && [["burbuja_m", 0, 0, "6px"], ["burbuja_p", 1.1, 8, "-5px"], ["burbuja_g", 2.0, -6, "8px"]].map(([id, delay, dx, bx], i) => (
+                <img key={id} src={`/mascotas/clima/${id}.webp?v=1`} alt="" draggable={false} width={id === "burbuja_g" ? 15 : id === "burbuja_m" ? 11 : 8}
+                  style={{ position: "absolute", left: centroX + cuerpoAncho * 0.2 + dx, top: cuerpo.y0 * tam + 2, imageRendering: "pixelated", opacity: 0, pointerEvents: "none",
+                    "--bx": bx, animation: `mpBurbuja ${modo === "durmiendo" ? 4.2 : 2.6}s ease-out ${delay + i * 0.3}s infinite` }} />
+              ))}
+              {/* Caricia: salpicadura del agua */}
+              {agua && caricia && !reducir && (
+                <img src="/mascotas/clima/salpicadura_0.webp?v=1" alt="" draggable={false} width={54}
+                  style={{ position: "absolute", left: centroX - 27, top: cuerpo.y0 * tam - 14, imageRendering: "pixelated", pointerEvents: "none", animation: "mpSalpica 0.9s ease-out forwards" }} />
               )}
             </div>
           </div>
@@ -356,8 +359,11 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
           ))}
         </div>
 
-        {/* Lluvia / nieve / niebla / tormenta */}
-        {(cl.lluvia || cl.nieve) && (
+        {/* Lluvia (gotas, ondas, nubes de tormenta) / nieve / niebla / tormenta */}
+        {fondo && cl.gris && !cl.nieve && !noche && <div aria-hidden style={{ position: "absolute", inset: 0, background: velCielo({ tormenta: cl.tormenta, lluvia: cl.lluvia || 0 }), pointerEvents: "none" }} />}
+        {fondo && cl.gris && !cl.nieve
+          ? <Lluvia sinLluvia={!cl.lluvia} intensidad={cl.lluvia || 1} tormenta={!!cl.tormenta} agua={agua} ancho={ancho} alto={ALTO} horizonte={SUELO} reducir={reducir} />
+          : (cl.lluvia || cl.nieve) && (
           <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
             <div style={{
               position: "absolute", left: 0, right: 0, top: 0, height: "200%",
@@ -372,8 +378,6 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
         {cl.tormenta && <div aria-hidden style={{ position: "absolute", inset: 0, background: "#fff", opacity: 0, animation: "mpRayo 9s linear infinite", pointerEvents: "none" }} />}
         {/* La noche también oscurece a la mascota: está en la misma luz */}
         {(noche || f.id === "crepusculo") && <div aria-hidden style={{ position: "absolute", inset: 0, background: "#070a24", opacity: noche ? (fondo ? 0.55 : 0.28) : (fondo ? 0.26 : 0.14), pointerEvents: "none", transition: "opacity 1.5s ease" }} />}
-        {/* Cielo cubierto / tormenta: el panorama es de día despejado, se apaga con un velo gris */}
-        {fondo && cl.gris && !noche && <div aria-hidden style={{ position: "absolute", inset: 0, background: cl.tormenta ? "rgba(40,48,66,0.5)" : "rgba(96,108,124,0.34)", pointerEvents: "none" }} />}
 
         {/* Procedencia del cielo: dónde y qué tiempo, o que no hay datos */}
         <span style={{
