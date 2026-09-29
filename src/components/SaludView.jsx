@@ -10,15 +10,18 @@
 // Cada uno ve y cuida SU mascota, que come de SUS datos; la de la pareja se
 // puede mirar (y acariciar), pero no configurar.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
 import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
-import { retrato, nombreEspecie } from "../lib/petSprites.js";
+import { estadoDeDatos } from "../lib/petEstado.js";
+import { urlRetrato, nombreEspecie, cargarManifest } from "../lib/petSprites.js";
 import { humanDate } from "../lib/dateLabel.js";
-import { MODO_PRUEBAS } from "../lib/petConfig.js";
+import { modoPruebas, fijarModoPruebas } from "../lib/petConfig.js";
 import Habitat from "./Habitat.jsx";
 import SaludPanel from "./SaludPanel.jsx";
+import SaludAjustes from "./SaludAjustes.jsx";
+import { tarjetasDisponibles, nuevaVersionMetas } from "../lib/saludPanel.js";
 import SaludImportar from "./SaludImportar.jsx";
 import VidaMascota from "./VidaMascota.jsx";
 
@@ -43,21 +46,59 @@ function haceCuanto(iso) {
 }
 
 export default function SaludView({ sessionUserId, coupleId, personName, partnerName, pets = {}, onGuardarMascota }) {
-  const [estado, setEstado] = useState("cargando");
+  const [estado, setEstado] = useState("cargando");   // cargando | listo — solo la PRIMERA carga bloquea la pantalla
+  const [actualizando, setActualizando] = useState(false);
   const [datos, setDatos] = useState({ filas: [], entrenos: [], error: null });
   const [manifest, setManifest] = useState(null);
+  const [errorManifest, setErrorManifest] = useState(false);
   const [quien, setQuien] = useState("yo");            // yo | pareja
   const [historia, setHistoria] = useState(null);
+  const [ajustes, setAjustes] = useState(false);
+  const [pruebas, setPruebas] = useState(() => modoPruebas());
 
+  // Cuántos días hay que pedir: los 120 de siempre, o desde que nació la
+  // mascota más antigua si es anterior (antes se pedían siempre 120 y una
+  // mascota de 6 meses se simulaba con la mitad de su vida: otra etapa, otra
+  // racha). El servidor pagina, así que no hay tope de filas.
+  const nacimientoMin = useMemo(() => Object.values(pets).map(p => p?.nacimiento).filter(Boolean).sort()[0] || null, [pets]);
+  const dias = useMemo(() => {
+    if (!nacimientoMin) return 120;
+    const desde = Math.max(0, Math.round((Date.now() - new Date(nacimientoMin + "T00:00:00").getTime()) / 864e5)) + 14;
+    return Math.min(1900, Math.max(120, desde));
+  }, [nacimientoMin]);
+  const diasRef = useRef(dias);
+  diasRef.current = dias;
+
+  // Recarga SIN desmontar nada: los datos buenos se quedan en pantalla mientras
+  // llegan los nuevos, y si la red falla se conservan (antes un fallo los
+  // reemplazaba por «vacío»: la mascota renacía como huevo y el panel se
+  // quedaba sin datos). Solo la primera carga muestra «Despertando…».
   const cargar = useCallback(async () => {
-    setEstado("cargando");
-    const [d, m] = await Promise.all([
-      cargarSalud({ dias: 120 }),
-      fetch("/mascotas/manifest.json").then(r => r.json()).catch(() => null),
-    ]);
-    setDatos(d); setManifest(m); setEstado("listo");
+    setActualizando(true);
+    const d = await cargarSalud({ dias: diasRef.current });
+    setDatos(prev => (d.error && (prev.filas.length || prev.entrenos.length)
+      ? { ...prev, error: d.error, obsoleto: true }
+      : { ...d, obsoleto: false }));
+    setEstado("listo");
+    setActualizando(false);
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  // El manifest va aparte y con tiempo límite: si falla, se dice y se puede
+  // reintentar; no bloquea los datos (ni al revés).
+  const traerManifest = useCallback(() => {
+    setErrorManifest(false);
+    cargarManifest().then(setManifest).catch(() => setErrorManifest(true));
+  }, []);
+  useEffect(() => { traerManifest(); }, [traerManifest]);
+
+  // Datos frescos sin tocar nada: al volver a la app y cada 5 minutos con ella abierta.
+  useEffect(() => {
+    const alVolver = () => { if (!document.hidden) cargar(); };
+    document.addEventListener("visibilitychange", alVolver);
+    const id = setInterval(() => { if (!document.hidden) cargar(); }, 5 * 60e3);
+    return () => { document.removeEventListener("visibilitychange", alVolver); clearInterval(id); };
+  }, [cargar]);
 
   const verHistoria = useCallback(async () => {
     setHistoria("cargando");
@@ -81,27 +122,43 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   if (datos.error === "sin_tablas") return <Marco><div style={card}><div style={txt}>Las tablas de salud todavía no existen.</div><div style={{ ...dim, marginTop: 6 }}>Falta el paso 1 de docs/salud-health-auto-export.md.</div></div></Marco>;
 
   return (
-    <Marco onRecargar={cargar}>
+    <Marco onRecargar={cargar} actualizando={actualizando}>
       {parejaId && (
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
           <button onClick={() => setQuien("yo")} style={chip(quien === "yo")}>{personName || "Tú"}</button>
           <button onClick={() => setQuien("pareja")} style={chip(quien === "pareja")}>{partnerName || "Tu pareja"}</button>
         </div>
       )}
-      {datos.error === "red" && <div style={{ ...card, ...dim }}>No se ha podido conectar. Lo que ves puede estar desactualizado.</div>}
+      {datos.error === "red" && <div style={{ ...card, ...dim }}>No se ha podido conectar{datos.obsoleto ? ": lo que ves es lo último que llegó" : ""}. Se reintentará solo.</div>}
 
       {/* 1. La mascota */}
-      {!manifest ? null
-        : pet ? <Mascota uid={uid} pet={pet} filas={filas} entrenos={entrenos} manifest={manifest} hoy={hoy} esMia={quien === "yo"} nombreDueño={nombre}
-            onCambiarEspecie={quien === "yo" ? e => onGuardarMascota?.(sessionUserId, { ...pet, especie: e }) : null} />
+      {!manifest ? (errorManifest
+          ? <div style={card}><div style={dim}>No se han podido cargar los dibujos de tu mascota.</div>
+              <button onClick={traerManifest} style={{ ...chip(false), marginTop: 8, minHeight: 44 }}>Reintentar</button></div>
+          : <div style={card}><div style={dim}>Despertando a tu mascota…</div></div>)
+        : pet ? <Mascota uid={uid} pet={pet} filas={filas} entrenos={entrenos} manifest={manifest} hoy={hoy} esMia={quien === "yo"} nombreDueño={nombre} pruebas={pruebas}
+            onCambiarEspecie={quien === "yo" ? e => onGuardarMascota?.(sessionUserId, { especie: e }) : null} />
         : quien === "yo" ? <Adoptar manifest={manifest} onAdoptar={p => onGuardarMascota?.(sessionUserId, p)} />
         : <div style={card}><div style={dim}>{nombre} todavía no ha elegido su mascota.</div></div>}
 
       {/* 2. El panel */}
       {filas.length || entrenos.length
-        ? <SaludPanel filas={filas} entrenos={entrenos} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} userId={uid} />
+        ? <SaludPanel filas={filas} entrenos={entrenos} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} userId={uid}
+            panel={pet?.panel} puedePreguntar={quien === "yo"} onPersonalizar={quien === "yo" && pet ? () => setAjustes(true) : null} />
         : <div style={card}><div style={txt}>Todavía no ha llegado ningún dato de {nombre}.</div>
             <div style={{ ...dim, marginTop: 6 }}>En Health Auto Export, pulsa <b>Export Now</b> en la automatización y vuelve aquí.</div></div>}
+
+      {ajustes && pet && (
+        <SaludAjustes panel={pet.panel} metas={pet.metas || METAS_POR_DEFECTO} disponibles={tarjetasDisponibles(filas)}
+          onCerrar={() => setAjustes(false)}
+          onGuardar={({ panel, cambiosMetas }) => {
+            // Un solo parche: se fusiona en el estado fresco (ver App.jsx).
+            const parche = { panel };
+            if (Object.keys(cambiosMetas).length) Object.assign(parche, nuevaVersionMetas(pet, cambiosMetas, hoy));
+            onGuardarMascota?.(sessionUserId, parche);
+            setAjustes(false);
+          }} />
+      )}
 
       {/* 3. La vida de la mascota */}
       <div style={{ ...card, marginTop: 10 }}>
@@ -122,18 +179,24 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
         <div style={{ marginTop: 10 }}>
           {quien === "yo" && <SaludImportar personName={personName} onTerminado={() => { cargar(); setHistoria(null); }} />}
           <Conexion p={personas.find(x => x.userId === uid)} />
+          {quien === "yo" && pet && (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, ...dim, minHeight: 44 }}>
+              <input type="checkbox" checked={pruebas} onChange={e => { fijarModoPruebas(e.target.checked); setPruebas(e.target.checked); }} style={{ width: 20, height: 20 }} />
+              Modo pruebas: ver cómo luce cada etapa y cambiar de especie (solo en este dispositivo; no cambia tu mascota real)
+            </label>
+          )}
         </div>
       </details>
     </Marco>
   );
 }
 
-function Marco({ children, onRecargar }) {
+function Marco({ children, onRecargar, actualizando = false }) {
   return (
     <div style={{ padding: "12px 12px 120px", maxWidth: 760, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "var(--t-text,#f8f4ff)", fontFamily: "'Fraunces',serif" }}>🩺 Salud</div>
-        {onRecargar && <button onClick={onRecargar} style={chip(false)}>↻ Recargar</button>}
+        {onRecargar && <button onClick={onRecargar} disabled={actualizando} style={{ ...chip(false), minHeight: 44, opacity: actualizando ? 0.6 : 1 }}>{actualizando ? "Actualizando…" : "↻ Recargar"}</button>}
       </div>
       {children}
     </div>
@@ -141,12 +204,14 @@ function Marco({ children, onRecargar }) {
 }
 
 // ── La mascota: cabecera + hábitat ──────────────────────────────────────────
-function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño, onCambiarEspecie }) {
+function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño, onCambiarEspecie, pruebas }) {
   const [vista, setVista] = useState(null);    // vista previa de otra etapa (no se guarda)
-  const sim = useMemo(() => simular({ nacimiento: pet.nacimiento, filas, entrenos, metas: pet.metas || METAS_POR_DEFECTO, hoy }), [pet, filas, entrenos, hoy]);
+  const sim = useMemo(() => simular({ nacimiento: pet.nacimiento, filas, entrenos, metas: pet.metas || METAS_POR_DEFECTO, metasHistorial: pet.metasHistorial, hoy }), [pet, filas, entrenos, hoy]);
   const horario = useMemo(() => horarioSueno(filas, hoy), [filas, hoy]);
-  const etapa = vista || sim.etapaId;
+  const datosEstado = useMemo(() => estadoDeDatos({ filas, sim, hoy }), [filas, sim, hoy]);
+  const etapa = (pruebas && vista) || sim.etapaId;
   const sig = ETAPAS[sim.etapa + 1];
+  const ultimoCambio = sim.eventos[sim.eventos.length - 1] || null;
 
   return (
     <div style={card}>
@@ -159,8 +224,8 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
           <div style={dim}>{esMia ? "Tu" : `La de ${nombreDueño}:`} {nombreEspecie(manifest, pet.especie)} · nació {humanDate(pet.nacimiento)}</div>
         </div>
       </div>
-      <Habitat userId={uid} manifest={manifest} especie={pet.especie} etapa={etapa} horario={horario}
-        entrenos={entrenos} nombre={pet.nombre} />
+      <Habitat key={uid} userId={uid} manifest={manifest} especie={pet.especie} etapa={etapa} horario={horario}
+        entrenos={entrenos} nombre={pet.nombre} estado={datosEstado} />
       <div style={{ marginTop: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--t-text-muted,#b9b0d0)", marginBottom: 4 }}>
           <span>{sig ? `Hacia ${sig.nombre}` : "Forma final"}</span>
@@ -170,8 +235,13 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
           <div style={{ height: "100%", width: `${Math.max(3, sim.progreso * 100)}%`, borderRadius: 99, background: "var(--t-accent,#a78bfa)" }} />
         </div>
       </div>
+      {ultimoCambio && (
+        <div style={{ ...dim, marginTop: 8 }}>
+          {ultimoCambio.tipo === "evoluciona" ? "▲ Evolucionó" : "▼ Se encogió"} a {ETAPAS.find(e => e.id === ultimoCambio.a)?.nombre} el {humanDate(ultimoCambio.dia)}.
+        </div>
+      )}
       {/* Vista previa (solo en modo pruebas): ver cada etapa sin tocar la real. */}
-      {MODO_PRUEBAS && <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
+      {pruebas && <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
         <span style={{ ...dim, marginRight: 2 }}>Vista previa:</span>
         {ETAPAS.map(e => (
           <button key={e.id} onClick={() => setVista(e.id === sim.etapaId ? null : e.id)} style={{ ...chip(etapa === e.id), padding: "4px 9px", fontSize: 11 }}>
@@ -179,10 +249,10 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
           </button>
         ))}
       </div>}
-      {vista && <div style={{ ...dim, marginTop: 6 }}>Estás viendo cómo será en {ETAPAS.find(e => e.id === vista).nombre}. Su etapa real es {ETAPAS[sim.etapa].nombre}.</div>}
+      {pruebas && vista && <div style={{ ...dim, marginTop: 6 }}>Estás viendo cómo será en {ETAPAS.find(e => e.id === vista).nombre}. Su etapa real es {ETAPAS[sim.etapa].nombre}.</div>}
       {/* Fase de pruebas: cambiar de especie sin perder nada (misma fecha de
           nacimiento, mismas metas). Solo la dueña o el dueño. */}
-      {MODO_PRUEBAS && onCambiarEspecie && (
+      {pruebas && onCambiarEspecie && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
           <span style={{ ...dim, marginRight: 2 }}>Especie (pruebas):</span>
           {Object.keys(manifest.pets).map(e => (
@@ -213,8 +283,8 @@ function Adoptar({ manifest, onAdoptar }) {
             border: `1.5px solid ${especie === e ? "var(--t-accent,#a78bfa)" : "var(--t-card-border,rgba(167,139,250,0.2))"}`,
           }}>
             <div style={{ display: "flex", justifyContent: "center", gap: 4 }}>
-              {["huevo", "jr", "upf"].map(et => retrato(manifest, e, et) && (
-                <img key={et} src={`/mascotas/${retrato(manifest, e, et)}`} alt="" draggable={false} style={{ width: et === "upf" ? 56 : 40, height: et === "upf" ? 56 : 40, alignSelf: "flex-end" }} />
+              {["huevo", "jr", "upf"].map(et => urlRetrato(manifest, e, et) && (
+                <img key={et} src={urlRetrato(manifest, e, et)} alt="" draggable={false} style={{ width: et === "upf" ? 56 : 40, height: et === "upf" ? 56 : 40, alignSelf: "flex-end" }} />
               ))}
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: "var(--t-text,#f0e8ff)", marginTop: 6 }}>{nombreEspecie(manifest, e)}</div>

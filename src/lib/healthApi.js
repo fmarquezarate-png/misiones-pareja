@@ -92,24 +92,33 @@ export function resumirPorPersona(filas = [], entrenos = []) {
     const p = de(f.user_id);
     p.filas.push(f);
     p.dias.add(f.day);
-    if (!p.ultimoEnvio || f.updated_at > p.ultimoEnvio) p.ultimoEnvio = f.updated_at;
     const prev = p.metricas.get(f.metric);
     if (!prev || f.day > prev.day) p.metricas.set(f.metric, { day: f.day, value: f.value, unit: f.unit, source: f.source });
   }
   for (const w of entrenos) de(w.user_id).entrenos.push(w);
 
-  return [...personas.values()].map(p => ({
+  return [...personas.values()].map(p => {
+    // «Último envío» = el último de los envíos AUTOMÁTICOS del reloj, que solo
+    // tocan los últimos días. Un import de historial reescribe `updated_at` de
+    // filas antiguas y, contado, hacía parecer «acaba de llegar» algo de hace
+    // años: la conexión aparecía sana con el automático caído.
+    const ultimoDia = [...p.dias].sort().pop() || null;
+    const corte = ultimoDia ? sumarDias(ultimoDia, -2) : null;
+    let ultimoEnvio = null;
+    for (const f of p.filas) if (f.day >= corte && f.updated_at && (!ultimoEnvio || f.updated_at > ultimoEnvio)) ultimoEnvio = f.updated_at;
+    return {
     userId: p.userId,
     filas: p.filas,
     entrenos: p.entrenos,
-    ultimoEnvio: p.ultimoEnvio,
+    ultimoEnvio,
     numDias: p.dias.size,
     primerDia: [...p.dias].sort()[0] || null,
-    ultimoDia: [...p.dias].sort().pop() || null,
+    ultimoDia,
     metricas: [...p.metricas.entries()]
       .map(([metric, v]) => ({ metric, ...v }))
       .sort((a, b) => a.metric.localeCompare(b.metric)),
-  }));
+    };
+  });
 }
 
 // Nombres legibles de las métricas que manda Health Auto Export. Las que no
@@ -221,6 +230,8 @@ function traducir(codigo) {
     token_invalido: "Sesión no válida. Cierra y vuelve a abrir la app.",
     sin_pareja: "Tu cuenta no está vinculada a una pareja.",
     json_invalido: "El archivo está dañado.",
+    error_guardando: "El servidor no pudo guardar este trozo. Vuelve a intentarlo en un momento.",
+    demasiadas_peticiones: "Demasiados envíos seguidos. Espera unos minutos y reintenta.",
   })[codigo] || "No se pudo guardar este trozo.";
 }
 

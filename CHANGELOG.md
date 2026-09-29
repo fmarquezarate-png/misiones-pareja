@@ -7,6 +7,24 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.0.0] — 2026-09-29 · La mascota, revisada de arriba abajo
+
+Auditoría completa de la mascota (62 hallazgos) y hito v6.
+
+**Movimiento** (`petBehavior` v3, `Habitat`): velocidad = zancada/ciclo de cada etapa (no patina); tramos de 2–4 ciclos enteros; suavizado de arranque/parada; profundidad (escala por posición) y punto de apoyo del cuerpo; re-anclaje al interrumpir; una sola función decide el sprite (`elegirSprite`, el modo gana al paseo); reposo de pie en vez de celebración inicial; corazones sin timers; `vistos` fuera del render y podado; precarga de tiras.
+
+**Datos → estado** (`petEstado.js`): energía por sueño (pausas más largas, nunca triste), aura por pasos/racha, burbuja con el motivo, insignias. Motor: día/hora local, ejercicio derivado como bonus, cobertura mínima semanal, «hoy» monótono, `calibrarMetas`, **metas versionadas** (`metasEn`), horario de sueño laborable/finde.
+
+**Panel** (`saludPanel.js`, `SaludAjustes`): registro único de tarjetas, elegir/ordenar, periodo 7/14/30, secciones, editor de metas (valen desde hoy). KPIs de acumulados en días cerrados. Carga sin desmontar, conserva datos si falla la red, refresco automático, historial desde el nacimiento, manifest con timeout. Pareja: sin preguntas a Misi con sus datos. `settings.pets` se fusiona en el reducer.
+
+**Seguridad/importador**: descarta datos íntimos, crudo saneado con retención, cuota por usuario, errores 500 reales, fuente de entrenos legible, «último envío» ignora imports.
+
+**Sprites**: `limpiar.py` (rayas sueltas), escala/cuerpo/hash regenerables, manifest versionado, 88 tests de assets.
+
+**Limpieza**: eliminado código muerto (`animo`, `ANIMOS`, `frameHuevo`, `etapaPorXp`). Modo pruebas apagado (interruptor en Datos y conexión).
+
+---
+
 ## [5.44.1] — 2026-09-28 · «Todo» avisa cuando falta historial
 
 Fran: «no tengo ningún dato histórico de sueño». Reproducido con su archivo real: el importador y la vista «Todo» actuales sacan **698 noches válidas** (ene 2022 → sep 2026, media 7,2 h, mejor mes abril 2024). El código funciona; lo que falta es el historial en Supabase: el envío de 5 años de Health Auto Export se quedó sin procesar (el de 4 MB de v5.38.2) y no consta la importación desde la app. En su archivo, además, no hay sueño antes de enero de 2022.

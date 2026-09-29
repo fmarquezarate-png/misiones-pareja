@@ -133,3 +133,16 @@ describe("leerTodo (paginación)", () => {
     await expect(leerTodo(pedir, { maxPaginas: 2 })).rejects.toThrow(/demasiadas filas/);
   });
 });
+
+describe("resumirPorPersona: «último envío» ignora los imports de historial", () => {
+  it("un import que reescribe filas antiguas no cuenta como envío reciente", () => {
+    const filas = [
+      { user_id: "u", day: "2026-09-28", metric: "step_count", value: 5000, updated_at: "2026-09-28T08:00:00Z" },
+      { user_id: "u", day: "2022-03-01", metric: "step_count", value: 7000, updated_at: "2026-09-29T20:00:00Z" },   // import de hoy sobre datos de 2022
+    ];
+    expect(resumirPorPersona(filas)[0].ultimoEnvio).toBe("2026-09-28T08:00:00Z");
+  });
+  it("sin filas recientes con fecha, no revienta", () => {
+    expect(resumirPorPersona([{ user_id: "u", day: "2026-09-28", metric: "x", value: 1 }])[0].ultimoEnvio).toBeNull();
+  });
+});

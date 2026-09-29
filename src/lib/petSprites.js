@@ -46,3 +46,47 @@ export function retrato(manifest, especie, etapa) {
 export function nombreEspecie(manifest, especie) {
   return manifest?.pets?.[especie]?.name || especie;
 }
+
+// ── URLs versionadas ────────────────────────────────────────────────────────
+// El service worker sirve los sprites con CacheFirst (un año): sin versión en
+// la URL, un sprite regenerado no llegaba jamás a una PWA ya instalada. El
+// manifest lleva un hash de contenido por archivo (scripts/sprites/escala.py)
+// y aquí se añade a la URL: archivo nuevo = URL nueva = caché nueva.
+export const spriteUrl = (src, v) => (src ? `/mascotas/${src}${v ? `?v=${v}` : ""}` : null);
+
+export function urlRetrato(manifest, especie, etapa) {
+  const st = manifest?.pets?.[especie]?.stages?.[etapa];
+  return st?.portrait ? spriteUrl(st.portrait, st.portraitV) : null;
+}
+
+// Precarga todas las tiras de una etapa en la caché del navegador. Sin esto,
+// cada cambio de animación (caminar → pausa → caricia) pedía la imagen en ese
+// instante y el sprite parpadeaba un fotograma vacío.
+const precargadas = new Set();
+export function precargarEtapa(etapaDef) {
+  if (typeof Image === "undefined") return;
+  for (const a of Object.values(etapaDef?.anims || {})) {
+    const url = spriteUrl(a.src, a.v);
+    if (!url || precargadas.has(url)) continue;
+    precargadas.add(url);
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+  }
+}
+
+// ── Carga del manifest ──────────────────────────────────────────────────────
+// Antes: fetch sin tiempo límite dentro de un Promise.all con los datos. Un
+// cuelgue de WKWebView (regla de red de CLAUDE.md §5) dejaba "Despertando a tu
+// mascota…" para siempre, y si fallaba la mascota desaparecía sin aviso.
+let manifestEnMemoria = null;
+export async function cargarManifest() {
+  if (manifestEnMemoria) return manifestEnMemoria;
+  const { withTimeoutRetry } = await import("../utils.js");
+  const r = await withTimeoutRetry(() => fetch("/mascotas/manifest.json", { cache: "no-cache" }), 8000, "manifest", 1);
+  if (!r.ok) throw new Error(`manifest_http_${r.status}`);
+  const m = await r.json();
+  if (!m?.pets) throw new Error("manifest_invalido");
+  manifestEnMemoria = m;
+  return m;
+}

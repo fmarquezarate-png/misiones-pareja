@@ -12,13 +12,18 @@
 //  3. Se trocea por años (y por trimestres si un año no cabe): la función
 //     rechaza envíos de más de 2,5 MB, y 5 años de golpe la tumbaban.
 
-// Mismo criterio que el importador del servidor (parse.js). Aquí se aplica
-// ANTES de enviar: lo que no se va a guardar, tampoco viaja.
+// Mismo criterio que el importador del servidor (supabase/functions/health-ingest/
+// parse.js): aquí se aplica ANTES de enviar, y lo que no se va a guardar,
+// tampoco viaja. Las dos listas eran copias sueltas que podían divergir: un test
+// (healthImport.test.js) compara la de aquí con la del servidor.
 export const NO_ENVIAR = new Set(["sexual_activity", "menstrual_flow", "cervical_mucus_quality", "ovulation_test_result", "intermenstrual_bleeding"]);
+export const INTIMO_RE = /sexual|menstru|ovulat|cervical|contracept|pregnan|lactat|bleeding|cycle|fertil|vaginal|libido|spotting/i;
+export const esIntimo = nombre => NO_ENVIAR.has(nombre) || INTIMO_RE.test(String(nombre || ""));
 
-// Campos de un entreno que sí usa el importador. El resto (heartRateData,
-// route, location, metadata…) es la mayor parte del peso y no se guarda.
-const CAMPOS_ENTRENO = ["name", "start", "end", "duration", "activeEnergyBurned", "activeEnergy", "distance", "avgHeartRate", "heartRate", "averageHeartRate", "source"];
+// Campos de un entreno que sí usa el importador. El resto (heartRateData, route,
+// location, metadata, la serie activeEnergy…) es la mayor parte del peso y lo más
+// personal: no viaja.
+export const CAMPOS_ENTRENO = ["name", "start", "end", "duration", "activeEnergyBurned", "distance", "avgHeartRate", "heartRate", "averageHeartRate", "source"];
 
 export const MAX_TROZO = 2_000_000;   // margen bajo el tope de 2,5 MB del servidor
 
@@ -44,7 +49,7 @@ export function validar(json) {
 function recortar(d, desde, hasta) {
   const dentro = x => { const f = fechaDe(x).slice(0, 10); return f >= desde && f < hasta; };
   const metrics = (d.metrics || [])
-    .filter(m => !NO_ENVIAR.has(m?.name))
+    .filter(m => !esIntimo(m?.name))
     .map(m => ({ name: m.name, units: m.units, data: (m.data || []).filter(dentro) }))
     .filter(m => m.data.length);
   const workouts = (d.workouts || []).filter(dentro).map(limpiarEntreno);

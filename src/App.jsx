@@ -2634,7 +2634,10 @@ ${sorted.map(m=>{
           personName={personName}
           partnerName={p1===personName ? p2 : p1}
           pets={data.settings?.pets || {}}
-          onGuardarMascota={(uid, pet) => update(d => ({ ...d, settings: { ...d.settings, pets: { ...(d.settings?.pets || {}), [uid]: pet } } }))}
+          // `parche` se FUSIONA sobre la mascota que hay en el estado fresco (dentro del
+          // reducer): con `[uid]: pet` se guardaba una copia entera capturada antes,
+          // y un cambio de especie o de panel podía pisar otro hecho desde otro dispositivo.
+          onGuardarMascota={(uid, parche) => update(d => ({ ...d, settings: { ...d.settings, pets: { ...(d.settings?.pets || {}), [uid]: { ...(d.settings?.pets?.[uid] || {}), ...parche } } } }))}
         />}
 
         {activeTab==="trophy" && <TrophyView

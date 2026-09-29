@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   ETAPAS, PUNTOS, HISTERESIS,
   normalizar, sumarDias, lunesDe, indexar, evaluarDia, evaluarSemana, lineaTemporal,
-  puntosDelDia, etapaPorXp, siguienteEtapa, simular, animo, frameHuevo,
+  puntosDelDia, siguienteEtapa, simular,
+  diaLocalDe, calibrarMetas, METAS_POR_DEFECTO, metasEn,
 } from "../lib/pet.js";
 
 // Genera filas de `health_daily` para un rango de días.
@@ -190,10 +191,10 @@ describe("puntos y etapas", () => {
     expect(puntosDelDia(0)).toBeLessThan(0);
     expect(Math.abs(puntosDelDia(0))).toBeLessThan(puntosDelDia(1));
   });
-  it("etapa por xp", () => {
-    expect(ETAPAS[etapaPorXp(0)].id).toBe("huevo");
-    expect(ETAPAS[etapaPorXp(60)].id).toBe("jr");
-    expect(ETAPAS[etapaPorXp(5000)].id).toBe("upf");
+  it("etapa por xp (subiendo desde el huevo)", () => {
+    expect(ETAPAS[siguienteEtapa(0, 0)].id).toBe("huevo");
+    expect(ETAPAS[siguienteEtapa(0, 30)].id).toBe("jr");
+    expect(ETAPAS[siguienteEtapa(0, 5000)].id).toBe("upf");
   });
 
   // Sin margen, una semana regular en el límite haría parpadear la forma.
@@ -293,68 +294,9 @@ describe("simular", () => {
   });
 
   it("progreso entre 0 y 1", () => {
-    const s = simular({ nacimiento: "2026-10-15", filas: dias("2026-10-15", 3, perfecto), hoy });
+    const s = simular({ nacimiento: "2026-10-15", filas: dias("2026-10-15", 2, perfecto), hoy });
     expect(s.progreso).toBeGreaterThan(0);
     expect(s.progreso).toBeLessThan(1);
-  });
-});
-
-describe("animo", () => {
-  const hoy = "2026-10-20";
-  const base = (extraHoy = {}) => simular({
-    nacimiento: "2026-10-10",
-    filas: [...dias("2026-10-10", 10, perfecto), ...dias(hoy, 1, () => extraHoy)],
-    hoy,
-  });
-
-  it("de noche duerme", () => {
-    expect(animo(base(), { hora: 2 }).animo).toBe("durmiendo");
-    expect(animo(base(), { hora: 23 }).animo).toBe("durmiendo");
-  });
-  it("con un entreno hoy, entrena", () => {
-    const s = simular({ nacimiento: "2026-10-10", filas: dias("2026-10-10", 10, perfecto),
-      entrenos: [{ start_at: `${hoy}T08:00:00+02:00` }], hoy });
-    expect(animo(s, { hora: 12 }).animo).toBe("entrenando");
-  });
-  it("si durmió poco, está cansada, y dice cuánto", () => {
-    const a = animo(base({ sleep_asleep: 4.5 }), { hora: 12 });
-    expect(a.animo).toBe("cansado");
-    expect(a.motivo).toContain("4,5");
-  });
-  // Con el ejercicio como meta, cumplir todas implica cumplir esa: si
-  // "entrenando" fuera primero, cumplirlo todo no se celebraría nunca.
-  it("todas las metas de hoy cumplidas → celebra (aunque una sea de ejercicio)", () => {
-    const a = animo(base({ step_count: 9000, sleep_asleep: 8, apple_exercise_time: 45 }), { hora: 12 });
-    expect(a.animo).toBe("celebrando");
-  });
-  it("ejercicio cumplido sin completar el resto → entrena", () => {
-    const a = animo(base({ step_count: 2000, sleep_asleep: 8, apple_exercise_time: 45 }), { hora: 12 });
-    expect(a.animo).toBe("entrenando");
-    expect(a.motivo).toContain("45");
-  });
-  it("varios días malos seguidos → triste", () => {
-    const s = simular({ nacimiento: "2026-10-01", filas: dias("2026-10-01", 19, malo), hoy });
-    expect(animo(s, { hora: 12 }).animo).toBe("triste");
-  });
-  // Sin datos no se sabe: no puede ponerla triste.
-  it("sin datos recientes no está triste", () => {
-    const s = simular({ nacimiento: "2026-10-01", filas: [], hoy });
-    expect(animo(s, { hora: 12 }).animo).not.toBe("triste");
-  });
-  it("todo ánimo lleva su motivo", () => {
-    for (const h of [2, 12]) expect(animo(base(), { hora: h }).motivo.length).toBeGreaterThan(3);
-  });
-});
-
-describe("frameHuevo", () => {
-  it("más cerca de nacer, más agrietado", () => {
-    const poco = simular({ nacimiento: "2026-10-18", filas: dias("2026-10-18", 1, perfecto), hoy: "2026-10-19" });
-    const mucho = simular({ nacimiento: "2026-10-14", filas: dias("2026-10-14", 5, perfecto), hoy: "2026-10-19" });
-    expect(frameHuevo(mucho)).toBeGreaterThan(frameHuevo(poco));
-  });
-  it("nunca se pasa del último frame", () => {
-    const s = simular({ nacimiento: "2026-01-01", filas: dias("2026-01-01", 200, perfecto), hoy: "2026-10-19" });
-    expect(frameHuevo(s, 16)).toBe(15);
   });
 });
 
@@ -369,18 +311,18 @@ describe("lineaTemporal", () => {
   it("un resumen por mes, en orden", () => {
     expect(lt.map(m => m.mes)).toEqual(["2026-01", "2026-02", "2026-03"]);
   });
-  it("el ánimo del mes sale de la media", () => {
-    expect(lt[0].animo).toBe("feliz");
-    expect(lt[1].animo).toBe("triste");
+  it("la racha del mes sale de la media", () => {
+    expect(lt[0].racha).toBe("buena");
+    expect(lt[1].racha).toBe("floja");
   });
   // Un mes sin datos no es un mes triste.
-  it("un mes sin datos dice 'sin datos', no inventa un ánimo", () => {
-    expect(lt[2]).toMatchObject({ animo: "sin datos", media: null, diasConDatos: 0 });
+  it("un mes sin datos dice 'sin datos', no inventa una racha", () => {
+    expect(lt[2]).toMatchObject({ racha: "sin datos", media: null, diasConDatos: 0 });
   });
   it("los eventos caen en su mes", () => {
     expect(lt[0].eventos.some(e => e.tipo === "evoluciona" && e.a === "jr")).toBe(true);
   });
-  // 31 días perfectos = 310 puntos: pasa por Jr (60) y termina en Pro (300).
+  // 31 días perfectos = 310 puntos: pasa por Jr (30) y termina en Pro (300).
   it("etapa con la que termina el mes y la más alta alcanzada", () => {
     expect(lt[0].etapa).toBe("pro");
     expect(lt[0].etapaMax).toBe("pro");
@@ -389,5 +331,66 @@ describe("lineaTemporal", () => {
   });
   it("sin simulación, lista vacía", () => {
     expect(lineaTemporal(null)).toEqual([]);
+  });
+});
+
+describe("día local", () => {
+  it("un instante sin zona horaria se lee tal cual (no salta de día)", () => {
+    expect(diaLocalDe("2026-09-28 23:40:00 +0200")).toBe("2026-09-28");
+  });
+});
+
+describe("calibrarMetas", () => {
+  const hoy = "2026-10-20";
+  it("con pocos datos deja las metas por defecto y avisa que no calibró", () => {
+    const r = calibrarMetas(dias("2026-10-10", 5, () => ({ step_count: 9000 })), hoy);
+    expect(r.calibrada).toEqual({ pasos: false, kcal: false });
+    expect(r.metas).toEqual(METAS_POR_DEFECTO);
+  });
+  it("con 8 semanas de datos ajusta los pasos, redondeados y dentro de rango", () => {
+    const r = calibrarMetas(dias(sumarDias(hoy, -56), 56, () => ({ step_count: 7300 })), hoy);
+    expect(r.calibrada.pasos).toBe(true);
+    const pasos = r.metas.find(m => m.tipo === "pasos").objetivo;
+    expect(pasos % 500).toBe(0);
+    expect(pasos).toBeGreaterThanOrEqual(4000);
+    expect(pasos).toBeLessThanOrEqual(12000);
+  });
+  it("no muta las metas por defecto", () => {
+    const antes = JSON.stringify(METAS_POR_DEFECTO);
+    calibrarMetas(dias(sumarDias(hoy, -56), 56, () => ({ step_count: 12000 })), hoy);
+    expect(JSON.stringify(METAS_POR_DEFECTO)).toBe(antes);
+  });
+});
+
+describe("simular: hoy nunca baja la etapa de ayer", () => {
+  it("un hoy a medias no desevoluciona", () => {
+    const hoy = "2026-11-20";
+    const filas = [...dias("2026-10-10", 41, perfecto), ...dias(hoy, 1, () => ({ step_count: 200 }))];
+    const ayer = simular({ nacimiento: "2026-10-10", filas: filas.filter(f => f.day < hoy), hoy: sumarDias(hoy, -1) });
+    const hoyS = simular({ nacimiento: "2026-10-10", filas, hoy });
+    const orden = ETAPAS.map(e => e.id);
+    expect(orden.indexOf(hoyS.etapaId)).toBeGreaterThanOrEqual(orden.indexOf(ayer.etapaId));
+  });
+});
+
+describe("metas versionadas: cambiar una meta no reescribe el pasado", () => {
+  const dura = [{ id: "pasos-d", tipo: "pasos", objetivo: 20000, periodo: "dia" }];
+  const facil = [{ id: "pasos-d", tipo: "pasos", objetivo: 5000, periodo: "dia" }];
+  it("metasEn elige la versión vigente ese día", () => {
+    const h = [{ desde: "2026-10-01", metas: facil }, { desde: "2026-11-01", metas: dura }];
+    expect(metasEn(h, "2026-10-15")).toBe(facil);
+    expect(metasEn(h, "2026-11-01")).toBe(dura);
+    expect(metasEn(h, "2026-09-01")).toBe(facil);     // antes de la primera: rige la primera
+    expect(metasEn([], "2026-10-15")).toBe(METAS_POR_DEFECTO);
+  });
+  it("subir la meta hoy no cambia la evolución ya ganada", () => {
+    const hoy = "2026-12-01";
+    const filas = dias("2026-10-01", 60, () => ({ step_count: 9000 }));
+    const conCambio = simular({ nacimiento: "2026-10-01", filas, hoy, metasHistorial: [{ desde: "2026-10-01", metas: facil }, { desde: hoy, metas: dura }] });
+    const sinCambio = simular({ nacimiento: "2026-10-01", filas, hoy, metas: facil });
+    // Los 60 días cerrados se juzgan con la meta fácil en ambos casos.
+    expect(conCambio.historial.at(-1).xp).toBe(sinCambio.historial.at(-1).xp);
+    const retroactiva = simular({ nacimiento: "2026-10-01", filas, hoy, metas: dura });
+    expect(retroactiva.historial.at(-1).xp).toBeLessThan(sinCambio.historial.at(-1).xp);
   });
 });

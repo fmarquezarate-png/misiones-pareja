@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { trocear, validar, limpiarEntreno, NO_ENVIAR, MAX_TROZO } from "../lib/healthImport.js";
+import { trocear, validar, limpiarEntreno, NO_ENVIAR, MAX_TROZO, INTIMO_RE, CAMPOS_ENTRENO, esIntimo } from "../lib/healthImport.js";
+import * as servidor from "../../supabase/functions/health-ingest/parse.js";
 
 const dato = (fecha, qty = 1) => ({ date: `${fecha} 00:00:00 +0200`, qty, source: "iPhone" });
 const archivo = (metrics, workouts = []) => ({ data: { metrics, workouts } });
@@ -79,5 +80,26 @@ describe("limpiarEntreno", () => {
     expect(w.route).toBeUndefined();
     expect(w.duration).toBe(2426);
     expect(w.heartRate).toEqual({ avg: { qty: 150 } });
+  });
+});
+
+
+describe("el importador de la app y el del servidor no divergen", () => {
+  // Eran dos listas copiadas a mano; si una crece y la otra no, lo íntimo
+  // viaja al servidor o el servidor guarda lo que la app quitaba.
+  it("misma lista de lo íntimo", () => {
+    expect([...NO_ENVIAR].sort()).toEqual([...servidor.NUNCA].sort());
+  });
+  it("mismo patrón", () => {
+    expect(INTIMO_RE.source).toBe(servidor.INTIMO_RE.source);
+    expect(INTIMO_RE.flags).toBe(servidor.INTIMO_RE.flags);
+  });
+  it("mismos campos de entreno", () => {
+    expect(CAMPOS_ENTRENO).toEqual(servidor.CAMPOS_ENTRENO);
+  });
+  it("lo íntimo nuevo tampoco viaja", () => {
+    expect(esIntimo("contraceptive")).toBe(true);
+    const t = trocear({ data: { metrics: [{ name: "pregnancy_test_result", units: "x", data: [{ date: "2022-05-07 00:00:00 +0200", qty: 1 }] }], workouts: [] } });
+    expect(t).toEqual([]);
   });
 });

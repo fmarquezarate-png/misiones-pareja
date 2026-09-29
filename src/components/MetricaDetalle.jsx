@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { detalleMetrica, porSemanas, resumenParaIA, porMeses, extremosMensuales, resumenHistoricoParaIA, diasEntre } from "../lib/healthStats.js";
 import { cargarMetricaCompleta } from "../lib/healthApi.js";
 import { askMisi } from "../lib/misi.js";
+import { withTimeout } from "../utils.js";
 import { humanDate } from "../lib/dateLabel.js";
 import { Z } from "../lib/zLayers.js";
 
@@ -25,7 +26,7 @@ const chip = activo => ({
 const PERIODOS = [7, 30, 90, "todo"];
 const SUGERENCIAS_HISTORICO = ["¿He mejorado con los años?", "¿Qué épocas fueron mejores y peores?", "¿Se nota algún patrón según la época del año?"];
 
-export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, userId, onCerrar }) {
+export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, userId, onCerrar, puedePreguntar = true }) {
   const [dias, setDias] = useState(30);
   const [sel, setSel] = useState(null);
   const [pregunta, setPregunta] = useState("");
@@ -68,7 +69,7 @@ export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, 
       const mensaje = todo
         ? resumenHistoricoParaIA({ nombre: def.nombre, unidad: def.unidadLarga, detalle: d, meses, extremos, pregunta: q })
         : resumenParaIA({ nombre: def.nombre, unidad: def.unidadLarga, dias: nDias, detalle: d, pregunta: q });
-      const txt = await askMisi({ coupleId, personName, message: mensaje });
+      const txt = await withTimeout(askMisi({ coupleId, personName, message: mensaje }), 30000, "misi_salud");
       setRespuesta({ texto: txt });
     } catch (e) {
       // El mensaje amable para la persona; el motivo real debajo, pequeño.
@@ -158,8 +159,8 @@ export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, 
           {d.racha != null && <Dato titulo={`Racha ≥ ${f(def.meta)}`} valor={`${d.racha} ${d.racha === 1 ? "día" : "días"}`} nota="seguidos hasta hoy" />}
         </div>
 
-        {/* Preguntarle a Misi */}
-        <div style={{ borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.16))", paddingTop: 12 }}>
+        {/* Preguntarle a Misi. Solo sobre TUS datos: al mirar a tu pareja no se envían sus datos de salud a la IA. */}
+        {puedePreguntar && <div style={{ borderTop: "1px solid var(--t-card-border,rgba(167,139,250,0.16))", paddingTop: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--t-text,#f0e8ff)", marginBottom: 6 }}>🤖 Pregúntale a Misi</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
             {/* Con el histórico solo viajan medias mensuales: preguntas que se
@@ -181,7 +182,7 @@ export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, 
               {respuesta.detalle && <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)", marginTop: 6 }}>Motivo técnico: {respuesta.detalle}</div>}
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </>
   );

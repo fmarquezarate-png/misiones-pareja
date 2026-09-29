@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   horarioSueno, estaDormida, decidirModo, planificarPaseo, animCaricia, rngConSemilla,
-  RETRASO_MS, TRISTE_TRAS_MS, LIMITES,
+  RETRASO_MS, TRISTE_TRAS_MS, LIMITES, CICLOS, marchaDe, elegirSprite,
 } from "../lib/petBehavior.js";
 
 const noche = (day, wake, bed, horas = 7) => [
@@ -105,15 +105,16 @@ describe("decidirModo", () => {
   });
 });
 
-describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
+describe("planificarPaseo (v3: tramos rectos, ciclos enteros, zancada real)", () => {
   const todas = new Set(["feliz", "caminar_derecha", "caminar_izquierda", "caminar_frente", "caminar_atras"]);
   const caja = { ancho: 300, alto: 150 };
+  const marcha = { cicloMs: 800, zancadaPx: 30 };
   const pasear = (n, semilla = 7) => {
     const rng = rngConSemilla(semilla);
-    let pos = { x: 0.5, y: 0.7 }, dir = 1;
+    let pos = { x: 0.5, y: 0.6 }, dir = 1;
     const pasos = [];
     for (let i = 0; i < n; i++) {
-      const p = planificarPaseo(pos, rng, caja, todas, dir);
+      const p = planificarPaseo(pos, rng, caja, todas, dir, marcha);
       pasos.push({ desde: pos, ...p });
       pos = p.destino; dir = p.dir;
     }
@@ -140,8 +141,8 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
 
   it("nunca se sale del hábitat", () => {
     for (const p of pasear(800, 3)) {
-      expect(p.destino.x).toBeGreaterThanOrEqual(LIMITES.x[0]);
-      expect(p.destino.x).toBeLessThanOrEqual(LIMITES.x[1]);
+      expect(p.destino.x).toBeGreaterThanOrEqual(LIMITES.x[0] - 1e-9);
+      expect(p.destino.x).toBeLessThanOrEqual(LIMITES.x[1] + 1e-9);
       expect(p.destino.y).toBeGreaterThanOrEqual(LIMITES.y[0] - 1e-9);
       expect(p.destino.y).toBeLessThanOrEqual(LIMITES.y[1] + 1e-9);
     }
@@ -155,7 +156,8 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
     for (const p of pasos) {
       if (p.destino.x === p.desde.x) continue;
       // Giro obligado: a menos de un tramo mínimo (0,1) de la pared.
-      const enPared = p.desde.x - LIMITES.x[0] < 0.1 || LIMITES.x[1] - p.desde.x < 0.1;
+      const minimo = (CICLOS.min * marcha.zancadaPx) / caja.ancho;
+      const enPared = p.desde.x - LIMITES.x[0] < minimo - 1e-9 || LIMITES.x[1] - p.desde.x < minimo - 1e-9;
       if (!enPared) { libres++; if (p.dir === dirAnterior) siguen++; }
       dirAnterior = p.dir;
     }
@@ -168,11 +170,33 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
     expect(horiz / pasos.length).toBeGreaterThan(0.7);
   });
 
-  it("la duración sale de la distancia y hay pausas", () => {
-    for (const p of pasear(200, 13)) {
-      if (p.ms) expect(p.ms).toBeGreaterThan(200);
+  // Los pies no patinan: la velocidad es SIEMPRE zancada/ciclo, y cada tramo
+  // dura ciclos ENTEROS (termina en la postura de pie, sin cortar el paso).
+  it("velocidad = zancada por ciclo, en ciclos enteros", () => {
+    for (const p of pasear(600, 13)) {
+      if (!p.ms) continue;
+      expect(p.ms).toBe(p.ciclos * marcha.cicloMs);
+      const px = Math.abs(p.destino.x - p.desde.x) * caja.ancho + Math.abs(p.destino.y - p.desde.y) * caja.alto;
+      expect(px / (p.ms / 1000)).toBeCloseTo(marcha.zancadaPx / (marcha.cicloMs / 1000), 6);
       expect(p.pausaMs).toBeGreaterThanOrEqual(500);
     }
+  });
+  it("un tramo son 2–4 ciclos: nunca de pared a pared", () => {
+    for (const p of pasear(800, 17)) {
+      if (p.destino.y === p.desde.y && p.ms) expect(p.ciclos).toBeLessThanOrEqual(CICLOS.max);
+    }
+  });
+  it("con poca energía descansa más entre tramos; los tramos no cambian", () => {
+    const media = en => { let t = 0, n = 0; const rng = rngConSemilla(9);
+      for (let i = 0; i < 800; i++) { const p = planificarPaseo({ x: 0.5, y: 0.6 }, rng, caja, todas, 1, marcha, en); if (p.pausa.tipo === "quieto") { t += p.pausaMs; n++; } }
+      return t / n; };
+    expect(media(0.6)).toBeGreaterThan(media(1) * 1.8);
+    expect(media(1.1)).toBeLessThan(media(1));
+  });
+  it("con otra etapa (zancada distinta) la velocidad cambia con ella", () => {
+    const rng = rngConSemilla(3);
+    const lenta = planificarPaseo({ x: 0.2, y: 0.5 }, rng, caja, todas, 1, { cicloMs: 1000, zancadaPx: 20 });
+    expect(lenta.ms % 1000).toBe(0);
   });
 
   // Fran: "está mucho rato celebrando y camina poco". Se MIDE el reparto.
@@ -194,7 +218,7 @@ describe("planificarPaseo (v2: tramos rectos con inercia)", () => {
   });
 
   it("sin sprites de caminar, usa lo que haya", () => {
-    const p = planificarPaseo({ x: 0.5, y: 0.7 }, rngConSemilla(1), caja, new Set(["idle"]), 1);
+    const p = planificarPaseo({ x: 0.5, y: 0.6 }, rngConSemilla(1), caja, new Set(["idle"]), 1, marcha);
     expect(p.anim).toBe("idle");
   });
 });
@@ -204,5 +228,54 @@ describe("animCaricia", () => {
     expect(animCaricia(new Set(["feliz", "alegria", "triste"]))).toBe("alegria");
     expect(animCaricia(new Set(["feliz", "triste"]))).toBe("feliz");
     expect(animCaricia(new Set(["idle"]))).toBe("idle");
+  });
+});
+
+describe("marchaDe", () => {
+  it("el ciclo sale de frames/fps y la zancada del ancho del cuerpo", () => {
+    const st = { anims: { caminar_derecha: { frames: 8, fps: 10 } }, cuerpo: { x0: 0.2, x1: 0.8 } };
+    expect(marchaDe(st, 100)).toEqual({ cicloMs: 800, zancadaPx: 42 });
+  });
+  it("sin animación de caminar, valores por defecto", () => {
+    expect(marchaDe({ anims: { idle: { frames: 4, fps: 6 } } }, 100).cicloMs).toBe(800);
+  });
+});
+
+describe("elegirSprite: una sola decisión", () => {
+  const anims = new Set(["feliz", "caminar_frente", "caminar_derecha", "alegria"]);
+  it("dormir gana a un paseo que seguía activo", () => {
+    expect(elegirSprite({ modo: "durmiendo", caricia: null, animId: "caminar_derecha", anims }).id).toBeNull();
+  });
+  it("la caricia gana a todo", () => {
+    expect(elegirSprite({ modo: "libre", caricia: "alegria", animId: "caminar_derecha", anims }).id).toBe("alegria");
+  });
+  it("libre y sin paseo: de pie, no celebrando", () => {
+    expect(elegirSprite({ modo: "libre", caricia: null, animId: null, anims })).toMatchObject({ id: "caminar_frente", quieto: true });
+  });
+  it("libre y paseando: la animación del paseo", () => {
+    expect(elegirSprite({ modo: "libre", caricia: null, animId: "caminar_derecha", anims }).id).toBe("caminar_derecha");
+  });
+});
+
+describe("horarioSueno: laborables y fines de semana no se mezclan", () => {
+  // 28/09/2026 es lunes. Noches (día en que despierta): laborables 07:00 (420), sábados/domingos 09:30 (570).
+  const noches = [];
+  const dia = n => { const d = new Date(2026, 8, 1 + n); return `2026-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  for (let n = 0; n < 27; n++) {
+    const d = dia(n), sem = new Date(2026, 8, 1 + n).getDay(), finde = sem === 0 || sem === 6;
+    noches.push({ day: d, metric: "sleep_asleep", value: 7 }, { day: d, metric: "wake_min", value: finde ? 570 : 420 }, { day: d, metric: "bed_min", value: finde ? -15 : -60 });
+  }
+  it("un lunes usa el despertar de los laborables", () => {
+    expect(horarioSueno(noches, "2026-09-28").despertarTipico).toBe(420);
+  });
+  it("un sábado usa el de los fines de semana", () => {
+    expect(horarioSueno(noches, "2026-09-26").despertarTipico).toBe(570);
+  });
+  it("la víspera de un sábado (viernes) se acuesta como se acuesta antes de un finde", () => {
+    expect(horarioSueno(noches, "2026-09-25").acostarseTipico).toBe(-15);
+  });
+  it("con pocas noches del tipo, cae a la mediana de todas (no se queda sin horario)", () => {
+    const pocas = noches.filter(f => f.day <= "2026-09-03");
+    expect(Number.isFinite(horarioSueno(pocas, "2026-09-05").despertarTipico)).toBe(true);
   });
 });

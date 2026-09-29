@@ -24,9 +24,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 // Interpretación y limpieza: módulo puro compartido con los tests de la app.
-import { aplanar, limpiar, aplanarEntrenos } from './parse.js';
+import { aplanarConAvisos, limpiar, aplanarEntrenos, sanearPayload, sinRecientes } from './parse.js';
 
-const FN_VERSION = '2026-09-28f';
+const FN_VERSION = '2026-09-29a';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -54,7 +54,17 @@ const MAX_BYTES = 2_500_000;
 // Subir en tandas: una sola sentencia con miles de filas puede pasarse del
 // statement_timeout (el incidente de los 4 MB de app_data, v5.14.0).
 const TANDA = 500;
-const RETENCION = { rawDias: 7, rejectsDias: 60 };   // 48 envíos/día × 7 días ≈ 340 filas como mucho
+// UNA sola retención (antes había tres cifras distintas repartidas): el crudo
+// solo sirve para reprocesar un fallo reciente.
+const RETENCION = { rawDias: 7, rejectsDias: 60 };
+// Cuota por persona: la automatización manda ~2-4 envíos/hora (dos
+// automatizaciones, cada hora). 60/hora deja un margen enorme y corta a quien
+// intente llenar la base de datos: cada envío crudo puede pesar 2,5 MB.
+const CUOTA_ENVIOS_HORA = 60;
+// Las importaciones desde la app NO tocan los últimos días: los sigue
+// escribiendo la automatización y un archivo antiguo (exportado a las 09:00)
+// pisaba con valores menores los pasos de un día que aún estaba en curso.
+const DIAS_PROTEGIDOS = 2;
 
 async function autolimpieza(db: any) {
   const hace = (dias: number) => new Date(Date.now() - dias * 864e5).toISOString();
@@ -114,32 +124,64 @@ serve(async req => {
     tk = { user_id: userId, couple_id: cm.couple_id };
   }
 
+  // El tamaño declarado se comprueba ANTES de leer el cuerpo: leerlo entero
+  // para después rechazarlo ya había gastado la memoria y la CPU.
+  const declarado = Number(req.headers.get('content-length') || 0);
+  const demasiado = () => new Response(JSON.stringify({
+    error: 'envio_demasiado_grande',
+    ayuda: 'Demasiado grande para una sola vez. Exporta de año en año (por ejemplo, 2024 entero, luego 2025) y vuelve a enviar.',
+  }), { status: 413, headers: cors });
+  if (declarado > MAX_BYTES) return demasiado();
+
+  // Cuota por persona (solo importa donde se guarda el crudo: la ruta del token).
+  if (token) {
+    const desde = new Date(Date.now() - 3600e3).toISOString();
+    const { count } = await db.from('health_raw').select('id', { count: 'exact', head: true })
+      .eq('user_id', tk.user_id).gte('received_at', desde);
+    if ((count ?? 0) >= CUOTA_ENVIOS_HORA) {
+      return new Response(JSON.stringify({ error: 'demasiadas_peticiones', ayuda: 'Demasiados envíos en la última hora.' }), { status: 429, headers: cors });
+    }
+  }
+
   const crudo = await req.text();
   // Tope de tamaño: un envío de 99 días pesa ~250 KB. 8 MB solo puede ser un
   // rango enorme por error (años enteros) — mejor pedir que se trocee que
   // meter de golpe un bloque que infle la base de datos.
-  if (crudo.length > MAX_BYTES) {
-    return new Response(JSON.stringify({
-      error: 'envio_demasiado_grande',
-      ayuda: 'Demasiado grande para una sola vez. Exporta de año en año (por ejemplo, 2024 entero, luego 2025) y vuelve a enviar.',
-      kb: Math.round(crudo.length / 1024),
-    }), { status: 413, headers: cors });
-  }
+  if (crudo.length > MAX_BYTES) return demasiado();
   let payload: any = null;
   try { payload = JSON.parse(crudo); } catch {
     return new Response(JSON.stringify({ error: 'json_invalido' }), { status: 400, headers: cors });
   }
 
-  // 1. El crudo PRIMERO, antes de interpretar nada. Si el parser falla, el
-  //    envío sigue aquí y se reprocesa; nunca se pierde por un fallo mío.
-  const { data: raw } = await db.from('health_raw').insert({
-    user_id: tk.user_id, couple_id: tk.couple_id, bytes: crudo.length, payload,
-  }).select('id').maybeSingle();
+  // 1. El crudo PRIMERO (ruta automática), pero SANEADO: sin actividad sexual,
+  //    ciclo, rutas GPS ni pulso segundo a segundo. Antes se guardaba íntegro y
+  //    se filtraba después: durante 7 días esos datos vivían en la base de datos.
+  //    Las importaciones desde la app no guardan crudo: el archivo lo tiene la
+  //    persona y así no se puede llenar la tabla desde una sesión.
+  let rawId: number | null = null;
+  let crudoGuardado = false;
+  if (token) {
+    const { data: raw, error: errRaw } = await db.from('health_raw').insert({
+      user_id: tk.user_id, couple_id: tk.couple_id, bytes: crudo.length, payload: sanearPayload(payload),
+    }).select('id').maybeSingle();
+    if (errRaw) console.error('health_raw:', errRaw.message);   // no se afirma "guardado" si no lo está
+    else { rawId = raw?.id ?? null; crudoGuardado = rawId !== null; }
+  }
 
   try {
     const d = payload?.data ?? payload ?? {};
-    const { filasLimpias, rechazos } = limpiar(aplanar(d.metrics ?? []));
-    const entrenos = aplanarEntrenos(d.workouts ?? []);
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { filas: planas, avisos } = aplanarConAvisos(d.metrics ?? [], { hoy });
+    let { filasLimpias, rechazos } = limpiar(planas);
+    let entrenos = aplanarEntrenos(d.workouts ?? []);
+    if (!token) {
+      // Importación desde la app: los días recientes son de la automatización.
+      const corte = new Date(Date.now() - DIAS_PROTEGIDOS * 864e5).toISOString().slice(0, 10);
+      const antes = filasLimpias.length;
+      filasLimpias = sinRecientes(filasLimpias, corte);
+      entrenos = entrenos.filter(w => w.start_at.slice(0, 10) < corte);
+      if (antes - filasLimpias.length) avisos.dias_recientes_protegidos = antes - filasLimpias.length;
+    }
 
     if (filasLimpias.length) {
       // upsert sobre (couple_id, user_id, day, metric): reenviar el mismo día
@@ -177,16 +219,21 @@ serve(async req => {
       );
     }
 
-    const resumen = { metricas: filasLimpias.length, entrenos: entrenos.length, descartados: rechazos.length };
-    await db.from('health_raw').update({ parsed: resumen }).eq('id', raw?.id ?? -1);
-    await autolimpieza(db);
+    const resumen = { metricas: filasLimpias.length, entrenos: entrenos.length, descartados: rechazos.length, ignorados: avisos };
+    if (rawId !== null) await db.from('health_raw').update({ parsed: resumen }).eq('id', rawId);
     if (token) await db.from('health_tokens').update({ last_seen_at: new Date().toISOString(), last_error: null }).eq('token', token);
 
     return new Response(JSON.stringify({ ok: true, ...resumen }), { headers: cors });
   } catch (e) {
-    // El crudo YA está guardado, así que esto no pierde datos: solo avisa.
     const msg = String((e as Error).message);
+    console.error('health-ingest:', msg);
     if (token) await db.from('health_tokens').update({ last_seen_at: new Date().toISOString(), last_error: msg }).eq('token', token);
-    return new Response(JSON.stringify({ ok: false, error: msg, guardado_crudo: true }), { status: 200, headers: cors });
+    // 500 de verdad (antes 200 con ok:false): Health Auto Export lo cuenta como
+    // fallo y reintenta. `guardado_crudo` solo se afirma si realmente se guardó.
+    return new Response(JSON.stringify({ ok: false, error: 'error_guardando', detalle: msg, guardado_crudo: crudoGuardado }), { status: 500, headers: cors });
+  } finally {
+    // La limpieza va SIEMPRE, también tras un fallo: si no, un envío que
+    // falla repetidamente dejaba crecer la tabla.
+    try { await autolimpieza(db); } catch (e) { console.error('autolimpieza:', (e as Error).message); }
   }
 });

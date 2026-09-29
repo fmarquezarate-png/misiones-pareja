@@ -48,6 +48,26 @@ describe("kpi", () => {
   });
 });
 
+describe("kpi: acumulados en días cerrados", () => {
+  const filas = [
+    ...[21, 22, 23, 24, 25, 26, 27].map(d => f(`2026-09-${d}`, "step_count", 9000)),
+    f("2026-09-28", "step_count", 1500),               // hoy a las 10:00
+  ];
+  it("hoy a medias no hunde la media", () => {
+    expect(kpi(filas, "step_count", "2026-09-28").actual).toBeLessThan(9000);
+    const k = kpi(filas, "step_count", "2026-09-28", { cerrados: true });
+    expect(k.actual).toBe(9000);
+    expect(k.hoyValor).toBe(1500);
+    expect(k.serie).toHaveLength(7);
+    expect(k.serie[6].dia).toBe("2026-09-28");           // la gráfica sí enseña hoy
+  });
+  it("el periodo es configurable (14 días)", () => {
+    const k = kpi(filas, "step_count", "2026-09-28", { n: 14, cerrados: true });
+    expect(k.serie).toHaveLength(14);
+    expect(k.n).toBe(14);
+  });
+});
+
 describe("metasSemana", () => {
   const metas = [
     { id: "p", tipo: "pasos", objetivo: 8000, periodo: "dia" },
