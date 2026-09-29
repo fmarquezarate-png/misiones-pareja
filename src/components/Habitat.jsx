@@ -6,7 +6,7 @@
 // ve medio cuerpo bajo la superficie.
 //
 // Qué hace, según `decidirModo` (petBehavior.js):
-//   · libre       → pasea en tramos rectos con inercia (planificarPaseo v2).
+//   · libre       → pasea en tramos rectos con inercia, al paso de su sprite (planificarPaseo v3).
 //   · durmiendo   → duerme en su sitio.
 //   · entrenando  → entrena en el centro.
 //   · triste      → quieta y triste, hasta que la tocas.
@@ -18,8 +18,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PetSprite from "./PetSprite.jsx";
-import { elegirAnimacion } from "../lib/petSprites.js";
-import { decidirModo, planificarPaseo, animCaricia } from "../lib/petBehavior.js";
+import { elegirAnimacion, precargarEtapa } from "../lib/petSprites.js";
+import { decidirModo, planificarPaseo, animCaricia, marchaDe, elegirSprite } from "../lib/petBehavior.js";
 import { sol, fase as faseDe, clima as climaDe, paleta, discoSol } from "../lib/cielo.js";
 import { ubicacion, pedirUbicacion, tiempoActual } from "../lib/tiempo.js";
 import { prefersReducedMotion } from "../utils.js";
@@ -27,6 +27,12 @@ import { prefersReducedMotion } from "../utils.js";
 const TAM_BASE = 104;       // px de un sprite a escala 1
 const ALTO = 260;
 const SUELO = 0.56;         // dónde empieza el suelo / el agua (fracción del alto)
+const MARGEN = 6;           // px entre el cuerpo y las paredes
+const PISO_MIN = 12;        // px bajo el horizonte donde pisa lo más lejano
+const ESCALA_FONDO = 0.9;   // profundidad: lo lejano se ve un 10 % más pequeño
+const ESCALA_FRENTE = 1.06;
+const EASING = "cubic-bezier(0.25, 0.05, 0.75, 0.95)";   // arranque y parada suaves, media marcha casi lineal
+const VISTOS_MAX_MS = 7 * 864e5;
 
 const leer = (k, def) => { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch { return def; } };
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* modo privado */ } };
@@ -51,7 +57,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const [ancho, setAncho] = useState(340);
   const [ahora, setAhora] = useState(() => new Date());
   const [visible, setVisible] = useState(typeof document === "undefined" || !document.hidden);
-  const [pos, setPos] = useState({ x: 0.5, y: 0.7 });
+  const [pos, setPos] = useState({ x: 0.5, y: 0.55 });
   const posRef = useRef(pos);
   const dirRef = useRef(1);
   const moverA = useCallback(p => { posRef.current = p; setPos(p); }, []);
@@ -60,7 +66,9 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const [quieta, setQuieta] = useState(false);     // pausa: fotograma congelado + respiración
   const [caricia, setCaricia] = useState(null);
   const [corazones, setCorazones] = useState([]);
+  const mascota = useRef(null);
   const [ultimaCaricia, setUltimaCaricia] = useState(() => leer(claveCaricia, null));
+  const [vistos, setVistos] = useState(() => leer(claveVistos, {}));
   const [ubi, setUbi] = useState(() => ubicacion());
   const [tiempo, setTiempo] = useState(null);
   const [avisoUbi, setAvisoUbi] = useState(null);
@@ -72,19 +80,31 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   const esHuevo = etapa === "huevo";
   const agua = especie === "nix";
   const reducir = prefersReducedMotion();
+  const marcha = useMemo(() => marchaDe(etapaDef, tam), [etapaDef, tam]);
+  useEffect(() => { precargarEtapa(etapaDef); }, [etapaDef]);
+
+  // Geometría: la posición se mide en el PUNTO DE APOYO del cuerpo (no en la
+  // esquina del lienzo), así todas las etapas pisan el mismo suelo y ninguna
+  // se sale por los lados aunque el dibujo tenga aire alrededor.
+  const cuerpoAncho = (cuerpo.x1 - cuerpo.x0) * tam;
+  const centroX = ((cuerpo.x0 + cuerpo.x1) / 2) * tam;
+  const pieY = cuerpo.y1 * tam;
 
   useEffect(() => {
     if (ultimaCaricia == null) { const t = Date.now(); guardar(claveCaricia, t); setUltimaCaricia(t); }
   }, [ultimaCaricia, claveCaricia]);
 
-  const vistos = useMemo(() => {
-    const v = leer(claveVistos, {});
+  // Entrenos vistos: cuándo se enteró la app de cada uno (para entrenar 15 min
+  // desde que lo ve si llegó con la sincronización). Se escribe en un efecto —
+  // no en el render — y se poda: nada crece sin límite.
+  useEffect(() => {
     const t = Date.now();
+    const v = { ...vistos };
     let cambio = false;
     for (const w of entrenos) { const k = `${w.start_at}|${w.name}`; if (!v[k]) { v[k] = t; cambio = true; } }
-    if (cambio) guardar(claveVistos, v);
-    return v;
-  }, [entrenos, claveVistos]);
+    for (const k of Object.keys(v)) if (t - v[k] > VISTOS_MAX_MS) { delete v[k]; cambio = true; }
+    if (cambio) { guardar(claveVistos, v); setVistos(v); }
+  }, [entrenos, vistos, claveVistos]);
 
   const { modo, motivo } = useMemo(
     () => decidirModo({ ahora, horario, entrenos, ultimaCaricia, vistos }),
@@ -130,17 +150,39 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
   }, []);
 
   // ── El paseo ──────────────────────────────────────────────────────────────
-  const util = { ancho: Math.max(1, ancho - tam), alto: Math.max(1, ALTO - tam) };
+  const sueloPx = ALTO * SUELO;
+  const util = { ancho: Math.max(1, ancho - cuerpoAncho - 2 * MARGEN), alto: Math.max(1, ALTO - MARGEN - (sueloPx + PISO_MIN)) };
+  const utilRef = useRef(util);
+  utilRef.current = util;
+
+  // Dónde está DE VERDAD ahora (a mitad de un tramo, la transición lleva el
+  // cuerpo entre dos puntos). Al interrumpir el paseo se re-ancla ahí: sin
+  // esto, el siguiente tramo nacía desde el destino ya abandonado y saltaba.
+  const anclar = useCallback(() => {
+    const el = mascota.current;
+    if (!el || typeof window.DOMMatrixReadOnly === "undefined") return posRef.current;
+    const m = new window.DOMMatrixReadOnly(getComputedStyle(el).transform);
+    const u = utilRef.current;
+    const x = (m.m41 + centroX - MARGEN - cuerpoAncho / 2) / u.ancho;
+    const y = (m.m42 + pieY - (sueloPx + PISO_MIN)) / u.alto;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return posRef.current;
+    const p = { x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) };
+    posRef.current = p; setPos(p);
+    return p;
+  }, [centroX, cuerpoAncho, pieY, sueloPx]);
+
   useEffect(() => {
     clearTimers();
     if (modo !== "libre" || !visible || reducir || esHuevo || caricia) {
       setViaje(0);
       setQuieta(false);
-      if (modo !== "libre" || esHuevo) moverA({ x: 0.5, y: 0.78 });
+      setAnimId(null);
+      if (modo !== "libre" || esHuevo) moverA({ x: 0.5, y: 0.5 });
+      else anclar();
       return;
     }
     const paso = () => {
-      const plan = planificarPaseo(posRef.current, Math.random, util, anims, dirRef.current);
+      const plan = planificarPaseo(posRef.current, Math.random, utilRef.current, anims, dirRef.current, marcha);
       dirRef.current = plan.dir;
       setAnimId(plan.anim);
       setQuieta(false);
@@ -156,9 +198,7 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
     };
     later(paso, 1200);
     return clearTimers;
-    // util se recalcula en cada render; basta con sus dimensiones.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modo, visible, reducir, esHuevo, caricia, util.ancho, util.alto, anims, later, clearTimers, moverA]);
+  }, [modo, visible, reducir, esHuevo, caricia, anims, marcha, later, clearTimers, moverA, anclar]);
 
   useEffect(() => clearTimers, [clearTimers]);
 
@@ -172,24 +212,28 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
     const t = Date.now();
     guardar(claveCaricia, t);
     setUltimaCaricia(t);
-    setCorazones(c => [...c, t]);
-    later(() => setCorazones(c => c.filter(x => x !== t)), 1400);
+    // El corazón se retira solo al acabar su animación (onAnimationEnd): sin
+    // timers que clearTimers() pudiera cancelar dejándolo pegado para siempre.
+    setCorazones(c => [...c.slice(-4), t]);
     if (modo === "durmiendo" || modo === "entrenando") return;
     clearTimers();
+    anclar();
     setViaje(0);
     setCaricia({ id: animCaricia(anims), t });
   };
 
   // ── Sprite ────────────────────────────────────────────────────────────────
   const animo = { libre: "feliz", durmiendo: "durmiendo", entrenando: "entrenando", triste: "triste" }[modo];
+  const eleccion = elegirSprite({ modo, caricia: caricia?.id, animId, anims });
   let anim;
-  if (caricia && anims.has(caricia.id)) anim = { id: caricia.id, ...etapaDef.anims[caricia.id], loop: false };
-  else if (animId && anims.has(animId)) anim = { id: animId, ...etapaDef.anims[animId] };
+  if (eleccion.id) anim = { id: eleccion.id, ...etapaDef.anims[eleccion.id], loop: eleccion.loop };
   else anim = elegirAnimacion(manifest, especie, etapa, animo);
+  const enPausa = !caricia && modo === "libre" && (quieta || eleccion.quieto);
+  const congelado = enPausa && (eleccion.quieto || animId?.startsWith("caminar"));
 
-  const px = pos.x * util.ancho;
-  const py = pos.y * util.alto;
-  const sueloPx = ALTO * SUELO;
+  const px = MARGEN + cuerpoAncho / 2 + pos.x * util.ancho - centroX;
+  const py = sueloPx + PISO_MIN + pos.y * util.alto - pieY;
+  const escala = ESCALA_FONDO + (ESCALA_FRENTE - ESCALA_FONDO) * pos.y;
 
   return (
     <div>
@@ -243,15 +287,16 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
         ))}
 
         {/* La mascota */}
-        <div style={{
+        <div ref={mascota} style={{
           position: "absolute", left: 0, top: 0,
-          transform: `translate(${px}px, ${py}px)`,
-          transition: viaje ? `transform ${viaje}ms linear` : "transform 0.6s ease",
+          transform: `translate(${px}px, ${py}px) scale(${escala.toFixed(3)})`,
+          transformOrigin: `${centroX}px ${pieY}px`,
+          transition: viaje ? `transform ${viaje}ms ${EASING}` : "transform 0.6s ease",
           willChange: "transform",
         }}>
-          <div style={{ animation: agua ? "mpBob 2.6s ease-in-out infinite" : quieta && !caricia ? "mpRespira 2.8s ease-in-out infinite" : undefined, transformOrigin: "50% 100%" }}>
-            <div key={caricia?.t || "quieta"} style={{ position: "relative", animation: caricia ? (esHuevo ? "mpWiggle 0.5s ease 2" : "mpHop 0.55s ease-out 2") : undefined }}>
-              <PetSprite anim={anim} size={tam} frame={quieta && !caricia && animId?.startsWith("caminar") ? 0 : null}
+          <div style={{ animation: agua ? "mpBob 2.6s ease-in-out infinite" : enPausa ? "mpRespira 2.8s ease-in-out infinite" : undefined, transformOrigin: "50% 100%" }}>
+            <div key={caricia?.t || "quieta"} style={{ position: "relative", animation: caricia && !reducir ? (esHuevo ? "mpWiggle 0.5s ease 2" : "mpHop 0.55s ease-out 2") : undefined }}>
+              <PetSprite anim={anim} size={tam} frame={congelado ? 0 : null}
                 onFin={caricia ? () => setCaricia(null) : undefined} />
               {/* Medio cuerpo bajo el agua: la línea de flotación y el agua por delante */}
               {/* Línea de flotación ajustada al CUERPO de cada etapa (manifest
@@ -269,7 +314,8 @@ export default function Habitat({ userId, manifest, especie, etapa, horario, ent
             </div>
           </div>
           {corazones.map(id => (
-            <span key={id} aria-hidden style={{ position: "absolute", left: tam / 2 - 8, top: 0, fontSize: 18, pointerEvents: "none", animation: "mpHeart 1.3s ease-out forwards" }}>
+            <span key={id} aria-hidden onAnimationEnd={() => setCorazones(c => c.filter(x => x !== id))}
+              style={{ position: "absolute", left: centroX - 8, top: cuerpo.y0 * tam - 10, fontSize: 18, pointerEvents: "none", animation: "mpHeart 1.3s ease-out forwards" }}>
               {modo === "durmiendo" ? "💤" : modo === "entrenando" ? "💪" : "💜"}
             </span>
           ))}

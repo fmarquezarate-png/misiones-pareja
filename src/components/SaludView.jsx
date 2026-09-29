@@ -159,7 +159,7 @@ function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño
           <div style={dim}>{esMia ? "Tu" : `La de ${nombreDueño}:`} {nombreEspecie(manifest, pet.especie)} · nació {humanDate(pet.nacimiento)}</div>
         </div>
       </div>
-      <Habitat userId={uid} manifest={manifest} especie={pet.especie} etapa={etapa} horario={horario}
+      <Habitat key={uid} userId={uid} manifest={manifest} especie={pet.especie} etapa={etapa} horario={horario}
         entrenos={entrenos} nombre={pet.nombre} />
       <div style={{ marginTop: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--t-text-muted,#b9b0d0)", marginBottom: 4 }}>

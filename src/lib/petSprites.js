@@ -59,6 +59,22 @@ export function urlRetrato(manifest, especie, etapa) {
   return st?.portrait ? spriteUrl(st.portrait, st.portraitV) : null;
 }
 
+// Precarga todas las tiras de una etapa en la caché del navegador. Sin esto,
+// cada cambio de animación (caminar → pausa → caricia) pedía la imagen en ese
+// instante y el sprite parpadeaba un fotograma vacío.
+const precargadas = new Set();
+export function precargarEtapa(etapaDef) {
+  if (typeof Image === "undefined") return;
+  for (const a of Object.values(etapaDef?.anims || {})) {
+    const url = spriteUrl(a.src, a.v);
+    if (!url || precargadas.has(url)) continue;
+    precargadas.add(url);
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+  }
+}
+
 // ── Carga del manifest ──────────────────────────────────────────────────────
 // Antes: fetch sin tiempo límite dentro de un Promise.all con los datos. Un
 // cuelgue de WKWebView (regla de red de CLAUDE.md §5) dejaba "Despertando a tu
