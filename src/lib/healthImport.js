@@ -27,7 +27,9 @@ export const CAMPOS_ENTRENO = ["name", "start", "end", "duration", "activeEnergy
 
 export const MAX_TROZO = 2_000_000;   // margen bajo el tope de 2,5 MB del servidor
 
-const fechaDe = x => String(x?.date ?? x?.sleepEnd ?? x?.sleepStart ?? x?.start ?? "");
+// `endDate`: el sueño exportado SIN resumir llega en tramos { startDate, endDate }.
+// Se trocea por el FIN del tramo, que es el día al que pertenece la noche.
+const fechaDe = x => String(x?.date ?? x?.sleepEnd ?? x?.endDate ?? x?.sleepStart ?? x?.start ?? x?.startDate ?? "");
 
 export function limpiarEntreno(w) {
   const out = {};

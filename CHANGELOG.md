@@ -7,6 +7,16 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.8.0] — 2026-09-30 · El importador lee el sueño «sin resumir»
+
+**Hallazgo** (vídeo de Fran en Apple Salud → Sueño → HUAWEI WATCH GT Runner): Apple Salud tiene sueño de casi todas las noches de marzo–diciembre de 2025 (y parte de 2024), pero la exportación RESUMIDA de Health Auto Export (una noche por día) solo traía 52 noches de 2025: ninguna de junio–octubre ni de principios de noviembre. Además, el reloj guarda cada noche dos veces (tramo general «Asleep» + fases) y la lista de Apple suma las dos: días de 16–17 h (14/05: 17 h 49 min).
+
+- `nochesDeMuestras` (parse.js): acepta el sueño exportado SIN resumir (`{ startDate, endDate, value: Core/Deep/REM/Awake/In Bed/Asleep, source }`). Por fuente, agrupa los tramos en sesiones (hueco > 2 h = otra sesión), y cuenta la **unión** de intervalos: un minuto dormido cuenta una vez aunque venga como «Asleep» y como fase. Día = día de despertar; hora de acostarse/despertar del primer/último tramo dormido; entre fuentes gana la que registra más sueño (sin mezclarlas). Mezclado con noches resumidas, se leen las dos formas. 5 tests (el caso del doble registro, fases con despierto, siesta, dos fuentes, formato mixto).
+- `healthImport.js`: el troceo por años entiende `endDate`.
+- Para traer el sueño que falta hay que hacer UNA exportación de Health Auto Export solo de sueño, sin resumir, 2024–2025, y subirla en Salud → Importar historial (pasos en la respuesta a Fran).
+
+---
+
 ## [6.7.1] — 2026-09-30 · Noches que el reloj pasa tarde a Apple Salud
 
 **Auditoría contra las capturas de Apple Salud de Fran** (vista M, 31 ago–30 sep, y 6M): la base coincide noche a noche con Apple Salud hasta el 24/09, y los huecos de julio y agosto también están en Apple. Las únicas que faltaban eran las noches del **26 y el 27/09**. Causa, reconstruida con `health_raw`: Huawei las pasó a Apple Salud **después** del 29/09 06:45 (el envío de 7 días de esa hora no traía sueño del 25 al 28), y la automatización de Health Auto Export envía desde entonces solo **2 días** (ayer y hoy), no los 7 que dice la guía. Una noche que llega tarde a Apple Salud nunca se vuelve a enviar.

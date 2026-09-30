@@ -221,6 +221,80 @@ function interpretarNoche(d, unidad) {
   };
 }
 
+// ── Sueño en MUESTRAS (exportación sin resumir) ─────────────────────────────
+// Health Auto Export «resumido» (una noche por día) se saltó casi todo 2025 de
+// Fran aunque Apple Salud sí lo tenía (vídeo del 30/09/2026: marzo–noviembre
+// 2025 del HUAWEI WATCH GT Runner, ausentes del archivo). Sin resumir llega cada
+// tramo tal cual: { startDate, endDate, value: "Core"|"Deep"|"REM"|"Awake"|
+// "In Bed"|"Asleep", qty, source }. Y el reloj escribe la misma noche DOS veces
+// (tramo general «Asleep» + fases): Apple Salud muestra días de 16–17 h por
+// sumarlas. Aquí se toma la UNIÓN de intervalos: un minuto cuenta una vez.
+const CAT_SUENO = { core: "core", deep: "deep", rem: "rem", asleep: "asleep", asleepunspecified: "asleep", unspecified: "asleep", asleepcore: "core", asleepdeep: "deep", asleeprem: "rem" };
+const catDe = v => {
+  const k = String(v ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (k === "inbed") return "cama";
+  if (k === "awake") return "despierto";
+  return CAT_SUENO[k] ?? null;
+};
+export const esMuestraSueno = d => !!d && (d.startDate ?? d.start) !== undefined && (d.endDate ?? d.end) !== undefined
+  && d.totalSleep === undefined && catDe(d.value ?? d.stage) !== null;
+
+function union(tramos) {
+  const t = tramos.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  let total = 0, ini = null, fin = null;
+  for (const [a, b] of t) {
+    if (fin === null || a > fin) { if (fin !== null) total += fin - ini; ini = a; fin = b; }
+    else if (b > fin) fin = b;
+  }
+  if (fin !== null) total += fin - ini;
+  return total / 3600e3;
+}
+const HUECO_SESION = 2 * 3600e3;   // más de 2 h sin tramos = otra sesión (siesta)
+
+/** Muestras → una noche por (fuente, día de despertar), con la misma forma que interpretarNoche. */
+export function nochesDeMuestras(muestras) {
+  const porFuente = new Map();
+  for (const d of muestras) {
+    const si = d.startDate ?? d.start, sf = d.endDate ?? d.end;
+    const a = Date.parse(instante(si) ?? ""), b = Date.parse(instante(sf) ?? "");
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a || b - a > 24 * 3600e3) continue;
+    const src = d?.source ? String(d.source) : null;
+    if (!porFuente.has(src)) porFuente.set(src, []);
+    porFuente.get(src).push({ a, b, si, sf, cat: catDe(d.value ?? d.stage) });
+  }
+  const noches = [];
+  for (const [source, lista] of porFuente) {
+    lista.sort((x, y) => x.a - y.a);
+    const sesiones = [];
+    for (const m of lista) {
+      const s = sesiones[sesiones.length - 1];
+      if (s && m.a - s.fin <= HUECO_SESION) { s.m.push(m); if (m.b > s.fin) { s.fin = m.b; s.sf = m.sf; } }
+      else sesiones.push({ m: [m], fin: m.b, sf: m.sf });
+    }
+    for (const s of sesiones) {
+      const dormido = s.m.filter(x => x.cat !== "cama" && x.cat !== "despierto");
+      if (!dormido.length) continue;
+      const tr = f => s.m.filter(f).map(x => [x.a, x.b]);
+      const total = union(dormido.map(x => [x.a, x.b]));
+      const fase = c => { const h = union(tr(x => x.cat === c)); return h > 0 ? h : null; };
+      const primero = dormido.reduce((p, x) => (x.a < p.a ? x : p));
+      const ultimo = dormido.reduce((p, x) => (x.b > p.b ? x : p));
+      const day = diaLocal(ultimo.sf);
+      if (!day) continue;
+      const cama = union(tr(x => x.cat === "cama"));
+      const ini = hm(primero.si);
+      const bed = ini === null ? null : (diaLocal(primero.si) === day ? ini : ini - 1440);
+      noches.push({
+        day, source, recortado: false, total,
+        valores: { sleep_asleep: total, sleep_in_bed: cama > 0 ? cama : null, sleep_deep: fase("deep"), sleep_rem: fase("rem"), sleep_core: fase("core"), sleep_awake: fase("despierto") },
+        wake: hm(ultimo.sf),
+        bed: bed !== null && bed >= -720 && bed <= 900 ? bed : null,
+      });
+    }
+  }
+  return noches;
+}
+
 /**
  * Aplana las métricas y CUENTA lo que ignora y por qué. Antes las entradas sin
  * fecha, sin valor o de forma desconocida desaparecían sin dejar rastro:
@@ -257,11 +331,18 @@ export function aplanarConAvisos(metrics = [], { hoy = null } = {}) {
         // siestas no son "la hora de despertar". Antes wake_min/bed_min se
         // PROMEDIABAN entre siesta y noche: 12 días de Fran tenían dos registros.
         const porDia = new Map();
-        for (const d of m?.data || []) {
-          const n = interpretarNoche(d, unidad);
+        const datos = m?.data || [];
+        const muestras = datos.filter(esMuestraSueno);
+        const resumidas = muestras.length ? datos.filter(d => !esMuestraSueno(d)) : datos;
+        const candidatas = [
+          ...resumidas.map(d => ({ d, n: null })),
+          ...nochesDeMuestras(muestras).map(n => ({ d: null, n })),
+        ];
+        for (const { d, n: deMuestras } of candidatas) {
+          const n = deMuestras ?? interpretarNoche(d, unidad);
           if (n.motivo) { av(n.motivo); continue; }
           if (!diaOk(n.day)) continue;
-          n.source = d?.source ? String(d.source) : null;
+          if (d) n.source = d?.source ? String(d.source) : null;
           if (n.estimado) { av("sueno_estimado_por_cama"); n.source = `Estimado: tiempo en cama × 0,88${n.source ? ` (${n.source})` : ""}`; }
           const prev = porDia.get(n.day);
           // Sea cual sea el orden de llegada, el registro que NO se queda se cuenta.

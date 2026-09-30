@@ -394,3 +394,59 @@ describe("noches con solo tiempo en cama", () => {
     expect(s.source).toBe("Mi Fitness");
   });
 });
+
+describe("sueño en muestras (exportación sin resumir)", () => {
+  const t = (ini, fin, value, source = "Salud de Huawei") => ({ startDate: ini, endDate: fin, value, qty: 0, source });
+  const sueno = data => aplanarConAvisos([{ name: "sleep_analysis", units: "hr", data }]).filas;
+  const val = (filas, metric, day) => filas.find(f => f.metric === metric && f.day === day)?.value;
+
+  // Caso del vídeo de Fran: el reloj escribe la noche entera como «Asleep» Y
+  // además sus fases; Apple Salud sumaba las dos (días de 16–17 h).
+  it("no cuenta dos veces un tramo general y sus fases", () => {
+    const filas = sueno([
+      t("2025-05-13 23:30:00 +0200", "2025-05-14 07:30:00 +0200", "Asleep"),
+      t("2025-05-13 23:30:00 +0200", "2025-05-14 02:30:00 +0200", "Core"),
+      t("2025-05-14 02:30:00 +0200", "2025-05-14 04:00:00 +0200", "Deep"),
+      t("2025-05-14 04:00:00 +0200", "2025-05-14 05:00:00 +0200", "Awake"),
+      t("2025-05-14 05:00:00 +0200", "2025-05-14 07:30:00 +0200", "REM"),
+    ]);
+    expect(val(filas, "sleep_asleep", "2025-05-14")).toBeCloseTo(8, 5);
+    expect(val(filas, "sleep_deep", "2025-05-14")).toBeCloseTo(1.5, 5);
+    expect(val(filas, "sleep_rem", "2025-05-14")).toBeCloseTo(2.5, 5);
+    expect(val(filas, "wake_min", "2025-05-14")).toBe(450);
+    expect(val(filas, "bed_min", "2025-05-14")).toBe(-30);
+  });
+  it("sin tramo general, suma las fases y deja fuera lo despierto", () => {
+    const filas = sueno([
+      t("2025-10-01 01:00:00 +0200", "2025-10-01 03:00:00 +0200", "Core"),
+      t("2025-10-01 03:00:00 +0200", "2025-10-01 03:30:00 +0200", "Awake"),
+      t("2025-10-01 03:30:00 +0200", "2025-10-01 07:00:00 +0200", "Deep"),
+    ]);
+    expect(val(filas, "sleep_asleep", "2025-10-01")).toBeCloseTo(5.5, 5);
+    expect(val(filas, "sleep_awake", "2025-10-01")).toBeCloseTo(0.5, 5);
+  });
+  it("una siesta es otra sesión: el día se queda con la noche", () => {
+    const filas = sueno([
+      t("2025-10-02 00:30:00 +0200", "2025-10-02 07:30:00 +0200", "Asleep"),
+      t("2025-10-02 15:00:00 +0200", "2025-10-02 16:00:00 +0200", "Asleep"),
+    ]);
+    expect(val(filas, "sleep_asleep", "2025-10-02")).toBeCloseTo(7, 5);
+    expect(val(filas, "wake_min", "2025-10-02")).toBe(450);
+  });
+  it("con dos fuentes gana la que registra más sueño, sin mezclarlas", () => {
+    const filas = sueno([
+      t("2025-10-03 00:00:00 +0200", "2025-10-03 07:00:00 +0200", "Asleep", "Salud de Huawei"),
+      t("2025-10-03 01:00:00 +0200", "2025-10-03 06:00:00 +0200", "Asleep", "Sleep Cycle"),
+    ]);
+    expect(val(filas, "sleep_asleep", "2025-10-03")).toBeCloseTo(7, 5);
+    expect(filas.find(f => f.metric === "sleep_asleep").source).toBe("Salud de Huawei");
+  });
+  it("mezclado con noches resumidas, las dos formas se leen", () => {
+    const filas = aplanarConAvisos([{ name: "sleep_analysis", units: "hr", data: [
+      { date: "2026-09-01 00:00:00 +0200", sleepStart: "2026-09-01 01:12:00 +0200", sleepEnd: "2026-09-01 07:24:00 +0200", totalSleep: 6.2, source: "Salud de Huawei" },
+      t("2025-10-04 00:00:00 +0200", "2025-10-04 06:00:00 +0200", "Asleep"),
+    ] }]).filas;
+    expect(val(filas, "sleep_asleep", "2026-09-01")).toBeCloseTo(6.2, 5);
+    expect(val(filas, "sleep_asleep", "2025-10-04")).toBeCloseTo(6, 5);
+  });
+});
