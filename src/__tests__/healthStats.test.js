@@ -272,3 +272,28 @@ describe("más alto / más bajo: nunca al revés", () => {
     expect(kpi(p, "weight_body_mass", "2026-09-28", { mejorSi: "neutral" }).bueno).toBeNull();
   });
 });
+
+import { nochesSinDato } from "../lib/healthStats.js";
+import { sumarDias } from "../lib/pet.js";
+
+describe("nochesSinDato", () => {
+  const hoy = "2026-09-30";
+  const noche = (day, value = 6) => ({ day, metric: "sleep_asleep", value });
+  const mes = Array.from({ length: 28 }, (_, i) => noche(sumarDias(hoy, -35 + i)));
+
+  it("señala las noches de la última semana que no llegaron (caso real 26–27/09)", () => {
+    const filas = [...mes, ...["2026-09-23", "2026-09-24", "2026-09-25", "2026-09-28", "2026-09-29"].map(d => noche(d))];
+    expect(nochesSinDato(filas, hoy)).toEqual(["2026-09-26", "2026-09-27"]);
+  });
+  it("una noche a 0 h cuenta como que falta (no como dormir 0)", () => {
+    const filas = [...mes, ...["2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28"].map(d => noche(d)), noche("2026-09-29", 0)];
+    expect(nochesSinDato(filas, hoy)).toEqual(["2026-09-29"]);
+  });
+  it("hoy no cuenta (puede no haber sincronizado aún)", () => {
+    const filas = [...mes, ...Array.from({ length: 7 }, (_, i) => noche(sumarDias(hoy, -7 + i)))];
+    expect(nochesSinDato(filas, hoy)).toEqual([]);
+  });
+  it("a quien no suele registrar el sueño no se le avisa", () => {
+    expect(nochesSinDato(mes.slice(0, 10), hoy)).toEqual([]);
+  });
+});

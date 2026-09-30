@@ -7,6 +7,15 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.7.1] — 2026-09-30 · Noches que el reloj pasa tarde a Apple Salud
+
+**Auditoría contra las capturas de Apple Salud de Fran** (vista M, 31 ago–30 sep, y 6M): la base coincide noche a noche con Apple Salud hasta el 24/09, y los huecos de julio y agosto también están en Apple. Las únicas que faltaban eran las noches del **26 y el 27/09**. Causa, reconstruida con `health_raw`: Huawei las pasó a Apple Salud **después** del 29/09 06:45 (el envío de 7 días de esa hora no traía sueño del 25 al 28), y la automatización de Health Auto Export envía desde entonces solo **2 días** (ayer y hoy), no los 7 que dice la guía. Una noche que llega tarde a Apple Salud nunca se vuelve a enviar.
+
+- `nochesSinDato(filas, hoy)` (`healthStats.js`, puro + 4 tests): noches de los últimos 7 días (sin contar hoy) sin sueño o con 0 h, solo para quien suele registrar el sueño (≥ 50 % de las 4 semanas anteriores).
+- Salud muestra «Faltan N noches de esta semana» con las fechas y, al tocar «Cómo recuperarlas», los 4 pasos para dejar el rango de la automatización en 7 días y reenviar (idempotente: repetir días no duplica).
+
+---
+
 ## [6.7.0] — 2026-09-30 · «Más alto/más bajo» sin invertir + sueño recuperado
 
 **Extremos invertidos (causa)**: las métricas sin dirección definida (peso, longitud de paso, asimetría, etc., vía `defGenerica`) caían en la rama «menos es mejor» — el «mejor día» era el más bajo y se pintaba bajo el rótulo «Día más alto». Ahora:

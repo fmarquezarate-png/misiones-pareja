@@ -18,6 +18,7 @@ import { estadoDeDatos } from "../lib/petEstado.js";
 import { entrenosDelCalendario, posiblesEntrenos, deportesHabituales, EMOJI_DEPORTE } from "../lib/deporteCalendario.js";
 import { urlRetrato, nombreEspecie, cargarManifest } from "../lib/petSprites.js";
 import { humanDate } from "../lib/dateLabel.js";
+import { nochesSinDato } from "../lib/healthStats.js";
 import { modoPruebas, fijarModoPruebas } from "../lib/petConfig.js";
 import Habitat from "./Habitat.jsx";
 import SaludPanel from "./SaludPanel.jsx";
@@ -157,6 +158,8 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   }, [historia, uid, weeks, persona, hoyCal, descartados]);
   const pet = uid ? pets[uid] : null;
   const hoy = isoDia(new Date());
+  const [verComoRecuperar, setVerComoRecuperar] = useState(false);
+  const faltanNoches = useMemo(() => (quien === "yo" ? nochesSinDato(filas, hoy) : []), [quien, filas, hoy]);
 
   if (estado === "cargando") return <Marco><div style={card}><div style={dim}>Despertando a tu mascota…</div></div></Marco>;
   if (datos.error === "sin_tablas") return <Marco><div style={card}><div style={txt}>Las tablas de salud todavía no existen.</div><div style={{ ...dim, marginTop: 6 }}>Falta el paso 1 de docs/salud-health-auto-export.md.</div></div></Marco>;
@@ -194,6 +197,25 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Noches que no llegaron: el reloj pasa el sueño a Apple Salud con retraso y,
+          si el envío automático cubre solo 2 días, esas noches se pierden. */}
+      {faltanNoches.length > 0 && (
+        <div style={{ ...card, border: "1px solid rgba(251,191,36,0.35)" }}>
+          <div style={{ ...titulo, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>😴</span> {faltanNoches.length === 1 ? "Falta 1 noche" : `Faltan ${faltanNoches.length} noches`} de esta semana</div>
+          <div style={dim}>Sin sueño guardado: {faltanNoches.map(d => humanDate(d)).join(", ")}. Si esas noches SÍ salen en Apple Salud, es que tu reloj las pasó tarde y el envío automático ya no las volvió a mandar.</div>
+          <button onClick={() => setVerComoRecuperar(v => !v)} style={{ ...chip(verComoRecuperar), marginTop: 8, minHeight: 44 }}>{verComoRecuperar ? "Ocultar" : "Cómo recuperarlas"}</button>
+          {verComoRecuperar && (
+            <ol style={{ ...dim, margin: "8px 0 0", paddingLeft: 18 }}>
+              <li>Abre la app <b>Health Auto Export</b> en tu iPhone.</li>
+              <li>Abajo, pestaña <b>Automations</b>, y toca la automatización que envía tu salud a esta app.</li>
+              <li>Busca <b>Date Range</b> (rango de fechas) y elige los <b>últimos 7 días</b> (puede llamarse «Previous 7 Days» o «Last 7 Days»). Guarda.</li>
+              <li>Pulsa <b>Export Now</b> (exportar ahora). En un minuto llegan las noches que faltaban.</li>
+            </ol>
+          )}
+          {verComoRecuperar && <div style={{ ...dim, marginTop: 6 }}>Solo hay que hacerlo una vez: desde entonces cada envío repasa la semana entera, así que una noche que tu reloj pase tarde también llega. Repetir días no duplica nada.</div>}
         </div>
       )}
 

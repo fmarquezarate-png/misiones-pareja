@@ -224,3 +224,18 @@ export function resumenHistoricoParaIA({ nombre, unidad, detalle, meses, extremo
     `Pregunta: ${pregunta}`,
   ].join("\n");
 }
+
+// Noches recientes SIN sueño guardado, para avisar. El reloj (Huawei, Mi Fitness…)
+// a veces pasa el sueño a Apple Salud con días de retraso; si Health Auto Export
+// solo envía los 2 últimos días, esas noches NUNCA llegan (26–27/09/2026: estaban
+// en Apple Salud y no en la app). Solo se avisa a quien suele tener sueño
+// registrado (≥ 50 % de las noches de las 4 semanas anteriores): a quien no lleva
+// reloj de noche no se le molesta. Hoy no cuenta: puede no haber sincronizado aún.
+export function nochesSinDato(filas, hoy, dias = 7) {
+  const conSueno = new Set(filas.filter(f => f.metric === "sleep_asleep" && !esSinDato(f.metric, f.value)).map(f => f.day));
+  const ventana = Array.from({ length: dias }, (_, i) => sumarDias(hoy, -dias + i));
+  const antes = Array.from({ length: 28 }, (_, i) => sumarDias(hoy, -dias - 28 + i));
+  const habitual = antes.filter(d => conSueno.has(d)).length / antes.length;
+  if (habitual < 0.5) return [];
+  return ventana.filter(d => !conSueno.has(d));
+}
