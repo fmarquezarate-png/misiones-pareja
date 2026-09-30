@@ -18,7 +18,7 @@ const uno = n => n.toLocaleString("es-ES", { maximumFractionDigits: 1 });
  * cerrados). `meta`: tipo de meta diaria que la acompaña, si la hay.
  */
 export const TARJETAS = {
-  sueno:     { metric: "sleep_asleep",        nombre: "Sueño",            icono: "🌙", formato: hm,                       unidad: "",         unidadLarga: "horas por noche", mejorSi: "sube", meta: "sueno",
+  sueno:     { metric: "sleep_asleep",        nombre: "Sueño",            icono: "🌙", formato: hm,                       unidad: "",         unidadLarga: "horas por noche", mejorSi: "neutral", meta: "sueno",
     sufijo: "",
     delta: d => `${Math.round(d * 60)} min`,
     sugerencias: ["¿Duermo más los fines de semana?", "¿Mi sueño está mejorando?", "¿Qué noches fueron las peores?"] },

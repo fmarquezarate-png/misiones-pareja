@@ -7,9 +7,19 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.8.1] — 2026-09-30 · Los días de mucho sueño son reales
+
+**Corrección de 6.8.0**: se atribuyeron los días de 16–17 h de sueño de mayo de 2025 a un doble registro del reloj. Fran lo aclaró: son reales (lesión y bajón). Además, el importador los TIRABA: el rango de cordura del sueño acababa en 16 h (en la base no había ningún día por encima de 15,1 h).
+
+- `RANGOS`: sueño hasta 22 h al día (en cama 24 h; fases hasta 12–20 h). Lo imposible (p. ej. 34,6 h el 01/09/2025) sigue fuera.
+- Sueño en muestras: el total del DÍA suma todas las sesiones que acaban ese día (noche + siestas), como Apple Salud; la hora de acostarse/despertar sale de la sesión más larga. Test: un día de 17 h 50 min se guarda entero y sin rechazos.
+- Dormir más ya no es «tu mejor día»: `sleep_asleep` pasa a dirección neutral (`DIRECCION`, `saludPanel`). Lo que cuenta es la meta de horas.
+
+---
+
 ## [6.8.0] — 2026-09-30 · El importador lee el sueño «sin resumir»
 
-**Hallazgo** (vídeo de Fran en Apple Salud → Sueño → HUAWEI WATCH GT Runner): Apple Salud tiene sueño de casi todas las noches de marzo–diciembre de 2025 (y parte de 2024), pero la exportación RESUMIDA de Health Auto Export (una noche por día) solo traía 52 noches de 2025: ninguna de junio–octubre ni de principios de noviembre. Además, el reloj guarda cada noche dos veces (tramo general «Asleep» + fases) y la lista de Apple suma las dos: días de 16–17 h (14/05: 17 h 49 min).
+**Hallazgo** (vídeo de Fran en Apple Salud → Sueño → HUAWEI WATCH GT Runner): Apple Salud tiene sueño de casi todas las noches de marzo–diciembre de 2025 (y parte de 2024), pero la exportación RESUMIDA de Health Auto Export (una noche por día) solo traía 52 noches de 2025: ninguna de junio–octubre ni de principios de noviembre.
 
 - `nochesDeMuestras` (parse.js): acepta el sueño exportado SIN resumir (`{ startDate, endDate, value: Core/Deep/REM/Awake/In Bed/Asleep, source }`). Por fuente, agrupa los tramos en sesiones (hueco > 2 h = otra sesión), y cuenta la **unión** de intervalos: un minuto dormido cuenta una vez aunque venga como «Asleep» y como fase. Día = día de despertar; hora de acostarse/despertar del primer/último tramo dormido; entre fuentes gana la que registra más sueño (sin mezclarlas). Mezclado con noches resumidas, se leen las dos formas. 5 tests (el caso del doble registro, fases con despierto, siesta, dos fuentes, formato mixto).
 - `healthImport.js`: el troceo por años entiende `endDate`.

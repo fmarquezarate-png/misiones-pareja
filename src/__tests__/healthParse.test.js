@@ -400,8 +400,7 @@ describe("sueño en muestras (exportación sin resumir)", () => {
   const sueno = data => aplanarConAvisos([{ name: "sleep_analysis", units: "hr", data }]).filas;
   const val = (filas, metric, day) => filas.find(f => f.metric === metric && f.day === day)?.value;
 
-  // Caso del vídeo de Fran: el reloj escribe la noche entera como «Asleep» Y
-  // además sus fases; Apple Salud sumaba las dos (días de 16–17 h).
+  // Una fuente puede escribir la noche como «Asleep» Y además sus fases.
   it("no cuenta dos veces un tramo general y sus fases", () => {
     const filas = sueno([
       t("2025-05-13 23:30:00 +0200", "2025-05-14 07:30:00 +0200", "Asleep"),
@@ -425,13 +424,24 @@ describe("sueño en muestras (exportación sin resumir)", () => {
     expect(val(filas, "sleep_asleep", "2025-10-01")).toBeCloseTo(5.5, 5);
     expect(val(filas, "sleep_awake", "2025-10-01")).toBeCloseTo(0.5, 5);
   });
-  it("una siesta es otra sesión: el día se queda con la noche", () => {
+  it("el total del día suma noche y siesta; la hora de despertar es la de la noche", () => {
     const filas = sueno([
       t("2025-10-02 00:30:00 +0200", "2025-10-02 07:30:00 +0200", "Asleep"),
       t("2025-10-02 15:00:00 +0200", "2025-10-02 16:00:00 +0200", "Asleep"),
     ]);
-    expect(val(filas, "sleep_asleep", "2025-10-02")).toBeCloseTo(7, 5);
+    expect(val(filas, "sleep_asleep", "2025-10-02")).toBeCloseTo(8, 5);
     expect(val(filas, "wake_min", "2025-10-02")).toBe(450);
+    expect(val(filas, "bed_min", "2025-10-02")).toBe(30);
+  });
+  // Mayo de 2025 (Fran, lesión): días de 16–17 h de sueño REALES. Nada los recorta.
+  it("un día de 17 h de sueño se guarda entero", () => {
+    const filas = sueno([
+      t("2025-05-13 22:00:00 +0200", "2025-05-14 11:00:00 +0200", "Asleep"),
+      t("2025-05-14 13:30:00 +0200", "2025-05-14 18:20:00 +0200", "Asleep"),
+    ]);
+    const { filasLimpias, rechazos } = limpiar(filas);
+    expect(rechazos).toEqual([]);
+    expect(filasLimpias.find(f => f.metric === "sleep_asleep").value).toBeCloseTo(17 + 50 / 60, 5);
   });
   it("con dos fuentes gana la que registra más sueño, sin mezclarlas", () => {
     const filas = sueno([

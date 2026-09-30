@@ -74,8 +74,10 @@ export const RANGOS = {
   walking_running_distance: [0, 300],
   distance_walking_running: [0, 300],
   flights_climbed: [0, 2000],
-  sleep_asleep: [0, 16], sleep_in_bed: [0, 20], sleep_deep: [0, 8],
-  sleep_rem: [0, 8], sleep_core: [0, 14], sleep_awake: [0, 8],
+  // Hasta 22 h de sueño en un día: días de 16–17 h son REALES (lesión, bajón:
+  // Fran, mayo de 2025). El tope anterior (16 h) los tiraba como «imposibles».
+  sleep_asleep: [0, 22], sleep_in_bed: [0, 24], sleep_deep: [0, 12],
+  sleep_rem: [0, 12], sleep_core: [0, 20], sleep_awake: [0, 12],
   mindful_minutes: [0, 600],
   wake_min: [0, 1440], bed_min: [-720, 1440],
 };
@@ -226,9 +228,12 @@ function interpretarNoche(d, unidad) {
 // Fran aunque Apple Salud sí lo tenía (vídeo del 30/09/2026: marzo–noviembre
 // 2025 del HUAWEI WATCH GT Runner, ausentes del archivo). Sin resumir llega cada
 // tramo tal cual: { startDate, endDate, value: "Core"|"Deep"|"REM"|"Awake"|
-// "In Bed"|"Asleep", qty, source }. Y el reloj escribe la misma noche DOS veces
-// (tramo general «Asleep» + fases): Apple Salud muestra días de 16–17 h por
-// sumarlas. Aquí se toma la UNIÓN de intervalos: un minuto cuenta una vez.
+// "In Bed"|"Asleep", qty, source }. Una fuente puede escribir el mismo tramo con
+// dos etiquetas (general + fase): se toma la UNIÓN de intervalos, un minuto
+// cuenta una vez. Y el total del DÍA suma todas las sesiones que acaban ese día
+// (noche + siestas), como Apple Salud: los días de 16–17 h de Fran (mayo de 2025,
+// lesión y bajón) son reales y se guardan tal cual. La hora de acostarse y
+// despertar sale de la sesión MÁS LARGA (una siesta no es «despertarse»).
 const CAT_SUENO = { core: "core", deep: "deep", rem: "rem", asleep: "asleep", asleepunspecified: "asleep", unspecified: "asleep", asleepcore: "core", asleepdeep: "deep", asleeprem: "rem" };
 const catDe = v => {
   const k = String(v ?? "").toLowerCase().replace(/[^a-z]/g, "");
@@ -271,23 +276,32 @@ export function nochesDeMuestras(muestras) {
       if (s && m.a - s.fin <= HUECO_SESION) { s.m.push(m); if (m.b > s.fin) { s.fin = m.b; s.sf = m.sf; } }
       else sesiones.push({ m: [m], fin: m.b, sf: m.sf });
     }
+    // Sesiones con sueño, agrupadas por el día en que acaban.
+    const porDia = new Map();
     for (const s of sesiones) {
       const dormido = s.m.filter(x => x.cat !== "cama" && x.cat !== "despierto");
       if (!dormido.length) continue;
-      const tr = f => s.m.filter(f).map(x => [x.a, x.b]);
-      const total = union(dormido.map(x => [x.a, x.b]));
-      const fase = c => { const h = union(tr(x => x.cat === c)); return h > 0 ? h : null; };
-      const primero = dormido.reduce((p, x) => (x.a < p.a ? x : p));
       const ultimo = dormido.reduce((p, x) => (x.b > p.b ? x : p));
       const day = diaLocal(ultimo.sf);
       if (!day) continue;
+      const larga = union(dormido.map(x => [x.a, x.b]));
+      if (!porDia.has(day)) porDia.set(day, []);
+      porDia.get(day).push({ s, dormido, ultimo, larga });
+    }
+    for (const [day, ses] of porDia) {
+      const todos = ses.flatMap(x => x.s.m);
+      const tr = f => todos.filter(f).map(x => [x.a, x.b]);
+      const total = union(tr(x => x.cat !== "cama" && x.cat !== "despierto"));
+      const fase = c => { const h = union(tr(x => x.cat === c)); return h > 0 ? h : null; };
       const cama = union(tr(x => x.cat === "cama"));
+      const principal = ses.reduce((p, x) => (x.larga > p.larga ? x : p));
+      const primero = principal.dormido.reduce((p, x) => (x.a < p.a ? x : p));
       const ini = hm(primero.si);
       const bed = ini === null ? null : (diaLocal(primero.si) === day ? ini : ini - 1440);
       noches.push({
         day, source, recortado: false, total,
         valores: { sleep_asleep: total, sleep_in_bed: cama > 0 ? cama : null, sleep_deep: fase("deep"), sleep_rem: fase("rem"), sleep_core: fase("core"), sleep_awake: fase("despierto") },
-        wake: hm(ultimo.sf),
+        wake: hm(principal.ultimo.sf),
         bed: bed !== null && bed >= -720 && bed <= 900 ? bed : null,
       });
     }
