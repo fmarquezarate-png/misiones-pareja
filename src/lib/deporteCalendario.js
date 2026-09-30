@@ -29,7 +29,15 @@ import { esSinDato, normalizar, sumarDias } from "./pet.js";
 // nombres de liga que escribe a su manera («Liga Masc Moli», «Master Masculi
 // Semis», «Mixto ft Gonza»), que antes se escapaban.
 export const DEPORTES = [
-  { id: "padel",  nombre: "Pádel",      emoji: /🎾|🏸/u, re: /p[aá]del|americana|torneo de p[aá]del|\bpartido (vs|con)\b|\bliga (masc|mixta|mixto|fem)/i, min: 75, tasa: 379, tasaSinPasos: 542, sesionTipica: 707, pideEmoji: /\bpartido\b/i },
+  { id: "padel",  nombre: "Pádel",      emoji: /🎾|🏸/u, re: /p[aá]del|americana|torneo de p[aá]del|\bpartido (vs|con)\b|\bliga (masc|mixta|mixto|fem)/i, min: 75, tasa: 379, tasaSinPasos: 542, sesionTipica: 707, pideEmoji: /\bpartido\b/i,
+    // Masculino vs mixto (13 partidos reales del reloj, 30/09/2026): masculino 10,7
+    // kcal/min, pulso medio 168, partido típico ~754 kcal; mixto 9,2 kcal/min, 153
+    // lpm, ~566 kcal. El de amigos sin etiqueta (844 kcal, 168 lpm) es masculino.
+    // Solo identifican y describen; las kcal usan el típico general (ver evaluarDia).
+    variantes: {
+      masculino: { nombre: "Pádel masculino", sesionTipica: 754, kcalMin: 10.7, pulsoMedio: 168 },
+      mixto:     { nombre: "Pádel mixto",     sesionTipica: 566, kcalMin: 9.2,  pulsoMedio: 153 },
+    } },
   { id: "gym",    nombre: "Gimnasio",   emoji: /🏋/u,     re: /\bgym\b|gimnasio|crossfit|\bbox\b|\bentreno\b|pesas/i, min: 60, tasa: 300, tasaSinPasos: 360 },
   { id: "correr", nombre: "Correr",     emoji: /🏃/u,     re: /correr|running|\bcarrera\b|trail/i, min: 45, tasa: 600, tasaSinPasos: 700 },
   { id: "futbol", nombre: "Fútbol",     emoji: null,       re: /\bf[uú]tbol\b|futsal|pachanga|pichanga/i, min: 60, tasa: 480, tasaSinPasos: 600 },
@@ -62,6 +70,19 @@ export function detectarDeporte(m) {
   return null;
 }
 
+/**
+ * Tipo de partido. «masc…» → masculino; «mix…» o jugado JUNTOS → mixto; tú solo sin
+ * etiqueta → masculino (los partidos con amigos gastan como los masculinos). La otra
+ * persona sola, sin etiqueta → null (no hay datos suyos para afirmarlo).
+ */
+export function varianteDe(m, dep) {
+  if (!dep?.variantes) return null;
+  const t = String(m?.title || "");
+  if (/\bmasc|mascu|masculi/i.test(t)) return "masculino";
+  if (/\bmix/i.test(t) || (m?.who || "together") === "together") return "mixto";
+  return m?.who === "person1" ? "masculino" : null;
+}
+
 const minutosDe = hhmm => (/^\d{1,2}:\d{2}$/.test(hhmm || "") ? +hhmm.slice(0, -3) * 60 + +hhmm.slice(-2) : null);
 const hhmmDe = min => `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
@@ -84,7 +105,9 @@ export function eventosDeporte(weeks, persona, hoy) {
       const dur = Number(m.duration);
       let min = finEv != null && ini != null && finEv > ini ? finEv - ini : Number.isFinite(dur) && dur > 0 ? dur : dep.min;
       min = Math.min(MAX_MIN, min);
-      out.push({ id: m.id, dia: m.date, inicio: ini, fin: ini != null ? ini + min : null, minutos: min, deporte: dep.id, nombreDeporte: dep.nombre, titulo: m.title, emoji: m.emoji || "" });
+      const variante = varianteDe(m, dep);
+      out.push({ id: m.id, dia: m.date, inicio: ini, fin: ini != null ? ini + min : null, minutos: min, deporte: dep.id, variante,
+        nombreDeporte: variante ? dep.variantes[variante].nombre : dep.nombre, titulo: m.title, emoji: m.emoji || "" });
     }
   }
   return out.sort((a, b) => (a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : (a.inicio ?? 0) - (b.inicio ?? 0)));
@@ -128,7 +151,7 @@ function segLocal(dia, min) {
  * Evalúa los eventos de UN día (pueden ser varios) contra lo que midió el reloj.
  * @returns {Array<evento & { nivel, señales, kcal, kcalMedidas, cuenta }>}
  */
-export function evaluarDia(evs, o = {}, base = {}) {
+export function evaluarDia(evs, o = {}, base = {}, tipicas = null) {
   const hayPulso = Number.isFinite(o.pulsoMax);
   const dK = Number.isFinite(o.kcal) && Number.isFinite(base.kcal) ? o.kcal - base.kcal : null;
   const dP = Number.isFinite(o.pasos) && Number.isFinite(base.pasos) ? o.pasos - base.pasos : null;
@@ -160,7 +183,10 @@ export function evaluarDia(evs, o = {}, base = {}) {
     // Partido TÍPICO: media real de las sesiones del reloj (Huawei, 2026: 64
     // partidos, 51.905 kcal totales, 81 min → 707 kcal ACTIVAS). Si el deporte no
     // tiene sesión típica medida, su tasa por hora.
-    const tipica = dep.sesionTipica ?? dep.tasaSinPasos * h;
+    // El TIPO (masculino/mixto) cambia las kcal solo cuando la app ya aprendió su
+    // típico con tus partidos (aprenderTipicas, ≥ 15 confirmados de ese tipo). Con los
+    // valores de partida por tipo (5–7 partidos) la estimación empeoraba.
+    const tipica = tipicas?.[`${dep.id}:${e.variante || ""}`] ?? dep.sesionTipica ?? dep.tasaSinPasos * h;
     const estimada = KCAL_POR_PASO * Math.max(0, dP ?? 0) * parte + dep.tasa * h;
     let kcal, kcalMedidas = null;
     if (nivel === "confirmado" && dK != null) {
@@ -213,8 +239,16 @@ export function entrenosDelCalendario({ weeks, persona, filas = [], entrenos = [
     if (!porDia.has(e.dia)) porDia.set(e.dia, []);
     porDia.get(e.dia).push(e);
   }
-  const evaluados = [];
-  for (const [dia, lista] of porDia) evaluados.push(...evaluarDia(lista, dias.get(dia), lineaBase(dia, dias, conDeporte)));
+  const bases = new Map([...porDia.keys()].map(dia => [dia, lineaBase(dia, dias, conDeporte)]));
+  let evaluados = [];
+  for (const [dia, lista] of porDia) evaluados.push(...evaluarDia(lista, dias.get(dia), bases.get(dia)));
+  // Aprende TU partido típico de cada tipo con los que el reloj confirmó, y vuelve a
+  // estimar con él (ver aprenderTipicas).
+  const tipicas = aprenderTipicas(evaluados);
+  if (Object.keys(tipicas).length) {
+    evaluados = [];
+    for (const [dia, lista] of porDia) evaluados.push(...evaluarDia(lista, dias.get(dia), bases.get(dia), tipicas));
+  }
   evaluados.sort((a, b) => (a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : (a.inicio ?? 0) - (b.inicio ?? 0)));
 
   const salida = evaluados.filter(e => e.cuenta).map(e => ({
@@ -224,7 +258,7 @@ export function entrenosDelCalendario({ weeks, persona, filas = [], entrenos = [
     source: "calendario", nivel: e.nivel, deporte: e.deporte, nombreDeporte: e.nombreDeporte,
   }));
   const cuenta = n => evaluados.filter(e => e.nivel === n).length;
-  return { entrenos: salida, evaluados, resumen: { confirmados: cuenta("confirmado"), probables: cuenta("probable"), sinReloj: cuenta("sin_reloj"), noCoincide: cuenta("no_coincide"), enReloj } };
+  return { entrenos: salida, evaluados, tipos: estadisticasPorTipo(evaluados, tipicas), resumen: { confirmados: cuenta("confirmado"), probables: cuenta("probable"), sinReloj: cuenta("sin_reloj"), noCoincide: cuenta("no_coincide"), enReloj } };
 }
 
 export const TEXTO_NIVEL = {
@@ -323,4 +357,51 @@ export function vincularDeporteAMetas(data) {
     weeks[k] = cambio ? { ...w, missions } : w;
   }
   return vinculadas ? { data: { ...data, weeks }, vinculadas } : { data, vinculadas: 0 };
+}
+
+// ── Aprender el partido típico de cada tipo ─────────────────────────────────
+// Con al menos MIN_APRENDER partidos de un tipo confirmados por el reloj, su valor
+// típico pasa a ser la mediana de lo que el reloj midió en TUS partidos de ese tipo.
+// Validación justa (30/09/2026, aprendido SOLO de la app y comparado con 13
+// sesiones reales de Huawei que no intervienen): error medio 19 % → 17 %, mediano
+// 10 % → 9 %, peor caso 60 % → 50 % frente al típico general. Con pocos partidos por
+// tipo (5–7) empeoraba, por eso el umbral.
+// Umbral alto a propósito: con 5–7 partidos por tipo, el típico propio empeoraba la
+// estimación fuera de muestra. Con 15+ confirmados de un tipo, la mediana ya es estable.
+export const MIN_APRENDER = 15;
+
+export function aprenderTipicas(evaluados = []) {
+  const grupos = {};
+  for (const e of evaluados) {
+    if (e.nivel !== "confirmado" || !Number.isFinite(e.kcalMedidas)) continue;
+    (grupos[`${e.deporte}:${e.variante || ""}`] ||= []).push(e.kcalMedidas);
+  }
+  const out = {};
+  for (const [clave, xs] of Object.entries(grupos)) {
+    if (xs.length < MIN_APRENDER) continue;
+    if (!clave.split(":")[1]) continue;           // solo tipos (masculino/mixto)
+    const s = [...xs].sort((a, b) => a - b);
+    out[clave] = Math.round(s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2);
+  }
+  return out;
+}
+
+/**
+ * Lo que distingue a cada tipo de partido EN TUS DATOS: cuántos hay, el pulso
+ * máximo mediano y las kcal de más que midió el reloj (confirmados). Para enseñarlo.
+ * @returns {Array<{ nombre, partidos, confirmados, pulsoMax:number|null, kcalMedidas:number|null, kcalMinReloj:number|null, usandose:boolean }>}
+ */
+export function estadisticasPorTipo(evaluados = [], tipicas = {}) {
+  const med = xs => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[s.length >> 1] : null; };
+  const out = [];
+  for (const dep of DEPORTES) {
+    for (const [v, def] of Object.entries(dep.variantes || {})) {
+      const es = evaluados.filter(e => e.deporte === dep.id && e.variante === v);
+      if (!es.length) continue;
+      const conf = es.filter(e => e.nivel === "confirmado");
+      out.push({ nombre: def.nombre, partidos: es.length, confirmados: conf.length, pulsoMax: med(conf.map(e => e.pulsoMax)),
+        kcalMedidas: med(conf.map(e => e.kcalMedidas)), kcalMinReloj: def.kcalMin ?? null, usandose: `${dep.id}:${v}` in tipicas });
+    }
+  }
+  return out;
 }

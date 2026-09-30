@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.6.0] — 2026-09-30 · Pádel masculino vs mixto, con aprendizaje validado
+
+**Hallazgo** (13 sesiones reales de Huawei × títulos del calendario): masculino 10,7 kcal/min, pulso medio 168, ~754 kcal; mixto 9,2 kcal/min, 153 lpm, ~566 kcal. El partido con amigos sin etiqueta (844 kcal, 168 lpm) se comporta como masculino.
+
+**Identificación** (`varianteDe`): «masc…» → masculino; «mix…» o `who: together` → mixto; tú solo sin etiqueta → masculino; la otra persona sola → sin tipo. `nombreDeporte` = «Pádel masculino/mixto» (se separan en «Tus entrenos»).
+
+**Validación antes de usarlo en las kcal** (lo importante):
+- Usar los típicos por tipo sacados de las 13 capturas, dejando cada partido fuera: **peor** (error medio 16 % → 22 %). Con 5–7 partidos por tipo manda la duración, no el tipo.
+- Aprender el típico de cada tipo SOLO de la app (mediana de lo medido en los partidos confirmados: 23–24 masculinos, 15 mixtos) y compararlo con las 13 capturas, que no intervienen: **mejor** (error medio 19 % → 17 %, mediano 10 % → 9 %, peor caso 60 % → 50 %).
+- Regla resultante (`aprenderTipicas`): el tipo cambia las kcal solo con **≥ 15 partidos confirmados de ese tipo**; antes, el típico general (707). Hoy ya se usa para los dos tipos (~786 / ~629 kcal).
+
+**Panel**: tarjeta por tipo en «Deporte del calendario» (kcal típicas, partidos, con reloj, pulso máx, si ya usa tu valor o cuántos faltan); el tipo aparece en cada partido.
+
+---
+
 ## [6.5.0] — 2026-09-30 · Detección de deporte con la regla de Fran + vinculación automática a metas
 
 **Regla** (Fran): «Padel/Pádel», «Futbol/Fútbol», «Pichanga», «Gym», «Americana» o 🎾/🏸 en el evento = deporte. `detectarDeporte`: 🎾 sin título reconocible → pádel; «liga masc/mixta», «pichanga» añadidos; exclusiones ampliadas (`montar`, `organiz`…). Falso positivo encontrado al simular sobre el calendario real: «Encontrar portallaves decente **funcional**» → se quita «funcional» del gimnasio (test).

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectarDeporte, eventosDeporte, evaluarDia, entrenosDelCalendario, lineaBase, indexarDias, UMBRAL, KCAL_POR_PASO, posiblesEntrenos, deportesHabituales, vincularDeporteAMetas } from "../lib/deporteCalendario.js";
+import { detectarDeporte, eventosDeporte, evaluarDia, entrenosDelCalendario, lineaBase, indexarDias, UMBRAL, KCAL_POR_PASO, posiblesEntrenos, deportesHabituales, vincularDeporteAMetas, varianteDe, aprenderTipicas, MIN_APRENDER } from "../lib/deporteCalendario.js";
 import { ventanaPico, PICO_UMBRAL } from "../../supabase/functions/health-ingest/parse.js";
 import { sumarDias, indexar } from "../lib/pet.js";
 
@@ -258,5 +258,34 @@ describe("vincularDeporteAMetas", () => {
   it("sin metas de deporte no toca nada", () => {
     const d = { goals: [], weeks: data().weeks };
     expect(vincularDeporteAMetas(d)).toEqual({ data: d, vinculadas: 0 });
+  });
+});
+
+describe("masculino vs mixto", () => {
+  it("se identifica por el título y por quién juega", () => {
+    const dep = detectarDeporte(m("Padel Masc Moli"));
+    expect(varianteDe(m("Padel Masc Moli"), dep)).toBe("masculino");
+    expect(varianteDe(m("Master Masculi Semis", { emoji: "🎾" }), dep)).toBe("masculino");
+    expect(varianteDe(m("Padel Mixto Moli", { who: "person1" }), dep)).toBe("mixto");
+    expect(varianteDe(m("Padel con Chesca y Pipe", { who: "together" }), dep)).toBe("mixto");
+    expect(varianteDe(m("Padel rorro cris coke", { who: "person1" }), dep)).toBe("masculino");   // amigos: gasta como masculino (844 kcal, 168 lpm)
+    expect(varianteDe(m("Padel", { who: "person2" }), dep)).toBeNull();
+    expect(varianteDe(m("Gym"), detectarDeporte(m("Gym")))).toBeNull();
+  });
+  it("el nombre del entreno lleva el tipo («Tus entrenos» los separa)", () => {
+    const w = { a: { missions: [m("Padel Masc Moli", { time: "20:30" }), m("Padel Mixto", { who: "together", date: "2026-09-28", time: "21:00" })] } };
+    expect(eventosDeporte(w, "person1", "2026-09-29").map(e => e.nombreDeporte).sort()).toEqual(["Pádel masculino", "Pádel mixto"]);
+  });
+  it("aprende el típico de un tipo SOLO con 15+ partidos confirmados, de tus propios datos", () => {
+    const conf = (n, v, k) => Array.from({ length: n }, () => ({ deporte: "padel", variante: v, nivel: "confirmado", kcalMedidas: k }));
+    expect(aprenderTipicas(conf(14, "masculino", 800))).toEqual({});
+    expect(aprenderTipicas([...conf(15, "masculino", 800), ...conf(15, "mixto", 620)])).toEqual({ "padel:masculino": 800, "padel:mixto": 620 });
+    expect(MIN_APRENDER).toBe(15);
+  });
+  it("con el típico aprendido, un partido sin datos del reloj usa el de SU tipo", () => {
+    const ev = { ...evPadel, variante: "mixto" };
+    const e = evaluarDia([ev], { pasos: 5000, kcal: 200 }, { pasos: 7000, kcal: 300 }, { "padel:mixto": 620 })[0];
+    expect(e.kcal).toBe(620);
+    expect(evaluarDia([ev], { pasos: 5000, kcal: 200 }, { pasos: 7000, kcal: 300 })[0].kcal).toBe(707);   // sin aprender: el general
   });
 });

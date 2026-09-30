@@ -275,12 +275,26 @@ export default function SaludPanel({ filas, entrenos, deporteCalendario = null, 
               pulso máximo ≥ {UMBRAL.pulso}, +{UMBRAL.kcal} kcal y +{miles(UMBRAL.pasos)} pasos sobre tu día normal. Dos señales = confirmado.
               {" "}{r.confirmados} confirmados · {r.probables} probables · {r.sinReloj} sin reloj{r.noCoincide ? ` · ${r.noCoincide} que el reloj no vio` : ""}{r.enReloj ? ` · ${r.enReloj} ya registrados por el reloj` : ""}.
             </div>
+            {deporteCalendario.tipos?.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${deporteCalendario.tipos.length}, 1fr)`, gap: 8, marginBottom: 8 }}>
+                {deporteCalendario.tipos.map(t => (
+                  <div key={t.nombre} style={{ padding: "8px 10px", borderRadius: 12, background: "rgba(167,139,250,0.06)", border: "1px solid var(--t-card-border,rgba(167,139,250,0.14))" }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--t-text,#f0e8ff)" }}>{t.nombre}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--t-text,#f8f4ff)", marginTop: 2 }}>{t.kcalMedidas != null ? `~${miles(t.kcalMedidas)} kcal` : "—"}</div>
+                    <div style={{ fontSize: 11, color: "var(--t-text-muted,#b9b0d0)", lineHeight: 1.4 }}>
+                      {t.partidos} partidos · {t.confirmados} con reloj{t.pulsoMax != null ? ` · pulso máx ${Math.round(t.pulsoMax)}` : ""}
+                      <br />{t.usandose ? "✓ la app ya usa tu valor propio" : `aprendiendo: faltan ${Math.max(0, 15 - t.confirmados)} con reloj`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {vis.map(e => (
               <div key={e.id + e.dia} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 0", borderTop: "1px solid rgba(167,139,250,0.08)" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, color: "var(--t-text,#f0e8ff)" }}><span aria-hidden>{e.emoji || "🏅"}</span> {e.titulo}</div>
                   <div style={{ fontSize: 11, color: "var(--t-text-dim,#8f84ad)" }}>
-                    {humanDate(e.dia)}{e.inicio != null ? ` · ${String(Math.floor(e.inicio / 60)).padStart(2, "0")}:${String(e.inicio % 60).padStart(2, "0")}` : ""} · {e.minutos} min
+                    {e.variante ? `${e.variante} · ` : ""}{humanDate(e.dia)}{e.inicio != null ? ` · ${String(Math.floor(e.inicio / 60)).padStart(2, "0")}:${String(e.inicio % 60).padStart(2, "0")}` : ""} · {e.minutos} min
                     {e.pulsoMax != null ? ` · pulso máx ${Math.round(e.pulsoMax)}` : ""}{e.delta?.pasos != null ? ` · ${e.delta.pasos >= 0 ? "+" : ""}${miles(e.delta.pasos)} pasos` : ""}
                     {e.picoEnHora === true ? " · el pico fue a esa hora" : ""}
                   </div>
