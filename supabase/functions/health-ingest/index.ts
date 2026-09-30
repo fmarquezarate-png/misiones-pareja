@@ -26,7 +26,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 // Interpretación y limpieza: módulo puro compartido con los tests de la app.
 import { aplanarConAvisos, limpiar, aplanarEntrenos, sanearPayload, sinRecientes, ventanaPico } from './parse.js';
 
-const FN_VERSION = '2026-09-30-muestras';
+const FN_VERSION = '2026-09-30-sueno22h';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
