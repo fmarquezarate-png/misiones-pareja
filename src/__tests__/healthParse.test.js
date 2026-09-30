@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   aplanar, aplanarConAvisos, limpiar, aplanarEntrenos, diaLocal, instante, aKcal, NUNCA,
-  esIntimo, INTIMO_RE, sanearPayload, sinRecientes, CAMPOS_ENTRENO,
+  esIntimo, INTIMO_RE, sanearPayload, sinRecientes, CAMPOS_ENTRENO, SUENO_POR_CAMA,
 } from "../../supabase/functions/health-ingest/parse.js";
 
 const metrica = (name, units, data) => ({ name, units, data });
@@ -360,5 +360,37 @@ describe("CAMPOS_ENTRENO", () => {
   it("son los que el importador usa (y ninguno pesado)", () => {
     for (const k of ["route", "heartRateData", "location", "metadata"]) expect(CAMPOS_ENTRENO).not.toContain(k);
     expect(CAMPOS_ENTRENO).toContain("start");
+  });
+});
+
+// Fran (30/09/2026): «hay muchísimos días que sí tengo datos de sueño». 134 noches del
+// archivo real solo traían «tiempo en cama» (iPhone sin reloj, Mi Fitness, Zepp) y se tiraban.
+describe("noches con solo tiempo en cama", () => {
+  const noche = o => ({ name: "sleep_analysis", units: "hr", data: [{ date: "2021-11-04 00:00:00 +0100", totalSleep: 0, asleep: 0, core: 0, deep: 0, rem: 0, awake: 0, source: "iPhone de Francisco", ...o }] });
+  const filasDe = o => aplanarConAvisos([noche(o)], {});
+  it("iPhone: tiempo en cama × 0,884 como sueño, marcado como estimado", () => {
+    const { filas, avisos } = filasDe({ inBed: 5.52, inBedStart: "2021-11-04 02:18:26 +0100", inBedEnd: "2021-11-04 07:49:36 +0100", sleepStart: "2021-11-04 02:18:26 +0100", sleepEnd: "2021-11-04 07:49:36 +0100" });
+    const s = filas.find(x => x.metric === "sleep_asleep");
+    expect(s.value).toBeCloseTo(5.52 * SUENO_POR_CAMA, 1);
+    expect(s.source).toMatch(/^Estimado: tiempo en cama/);
+    expect(filas.find(x => x.metric === "wake_min").value).toBe(7 * 60 + 49);
+    expect(avisos.sueno_estimado_por_cama).toBe(1);
+  });
+  it("Mi Fitness con `inBed` corrupto (336 h): manda el intervalo real", () => {
+    const { filas } = filasDe({ inBed: 336.15, inBedStart: "2022-11-13 05:31:00 +0100", inBedEnd: "2022-11-13 12:16:00 +0100", date: "2022-11-13 00:00:00 +0100", source: "Mi Fitness" });
+    expect(filas.find(x => x.metric === "sleep_in_bed").value).toBeCloseTo(6.75, 2);
+  });
+  it("franjas de día (Zepp 11:29→19:02) o de más de 12 h no son noches", () => {
+    expect(filasDe({ inBed: 7.57, inBedStart: "2022-02-12 11:29:00 +0100", inBedEnd: "2022-02-12 19:02:59 +0100" }).avisos.cama_no_valida).toBe(1);
+    expect(filasDe({ inBed: 603, inBedStart: "2022-11-18 18:34:00 +0100", inBedEnd: "2022-11-19 18:00:00 +0100" }).avisos.cama_no_valida).toBe(1);
+  });
+  it("si otra fuente MIDIÓ el sueño de esa noche, gana la medida aunque sea menor", () => {
+    const m = { name: "sleep_analysis", units: "hr", data: [
+      { date: "2023-03-10 00:00:00 +0100", totalSleep: 0, asleep: 0, inBed: 9, inBedStart: "2023-03-09 23:30:00 +0100", inBedEnd: "2023-03-10 08:30:00 +0100", source: "iPhone" },
+      { date: "2023-03-10 00:00:00 +0100", totalSleep: 6.5, asleep: 6.5, sleepStart: "2023-03-10 00:30:00 +0100", sleepEnd: "2023-03-10 07:30:00 +0100", source: "Mi Fitness" },
+    ] };
+    const s = aplanarConAvisos([m], {}).filas.find(x => x.metric === "sleep_asleep");
+    expect(s.value).toBe(6.5);
+    expect(s.source).toBe("Mi Fitness");
   });
 });

@@ -133,7 +133,7 @@ export default function SaludPanel({ filas, entrenos, deporteCalendario = null, 
   const metaDe = tipo => metas.find(m => m.tipo === tipo && m.periodo === "dia")?.objetivo ?? null;
   const k = useMemo(() => Object.fromEntries(cfg.tarjetas.map(id => {
     const t = TARJETAS[id];
-    return [id, kpi(filas, t.metric, hoy, { mejorSi: t.mejorSi || "sube", n: cfg.dias, cerrados: !!t.cerrados })];
+    return [id, kpi(filas, t.metric, hoy, { mejorSi: t.mejorSi || "neutral", n: cfg.dias, cerrados: !!t.cerrados })];
   })), [filas, hoy, cfg]);
   const semana = useMemo(() => metasSemana(filas, entrenos, metas, hoy), [filas, entrenos, metas, hoy]);
   const reparto = useMemo(() => repartoEntrenos(entrenos, hoy, 90), [entrenos, hoy]);
@@ -148,7 +148,7 @@ export default function SaludPanel({ filas, entrenos, deporteCalendario = null, 
   const maxTipo = Math.max(1, ...tipos.map(t => t.n));
   // Detalle de una tarjeta: sale del MISMO registro que la tarjeta (antes había una tabla aparte que se desincronizaba).
   const defDe = id => { const t = TARJETAS[id]; return { metric: t.metric, nombre: t.nombre, icono: t.icono, unidadLarga: t.unidadLarga,
-    formato: formatoDetalle(id), meta: t.meta ? metaDe(t.meta) : null, mejorSi: t.mejorSi || "sube", sugerencias: t.sugerencias }; };
+    formato: formatoDetalle(id), meta: t.meta ? metaDe(t.meta) : null, mejorSi: t.mejorSi || "neutral", sugerencias: t.sugerencias }; };
 
   return (
     <div style={{ display: "grid", gap: 10 }}>

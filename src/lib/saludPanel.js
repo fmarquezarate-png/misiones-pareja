@@ -46,7 +46,7 @@ export const TARJETAS = {
     sufijo: " ms",
     delta: d => `${Math.round(d)} ms`,
     sugerencias: ["¿Mi variabilidad cardiaca está mejorando?"] },
-  peso:      { metric: "weight_body_mass",    nombre: "Peso",             icono: "⚖️", formato: v => uno(v),              unidad: "kg",       unidadLarga: "kg", mejorSi: null, forma: "linea",
+  peso:      { metric: "weight_body_mass",    nombre: "Peso",             icono: "⚖️", formato: v => uno(v),              unidad: "kg",       unidadLarga: "kg", mejorSi: "neutral", forma: "linea",
     sufijo: " kg",
     delta: d => `${uno(d)} kg`,
     sugerencias: ["¿Cómo ha evolucionado mi peso?"] },

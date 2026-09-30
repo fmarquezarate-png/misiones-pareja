@@ -219,7 +219,7 @@ describe("histórico completo", () => {
     expect(e.mejor.mes).toBe("2025-01");
   });
   it("sin meses válidos, no inventa récords", () => {
-    expect(extremosMensuales([{ mes: "2025-03", valor: 1, dias: 2 }])).toEqual({ mejor: null, peor: null });
+    expect(extremosMensuales([{ mes: "2025-03", valor: 1, dias: 2 }])).toEqual({ alto: null, bajo: null, mejor: null, peor: null });
   });
   it("el resumen histórico va por meses y es compacto aunque haya 6 años", () => {
     const largo = Array.from({ length: 72 }, (_, i) => ({ mes: `20${20 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`, valor: 8000 + i, dias: 30 }));
@@ -227,7 +227,7 @@ describe("histórico completo", () => {
     const txt = resumenHistoricoParaIA({ nombre: "Pasos", unidad: "pasos al día", detalle: det, meses: largo, extremos: extremosMensuales(largo), pregunta: "¿He mejorado?" });
     expect(txt).toContain("HISTÓRICO COMPLETO");
     expect(txt).toContain("día más alto 31642 (2022-05-02)");
-    expect(txt).toContain("mejor mes 2025-12");
+    expect(txt).toContain("mes más alto 2025-12");
     expect(txt.length).toBeLessThan(2600);
   });
 });
@@ -240,5 +240,35 @@ describe("repartoEntrenos: el deporte del calendario se agrupa por deporte", () 
       { start_at: "2026-09-24T18:40:55+00:00", name: "Interior Ejecutar" },
     ], "2026-09-29");
     expect(r.tipos[0]).toMatchObject({ nombre: "Pádel", n: 2 });
+  });
+});
+
+// Fran (30/09/2026): «el más alto y el más bajo están al revés». Las métricas NEUTRAS
+// (abiertas desde «Datos y conexión», peso) caían en la rama de «mejor si baja».
+describe("más alto / más bajo: nunca al revés", () => {
+  const filas = [f("2026-09-26", "walking_step_length", 60), f("2026-09-27", "walking_step_length", 70), f("2026-09-28", "walking_step_length", 65)];
+  for (const mejorSi of ["sube", "baja", "neutral", undefined]) {
+    it(`con mejorSi=${mejorSi}: «más» es el valor más alto y «menos» el más bajo`, () => {
+      const d = detalleMetrica(filas, "walking_step_length", "2026-09-28", 7, { mejorSi });
+      expect(d.mas.valor).toBe(70);
+      expect(d.menos.valor).toBe(60);
+    });
+  }
+  it("neutra: no hay «mejor» ni «peor»", () => {
+    const d = detalleMetrica(filas, "walking_step_length", "2026-09-28", 7, { mejorSi: "neutral" });
+    expect(d.mejor).toBeNull(); expect(d.peor).toBeNull();
+  });
+  it("«mejor» sigue la dirección: sube → el más alto; baja → el más bajo", () => {
+    expect(detalleMetrica(filas, "walking_step_length", "2026-09-28", 7, { mejorSi: "sube" }).mejor.valor).toBe(70);
+    expect(detalleMetrica(filas, "walking_step_length", "2026-09-28", 7, { mejorSi: "baja" }).mejor.valor).toBe(60);
+  });
+  it("meses: alto/bajo por valor; mejor/peor solo con dirección", () => {
+    const meses = [{ mes: "2026-07", valor: 80, dias: 20 }, { mes: "2026-08", valor: 75, dias: 20 }];
+    expect(extremosMensuales(meses, { mejorSi: "neutral" })).toMatchObject({ alto: { mes: "2026-07" }, bajo: { mes: "2026-08" }, mejor: null, peor: null });
+    expect(extremosMensuales(meses, { mejorSi: "baja" }).mejor.mes).toBe("2026-08");
+  });
+  it("tendencia neutra (peso) sin verde ni rojo", () => {
+    const p = [...[1,2,3,4,5,6,7].map(i => f(`2026-09-${String(14+i).padStart(2,"0")}`, "weight_body_mass", 80)), ...[1,2,3,4,5,6,7].map(i => f(`2026-09-${String(21+i).padStart(2,"0")}`, "weight_body_mass", 77))];
+    expect(kpi(p, "weight_body_mass", "2026-09-28", { mejorSi: "neutral" }).bueno).toBeNull();
   });
 });

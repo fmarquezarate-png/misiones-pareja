@@ -151,11 +151,18 @@ export default function MetricaDetalle({ def, filas, hoy, coupleId, personName, 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, margin: "12px 0" }}>
           <Dato titulo={todo ? "Media histórica" : "Media"} valor={d.media == null ? "—" : f(d.media)} nota={todo && d.serie.length ? `${d.conDato} días con dato desde ${nombreMes(d.serie[0].dia.slice(0, 7))}` : `${d.conDato} de ${d.total} días con dato`} />
           <Dato titulo="Tendencia" valor={tend == null ? "—" : `${tend > 0 ? "↑" : tend < 0 ? "↓" : "→"} ${Math.abs(Math.round(tend * 100))} %`}
-            nota="2.ª mitad del periodo vs 1.ª" color={tend == null || Math.abs(tend) < 0.02 || def.mejorSi === "neutral" ? null : (def.mejorSi === "baja" ? tend < 0 : tend > 0) ? "#34d399" : "#f87171"} />
-          <Dato titulo={`${def.mejorSi === "baja" ? "Mejor día (más bajo)" : "Día más alto"}${todo ? " de siempre" : ""}`} valor={d.mejor ? f(d.mejor.valor) : "—"} nota={d.mejor ? humanDate(d.mejor.dia) : ""} />
-          <Dato titulo={`${def.mejorSi === "baja" ? "Día más alto" : "Día más bajo"}${todo ? " de siempre" : ""}`} valor={d.peor ? f(d.peor.valor) : "—"} nota={d.peor ? humanDate(d.peor.dia) : ""} />
-          {todo && <Dato titulo="Mejor mes" valor={extremos.mejor ? f(extremos.mejor.valor) : "—"} nota={extremos.mejor ? `${nombreMes(extremos.mejor.mes)} · de media` : "sin meses completos"} />}
-          {todo && <Dato titulo="Peor mes" valor={extremos.peor ? f(extremos.peor.valor) : "—"} nota={extremos.peor ? `${nombreMes(extremos.peor.mes)} · de media` : ""} />}
+            nota="2.ª mitad del periodo vs 1.ª" color={tend == null || Math.abs(tend) < 0.02 || (def.mejorSi !== "sube" && def.mejorSi !== "baja") ? null : (def.mejorSi === "baja" ? tend < 0 : tend > 0) ? "#34d399" : "#f87171"} />
+          {/* Rótulo SIEMPRE por el valor (más alto / más bajo); cuál es «el mejor» va en
+              la nota, y solo si la métrica tiene dirección (el pulso en reposo mejora al
+              bajar; el peso o la longitud de paso no son «mejores» por sí mismos). */}
+          <Dato titulo={`Día más alto${todo ? " de siempre" : ""}`} valor={d.mas ? f(d.mas.valor) : "—"}
+            nota={d.mas ? `${humanDate(d.mas.dia)}${d.mejor && d.mejor === d.mas ? " · tu mejor día" : ""}` : ""} />
+          <Dato titulo={`Día más bajo${todo ? " de siempre" : ""}`} valor={d.menos ? f(d.menos.valor) : "—"}
+            nota={d.menos ? `${humanDate(d.menos.dia)}${d.mejor && d.mejor === d.menos ? " · tu mejor día" : ""}` : ""} />
+          {todo && <Dato titulo="Mes más alto" valor={extremos.alto ? f(extremos.alto.valor) : "—"}
+            nota={extremos.alto ? `${nombreMes(extremos.alto.mes)} · de media${extremos.mejor && extremos.mejor === extremos.alto ? " · tu mejor mes" : ""}` : "sin meses completos"} />}
+          {todo && <Dato titulo="Mes más bajo" valor={extremos.bajo ? f(extremos.bajo.valor) : "—"}
+            nota={extremos.bajo ? `${nombreMes(extremos.bajo.mes)} · de media${extremos.mejor && extremos.mejor === extremos.bajo ? " · tu mejor mes" : ""}` : ""} />}
           {d.racha != null && <Dato titulo={`Racha ≥ ${f(def.meta)}`} valor={`${d.racha} ${d.racha === 1 ? "día" : "días"}`} nota="seguidos hasta hoy" />}
         </div>
 

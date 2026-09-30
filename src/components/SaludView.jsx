@@ -11,7 +11,7 @@
 // puede mirar (y acariciar), pero no configurar.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor } from "../lib/healthApi.js";
+import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor, direccionDe } from "../lib/healthApi.js";
 import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
 import { estadoDeDatos } from "../lib/petEstado.js";
@@ -382,7 +382,7 @@ function defGenerica(metric, unit) {
   const nombre = NOMBRES_METRICA[metric] || metric;
   return {
     metric, nombre, icono: "📈", unidadLarga: unit && unit !== "count" ? unit : nombre.toLowerCase(),
-    formato: v => formatoValor(metric, v, unit), meta: null, mejorSi: "neutral",
+    formato: v => formatoValor(metric, v, unit), meta: null, mejorSi: direccionDe(metric),
     sugerencias: ["¿Cómo ha cambiado con el tiempo?", "¿Cuándo tuve el valor más alto y el más bajo?"],
   };
 }

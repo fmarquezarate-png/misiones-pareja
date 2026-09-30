@@ -146,6 +146,37 @@ const hm = s => { const m = /[ T](\d{2}):(\d{2})/.exec(String(s || "")); return 
  *   supera sleepStart → sleepEnd, se recorta. En el archivo real de Fran eran
  *   23 de 866 noches, y 8 de ellas cruzaban la meta de 7 h solo por eso.
  */
+// Noches con SOLO «tiempo en cama» (iPhone sin reloj, Mi Fitness, Zepp): 134 en el
+// archivo de Fran (2021–2023) se tiraban enteras como «sin valor». Se estima el sueño
+// como tiempo en cama × SUENO_POR_CAMA — la proporción real medida en 78 noches suyas
+// con los dos datos (mediana 0,884; p25 0,76, p75 0,97). El tiempo en cama es el
+// MENOR entre `inBed` y el intervalo inBedStart→inBedEnd (Mi Fitness manda `inBed`
+// corrupto, hasta 600 h, con el intervalo bien). Solo cuenta si dura 3–12 h y
+// termina entre las 03:00 y las 15:00: Zepp registra franjas de DÍA (11:29→19:02).
+export const SUENO_POR_CAMA = 0.884;
+
+function nocheSoloCama(d, day, unidad, positivo) {
+  const u = (unidad || "").toLowerCase();
+  let cama = positivo(d?.inBed);
+  if (cama === null) return null;                // sin «tiempo en cama» no hay nada que estimar
+  if (u.startsWith("min")) cama /= 60;
+  const ci = instante(d?.inBedStart ?? d?.sleepStart), cf = instante(d?.inBedEnd ?? d?.sleepEnd);
+  const intervalo = ci && cf ? HORAS(ci, cf) : null;
+  const dur = Math.min(cama ?? Infinity, intervalo !== null && intervalo > 0 ? intervalo : Infinity);
+  const fin = hm(d?.inBedEnd ?? d?.sleepEnd);
+  if (!Number.isFinite(dur) || dur < 3 || dur > 12 || fin === null || fin < 180 || fin > 900) return null;
+  const ini = hm(d?.inBedStart ?? d?.sleepStart);
+  const diaDeFin = diaLocal(d?.inBedEnd ?? d?.sleepEnd) ?? day;
+  const mismoDia = diaLocal(d?.inBedStart ?? d?.sleepStart) === diaDeFin;
+  return {
+    day: diaDeFin, estimado: true, recortado: false,
+    valores: { sleep_asleep: dur * SUENO_POR_CAMA, sleep_in_bed: dur },
+    total: dur * SUENO_POR_CAMA,
+    wake: fin,
+    bed: ini === null ? null : (mismoDia ? ini : ini - 1440),
+  };
+}
+
 function interpretarNoche(d, unidad) {
   const day = diaLocal(d?.sleepEnd) ?? diaLocal(d?.date) ?? diaLocal(d?.sleepStart);
   if (!day) return { motivo: "sin_fecha" };
@@ -153,7 +184,7 @@ function interpretarNoche(d, unidad) {
   const fases = [positivo(d?.core), positivo(d?.deep), positivo(d?.rem), positivo(d?.asleepUnspecified)].filter(v => v !== null);
   const suma = fases.length ? fases.reduce((a, b) => a + b, 0) : null;
   const total = positivo(d?.totalSleep) ?? positivo(d?.asleep) ?? suma;
-  if (total === null) return { motivo: "sin_valor" };
+  if (total === null) return nocheSoloCama(d, day, unidad, positivo) ?? { motivo: positivo(d?.inBed) !== null ? "cama_no_valida" : "sin_valor" };
 
   const u = (unidad || "").toLowerCase();
   const enMin = u.startsWith("min") || (!u.startsWith("h") && total > 24);
@@ -178,11 +209,15 @@ function interpretarNoche(d, unidad) {
   };
   const despertar = hm(d?.sleepEnd), acostarse = hm(d?.sleepStart);
   const mismoDia = diaLocal(d?.sleepStart) === day;
+  // Acostarse: entre las 12:00 de la víspera (−720) y las 15:00 del día (900). Zepp
+  // manda intervalos de más de 24 h y salían «acostarse» imposibles (−1296 min).
+  let bed = acostarse === null ? null : (mismoDia ? acostarse : acostarse - 1440);
+  if (bed !== null && (bed < -720 || bed > 900 || (intervalo !== null && intervalo > 20))) bed = null;
   return {
     day, valores, recortado,
     total: valores.sleep_asleep,
     wake: despertar,
-    bed: acostarse === null ? null : (mismoDia ? acostarse : acostarse - 1440),
+    bed,
   };
 }
 
@@ -227,10 +262,13 @@ export function aplanarConAvisos(metrics = [], { hoy = null } = {}) {
           if (n.motivo) { av(n.motivo); continue; }
           if (!diaOk(n.day)) continue;
           n.source = d?.source ? String(d.source) : null;
+          if (n.estimado) { av("sueno_estimado_por_cama"); n.source = `Estimado: tiempo en cama × 0,88${n.source ? ` (${n.source})` : ""}`; }
           const prev = porDia.get(n.day);
           // Sea cual sea el orden de llegada, el registro que NO se queda se cuenta.
           if (prev) av("sueno_secundario");
-          if (!prev || n.total > prev.total) porDia.set(n.day, n);
+          // Una noche MEDIDA gana siempre a una estimada por el tiempo en cama.
+          const mejor = !prev || (prev.estimado && !n.estimado) || (!!prev.estimado === !!n.estimado && n.total > prev.total);
+          if (mejor) porDia.set(n.day, n);
         }
         for (const n of porDia.values()) {
           if (n.recortado) av("sueno_recortado_al_intervalo");

@@ -166,6 +166,19 @@ export const NOMBRES_METRICA = {
   stair_speed_down: "Velocidad bajando escaleras",
 };
 
+// Qué dirección es «mejor» en cada métrica (para marcar «tu mejor día» y colorear
+// la tendencia). Lo que no está aquí es NEUTRO: ni subir ni bajar es mejor.
+export const DIRECCION = {
+  step_count: "sube", active_energy: "sube", apple_exercise_time: "sube", apple_stand_hour: "sube", apple_stand_time: "sube",
+  flights_climbed: "sube", walking_running_distance: "sube", distance_walking_running: "sube", mindful_minutes: "sube",
+  sleep_asleep: "sube", sleep_deep: "sube", sleep_rem: "sube", sleep_awake: "baja",
+  resting_heart_rate: "baja", walking_heart_rate_average: "baja", heart_rate_variability: "sube", vo2_max: "sube",
+  blood_oxygen_saturation: "sube", walking_speed: "sube", walking_step_length: "sube", six_minute_walking_test_distance: "sube",
+  walking_asymmetry_percentage: "baja", walking_double_support_percentage: "baja", stair_speed_up: "sube", stair_speed_down: "sube",
+  headphone_audio_exposure: "baja", environmental_audio_exposure: "baja",
+};
+export const direccionDe = metric => DIRECCION[metric] || "neutral";
+
 export function formatoValor(metric, value, unit) {
   if (!Number.isFinite(value)) return "—";
   // Horas del día guardadas como minutos desde medianoche (negativo = antes de las 00:00).

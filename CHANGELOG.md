@@ -7,6 +7,21 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.7.0] — 2026-09-30 · «Más alto/más bajo» sin invertir + sueño recuperado
+
+**Extremos invertidos (causa)**: las métricas sin dirección definida (peso, longitud de paso, asimetría, etc., vía `defGenerica`) caían en la rama «menos es mejor» — el «mejor día» era el más bajo y se pintaba bajo el rótulo «Día más alto». Ahora:
+- `detalleMetrica`/`extremosMensuales` devuelven siempre `alto`/`bajo` por VALOR; `mejor`/`peor` solo si la métrica tiene dirección (`sube`/`baja`), si no `null`.
+- `MetricaDetalle`: «Día/Mes más alto» y «más bajo» siempre por valor, con la nota «· tu mejor día» solo cuando aplica.
+- Mapa `DIRECCION` en `healthApi.js` (pulso en reposo, asimetría, doble apoyo, ruido ↓; pasos, sueño, VO₂, velocidad, longitud de paso ↑; el resto neutral). Peso pasa a neutral. Tests: los extremos nunca se invierten para sube/baja/neutral/sin definir.
+
+**Sueño que no aparecía (auditado contra la exportación completa)**:
+- 2025 y 2026 tenían 49/53 y 189/192 noches guardadas a **0 h**: la importación del 28/09 usó el parser anterior (Huawei manda `totalSleep=0` con las fases). Reparadas sumando fases → 2025: 3 → 52 noches, 2026: 3 → 192; y sus horas de acostarse/despertar (antes 10 y 9 días).
+- Noches con solo «tiempo en cama» (iPhone sin reloj, Mi Fitness, 2021–2023) se descartaban. `nocheSoloCama`: si hay tiempo en cama válido (3–12 h, termina de madrugada/mañana) se estima sueño = cama × 0,88 (ratio medido en tus noches con ambos datos), marcado «Estimado» en la fuente; una noche medida siempre gana a una estimada.
+- Hora de acostarse saneada (Zepp mandaba −1296 min o intervalos de 26–68 h).
+- Resultado en la base (noches ≥ 2 h): 2021: 12 · 2022: 154 · 2023: 251 · 2024: 146 · 2025: 52 · 2026: 192. Ninguna noche a 0.
+
+---
+
 ## [6.6.0] — 2026-09-30 · Pádel masculino vs mixto, con aprendizaje validado
 
 **Hallazgo** (13 sesiones reales de Huawei × títulos del calendario): masculino 10,7 kcal/min, pulso medio 168, ~754 kcal; mixto 9,2 kcal/min, 153 lpm, ~566 kcal. El partido con amigos sin etiqueta (844 kcal, 168 lpm) se comporta como masculino.

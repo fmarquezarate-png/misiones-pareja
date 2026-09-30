@@ -38,7 +38,7 @@ export function kpi(filas, metric, hoy, { mejorSi = "sube", n = 7, cerrados = fa
   const antes = media(previos.map(d => d.valor));
   const delta = actual != null && antes != null ? actual - antes : null;
   const pct = delta != null && antes ? delta / antes : null;
-  const bueno = delta == null || Math.abs(pct ?? 0) < 0.02 ? null : (mejorSi === "sube" ? delta > 0 : delta < 0);
+  const bueno = delta == null || Math.abs(pct ?? 0) < 0.02 || (mejorSi !== "sube" && mejorSi !== "baja") ? null : (mejorSi === "sube" ? delta > 0 : delta < 0);
   return { serie: grafica, actual, antes, delta, pct, bueno, diasConDato: ultimos.filter(d => d.valor != null).length,
     n, cerrados, hoyValor: cerrados ? (grafica[grafica.length - 1]?.valor ?? null) : null };
 }
@@ -128,8 +128,11 @@ export function detalleMetrica(filas, metric, hoy, dias = 30, { meta = null, mej
   return {
     serie: s, media, conDato: con.length, total: s.length,
     mas: alto, menos: bajo,
-    mejor: mejorSi === "sube" ? alto : bajo,
-    peor: mejorSi === "sube" ? bajo : alto,
+    // «Mejor»/«peor» SOLO si la métrica tiene dirección. Antes una métrica neutra
+    // (peso, pulso medio, longitud de paso abierta desde «Datos y conexión») caía
+    // en la rama de «baja»: el valor MÁS BAJO salía rotulado «Día más alto».
+    mejor: mejorSi === "sube" ? alto : mejorSi === "baja" ? bajo : null,
+    peor: mejorSi === "sube" ? bajo : mejorSi === "baja" ? alto : null,
     tendencia, racha,
   };
 }
@@ -195,10 +198,12 @@ export function porMeses(s) {
  */
 export function extremosMensuales(meses, { mejorSi = "sube", minDias = 10 } = {}) {
   const validos = meses.filter(m => m.valor != null && m.dias >= minDias);
-  if (!validos.length) return { mejor: null, peor: null };
+  if (!validos.length) return { alto: null, bajo: null, mejor: null, peor: null };
   const orden = [...validos].sort((a, b) => b.valor - a.valor || (a.mes < b.mes ? -1 : 1));
   const [alto, bajo] = [orden[0], orden[orden.length - 1]];
-  return mejorSi === "sube" ? { mejor: alto, peor: bajo } : { mejor: bajo, peor: alto };
+  if (mejorSi === "sube") return { alto, bajo, mejor: alto, peor: bajo };
+  if (mejorSi === "baja") return { alto, bajo, mejor: bajo, peor: alto };
+  return { alto, bajo, mejor: null, peor: null };
 }
 
 /**
@@ -214,7 +219,7 @@ export function resumenHistoricoParaIA({ nombre, unidad, detalle, meses, extremo
   return [
     `[Consulta sobre MI salud desde la app. Responde breve, en español, solo con estos datos; si no bastan, dilo. No des consejos médicos: sugiere consultar a un profesional si procede.]`,
     `Métrica: ${nombre} (${unidad}). HISTÓRICO COMPLETO: ${detalle.conDato} días con dato entre ${detalle.serie[0]?.dia} y ${detalle.serie.at(-1)?.dia}.`,
-    `Media histórica ${detalle.media == null ? "-" : fmt(detalle.media)}; ${rec("día más alto", detalle.mas)}; ${rec("día más bajo", detalle.menos)}; ${mes("mejor mes", extremos.mejor)}; ${mes("peor mes", extremos.peor)}.`,
+    `Media histórica ${detalle.media == null ? "-" : fmt(detalle.media)}; ${rec("día más alto", detalle.mas)}; ${rec("día más bajo", detalle.menos)}; ${mes("mes más alto", extremos.alto)}; ${mes("mes más bajo", extremos.bajo)}.`,
     `Medias mensuales (mes:media(días con dato), "-" = sin dato, no es cero): ${lista}`,
     `Pregunta: ${pregunta}`,
   ].join("\n");
