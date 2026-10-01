@@ -7,6 +7,14 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.9.1] — 2026-10-01 · La noche ya no se recorta con envíos posteriores
+
+**Fallo** (Fran: «dice que hoy dormí 4:58 y fueron 7:25»): la misma noche llegó tres veces — 07:48 (23:53→07:39, 7 h 25), 08:20 (01:46→07:39, 5 h 32) y 09:17 (02:20→07:39, 4 h 58). Health Auto Export solo cuenta la parte de la noche que cae en su ventana de tiempo, y el último trozo pisaba la noche completa.
+- `noBajarTotales`: si llega la MISMA noche (hora de despertar ±10 min) con menos sueño, se descarta entera (fases, acostarse y despertar incluidos). Otra hora de despertar = otra noche, sí se guarda; si la noche crece, se actualiza. 3 tests con el caso real.
+- Base reparada: 01/10 vuelve a 7 h 25 (ligero 4 h 33, profundo 1 h 43, REM 1 h 09, acostarse 23:53).
+
+---
+
 ## [6.9.0] — 2026-10-01 · Envíos por horas/minutos, Nix a 0 %, tarjetas de cualquier métrica y estadística
 
 **Causa de «Nix volvió a 0 %» (y de días casi vacíos):** tras cambiar la automatización, Health Auto Export mandó los datos **por horas y por minutos**. El importador guardaba por día el TROZO más grande en vez de la suma: el 30/09 quedó con 86 pasos (eran 3.944), el 29/09 con 4.465 (14.185), el 26/09 con 2.292 (16.641). La mascota vio días sin moverse y cayó a 0 %.

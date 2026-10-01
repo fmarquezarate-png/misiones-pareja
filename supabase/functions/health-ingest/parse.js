@@ -438,14 +438,28 @@ export function aplanar(metrics = [], opts) {
 }
 
 /**
- * Quita las filas de TOTALES del día (pasos, energía, distancia, pisos…) que
- * traen MENOS que lo ya guardado (un 2 % de margen por redondeos): un total
- * diario solo crece a lo largo del día, así que un valor menor es un envío
- * parcial, no una corrección. El sueño queda fuera: puede corregirse a la baja.
+ * Lo que un envío NO puede hacer bajar:
+ *  · Un TOTAL del día (pasos, energía, distancia, pisos…) con un valor menor (2 %
+ *    de margen): un total solo crece durante el día; menos es un envío parcial.
+ *  · Una NOCHE ya guardada con un trozo de ella: Health Auto Export solo cuenta la
+ *    parte de la noche que cae en su ventana de tiempo, así que envíos más tardíos
+ *    traen la MISMA noche (misma hora de despertar) empezando cada vez más tarde
+ *    (01/10/2026: 7 h 25 → 5 h 32 → 4 h 58). Si la hora de despertar coincide
+ *    (±10 min) y el sueño es menor, se descarta la noche entera (fases y hora de
+ *    acostarse incluidas, para no mezclar dos versiones). Con otra hora de
+ *    despertar es otra noche y sí se guarda.
  */
 export function noBajarTotales(filas, previas = []) {
   const ya = new Map(previas.map(p => [`${p.day}|${p.metric}`, Number(p.value)]));
+  const nuevo = new Map(filas.map(f => [`${f.day}|${f.metric}`, f.value]));
+  const nocheRecortada = new Set();
+  for (const f of filas) {
+    if (f.metric !== "sleep_asleep") continue;
+    const antes = ya.get(`${f.day}|sleep_asleep`), wAntes = ya.get(`${f.day}|wake_min`), wNuevo = nuevo.get(`${f.day}|wake_min`);
+    if (Number.isFinite(antes) && f.value < antes * 0.98 && Number.isFinite(wAntes) && Number.isFinite(wNuevo) && Math.abs(wAntes - wNuevo) <= 10) nocheRecortada.add(f.day);
+  }
   return filas.filter(f => {
+    if (nocheRecortada.has(f.day) && (f.metric.startsWith("sleep_") || f.metric === "bed_min" || f.metric === "wake_min")) return false;
     if (!ACUMULADAS.has(f.metric) || f.metric.startsWith("sleep_")) return true;
     const v = ya.get(`${f.day}|${f.metric}`);
     return !(Number.isFinite(v) && f.value < v * 0.98);

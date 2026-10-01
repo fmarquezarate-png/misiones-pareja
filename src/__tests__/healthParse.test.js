@@ -496,3 +496,28 @@ describe("envíos por horas o por minutos", () => {
     expect(noBajarTotales(nuevas, previas).map(f => `${f.day}|${f.metric}`)).toEqual(["2026-09-29|sleep_asleep", "2026-09-30|step_count"]);
   });
 });
+
+// 01/10/2026: la misma noche llegó tres veces, cada vez empezando más tarde
+// (7 h 25 → 5 h 32 → 4 h 58) y el último trozo pisó la noche entera.
+describe("noches recortadas por la ventana del envío", () => {
+  const previas = [
+    { day: "2026-10-01", metric: "sleep_asleep", value: 7.42 }, { day: "2026-10-01", metric: "wake_min", value: 459 },
+    { day: "2026-10-01", metric: "bed_min", value: -7 },
+  ];
+  it("la misma noche más corta (misma hora de despertar) no pisa la buena", () => {
+    const nuevas = [
+      { day: "2026-10-01", metric: "sleep_asleep", value: 4.97 }, { day: "2026-10-01", metric: "sleep_deep", value: 0.8 },
+      { day: "2026-10-01", metric: "wake_min", value: 459 }, { day: "2026-10-01", metric: "bed_min", value: 140 },
+      { day: "2026-10-01", metric: "step_count", value: 900 },
+    ];
+    expect(noBajarTotales(nuevas, previas).map(f => f.metric)).toEqual(["step_count"]);
+  });
+  it("con otra hora de despertar es otra noche y sí se guarda", () => {
+    const nuevas = [{ day: "2026-10-01", metric: "sleep_asleep", value: 5 }, { day: "2026-10-01", metric: "wake_min", value: 600 }];
+    expect(noBajarTotales(nuevas, previas)).toHaveLength(2);
+  });
+  it("si la noche crece (llega completa), se actualiza", () => {
+    const nuevas = [{ day: "2026-10-01", metric: "sleep_asleep", value: 7.6 }, { day: "2026-10-01", metric: "wake_min", value: 459 }];
+    expect(noBajarTotales(nuevas, previas)).toHaveLength(2);
+  });
+});
