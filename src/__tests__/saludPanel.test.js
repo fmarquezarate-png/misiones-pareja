@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TARJETAS, sanearPanel, PANEL_DEFECTO, tarjetasDisponibles, moverTarjeta, acotarMeta, nuevaVersionMetas } from "../lib/saludPanel.js";
+import { TARJETAS, sanearPanel, PANEL_DEFECTO, tarjetasDisponibles, moverTarjeta, acotarMeta, nuevaVersionMetas, tarjetaDe, formatoDetalle } from "../lib/saludPanel.js";
 import { METAS_POR_DEFECTO, simular, metasEn } from "../lib/pet.js";
 
 describe("sanearPanel: la configuración guardada no es de fiar", () => {
@@ -14,7 +14,7 @@ describe("sanearPanel: la configuración guardada no es de fiar", () => {
   it("periodo solo 7, 14 o 30; secciones apagables", () => {
     expect(sanearPanel({ dias: 14 }).dias).toBe(14);
     expect(sanearPanel({ dias: 10 }).dias).toBe(7);
-    expect(sanearPanel({ secciones: { noche: false } }).secciones).toEqual({ metas: true, noche: false, entreno: true, deporte: true, tipos: true });
+    expect(sanearPanel({ secciones: { noche: false } }).secciones).toEqual({ metas: true, noche: false, entreno: true, deporte: true, tipos: true, estadisticas: true });
   });
   it("todas las tarjetas por defecto existen en el registro", () => {
     for (const id of PANEL_DEFECTO.tarjetas) expect(TARJETAS[id]).toBeTruthy();
@@ -22,9 +22,24 @@ describe("sanearPanel: la configuración guardada no es de fiar", () => {
 });
 
 describe("tarjetas", () => {
-  it("solo se ofrecen las que tienen datos", () => {
-    const filas = [{ metric: "sleep_asleep" }, { metric: "weight_body_mass" }, { metric: "otra" }];
-    expect(tarjetasDisponibles(filas)).toEqual(["sueno", "peso"]);
+  it("solo se ofrecen las que tienen datos; las fijas primero y luego cualquier otra métrica", () => {
+    const dias = (metric, n, unit = null) => Array.from({ length: n }, (_, i) => ({ metric, day: `2026-09-${String(i + 1).padStart(2, "0")}`, value: 1, unit }));
+    const filas = [...dias("sleep_asleep", 3), ...dias("weight_body_mass", 2), ...dias("flights_climbed", 9), ...dias("walking_speed", 6, "km/hr"), ...dias("vo2_max", 2), ...dias("hr_pico_hasta", 9)];
+    // Genéricas: ≥ 5 días, ordenadas por cantidad; marcas internas (hr_pico_*) fuera.
+    expect(tarjetasDisponibles(filas)).toEqual(["sueno", "peso", "m:flights_climbed", "m:walking_speed"]);
+  });
+  it("una tarjeta genérica sabe su nombre, icono, formato y dirección", () => {
+    const t = tarjetaDe("m:walking_speed", { walking_speed: "km/hr" });
+    expect(t.nombre).toBe("Velocidad al caminar");
+    expect(t.mejorSi).toBe("sube");
+    expect(formatoDetalle("m:walking_speed", { walking_speed: "km/hr" })(4.56)).toBe("4,6 km/hr");
+    expect(tarjetaDe("m:wake_min").formato(445)).toBe("07:25");
+    expect(tarjetaDe("m:step_count")).not.toBeNull();
+    expect(tarjetaDe("nada")).toBeNull();
+  });
+  it("sanear acepta tarjetas genéricas válidas y quita las raras", () => {
+    const p = sanearPanel({ tarjetas: ["sueno", "m:flights_climbed", "m:hr_pico_hasta", "m:step_count", "m:<script>", "inventada"] });
+    expect(p.tarjetas).toEqual(["sueno", "m:flights_climbed"]);
   });
   it("mover arriba/abajo respeta los bordes", () => {
     expect(moverTarjeta(["a", "b", "c"], "b", -1)).toEqual(["b", "a", "c"]);

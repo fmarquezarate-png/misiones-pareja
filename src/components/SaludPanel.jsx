@@ -15,7 +15,8 @@ import { useMemo, useState } from "react";
 import MetricaDetalle from "./MetricaDetalle.jsx";
 import { kpi, metasSemana, repartoEntrenos, ultimaNoche } from "../lib/healthStats.js";
 import { METRICAS, diaLocalDe, horaLocalDe } from "../lib/pet.js";
-import { TARJETAS, sanearPanel, formatoDetalle } from "../lib/saludPanel.js";
+import { tarjetaDe, sanearPanel, formatoDetalle, unidadesDe } from "../lib/saludPanel.js";
+import SaludEstadisticas from "./SaludEstadisticas.jsx";
 import { TEXTO_NIVEL, UMBRAL } from "../lib/deporteCalendario.js";
 import { humanDate } from "../lib/dateLabel.js";
 
@@ -127,14 +128,15 @@ function Meter({ progreso, hecho }) {
   );
 }
 
-export default function SaludPanel({ filas, entrenos, deporteCalendario = null, metas, hoy, coupleId, personName, userId, panel, puedePreguntar = true, onPersonalizar }) {
+export default function SaludPanel({ filas, entrenos, deporteCalendario = null, metas, hoy, coupleId, personName, userId, panel, puedePreguntar = true, onPersonalizar, onRefrescar }) {
   const [abierta, setAbierta] = useState(null);
   const cfg = useMemo(() => sanearPanel(panel), [panel]);
   const metaDe = tipo => metas.find(m => m.tipo === tipo && m.periodo === "dia")?.objetivo ?? null;
+  const unidades = useMemo(() => unidadesDe(filas), [filas]);
   const k = useMemo(() => Object.fromEntries(cfg.tarjetas.map(id => {
-    const t = TARJETAS[id];
+    const t = tarjetaDe(id, unidades);
     return [id, kpi(filas, t.metric, hoy, { mejorSi: t.mejorSi || "neutral", n: cfg.dias, cerrados: !!t.cerrados })];
-  })), [filas, hoy, cfg]);
+  })), [filas, hoy, cfg, unidades]);
   const semana = useMemo(() => metasSemana(filas, entrenos, metas, hoy), [filas, entrenos, metas, hoy]);
   const reparto = useMemo(() => repartoEntrenos(entrenos, hoy, 90), [entrenos, hoy]);
   const noche = useMemo(() => ultimaNoche(filas, hoy), [filas, hoy]);
@@ -147,8 +149,8 @@ export default function SaludPanel({ filas, entrenos, deporteCalendario = null, 
     : reparto.tipos;
   const maxTipo = Math.max(1, ...tipos.map(t => t.n));
   // Detalle de una tarjeta: sale del MISMO registro que la tarjeta (antes había una tabla aparte que se desincronizaba).
-  const defDe = id => { const t = TARJETAS[id]; return { metric: t.metric, nombre: t.nombre, icono: t.icono, unidadLarga: t.unidadLarga,
-    formato: formatoDetalle(id), meta: t.meta ? metaDe(t.meta) : null, mejorSi: t.mejorSi || "neutral", sugerencias: t.sugerencias }; };
+  const defDe = id => { const t = tarjetaDe(id, unidades); return { metric: t.metric, nombre: t.nombre, icono: t.icono, unidadLarga: t.unidadLarga,
+    formato: formatoDetalle(id, unidades), meta: t.meta ? metaDe(t.meta) : null, mejorSi: t.mejorSi || "neutral", sugerencias: t.sugerencias }; };
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
@@ -192,8 +194,8 @@ export default function SaludPanel({ filas, entrenos, deporteCalendario = null, 
       {/* KPIs: las tarjetas que la persona ha elegido, en su orden */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
         {cfg.tarjetas.map(id => {
-          const t = TARJETAS[id];
-          return <Tile key={id} icono={t.icono} nombre={t.nombre} k={k[id]} formato={t.formato} unidad={t.unidad} forma={t.forma} formatoDelta={t.delta} onAbrir={() => setAbierta(id)} />;
+          const t = tarjetaDe(id, unidades);
+          return <Tile key={id} icono={t.icono} nombre={t.nombre} k={k[id]} formato={t.formato} unidad={t.unidad} forma={t.forma} formatoDelta={t.delta} onAbrir={() => { setAbierta(id); onRefrescar?.(); }} />;
         })}
       </div>
 
@@ -316,6 +318,9 @@ export default function SaludPanel({ filas, entrenos, deporteCalendario = null, 
       })()}
 
       {abierta && <MetricaDetalle def={defDe(abierta)} filas={filas} hoy={hoy} coupleId={coupleId} personName={personName} userId={userId} puedePreguntar={puedePreguntar} onCerrar={() => setAbierta(null)} />}
+
+      {/* Estadísticas: patrones, semana frente al año, regularidad */}
+      {cfg.secciones.estadisticas && <SaludEstadisticas filas={filas} entrenos={entrenos} hoy={hoy} metaSueno={metaDe("sueno") ?? 7} />}
 
       {/* Tipos de entreno */}
       {cfg.secciones.tipos && <div style={card}>

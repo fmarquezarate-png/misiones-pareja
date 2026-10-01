@@ -24,9 +24,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 // Interpretación y limpieza: módulo puro compartido con los tests de la app.
-import { aplanarConAvisos, limpiar, aplanarEntrenos, sanearPayload, sinRecientes, ventanaPico } from './parse.js';
+import { aplanarConAvisos, limpiar, aplanarEntrenos, sanearPayload, sinRecientes, ventanaPico, noBajarTotales } from './parse.js';
 
-const FN_VERSION = '2026-09-30-sueno22h';
+const FN_VERSION = '2026-10-01-trozos';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -181,6 +181,19 @@ serve(async req => {
       filasLimpias = sinRecientes(filasLimpias, corte);
       entrenos = entrenos.filter(w => w.start_at.slice(0, 10) < corte);
       if (antes - filasLimpias.length) avisos.dias_recientes_protegidos = antes - filasLimpias.length;
+    }
+
+    // Un TOTAL del día (pasos, energía, distancia…) nunca baja por un envío
+    // parcial: un envío por horas que empieza a media mañana, o uno cortado,
+    // traía menos que lo ya guardado y lo pisaba (01/10/2026). El sueño no
+    // entra: ahí una corrección a la baja es legítima.
+    if (filasLimpias.length) {
+      const dias = [...new Set(filasLimpias.map((f: any) => f.day))];
+      const { data: previas } = await db.from('health_daily').select('day, metric, value')
+        .eq('user_id', tk.user_id).in('day', dias);
+      const antes = filasLimpias.length;
+      filasLimpias = noBajarTotales(filasLimpias, previas ?? []);
+      if (antes - filasLimpias.length) avisos.totales_protegidos = antes - filasLimpias.length;
     }
 
     if (filasLimpias.length) {

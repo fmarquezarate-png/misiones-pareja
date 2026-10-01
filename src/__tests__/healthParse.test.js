@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   aplanar, aplanarConAvisos, limpiar, aplanarEntrenos, diaLocal, instante, aKcal, NUNCA,
-  esIntimo, INTIMO_RE, sanearPayload, sinRecientes, CAMPOS_ENTRENO, SUENO_POR_CAMA,
+  esIntimo, INTIMO_RE, sanearPayload, sinRecientes, CAMPOS_ENTRENO, SUENO_POR_CAMA, noBajarTotales,
 } from "../../supabase/functions/health-ingest/parse.js";
 
 const metrica = (name, units, data) => ({ name, units, data });
@@ -458,5 +458,41 @@ describe("sueño en muestras (exportación sin resumir)", () => {
     ] }]).filas;
     expect(val(filas, "sleep_asleep", "2026-09-01")).toBeCloseTo(6.2, 5);
     expect(val(filas, "sleep_asleep", "2025-10-04")).toBeCloseTo(6, 5);
+  });
+});
+
+// 01/10/2026: Fran cambió «Time Grouping» y llegó un envío POR MINUTOS; se guardó
+// el trozo mayor (86 pasos) en vez de la suma (~3.900). La mascota cayó a 0 %.
+describe("envíos por horas o por minutos", () => {
+  const src = "Francisco’s Iphone|Salud de Huawei";
+  const trozos = (name, units, lista) => aplanarConAvisos([{ name, units, data: lista.map(([date, qty]) => ({ date, qty, source: src })) }]).filas;
+  it("los pasos por minuto se SUMAN por día", () => {
+    const f = limpiar(trozos("step_count", "count", [["2026-09-30 08:03:00 +0200", 84], ["2026-09-30 10:43:00 +0200", 86], ["2026-09-30 19:23:00 +0200", 76], ["2026-10-01 07:00:00 +0200", 10]])).filasLimpias;
+    expect(f.find(x => x.day === "2026-09-30").value).toBe(246);
+    expect(f.find(x => x.day === "2026-10-01").value).toBe(10);
+  });
+  it("la energía por horas en kJ se suma y pasa a kcal", () => {
+    const f = trozos("active_energy", "kJ", [["2026-09-29 11:00:00 +0200", 418.4], ["2026-09-29 12:00:00 +0200", 418.4]]);
+    expect(f[0].value).toBeCloseTo(200, 5);
+    expect(f[0].unit).toBe("kcal");
+  });
+  it("el pulso por minutos: media de medias, mínimo de mínimos, máximo de máximos", () => {
+    const f = aplanarConAvisos([{ name: "heart_rate", units: "count/min", data: [
+      { date: "2026-09-30 10:00:00 +0200", Min: 60, Avg: 70, Max: 80, source: src },
+      { date: "2026-09-30 20:30:00 +0200", Min: 90, Avg: 150, Max: 191, source: src },
+    ] }]).filas;
+    expect(f.find(x => x.metric === "heart_rate").value).toBe(110);
+    expect(f.find(x => x.metric === "heart_rate_min").value).toBe(60);
+    expect(f.find(x => x.metric === "heart_rate_max").value).toBe(191);
+  });
+  it("agrupado por día no cambia nada", () => {
+    const f = trozos("step_count", "count", [["2026-09-29 00:00:00 +0200", 14185]]);
+    expect(f).toHaveLength(1);
+    expect(f[0].value).toBe(14185);
+  });
+  it("un total del día nunca baja por un envío parcial (el sueño sí puede)", () => {
+    const previas = [{ day: "2026-09-29", metric: "step_count", value: 14185 }, { day: "2026-09-29", metric: "sleep_asleep", value: 5.4 }];
+    const nuevas = [{ day: "2026-09-29", metric: "step_count", value: 4465 }, { day: "2026-09-29", metric: "sleep_asleep", value: 5.2 }, { day: "2026-09-30", metric: "step_count", value: 3900 }];
+    expect(noBajarTotales(nuevas, previas).map(f => `${f.day}|${f.metric}`)).toEqual(["2026-09-29|sleep_asleep", "2026-09-30|step_count"]);
   });
 });

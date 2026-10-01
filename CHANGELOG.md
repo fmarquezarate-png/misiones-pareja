@@ -7,6 +7,25 @@ Los hitos de sprint incrementan la versión menor (x.**y**.0).
 
 ---
 
+## [6.9.0] — 2026-10-01 · Envíos por horas/minutos, Nix a 0 %, tarjetas de cualquier métrica y estadística
+
+**Causa de «Nix volvió a 0 %» (y de días casi vacíos):** tras cambiar la automatización, Health Auto Export mandó los datos **por horas y por minutos**. El importador guardaba por día el TROZO más grande en vez de la suma: el 30/09 quedó con 86 pasos (eran 3.944), el 29/09 con 4.465 (14.185), el 26/09 con 2.292 (16.641). La mascota vio días sin moverse y cayó a 0 %.
+- `parse.js`: todo dato se junta por día y fuente ANTES de guardar — totales sumados, medias promediadas, mínimos y máximos respetados. Agrupado por día no cambia. 5 tests con la forma real del envío.
+- `noBajarTotales` + `index.ts`: un total del día (pasos, energía, distancia, pisos…) nunca baja por un envío parcial (el sueño sí puede corregirse).
+- Base reparada desde los envíos crudos: 25/09–30/09 (pasos, energía, distancia, pisos, energía en reposo). Y recuperadas métricas que estaban en el archivo de 5 años pero nunca se guardaron: distancia (2021–2024, 1.289 días), pisos (1.103), energía en reposo (813).
+
+**Sueño del vídeo**: 239 noches transcritas de Apple Salud (oct 2024 → dic 2025) cargadas donde faltaban (fuente «Apple Salud · HUAWEI WATCH GT Runner»). 2024: 146 → 212 noches; 2025: 52 → 219.
+
+**Mascota**: `simular({ etapaInicial })` — la mascota puede nacer ya en una etapa; Nix empieza en Jr (`pets[uid].etapaInicial = "jr"`) y no vuelve al huevo.
+
+**Última noche desactualizada**: el panel usaba los datos de cuando se abrió Salud; el detalle los pedía de nuevo. Refresco ligero (última semana, fusionada) al volver a la app, al enfocarla, cada 2 min y al abrir un detalle.
+
+**Tarjetas de cualquier métrica**: catálogo puro `metricasCatalogo.js`; `tarjetaDe("m:<métrica>")` crea la tarjeta de cualquier métrica con ≥ 5 días (distancia, pisos, oxígeno, velocidad, longitud de paso, hora de despertar…), hasta 16 tarjetas.
+
+**Estadística** (`estadisticas.js`, puro + 8 tests; sección «Estadísticas»): tu última semana frente a tus semanas del año (percentil), media por día de la semana, patrones verificados con prueba t de Welch (≥ 12 días por grupo, diferencia clara y relevante) y regularidad del horario. Con tus datos: el fin de semana duermes ~58 min más y andas ~1.500 pasos más; «tras dormir bien andas menos» NO se muestra (no pasa la prueba).
+
+---
+
 ## [6.8.1] — 2026-09-30 · Los días de mucho sueño son reales
 
 **Corrección de 6.8.0**: se atribuyeron los días de 16–17 h de sueño de mayo de 2025 a un doble registro del reloj. Fran lo aclaró: son reales (lesión y bajón). Además, el importador los TIRABA: el rango de cordura del sueño acababa en 16 h (en la base no había ningún día por encima de 15,1 h).

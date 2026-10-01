@@ -314,7 +314,10 @@ export function metasEn(historial, dia, respaldo = METAS_POR_DEFECTO) {
   return (vigente || [...historial].filter(h => Array.isArray(h?.metas)).sort((a, b) => (a.desde < b.desde ? -1 : 1))[0])?.metas || respaldo;
 }
 
-export function simular({ nacimiento, metas = METAS_POR_DEFECTO, metasHistorial = null, filas = [], entrenos = [], hoy = isoDia(new Date()), reglas = REGLAS }) {
+// `etapaInicial`: la mascota nace YA en esa etapa (con su vitalidad mínima) en vez
+// de en el huevo. Pedido por Fran (01/10/2026): «estemos ahora con la versión Jr».
+// Como una mascota nacida nunca vuelve al huevo, empezar en Jr es un suelo.
+export function simular({ nacimiento, metas = METAS_POR_DEFECTO, metasHistorial = null, filas = [], entrenos = [], hoy = isoDia(new Date()), reglas = REGLAS, etapaInicial = null }) {
   const M = dia => (metasHistorial?.length ? metasEn(metasHistorial, dia, metas) : metas);
   const P = { ...PUNTOS, ...(reglas.puntos || {}) };
   const tope = reglas.tope ?? Infinity;
@@ -322,8 +325,9 @@ export function simular({ nacimiento, metas = METAS_POR_DEFECTO, metasHistorial 
   // acumulan como colchón y la mascota no puede retroceder nunca.
   const acotar = v => Math.min(tope, Math.max(0, v));
   const porDia = indexar(filas, entrenos);
-  let xp = 0;
-  let etapa = 0;
+  const ini = Math.max(0, ETAPAS.findIndex(e => e.id === etapaInicial));
+  let xp = ETAPAS[ini].desde;
+  let etapa = ini;
   const eventos = [];
   const historial = [];
 

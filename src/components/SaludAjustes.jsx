@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { Z } from "../lib/zLayers.js";
-import { TARJETAS, SECCIONES, PERIODOS_TARJETA, LIMITES_META, sanearPanel, moverTarjeta, acotarMeta, ORDEN_TARJETAS } from "../lib/saludPanel.js";
+import { tarjetaDe, SECCIONES, PERIODOS_TARJETA, LIMITES_META, sanearPanel, moverTarjeta, acotarMeta, MAX_TARJETAS } from "../lib/saludPanel.js";
 import { METRICAS } from "../lib/pet.js";
 
 const dim = { fontSize: 11.5, color: "var(--t-text-dim,#8f84ad)", lineHeight: 1.45 };
@@ -29,10 +29,11 @@ export default function SaludAjustes({ panel, metas, disponibles, onGuardar, onC
   const [aviso, setAviso] = useState(null);
 
   // Ofrecer las tarjetas con datos + las ya elegidas (aunque hoy no tengan).
-  const ofrecidas = ORDEN_TARJETAS.filter(id => disponibles.includes(id) || cfg.tarjetas.includes(id));
+  const ofrecidas = [...new Set([...disponibles, ...cfg.tarjetas])].filter(id => tarjetaDe(id));
   const alternar = id => setCfg(c => {
     const en = c.tarjetas.includes(id);
     if (en && c.tarjetas.length === 1) { setAviso("Deja al menos una tarjeta."); return c; }
+    if (!en && c.tarjetas.length >= MAX_TARJETAS) { setAviso(`Caben hasta ${MAX_TARJETAS} tarjetas.`); return c; }
     setAviso(null);
     return { ...c, tarjetas: en ? c.tarjetas.filter(x => x !== id) : [...c.tarjetas, id] };
   });
@@ -66,11 +67,11 @@ export default function SaludAjustes({ panel, metas, disponibles, onGuardar, onC
         </div>
 
         <div style={h}>Tarjetas</div>
-        <div style={dim}>Elige cuáles ver y en qué orden. Solo aparecen las métricas de las que llegan datos.</div>
+        <div style={dim}>Elige cuáles ver y en qué orden: cualquier métrica de la que tengas datos (pulso, distancia, pisos, oxígeno, longitud de paso…).</div>
         <div style={{ marginTop: 6 }}>
           {/* Primero las elegidas, en su orden; después las demás */}
           {[...cfg.tarjetas, ...ofrecidas.filter(id => !cfg.tarjetas.includes(id))].filter(id => ofrecidas.includes(id)).map(id => {
-            const t = TARJETAS[id], en = cfg.tarjetas.includes(id), i = cfg.tarjetas.indexOf(id);
+            const t = tarjetaDe(id), en = cfg.tarjetas.includes(id), i = cfg.tarjetas.indexOf(id);
             return (
               <div key={id} style={fila}>
                 <button onClick={() => alternar(id)} role="checkbox" aria-checked={en} aria-label={`${t.nombre}: ${en ? "visible" : "oculta"}`}

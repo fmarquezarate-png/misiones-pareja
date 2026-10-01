@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cargarSalud, cargarHistorialMotor, resumirPorPersona, NOMBRES_METRICA, formatoValor, direccionDe } from "../lib/healthApi.js";
-import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato } from "../lib/pet.js";
+import { simular, ETAPAS, METAS_POR_DEFECTO, isoDia, esSinDato, sumarDias } from "../lib/pet.js";
 import { horarioSueno } from "../lib/petBehavior.js";
 import { estadoDeDatos } from "../lib/petEstado.js";
 import { entrenosDelCalendario, posiblesEntrenos, deportesHabituales, EMOJI_DEPORTE } from "../lib/deporteCalendario.js";
@@ -100,13 +100,28 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
   }, []);
   useEffect(() => { traerManifest(); }, [traerManifest]);
 
-  // Datos frescos sin tocar nada: al volver a la app y cada 5 minutos con ella abierta.
+  // Refresco LIGERO: solo la última semana, fusionada con lo que hay. El iPhone
+  // manda la noche a media mañana; si Salud ya estaba abierta, el panel seguía
+  // con la de ayer mientras el detalle (que pide al servidor) ya tenía la nueva
+  // (01/10/2026). Se pide al volver a la app, cada 2 minutos y al abrir un detalle.
+  const refrescar = useCallback(async () => {
+    const desde = sumarDias(isoDia(new Date()), -7);
+    const d = await cargarSalud({ desde });
+    if (d.error) return;   // un fallo de red conserva lo que hay
+    setDatos(prev => ({
+      ...prev,
+      filas: [...prev.filas.filter(f => f.day < desde), ...d.filas],
+      entrenos: [...prev.entrenos.filter(w => String(w.start_at) < desde), ...d.entrenos],
+      error: null, obsoleto: false,
+    }));
+  }, []);
   useEffect(() => {
-    const alVolver = () => { if (!document.hidden) cargar(); };
+    const alVolver = () => { if (!document.hidden) refrescar(); };
     document.addEventListener("visibilitychange", alVolver);
-    const id = setInterval(() => { if (!document.hidden) cargar(); }, 5 * 60e3);
-    return () => { document.removeEventListener("visibilitychange", alVolver); clearInterval(id); };
-  }, [cargar]);
+    window.addEventListener("focus", alVolver);
+    const id = setInterval(() => { if (!document.hidden) refrescar(); }, 2 * 60e3);
+    return () => { document.removeEventListener("visibilitychange", alVolver); window.removeEventListener("focus", alVolver); clearInterval(id); };
+  }, [refrescar]);
 
   const verHistoria = useCallback(async () => {
     setHistoria("cargando");
@@ -229,7 +244,7 @@ export default function SaludView({ sessionUserId, coupleId, personName, partner
       {/* 2. El panel */}
       {filas.length || entrenos.length
         ? <SaludPanel filas={filas} entrenos={entrenos} deporteCalendario={calendario} metas={pet?.metas || METAS_POR_DEFECTO} hoy={hoy} coupleId={coupleId} personName={personName} userId={uid}
-            panel={pet?.panel} puedePreguntar={quien === "yo"} onPersonalizar={quien === "yo" && pet ? () => setAjustes(true) : null} />
+            panel={pet?.panel} onRefrescar={refrescar} puedePreguntar={quien === "yo"} onPersonalizar={quien === "yo" && pet ? () => setAjustes(true) : null} />
         : <div style={card}><div style={txt}>Todavía no ha llegado ningún dato de {nombre}.</div>
             <div style={{ ...dim, marginTop: 6 }}>En Health Auto Export, pulsa <b>Export Now</b> en la automatización y vuelve aquí.</div></div>}
 
@@ -296,7 +311,7 @@ function Marco({ children, onRecargar, actualizando = false }) {
 // ── La mascota: cabecera + hábitat ──────────────────────────────────────────
 function Mascota({ uid, pet, filas, entrenos, manifest, hoy, esMia, nombreDueño, onCambiarEspecie, pruebas }) {
   const [vista, setVista] = useState(null);    // vista previa de otra etapa (no se guarda)
-  const sim = useMemo(() => simular({ nacimiento: pet.nacimiento, filas, entrenos, metas: pet.metas || METAS_POR_DEFECTO, metasHistorial: pet.metasHistorial, hoy }), [pet, filas, entrenos, hoy]);
+  const sim = useMemo(() => simular({ nacimiento: pet.nacimiento, filas, entrenos, metas: pet.metas || METAS_POR_DEFECTO, metasHistorial: pet.metasHistorial, hoy, etapaInicial: pet.etapaInicial || null }), [pet, filas, entrenos, hoy]);
   const horario = useMemo(() => horarioSueno(filas, hoy), [filas, hoy]);
   const datosEstado = useMemo(() => estadoDeDatos({ filas, sim, hoy }), [filas, sim, hoy]);
   // Para «entrena contigo» hace falta la hora: un evento sin hora no se dibuja.

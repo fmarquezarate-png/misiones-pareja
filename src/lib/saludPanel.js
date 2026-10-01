@@ -8,6 +8,12 @@
 // su mascota (`pet.panel`) para que la acompañe entre dispositivos.
 //
 // Puro: se prueba sin DOM.
+//
+// Además de las tarjetas de siempre, CUALQUIER métrica con datos puede ser una
+// tarjeta: su id es `m:<métrica>` y se construye del catálogo (nombre, icono,
+// formato, dirección). Antes había 8 fijas y 20 métricas sin forma de verse.
+
+import { NOMBRES_METRICA, direccionDe, formatoValor, TOTALES_DIA, iconoDe, nombreDe, NO_TARJETA } from "./metricasCatalogo.js";
 
 const hm = h => { const H = Math.floor(h), M = Math.round((h - H) * 60); return M === 60 ? `${H + 1}h` : `${H}h ${String(M).padStart(2, "0")}m`; };
 const miles = n => Math.round(n).toLocaleString("es-ES");
@@ -53,6 +59,37 @@ export const TARJETAS = {
 };
 
 export const ORDEN_TARJETAS = Object.keys(TARJETAS);
+const METRICAS_FIJAS = new Set(Object.values(TARJETAS).map(t => t.metric));
+// Tope de tarjetas en el panel (cabe de sobra; evita un panel infinito por error).
+export const MAX_TARJETAS = 16;
+
+/** Tarjeta genérica de una métrica cualquiera (id `m:<métrica>`). */
+function tarjetaGenerica(metric, unidad = null) {
+  const sinUnidad = v => formatoValor(metric, v, null);
+  const conUnidad = v => formatoValor(metric, v, unidad);
+  const esHora = metric === "wake_min" || metric === "bed_min";
+  return {
+    metric, nombre: nombreDe(metric), icono: iconoDe(metric),
+    formato: sinUnidad, sufijo: "", formatoConUnidad: conUnidad,
+    unidad: esHora || metric.startsWith("sleep_") || !unidad || unidad === "count" ? "" : unidad,
+    unidadLarga: NOMBRES_METRICA[metric] ? (unidad && unidad !== "count" ? unidad : "") : "",
+    mejorSi: direccionDe(metric), cerrados: TOTALES_DIA.has(metric), forma: TOTALES_DIA.has(metric) ? undefined : "linea",
+    // Diferencias pequeñas (0,02 km/h) con 2 decimales: redondeadas a 1 salían «0».
+    delta: d => (esHora ? `${Math.round(d)} min` : Math.abs(d) < 1 && !metric.startsWith("sleep_")
+      ? `${d.toLocaleString("es-ES", { maximumFractionDigits: 2 })}${unidad && unidad !== "count" ? ` ${unidad}` : ""}`
+      : formatoValor(metric, d, unidad)),
+    sugerencias: [`¿Cómo ha evolucionado mi ${nombreDe(metric).toLowerCase()}?`, "¿Qué días fueron los más altos y los más bajos?"],
+    generica: true,
+  };
+}
+
+/** La definición de una tarjeta por su id (fija o `m:<métrica>`). `unidades`: métrica → unidad. */
+export function tarjetaDe(id, unidades = {}) {
+  if (TARJETAS[id]) return TARJETAS[id];
+  if (typeof id === "string" && id.startsWith("m:") && id.length > 2) return tarjetaGenerica(id.slice(2), unidades[id.slice(2)] ?? null);
+  return null;
+}
+const idValido = id => !!TARJETAS[id] || (typeof id === "string" && /^m:[a-z0-9_]{2,64}$/.test(id) && !NO_TARJETA.test(id.slice(2)) && !METRICAS_FIJAS.has(id.slice(2)));
 export const PERIODOS_TARJETA = [7, 14, 30];
 export const SECCIONES = {
   metas:   "Metas de la semana",
@@ -60,17 +97,18 @@ export const SECCIONES = {
   entreno: "Último entreno",
   deporte: "Deporte del calendario",
   tipos:   "Tipos de entreno",
+  estadisticas: "Estadísticas",
 };
 
 export const PANEL_DEFECTO = {
   tarjetas: ["sueno", "pulso", "pasos", "kcal"],
   dias: 7,
-  secciones: { metas: true, noche: true, entreno: true, deporte: true, tipos: true },
+  secciones: { metas: true, noche: true, entreno: true, deporte: true, tipos: true, estadisticas: true },
 };
 
 /** La configuración guardada es entrada NO fiable (sincronizada, editada, de otra versión): se sanea siempre. */
 export function sanearPanel(x) {
-  const tarjetas = Array.isArray(x?.tarjetas) ? [...new Set(x.tarjetas.filter(id => TARJETAS[id]))].slice(0, ORDEN_TARJETAS.length) : null;
+  const tarjetas = Array.isArray(x?.tarjetas) ? [...new Set(x.tarjetas.filter(idValido))].slice(0, MAX_TARJETAS) : null;
   return {
     tarjetas: tarjetas && tarjetas.length ? tarjetas : [...PANEL_DEFECTO.tarjetas],
     dias: PERIODOS_TARJETA.includes(x?.dias) ? x.dias : PANEL_DEFECTO.dias,
@@ -79,12 +117,29 @@ export function sanearPanel(x) {
 }
 
 /** Cómo se escribe un valor en el detalle (con su unidad). */
-export const formatoDetalle = id => v => `${TARJETAS[id].formato(v)}${TARJETAS[id].sufijo || ""}`;
+export const formatoDetalle = (id, unidades = {}) => { const t = tarjetaDe(id, unidades); return v => (t.formatoConUnidad ? t.formatoConUnidad(v) : `${t.formato(v)}${t.sufijo || ""}`); };
 
-/** Tarjetas que tienen datos para esta persona (las que no, no se ofrecen). */
-export function tarjetasDisponibles(filas = []) {
-  const con = new Set(filas.map(f => f.metric));
-  return ORDEN_TARJETAS.filter(id => con.has(TARJETAS[id].metric));
+/**
+ * Tarjetas que tienen datos para esta persona: primero las fijas, luego una
+ * genérica por cada otra métrica con al menos `minimo` días de dato, de la que
+ * más días tiene a la que menos.
+ */
+export function tarjetasDisponibles(filas = [], minimo = 5) {
+  const dias = new Map();
+  for (const f of filas) if (Number.isFinite(f.value)) dias.set(f.metric, (dias.get(f.metric) || 0) + 1);
+  const fijas = ORDEN_TARJETAS.filter(id => dias.has(TARJETAS[id].metric));
+  const otras = [...dias.entries()]
+    .filter(([m, n]) => n >= minimo && !METRICAS_FIJAS.has(m) && !NO_TARJETA.test(m))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([m]) => `m:${m}`);
+  return [...fijas, ...otras];
+}
+
+/** Unidad de cada métrica según las filas (para formatear las genéricas). */
+export function unidadesDe(filas = []) {
+  const u = {};
+  for (const f of filas) if (f.unit && u[f.metric] == null) u[f.metric] = f.unit;
+  return u;
 }
 
 /** Mueve una tarjeta una posición arriba (-1) o abajo (+1). */

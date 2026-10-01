@@ -378,30 +378,52 @@ export function aplanarConAvisos(metrics = [], { hoy = null } = {}) {
         continue;
       }
 
+      // Health Auto Export agrupa según «Time Grouping»: por día (una entrada por
+      // día), por hora o por MINUTO (01/10/2026: un envío de Fran llegó por minutos
+      // y se guardó el trozo más grande — 86 pasos en vez de ~3.900 — y la mascota
+      // cayó a 0 %). Ahora se junta SIEMPRE por día y fuente antes de guardar: los
+      // totales se SUMAN, las medias se promedian, mínimos y máximos se respetan.
+      // Agrupado por día queda igual (un trozo por día y fuente).
+      const cubos = new Map();
+      const acum = ACUMULADAS.has(nombre);
       for (const d of m?.data || []) {
         const source = d?.source ? String(d.source) : null;
         const day = diaLocal(d?.date);
         if (!day) { av(d?.date ? "fecha_imposible" : "sin_fecha"); continue; }
         if (!diaOk(day)) continue;
+        const k = `${day}|${source ?? ""}`;
+        if (!cubos.has(k)) cubos.set(k, { day, source, n: 0, suma: 0, nAvg: 0, sumaAvg: 0, min: null, max: null });
+        const c = cubos.get(k);
 
         // Pulso y similares: llegan como { Min, Avg, Max } sin `qty`.
         if (d?.qty === undefined && (d?.Avg !== undefined || d?.avg !== undefined)) {
           const avg = num(d?.Avg ?? d?.avg), mn = num(d?.Min ?? d?.min), mx = num(d?.Max ?? d?.max);
           if (avg === null) { av("sin_valor"); continue; }
-          out.push({ day, metric: nombre, value: avg, unit: unidad, source });
-          if (mn !== null) out.push({ day, metric: `${nombre}_min`, value: mn, unit: unidad, source });
-          if (mx !== null) out.push({ day, metric: `${nombre}_max`, value: mx, unit: unidad, source });
+          c.nAvg++; c.sumaAvg += avg;
+          if (mn !== null) c.min = c.min === null ? mn : Math.min(c.min, mn);
+          if (mx !== null) c.max = c.max === null ? mx : Math.max(c.max, mx);
           continue;
         }
 
         let value = num(d?.qty);
         if (value === null) { av(d?.qty === undefined ? "forma_desconocida" : "sin_valor"); continue; }
-        let u = unidad;
-        // Energía siempre en kcal, aunque el iPhone esté en kJ.
-        if ((nombre === "active_energy" || nombre === "basal_energy_burned") && String(unidad).toLowerCase() === "kj") {
-          value = aKcal(value, "kj"); u = "kcal";
+        c.n++; c.suma += value;
+      }
+      // Energía siempre en kcal, aunque el iPhone esté en kJ.
+      const enKj = (nombre === "active_energy" || nombre === "basal_energy_burned") && String(unidad).toLowerCase() === "kj";
+      const u = enKj ? "kcal" : unidad;
+      for (const c of cubos.values()) {
+        if (c.nAvg) {
+          out.push({ day: c.day, metric: nombre, value: c.sumaAvg / c.nAvg, unit: unidad, source: c.source });
+          if (c.min !== null) out.push({ day: c.day, metric: `${nombre}_min`, value: c.min, unit: unidad, source: c.source });
+          if (c.max !== null) out.push({ day: c.day, metric: `${nombre}_max`, value: c.max, unit: unidad, source: c.source });
         }
-        out.push({ day, metric: nombre, value, unit: u, source });
+        if (c.n) {
+          let value = acum ? c.suma : c.suma / c.n;
+          if (enKj) value = aKcal(value, "kj");
+          if (c.n > 1) av(acum ? "trozos_sumados" : "trozos_promediados");
+          out.push({ day: c.day, metric: nombre, value, unit: u, source: c.source });
+        }
       }
     } catch {
       av("metrica_malformada");
@@ -413,6 +435,21 @@ export function aplanarConAvisos(metrics = [], { hoy = null } = {}) {
 /** Compatibilidad: solo las filas. */
 export function aplanar(metrics = [], opts) {
   return aplanarConAvisos(metrics, opts).filas;
+}
+
+/**
+ * Quita las filas de TOTALES del día (pasos, energía, distancia, pisos…) que
+ * traen MENOS que lo ya guardado (un 2 % de margen por redondeos): un total
+ * diario solo crece a lo largo del día, así que un valor menor es un envío
+ * parcial, no una corrección. El sueño queda fuera: puede corregirse a la baja.
+ */
+export function noBajarTotales(filas, previas = []) {
+  const ya = new Map(previas.map(p => [`${p.day}|${p.metric}`, Number(p.value)]));
+  return filas.filter(f => {
+    if (!ACUMULADAS.has(f.metric) || f.metric.startsWith("sleep_")) return true;
+    const v = ya.get(`${f.day}|${f.metric}`);
+    return !(Number.isFinite(v) && f.value < v * 0.98);
+  });
 }
 
 /** Quita los días más recientes (los que la automatización sigue escribiendo). */

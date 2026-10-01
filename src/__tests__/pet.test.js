@@ -394,3 +394,15 @@ describe("metas versionadas: cambiar una meta no reescribe el pasado", () => {
     expect(retroactiva.historial.at(-1).xp).toBeLessThan(sinCambio.historial.at(-1).xp);
   });
 });
+
+describe("etapaInicial", () => {
+  it("una mascota que empieza en Jr no vuelve al huevo aunque los días sean malos", () => {
+    const filas = ["2026-09-28", "2026-09-29", "2026-09-30"].flatMap(day => [
+      { day, metric: "step_count", value: 1000 }, { day, metric: "sleep_asleep", value: 4 }]);
+    const s = simular({ nacimiento: "2026-09-28", filas, hoy: "2026-10-01", etapaInicial: "jr" });
+    expect(s.etapaId).toBe("jr");
+    expect(s.nacida).toBe(true);
+    const sinInicio = simular({ nacimiento: "2026-09-28", filas, hoy: "2026-10-01" });
+    expect(sinInicio.etapaId).toBe("huevo");
+  });
+});
